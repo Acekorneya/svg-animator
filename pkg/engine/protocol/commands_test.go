@@ -3301,7 +3301,7 @@ func TestDispatchWidgetParameters(t *testing.T) {
 
 	// 2. SetParameters
 	minVal := 0.0
-	maxVal := 100.0
+	maxVal := 1.0
 	params := []scene.WidgetParameter{
 		{
 			Name:     "statusColor",
@@ -3314,16 +3314,16 @@ func TestDispatchWidgetParameters(t *testing.T) {
 			Name:     "operatingState",
 			Type:     "enum",
 			Default:  "running",
-			Target:   "node-1",
-			Property: "state",
-			Options:  []string{"running", "paused", "stopped", "alarm"},
+			Target:   "root",
+			Property: "operatingState",
+			Options:  []string{"running", "paused", "stopped"},
 		},
 		{
-			Name:     "fillLevel",
+			Name:     "nodeOpacity",
 			Type:     "number",
-			Default:  50.0,
+			Default:  0.8,
 			Target:   "node-1",
-			Property: "height",
+			Property: "opacity",
 			Min:      &minVal,
 			Max:      &maxVal,
 		},
@@ -3358,7 +3358,7 @@ func TestDispatchWidgetParameters(t *testing.T) {
 	}
 
 	// 4. RemoveParameter
-	remReq, _ := json.Marshal(WidgetRemoveParameterRequest{Name: "fillLevel"})
+	remReq, _ := json.Marshal(WidgetRemoveParameterRequest{Name: "nodeOpacity"})
 	remBytes, err := Dispatch("Widget.RemoveParameter", remReq)
 	if err != nil {
 		t.Fatalf("Widget.RemoveParameter failed: %v", err)
@@ -3466,5 +3466,90 @@ func TestDispatchWidgetParameters(t *testing.T) {
 	}
 	if pkgRes.Filename != "test-protocol-widget-package.zip" {
 		t.Errorf("unexpected filename: %s", pkgRes.Filename)
+	}
+}
+
+func TestDispatchWidgetEligiblePropertiesAndConflicts(t *testing.T) {
+	// 1. Widget.GetEligibleProperties for node
+	reqBytes, _ := json.Marshal(WidgetGetEligiblePropertiesRequest{TargetType: "node"})
+	resBytes, err := Dispatch("Widget.GetEligibleProperties", reqBytes)
+	if err != nil {
+		t.Fatalf("Widget.GetEligibleProperties failed: %v", err)
+	}
+	var res WidgetEligiblePropertiesResponse
+	if err := json.Unmarshal(resBytes, &res); err != nil || !res.Success {
+		t.Fatalf("unmarshal WidgetEligiblePropertiesResponse failed: %v", err)
+	}
+	if len(res.Properties) == 0 {
+		t.Errorf("expected properties for node")
+	}
+	if len(res.Catalog) == 0 {
+		t.Errorf("expected catalog in response")
+	}
+
+	// 2. Widget.RenameParameter
+	// First add a parameter
+	addReq, _ := json.Marshal(WidgetAddParameterRequest{
+		Parameter: scene.WidgetParameter{
+			Name:     "lineColor",
+			Type:     "color",
+			Default:  "#38bdf8",
+			Target:   "flow-1",
+			Property: "stroke",
+		},
+	})
+	_, _ = Dispatch("Widget.AddParameter", addReq)
+
+	renameReq, _ := json.Marshal(WidgetRenameParameterRequest{
+		OldName: "lineColor",
+		NewName: "flowLineColor",
+	})
+	renBytes, err := Dispatch("Widget.RenameParameter", renameReq)
+	if err != nil {
+		t.Fatalf("Widget.RenameParameter failed: %v", err)
+	}
+	var renRes WidgetParametersResponse
+	if err := json.Unmarshal(renBytes, &renRes); err != nil || !renRes.Success {
+		t.Fatalf("Widget.RenameParameter response mismatch: %+v", renRes)
+	}
+
+	// 3. Widget.GetConflicts and Widget.ResolveConflict
+	// Inject duplicate bindings via Widget.SetParameters
+	setReq, _ := json.Marshal(WidgetSetParametersRequest{
+		Parameters: []scene.WidgetParameter{
+			{Name: "p1", Type: "color", Target: "node-1", Property: "fill", Default: "#111111"},
+			{Name: "p2", Type: "color", Target: "node-1", Property: "fill", Default: "#222222"},
+		},
+	})
+	_, _ = Dispatch("Widget.SetParameters", setReq)
+
+	confBytes, err := Dispatch("Widget.GetConflicts", []byte("{}"))
+	if err != nil {
+		t.Fatalf("Widget.GetConflicts failed: %v", err)
+	}
+	var confRes WidgetConflictsResponse
+	if err := json.Unmarshal(confBytes, &confRes); err != nil || !confRes.Success {
+		t.Fatalf("Widget.GetConflicts unmarshal failed: %v", err)
+	}
+	if len(confRes.Conflicts) != 1 {
+		t.Fatalf("expected 1 conflict, got %d", len(confRes.Conflicts))
+	}
+
+	// Resolve keeping p1
+	resReq, _ := json.Marshal(WidgetResolveConflictRequest{
+		Target:   "node-1",
+		Property: "fill",
+		KeepName: "p1",
+	})
+	resBytesAfter, err := Dispatch("Widget.ResolveConflict", resReq)
+	if err != nil {
+		t.Fatalf("Widget.ResolveConflict failed: %v", err)
+	}
+	var resAfter WidgetParametersResponse
+	if err := json.Unmarshal(resBytesAfter, &resAfter); err != nil || !resAfter.Success {
+		t.Fatalf("Widget.ResolveConflict failed: %+v", resAfter)
+	}
+	if len(resAfter.Parameters) != 1 || resAfter.Parameters[0].Name != "p1" {
+		t.Errorf("expected 1 parameter 'p1', got %+v", resAfter.Parameters)
 	}
 }

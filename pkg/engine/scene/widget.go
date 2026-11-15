@@ -311,6 +311,107 @@ func scopeCSSRules(css string, rootID string, idMap map[string]string) string {
 	return scoped
 }
 
+// EligibleProperty describes a supported controllable property for an object type.
+type EligibleProperty struct {
+	Property    string   `json:"property"`
+	Type        string   `json:"type"`
+	Label       string   `json:"label"`
+	Description string   `json:"description"`
+	Min         *float64 `json:"min,omitempty"`
+	Max         *float64 `json:"max,omitempty"`
+	Options     []string `json:"options,omitempty"`
+	Default     any      `json:"default"`
+}
+
+func floatPtr(v float64) *float64 {
+	return &v
+}
+
+// ObjectPropertyCatalog maps each object category to its genuinely supported properties.
+var ObjectPropertyCatalog = map[string][]EligibleProperty{
+	"node": {
+		{Property: "fill", Type: "color", Label: "Fill Colour", Description: "Primary interior fill color of node shape", Default: "#3b82f6"},
+		{Property: "stroke", Type: "color", Label: "Border Stroke", Description: "Outline and border stroke color", Default: "#1d4ed8"},
+		{Property: "opacity", Type: "number", Label: "Opacity", Description: "Transparency of the node (0.0 to 1.0)", Min: floatPtr(0), Max: floatPtr(1), Default: 1.0},
+		{Property: "visibility", Type: "boolean", Label: "Visibility", Description: "Toggle visibility of the node", Default: true},
+		{Property: "text", Type: "text", Label: "Label Text", Description: "Primary text label displayed inside the node", Default: "Node"},
+	},
+	"flow": {
+		{Property: "stroke", Type: "color", Label: "Line Colour", Description: "Connector line and particle stroke color", Default: "#38bdf8"},
+		{Property: "speed", Type: "speed", Label: "Flow Speed", Description: "Animation speed multiplier for this flow connector (0.1 to 10.0)", Min: floatPtr(0.1), Max: floatPtr(10.0), Default: 1.0},
+		{Property: "opacity", Type: "number", Label: "Opacity", Description: "Transparency of the connector (0.0 to 1.0)", Min: floatPtr(0), Max: floatPtr(1), Default: 1.0},
+		{Property: "visibility", Type: "boolean", Label: "Visibility", Description: "Toggle visibility of this flow connector", Default: true},
+	},
+	"glow": {
+		{Property: "color", Type: "color", Label: "Glow Colour", Description: "Accent color of the glow and beacon pulse", Default: "#f59e0b"},
+		{Property: "opacity", Type: "number", Label: "Glow Intensity", Description: "Transparency / intensity of the glow element (0.0 to 1.0)", Min: floatPtr(0), Max: floatPtr(1), Default: 1.0},
+		{Property: "visibility", Type: "boolean", Label: "Visibility", Description: "Toggle visibility of this glow hotspot", Default: true},
+	},
+	"ripple": {
+		{Property: "color", Type: "color", Label: "Wave Colour", Description: "Stroke color of the propagating ripple rings", Default: "#06b6d4"},
+		{Property: "opacity", Type: "number", Label: "Wave Opacity", Description: "Transparency of the ripple effect (0.0 to 1.0)", Min: floatPtr(0), Max: floatPtr(1), Default: 1.0},
+		{Property: "visibility", Type: "boolean", Label: "Visibility", Description: "Toggle visibility of this ripple effect", Default: true},
+	},
+	"image": {
+		{Property: "opacity", Type: "number", Label: "Image Opacity", Description: "Transparency of the image layer (0.0 to 1.0)", Min: floatPtr(0), Max: floatPtr(1), Default: 1.0},
+		{Property: "visibility", Type: "boolean", Label: "Visibility", Description: "Toggle visibility of the image layer", Default: true},
+	},
+	"group": {
+		{Property: "opacity", Type: "number", Label: "Group Opacity", Description: "Transparency of the group (0.0 to 1.0)", Min: floatPtr(0), Max: floatPtr(1), Default: 1.0},
+		{Property: "visibility", Type: "boolean", Label: "Visibility", Description: "Toggle visibility of the group", Default: true},
+	},
+	"root": {
+		{Property: "playbackRate", Type: "speed", Label: "Master Speed", Description: "Overall playback speed rate multiplier for the widget (0.1 to 5.0)", Min: floatPtr(0.1), Max: floatPtr(5.0), Default: 1.0},
+		{Property: "visibility", Type: "boolean", Label: "Visibility", Description: "Master visibility toggle for the entire widget", Default: true},
+		{Property: "operatingState", Type: "enum", Label: "Operating State", Description: "Lifecycle operating state of the widget (running, paused, stopped)", Options: []string{"running", "paused", "stopped"}, Default: "running"},
+	},
+}
+
+// InferTargetType deduces the object category from a target identifier.
+func InferTargetType(target string) string {
+	t := strings.TrimSpace(strings.ToLower(target))
+	switch {
+	case t == "" || t == "root" || t == "global" || t == "stage" || t == "widget":
+		return "root"
+	case strings.HasPrefix(t, "node-") || strings.HasPrefix(t, "node_"):
+		return "node"
+	case strings.HasPrefix(t, "flow-") || strings.HasPrefix(t, "flow_"):
+		return "flow"
+	case strings.HasPrefix(t, "glow-") || strings.HasPrefix(t, "glow_"):
+		return "glow"
+	case strings.HasPrefix(t, "ripple-") || strings.HasPrefix(t, "ripple_"):
+		return "ripple"
+	case strings.HasPrefix(t, "image-") || strings.HasPrefix(t, "image_"):
+		return "image"
+	case strings.HasPrefix(t, "group-") || strings.HasPrefix(t, "group_"):
+		return "group"
+	default:
+		return ""
+	}
+}
+
+// GetEligibleProperties returns the slice of supported properties for a given target type.
+func GetEligibleProperties(targetType string) []EligibleProperty {
+	norm := strings.TrimSpace(strings.ToLower(targetType))
+	if norm == "global" || norm == "stage" || norm == "widget" {
+		norm = "root"
+	}
+	if list, ok := ObjectPropertyCatalog[norm]; ok {
+		out := make([]EligibleProperty, len(list))
+		copy(out, list)
+		return out
+	}
+	return []EligibleProperty{}
+}
+
+// ParameterConflict reports an ambiguous duplicate binding where multiple parameters bind to the same (target, property).
+type ParameterConflict struct {
+	Target      string            `json:"target"`
+	Property    string            `json:"property"`
+	Parameters  []WidgetParameter `json:"parameters"`
+	Description string            `json:"description"`
+}
+
 // ValidateWidgetParameter validates a WidgetParameter definition according to the Stage 16B schema.
 func ValidateWidgetParameter(p WidgetParameter) error {
 	name := strings.TrimSpace(p.Name)
@@ -357,6 +458,32 @@ func ValidateWidgetParameter(p WidgetParameter) error {
 	if p.Type != "number" && p.Type != "speed" {
 		if p.Min != nil || p.Max != nil {
 			return fmt.Errorf("parameter %q of type %q cannot define numeric min or max limits", name, p.Type)
+		}
+	}
+
+	// Validate min/max ordering on numeric types
+	if p.Min != nil && p.Max != nil && *p.Min > *p.Max {
+		return fmt.Errorf("parameter %q min (%v) cannot be greater than max (%v)", name, *p.Min, *p.Max)
+	}
+
+	// Check property eligibility against ObjectPropertyCatalog if target type is recognized
+	targetType := InferTargetType(target)
+	if targetType != "" {
+		allowed := GetEligibleProperties(targetType)
+		if len(allowed) > 0 {
+			var found *EligibleProperty
+			for _, ep := range allowed {
+				if ep.Property == prop || (targetType == "flow" && prop == "playbackRate" && ep.Property == "speed") {
+					found = &ep
+					break
+				}
+			}
+			if found == nil {
+				return fmt.Errorf("property %q is not eligible for target %q of type %q", prop, target, targetType)
+			}
+			if p.Type != found.Type {
+				return fmt.Errorf("property %q on %s requires type %q (got %q)", prop, targetType, found.Type, p.Type)
+			}
 		}
 	}
 

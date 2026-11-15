@@ -54,7 +54,7 @@ func TestWidgetDocsGeneration(t *testing.T) {
 
 	err = sc.AddParameter(WidgetParameter{
 		Name:        "fluidLevel",
-		Target:      "node-" + string(node2.ID),
+		Target:      node2.Name,
 		Property:    "height",
 		Type:        "number",
 		Default:     150.0,

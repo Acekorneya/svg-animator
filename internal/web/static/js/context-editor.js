@@ -1749,9 +1749,7 @@ window.FloatingPropertiesEditor = {
         { prop: 'stroke', label: 'Border Colour', type: 'color', desc: 'Outline border color of the node.' },
         { prop: 'opacity', label: 'Opacity (0..1)', type: 'number', min: 0, max: 1, desc: 'Transparency level from 0.0 (transparent) to 1.0 (solid).' },
         { prop: 'visibility', label: 'Visibility (Toggle)', type: 'boolean', desc: 'Dynamically shows or hides this node.' },
-        { prop: 'text', label: 'Text Content', type: 'text', desc: 'Label text rendered inside the node.' },
-        { prop: 'width', label: 'Width (px)', type: 'number', min: 10, max: 1000, desc: 'Horizontal width of the node in pixels.' },
-        { prop: 'height', label: 'Height (px)', type: 'number', min: 10, max: 1000, desc: 'Vertical height of the node in pixels.' }
+        { prop: 'text', label: 'Text Content', type: 'text', desc: 'Label text rendered inside the node.' }
       ],
       glow: [
         { prop: 'color', label: 'Glow Colour', type: 'color', desc: 'Radiant optical glow and core illumination color (e.g. green for optimal, red for alarm).' },
@@ -1776,27 +1774,40 @@ window.FloatingPropertiesEditor = {
     };
 
     const availableProps = propertyDefs[this.activeType] || [];
+    let allParams = [];
+    if (window.EngineBridge && typeof window.EngineBridge.getWidgetParameters === 'function') {
+      allParams = window.EngineBridge.getWidgetParameters() || [];
+    }
+    const existingForObj = allParams.filter(p => {
+      const t = p.Target || p.target;
+      return t === targetId || t === String(this.activeId);
+    });
+
+    const curProp = propSelect ? propSelect.value : (availableProps[0]?.prop || 'fill');
     if (propSelect) {
       propSelect.innerHTML = '';
       availableProps.forEach(p => {
         const opt = document.createElement('option');
         opt.value = p.prop;
-        opt.textContent = `${p.label} (${p.prop})`;
+        const boundForProp = existingForObj.find(b => (b.Property || b.property) === p.prop);
+        if (boundForProp) {
+          opt.textContent = `${p.label} (${p.prop}) — [Bound: ${boundForProp.name || boundForProp.Name}]`;
+          opt.style.color = '#3fb950';
+        } else {
+          opt.textContent = `${p.label} (${p.prop})`;
+        }
         opt.dataset.defaultType = p.type;
         if (p.min !== undefined) opt.dataset.min = p.min;
         if (p.max !== undefined) opt.dataset.max = p.max;
         propSelect.appendChild(opt);
       });
+      if (availableProps.some(p => p.prop === curProp)) {
+        propSelect.value = curProp;
+      }
     }
 
-    let existing = null;
-    if (window.EngineBridge && typeof window.EngineBridge.getWidgetParameters === 'function') {
-      const allParams = window.EngineBridge.getWidgetParameters() || [];
-      existing = allParams.find(p => {
-        const t = p.Target || p.target;
-        return t === targetId || t === String(this.activeId);
-      });
-    }
+    const selectedProp = propSelect ? propSelect.value : (availableProps[0]?.prop || 'fill');
+    const existing = existingForObj.find(p => (p.Property || p.property) === selectedProp);
 
     if (existing) {
       const exName = existing.Name || existing.name;
@@ -1947,7 +1958,7 @@ window.FloatingPropertiesEditor = {
     }
 
     const allowedProps = {
-      node: ['fill', 'stroke', 'opacity', 'visibility', 'text', 'height', 'width'],
+      node: ['fill', 'stroke', 'opacity', 'visibility', 'text'],
       glow: ['color', 'opacity', 'visibility'],
       ripple: ['color', 'opacity', 'visibility'],
       flow: ['stroke', 'speed', 'opacity', 'visibility'],

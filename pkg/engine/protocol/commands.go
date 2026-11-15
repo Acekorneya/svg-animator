@@ -1274,6 +1274,42 @@ type WidgetBuildPackageResponse struct {
 	Error         string `json:"error,omitempty"`
 }
 
+// WidgetGetEligiblePropertiesRequest is the payload for "Widget.GetEligibleProperties".
+type WidgetGetEligiblePropertiesRequest struct {
+	TargetType string `json:"targetType,omitempty"`
+}
+
+// WidgetEligiblePropertiesResponse is returned by "Widget.GetEligibleProperties".
+type WidgetEligiblePropertiesResponse struct {
+	Success    bool                                `json:"success"`
+	Properties []scene.EligibleProperty            `json:"properties,omitempty"`
+	Catalog    map[string][]scene.EligibleProperty `json:"catalog,omitempty"`
+	Error      string                              `json:"error,omitempty"`
+}
+
+// WidgetRenameParameterRequest is the payload for "Widget.RenameParameter".
+type WidgetRenameParameterRequest struct {
+	OldName string `json:"oldName"`
+	NewName string `json:"newName"`
+}
+
+// WidgetGetConflictsRequest is the payload for "Widget.GetConflicts".
+type WidgetGetConflictsRequest struct{}
+
+// WidgetConflictsResponse is returned by "Widget.GetConflicts".
+type WidgetConflictsResponse struct {
+	Success   bool                      `json:"success"`
+	Conflicts []scene.ParameterConflict `json:"conflicts,omitempty"`
+	Error     string                    `json:"error,omitempty"`
+}
+
+// WidgetResolveConflictRequest is the payload for "Widget.ResolveConflict".
+type WidgetResolveConflictRequest struct {
+	Target   string `json:"target"`
+	Property string `json:"property"`
+	KeepName string `json:"keepName"`
+}
+
 // Dispatch processes incoming commands and returns JSON-encoded responses.
 func Dispatch(command string, payloadJSON []byte) ([]byte, error) {
 	switch command {
@@ -3494,6 +3530,66 @@ func Dispatch(command string, payloadJSON []byte) ([]byte, error) {
 		ok := activeScene.RemoveParameter(req.Name)
 		return json.Marshal(WidgetParametersResponse{
 			Success:    ok,
+			Parameters: activeScene.GetParameters(),
+		})
+
+	case "Widget.GetEligibleProperties":
+		var req WidgetGetEligiblePropertiesRequest
+		if len(payloadJSON) > 0 && string(payloadJSON) != "null" && string(payloadJSON) != "{}" {
+			_ = json.Unmarshal(payloadJSON, &req)
+		}
+		var props []scene.EligibleProperty
+		if req.TargetType != "" {
+			props = scene.GetEligibleProperties(req.TargetType)
+		}
+		return json.Marshal(WidgetEligiblePropertiesResponse{
+			Success:    true,
+			Properties: props,
+			Catalog:    scene.ObjectPropertyCatalog,
+		})
+
+	case "Widget.RenameParameter":
+		var req WidgetRenameParameterRequest
+		if err := json.Unmarshal(payloadJSON, &req); err != nil {
+			return json.Marshal(WidgetParametersResponse{
+				Success: false,
+				Error:   fmt.Sprintf("decoding WidgetRenameParameterRequest: %v", err),
+			})
+		}
+		if err := activeScene.RenameParameter(req.OldName, req.NewName); err != nil {
+			return json.Marshal(WidgetParametersResponse{
+				Success: false,
+				Error:   err.Error(),
+			})
+		}
+		return json.Marshal(WidgetParametersResponse{
+			Success:    true,
+			Parameters: activeScene.GetParameters(),
+		})
+
+	case "Widget.GetConflicts":
+		conflicts := activeScene.DetectParameterConflicts()
+		return json.Marshal(WidgetConflictsResponse{
+			Success:   true,
+			Conflicts: conflicts,
+		})
+
+	case "Widget.ResolveConflict":
+		var req WidgetResolveConflictRequest
+		if err := json.Unmarshal(payloadJSON, &req); err != nil {
+			return json.Marshal(WidgetParametersResponse{
+				Success: false,
+				Error:   fmt.Sprintf("decoding WidgetResolveConflictRequest: %v", err),
+			})
+		}
+		if err := activeScene.ResolveParameterConflict(req.Target, req.Property, req.KeepName); err != nil {
+			return json.Marshal(WidgetParametersResponse{
+				Success: false,
+				Error:   err.Error(),
+			})
+		}
+		return json.Marshal(WidgetParametersResponse{
+			Success:    true,
 			Parameters: activeScene.GetParameters(),
 		})
 

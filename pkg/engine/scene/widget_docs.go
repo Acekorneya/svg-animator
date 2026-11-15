@@ -711,7 +711,23 @@ func BuildWidgetPackageZip(sc *Scene, widgetName, rawSVG, svgWidgetJS string) ([
 	svgFilename := cleanBase + ".svg"
 	guideFilename := cleanBase + "-properties.md"
 
-	// 1. Extract validated manifest from Scene (or fallback to embedded in rawSVG)
+	// 1. Check for duplicate/conflicting parameter bindings
+	if sc != nil {
+		conflicts := sc.DetectParameterConflicts()
+		if len(conflicts) > 0 {
+			var details []string
+			for _, c := range conflicts {
+				var names []string
+				for _, p := range c.Parameters {
+					names = append(names, p.Name)
+				}
+				details = append(details, fmt.Sprintf("%s.%s (%s)", c.Target, c.Property, strings.Join(names, ", ")))
+			}
+			return nil, fmt.Errorf("cannot export widget package with conflicting parameter bindings: %s. Please resolve duplicate bindings before exporting.", strings.Join(details, "; "))
+		}
+	}
+
+	// 2. Extract validated manifest from Scene (or fallback to embedded in rawSVG)
 	var manifest *WidgetManifest
 	if sc != nil {
 		params := sc.GetParameters()

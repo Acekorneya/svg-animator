@@ -376,6 +376,44 @@
   }
 
   /**
+   * Applies targeted animation speed multiplier to element sub-animations,
+   * respecting the formula: Effective Speed = Master Playback Rate × Targeted Flow Speed.
+   */
+  function applyTargetedSpeed(el, localRate, masterRate) {
+    if (!el) return;
+    const lRate = Number(localRate);
+    const mRate = Number(masterRate);
+    const validLocal = (!isNaN(lRate) && lRate > 0) ? lRate : 1.0;
+    const validMaster = (!isNaN(mRate) && mRate >= 0) ? mRate : 1.0;
+    const effectiveSpeed = Math.max(0.001, validMaster * validLocal);
+
+    // 1. Web Animations API within target element subtree only
+    if (typeof el.getAnimations === 'function') {
+      const anims = el.getAnimations({ subtree: true });
+      if (anims && anims.length > 0) {
+        anims.forEach((a) => {
+          try { a.playbackRate = effectiveSpeed; } catch (err) {}
+        });
+      }
+    }
+
+    // 2. SMIL animations (<animate>, <animateMotion>, <animateTransform>) in target element subtree
+    if (typeof el.querySelectorAll === 'function') {
+      el.querySelectorAll('animate, animateMotion, animateTransform').forEach((animEl) => {
+        let baseDur = animEl.getAttribute('data-base-dur');
+        if (!baseDur) {
+          const curDurStr = animEl.getAttribute('dur') || '2s';
+          const curDur = parseFloat(curDurStr) || 2;
+          baseDur = String(curDur);
+          animEl.setAttribute('data-base-dur', baseDur);
+        }
+        const newDur = (parseFloat(baseDur) / effectiveSpeed).toFixed(3);
+        animEl.setAttribute('dur', `${newDur}s`);
+      });
+    }
+  }
+
+  /**
    * Applies validated property to the resolved DOM element.
    */
   function applyPropertyToElement(el, property, value, paramDef, instance) {
@@ -475,38 +513,13 @@
         }
         break;
       case 'playbackRate':
-        if (instance && typeof instance.setSpeed === 'function') {
-          instance.setSpeed(value);
-        }
-        break;
       case 'speed':
         if (el && paramDef && paramDef.target && paramDef.target !== 'root' && paramDef.target !== 'global') {
           // Object-specific targeted animation speed adjustment
-          const rate = Number(value);
-          if (!isNaN(rate) && rate > 0) {
-            // 1. Web Animations API within target element subtree only
-            if (typeof el.getAnimations === 'function') {
-              const anims = el.getAnimations({ subtree: true });
-              if (anims && anims.length > 0) {
-                anims.forEach((a) => {
-                  try { a.playbackRate = rate; } catch (err) {}
-                });
-              }
-            }
-            // 2. SMIL animations (<animate>, <animateMotion>, <animateTransform>) in target element subtree
-            if (typeof el.querySelectorAll === 'function') {
-              el.querySelectorAll('animate, animateMotion, animateTransform').forEach((animEl) => {
-                let baseDur = animEl.getAttribute('data-base-dur');
-                if (!baseDur) {
-                  const curDurStr = animEl.getAttribute('dur') || '2s';
-                  const curDur = parseFloat(curDurStr) || 2;
-                  baseDur = String(curDur);
-                  animEl.setAttribute('data-base-dur', baseDur);
-                }
-                const newDur = (parseFloat(baseDur) / rate).toFixed(3);
-                animEl.setAttribute('dur', `${newDur}s`);
-              });
-            }
+          const localRate = Number(value);
+          if (!isNaN(localRate) && localRate > 0) {
+            const masterRate = (instance && typeof instance.getSpeed === 'function') ? instance.getSpeed() : 1.0;
+            applyTargetedSpeed(el, localRate, masterRate);
           }
         } else if (instance && typeof instance.setSpeed === 'function') {
           // Global widget instance playback rate
@@ -823,6 +836,20 @@
               const anims = svgEl.getAnimations({ subtree: true });
               anims.forEach((a) => { try { a.playbackRate = rate; } catch (err) {} });
             } catch (e) {}
+          }
+          // Re-evaluate targeted speeds so: Effective Speed = Master Playback Rate × Targeted Flow Speed
+          if (manifest && Array.isArray(manifest.parameters)) {
+            for (const p of manifest.parameters) {
+              if ((p.property === 'speed' || p.property === 'playbackRate') && p.target && p.target !== 'root' && p.target !== 'global') {
+                const targetSpeed = Number(currentValues[p.name]);
+                if (!isNaN(targetSpeed) && targetSpeed > 0) {
+                  const targetEl = resolveTargetElement(svgEl, p.target);
+                  if (targetEl) {
+                    applyTargetedSpeed(targetEl, targetSpeed, rate);
+                  }
+                }
+              }
+            }
           }
           handle._emit('speedChange', { instanceId: handle.instanceId, speed: rate });
           return handle;

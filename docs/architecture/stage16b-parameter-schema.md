@@ -110,3 +110,75 @@ type WidgetManifest struct {
   ]
 }
 ```
+
+---
+
+## 5. Authoritative Object Property Eligibility Catalog
+
+To maintain strict contract integrity between authoring, Go scene models, export pipelines, and runtime execution, property exposure is strictly validated against the authoritative `ObjectPropertyCatalog` in `pkg/engine/scene/widget.go`:
+
+| Target Type | Supported Properties | Type | Default Value | Notes / Description |
+| :--- | :--- | :--- | :--- | :--- |
+| **`node`** | `fill` | `color` | Current shape fill (`#3b82f6`) | Background fill colour |
+| | `stroke` | `color` | Current shape stroke (`#1d4ed8`) | Border outline colour |
+| | `opacity` | `number` | `1.0` (range: `0.0`–`1.0`) | Overall node opacity |
+| | `visibility` | `boolean` | `true` | Visibility toggle |
+| | `text` | `text` | Current node text label | Primary text label |
+| **`flow`** | `stroke` | `color` | Current path colour (`#38bdf8`) | Connector path and particle colour |
+| | `speed` | `speed` | `1.0` (range: `0.1`–`10.0`) | Flow animation rate multiplier |
+| | `opacity` | `number` | `1.0` (range: `0.0`–`1.0`) | Flow track opacity |
+| | `visibility` | `boolean` | `true` | Visibility toggle |
+| **`glow`** | `color` | `color` | Current glow colour (`#22c55e`) | Radial glow accent colour |
+| | `opacity` | `number` | `1.0` (range: `0.0`–`1.0`) | Glow intensity opacity |
+| | `visibility` | `boolean` | `true` | Visibility toggle |
+| **`ripple`** | `color` | `color` | Current wave colour (`#38bdf8`) | Ripple wave ring colour |
+| | `opacity` | `number` | `1.0` (range: `0.0`–`1.0`) | Wave pulse opacity |
+| | `visibility` | `boolean` | `true` | Visibility toggle |
+| **`image`** | `opacity` | `number` | `1.0` (range: `0.0`–`1.0`) | Image layer opacity |
+| | `visibility` | `boolean` | `true` | Visibility toggle |
+| **`group`** | `opacity` | `number` | `1.0` (range: `0.0`–`1.0`) | Composite group opacity |
+| | `visibility` | `boolean` | `true` | Composite visibility toggle |
+| **`root`** | `playbackRate` | `speed` | `1.0` (range: `0.1`–`5.0`) | Master widget playback speed |
+| | `visibility` | `boolean` | `true` | Master widget container visibility |
+| | `operatingState` | `enum` | `"running"` (`running`, `paused`, `stopped`) | High-level lifecycle state |
+
+> [!IMPORTANT]
+> Ineligible properties (e.g. attempting to bind `speed`, `height`, or `width` on a `node`) are strictly rejected at the Go engine boundary with: `property "%s" is not eligible for target "%s" of type "%s"`.
+
+---
+
+## 6. Unique Binding Contract
+
+To prevent ambiguous states and duplicate UI controls, SVG Animator Studio enforces the **Unique Binding Contract**:
+
+$$\text{One Object ID} + \text{One Controllable Property} + \text{One Scope} \le 1\text{ External Parameter Binding}$$
+
+### Core Contract Rules:
+1. **Collision Rejection on Add:** Attempting to expose a property on a target that is already bound (e.g. adding `flow1c` when `flow-1.stroke` is already bound to `flow1color`) returns an explicit collision error:
+   `property "%s" on target "%s" is already bound to parameter "%s"`
+2. **Multi-Property Exposure Permitted:** An object can expose multiple *different* eligible properties simultaneously (e.g. `flow-1` can expose both `stroke` as `flowColor` and `speed` as `flowSpeed`).
+3. **Explicit Renaming (`RenameParameter`):** Renaming a parameter retains its target, property, type, and defaults while updating the public interface name.
+4. **Single-Current-Value Runtime:** External parameters represent public controllable handles. No duplicate bindings or ambiguous overrides exist at runtime.
+
+---
+
+## 7. Global vs Local Playback Speed Coexistence
+
+Global widget playback rate and local flow animation speed independently coexist. Setting the master playback rate or an individual flow's speed dynamically updates the element's actual playback according to the authoritative formula:
+
+$$\text{Effective Speed} = \text{Master Playback Rate} \times \text{Targeted Flow Speed}$$
+
+Both Web Animations API (`animation.playbackRate`) and SMIL declarative animations (`dur = baseDur / effectiveSpeed`) scale proportionally without drift or crosstalk.
+
+---
+
+## 8. Migration, Conflict Detection & Resolution
+
+Legacy projects loaded from database or `.sva` files that contain ambiguous duplicate bindings from earlier versions are handled non-destructively:
+
+1. **Non-Destructive Ingestion:** Conflicting parameters are preserved upon scene load without silent deletion.
+2. **Conflict Detection:** The engine detects all duplicate `(target, property)` tuples via `DetectParameterConflicts()`.
+3. **UI Conflict Resolution:** The Widget Properties drawer displays a visible warning banner listing all conflicting parameters, with one-click resolution buttons:
+   `Keep "[paramName]"`
+4. **Export Safety Blocking:** Exporting a widget package via `BuildWidgetPackageZip` is strictly blocked if unresolved conflicts exist, reporting:
+   `cannot export widget package with conflicting parameter bindings: target.property (paramA, paramB). Please resolve duplicate bindings before exporting.`

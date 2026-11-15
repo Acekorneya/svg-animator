@@ -4,6 +4,7 @@ import (
 	"errors"
 	"fmt"
 	"math"
+	"regexp"
 	"strconv"
 	"strings"
 	"sync"
@@ -1006,16 +1007,40 @@ func (s *Scene) SetParameters(params []WidgetParameter) error {
 	return nil
 }
 
-// AddParameter appends or replaces a widget parameter by name or target/property after validation.
+// AddParameter appends or updates a widget parameter enforcing the unique binding contract:
+// One object ID + one controllable property = at most one external parameter binding.
 func (s *Scene) AddParameter(p WidgetParameter) error {
 	if err := ValidateWidgetParameter(p); err != nil {
 		return err
 	}
 	s.mu.Lock()
 	defer s.mu.Unlock()
+
 	for i, existing := range s.parameters {
-		isSameTargetProp := (p.Target != "root" && p.Target != "global" && existing.Target == p.Target && existing.Property == p.Property)
-		if existing.Name == p.Name || isSameTargetProp {
+		sameTargetProp := (existing.Target == p.Target && existing.Property == p.Property)
+		sameName := (existing.Name == p.Name)
+
+		if sameTargetProp {
+			if sameName {
+				// Update existing parameter in place
+				s.parameters[i] = p
+				s.revision++
+				if s.history != nil {
+					s.history.Record(s.getSnapshotLocked(), s.selection)
+				}
+				return nil
+			}
+			// Collision: different name, but identical target and property
+			return fmt.Errorf("property %q on target %q is already bound to parameter %q", p.Property, p.Target, existing.Name)
+		}
+
+		if sameName {
+			// Updating target/property of existing parameter
+			for j, other := range s.parameters {
+				if j != i && other.Target == p.Target && other.Property == p.Property {
+					return fmt.Errorf("property %q on target %q is already bound to parameter %q", p.Property, p.Target, other.Name)
+				}
+			}
 			s.parameters[i] = p
 			s.revision++
 			if s.history != nil {
@@ -1024,7 +1049,119 @@ func (s *Scene) AddParameter(p WidgetParameter) error {
 			return nil
 		}
 	}
+
 	s.parameters = append(s.parameters, p)
+	s.revision++
+	if s.history != nil {
+		s.history.Record(s.getSnapshotLocked(), s.selection)
+	}
+	return nil
+}
+
+// RenameParameter renames an existing parameter while preserving its target, property, and settings.
+func (s *Scene) RenameParameter(oldName, newName string) error {
+	oldName = strings.TrimSpace(oldName)
+	newName = strings.TrimSpace(newName)
+	if oldName == "" || newName == "" {
+		return fmt.Errorf("parameter names cannot be empty")
+	}
+	if oldName == newName {
+		return nil
+	}
+	reIdent := regexp.MustCompile(`^[a-zA-Z][a-zA-Z0-9_-]{0,63}$`)
+	if !reIdent.MatchString(newName) {
+		return fmt.Errorf("invalid parameter name %q: must start with a letter and contain only alphanumeric characters, underscores, or hyphens (max 64 chars)", newName)
+	}
+
+	s.mu.Lock()
+	defer s.mu.Unlock()
+
+	for _, p := range s.parameters {
+		if p.Name == newName {
+			return fmt.Errorf("parameter name %q is already in use", newName)
+		}
+	}
+
+	for i, p := range s.parameters {
+		if p.Name == oldName {
+			s.parameters[i].Name = newName
+			s.revision++
+			if s.history != nil {
+				s.history.Record(s.getSnapshotLocked(), s.selection)
+			}
+			return nil
+		}
+	}
+	return fmt.Errorf("parameter %q not found", oldName)
+}
+
+// DetectParameterConflicts scans the scene's parameters for duplicate bindings sharing the same (target, property).
+func (s *Scene) DetectParameterConflicts() []ParameterConflict {
+	s.mu.RLock()
+	defer s.mu.RUnlock()
+
+	if len(s.parameters) <= 1 {
+		return nil
+	}
+
+	groups := make(map[string][]WidgetParameter)
+	for _, p := range s.parameters {
+		key := p.Target + "::" + p.Property
+		groups[key] = append(groups[key], p)
+	}
+
+	var conflicts []ParameterConflict
+	for _, plist := range groups {
+		if len(plist) > 1 {
+			var names []string
+			for _, p := range plist {
+				names = append(names, p.Name)
+			}
+			conflicts = append(conflicts, ParameterConflict{
+				Target:      plist[0].Target,
+				Property:    plist[0].Property,
+				Parameters:  plist,
+				Description: fmt.Sprintf("Multiple parameters (%s) bind to property %q on target %q", strings.Join(names, ", "), plist[0].Property, plist[0].Target),
+			})
+		}
+	}
+	return conflicts
+}
+
+// ResolveParameterConflict resolves duplicate bindings for (target, property) by keeping keepName and removing all others.
+func (s *Scene) ResolveParameterConflict(target, property, keepName string) error {
+	s.mu.Lock()
+	defer s.mu.Unlock()
+
+	var matched []WidgetParameter
+	var keepFound bool
+	for _, p := range s.parameters {
+		if p.Target == target && p.Property == property {
+			matched = append(matched, p)
+			if p.Name == keepName {
+				keepFound = true
+			}
+		}
+	}
+
+	if len(matched) <= 1 {
+		return nil // No conflict exists
+	}
+	if !keepFound {
+		return fmt.Errorf("parameter %q not found among conflicting bindings for target %q property %q", keepName, target, property)
+	}
+
+	var updated []WidgetParameter
+	for _, p := range s.parameters {
+		if p.Target == target && p.Property == property {
+			if p.Name == keepName {
+				updated = append(updated, p)
+			}
+		} else {
+			updated = append(updated, p)
+		}
+	}
+	s.parameters = updated
 	s.revision++
 	if s.history != nil {
 		s.history.Record(s.getSnapshotLocked(), s.selection)

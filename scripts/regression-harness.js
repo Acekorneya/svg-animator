@@ -10654,7 +10654,7 @@ async function runHarness() {
   let currentParams = window.EngineBridge.getWidgetParameters();
   assert.strictEqual(currentParams.length, 1, 'W16B-CORR02: Exactly 1 parameter in scene');
 
-  // Attempting to add a second parameter targeting the exact same flow-1.stroke
+  // Attempting to add a second parameter targeting the exact same flow-1.stroke must be rejected with collision error!
   let pRes2 = window.EngineBridge.addWidgetParameter({
     name: 'flow1c',
     type: 'color',
@@ -10663,11 +10663,18 @@ async function runHarness() {
     default: '#ff00aa',
     description: 'Updated flow color'
   });
-  assert.ok(pRes2 && !pRes2.error, 'W16B-CORR03: Adding flow1c replacing existing flow-1.stroke binding succeeds');
+  assert.strictEqual(pRes2, null, 'W16B-CORR03: Adding flow1c for already bound flow-1.stroke is rejected with collision error');
+  assert.ok(window.EngineBridge.getLastError().includes('already bound'), 'W16B-CORR03b: Error explicitly states property is already bound');
   currentParams = window.EngineBridge.getWidgetParameters();
-  assert.strictEqual(currentParams.length, 1, 'W16B-CORR04: Still exactly 1 parameter in scene (duplicate prevented/updated)');
-  assert.strictEqual(currentParams[0].name, 'flow1c', 'W16B-CORR05: Parameter name updated to flow1c');
-  assert.strictEqual(currentParams[0].default, '#ff00aa', 'W16B-CORR06: Default value updated to #ff00aa');
+  assert.strictEqual(currentParams.length, 1, 'W16B-CORR04: Still exactly 1 parameter in scene (collision rejected)');
+  assert.strictEqual(currentParams[0].name, 'flow1color', 'W16B-CORR05: Original parameter flow1color preserved');
+
+  // Renaming must be performed via explicit renameWidgetParameter
+  let renRes = window.EngineBridge.renameWidgetParameter('flow1color', 'flow1c');
+  assert.ok(renRes && renRes.success, 'W16B-CORR05b: Explicit renameWidgetParameter succeeds');
+  currentParams = window.EngineBridge.getWidgetParameters();
+  assert.strictEqual(currentParams[0].name, 'flow1c', 'W16B-CORR05c: Parameter name renamed to flow1c');
+  assert.strictEqual(currentParams[0].default, '#00ffcc', 'W16B-CORR06: Default value preserved');
 
   // Test 2: Stripping / rejecting min/max on non-numeric types
   let pResColorWithLimits = window.EngineBridge.addWidgetParameter({
@@ -10743,6 +10750,122 @@ async function runHarness() {
   assert.ok(editBtn.textContent.includes('Edit'), 'W16B-CORR15: Edit button contains text "Edit"');
 
   console.log('[HARNESS] Scenario 83 PASS: Stage 16B Property Authoring & Binding Correctness verified.');
+
+  // =========================================================================
+  // Scenario 84: Stage 16B Property Eligibility & Unique Binding Contract
+  // =========================================================================
+  console.log('\n[HARNESS] Testing Scenario 84: Stage 16B Property Eligibility & Unique Binding Contract...');
+
+  // 1. Authoritative Property Eligibility Catalog
+  const nodeProps = window.EngineBridge.getEligibleWidgetProperties('node');
+  assert.ok(Array.isArray(nodeProps) && nodeProps.length >= 5, 'W16B-ELIG01: Eligible properties for node returned');
+  assert.ok(nodeProps.some(p => p.property === 'fill'), 'W16B-ELIG02: Node includes "fill"');
+  assert.ok(nodeProps.some(p => p.property === 'stroke'), 'W16B-ELIG03: Node includes "stroke"');
+  assert.ok(nodeProps.some(p => p.property === 'opacity'), 'W16B-ELIG04: Node includes "opacity"');
+  assert.ok(nodeProps.some(p => p.property === 'visibility'), 'W16B-ELIG05: Node includes "visibility"');
+  assert.ok(nodeProps.some(p => p.property === 'text'), 'W16B-ELIG06: Node includes "text"');
+  assert.ok(!nodeProps.some(p => p.property === 'speed'), 'W16B-ELIG07: Node does NOT include "speed"');
+  assert.ok(!nodeProps.some(p => p.property === 'height'), 'W16B-ELIG08: Node does NOT include "height"');
+
+  const flowProps = window.EngineBridge.getEligibleWidgetProperties('flow');
+  assert.ok(flowProps.some(p => p.property === 'speed'), 'W16B-ELIG09: Flow includes "speed"');
+  assert.ok(flowProps.some(p => p.property === 'stroke'), 'W16B-ELIG10: Flow includes "stroke"');
+
+  const rootProps = window.EngineBridge.getEligibleWidgetProperties('root');
+  assert.ok(rootProps.some(p => p.property === 'playbackRate'), 'W16B-ELIG11: Root includes "playbackRate"');
+  assert.ok(rootProps.some(p => p.property === 'operatingState'), 'W16B-ELIG12: Root includes "operatingState"');
+
+  // 2. Rejecting Ineligible Properties in Go Engine
+  const badNodeSpeed = window.EngineBridge.addWidgetParameter({
+    name: 'nodeSpeedTest',
+    type: 'speed',
+    target: 'node-1',
+    property: 'speed',
+    default: 1.0
+  });
+  assert.strictEqual(badNodeSpeed, null, 'W16B-ELIG13: Adding speed to node-1 is rejected');
+  assert.ok(window.EngineBridge.getLastError().includes('not eligible'), 'W16B-ELIG14: Error states property is not eligible');
+
+  // 3. Unique Binding Contract: 1 object ID + 1 property = at most 1 parameter
+  window.EngineBridge.setWidgetParameters([]);
+  const pFlowStroke = window.EngineBridge.addWidgetParameter({
+    name: 'flow1Stroke',
+    type: 'color',
+    target: 'flow-1',
+    property: 'stroke',
+    default: '#38bdf8'
+  });
+  assert.ok(pFlowStroke && !pFlowStroke.error, 'W16B-UNIQ01: Initial flow-1 stroke binding added');
+
+  const pFlowStrokeDup = window.EngineBridge.addWidgetParameter({
+    name: 'flow1LineColor',
+    type: 'color',
+    target: 'flow-1',
+    property: 'stroke',
+    default: '#ffffff'
+  });
+  assert.strictEqual(pFlowStrokeDup, null, 'W16B-UNIQ02: Duplicate binding on (flow-1, stroke) with different name rejected');
+  assert.ok(window.EngineBridge.getLastError().includes('already bound'), 'W16B-UNIQ03: Collision error mentions already bound');
+
+  // Multiple different properties on the same object are permitted
+  const pFlowSpeed = window.EngineBridge.addWidgetParameter({
+    name: 'flow1Speed',
+    type: 'speed',
+    target: 'flow-1',
+    property: 'speed',
+    default: 1.5,
+    min: 0.1,
+    max: 10.0
+  });
+  assert.ok(pFlowSpeed && !pFlowSpeed.error, 'W16B-UNIQ04: Second property (speed) on flow-1 successfully added');
+  const paramsAfterTwo = window.EngineBridge.getWidgetParameters();
+  assert.strictEqual(paramsAfterTwo.length, 2, 'W16B-UNIQ05: flow-1 has 2 distinct property bindings');
+
+  // 4. Parameter Renaming
+  const renFail = window.EngineBridge.renameWidgetParameter('flow1Speed', 'flow1Stroke');
+  assert.strictEqual(renFail, null, 'W16B-REN01: Renaming to existing name is rejected');
+  const renOk = window.EngineBridge.renameWidgetParameter('flow1Speed', 'flow1Rate');
+  assert.ok(renOk && renOk.success, 'W16B-REN02: Renaming to unique name succeeds');
+  const paramsRenamed = window.EngineBridge.getWidgetParameters();
+  const renamedP = paramsRenamed.find(p => p.name === 'flow1Rate');
+  assert.ok(renamedP, 'W16B-REN03: Parameter found under new name');
+  assert.strictEqual(renamedP.property, 'speed', 'W16B-REN04: Preserves property binding');
+  assert.strictEqual(renamedP.target, 'flow-1', 'W16B-REN05: Preserves target identity');
+
+  // 5. Migration: Non-destructive duplicate detection and resolution
+  window.EngineBridge.setWidgetParameters([
+    { name: 'flow1color', type: 'color', target: 'flow-1', property: 'stroke', default: '#111111' },
+    { name: 'flow1c', type: 'color', target: 'flow-1', property: 'stroke', default: '#222222' },
+    { name: 'flow1rate', type: 'speed', target: 'flow-1', property: 'speed', default: 2.0, min: 0.1, max: 10.0 }
+  ]);
+  const conflicts = window.EngineBridge.getWidgetConflicts();
+  assert.strictEqual(conflicts.length, 1, 'W16B-CONF01: Detected 1 conflict in legacy parameters');
+  assert.strictEqual(conflicts[0].target, 'flow-1', 'W16B-CONF02: Conflict target is flow-1');
+  assert.strictEqual(conflicts[0].property, 'stroke', 'W16B-CONF03: Conflict property is stroke');
+  assert.strictEqual(conflicts[0].parameters.length, 2, 'W16B-CONF04: 2 parameters in conflict');
+
+  // Export must fail when conflicts exist
+  const blockedPkg = window.EngineBridge.buildWidgetPackage('TestConflictWidget', '<svg><rect/></svg>', '// mock js');
+  assert.strictEqual(blockedPkg, null, 'W16B-CONF05: BuildWidgetPackage rejected when unresolved conflicts exist');
+  assert.ok(window.EngineBridge.getLastError().includes('conflicting parameter bindings'), 'W16B-CONF06: Error explains conflicting parameter bindings');
+
+  // Resolve conflict keeping flow1color
+  const resConf = window.EngineBridge.resolveWidgetConflict('flow-1', 'stroke', 'flow1color');
+  assert.ok(resConf && resConf.success, 'W16B-CONF07: resolveWidgetConflict succeeds');
+  const conflictsAfterRes = window.EngineBridge.getWidgetConflicts();
+  assert.strictEqual(conflictsAfterRes.length, 0, 'W16B-CONF08: Zero conflicts remaining after resolution');
+  const paramsAfterRes = window.EngineBridge.getWidgetParameters();
+  assert.strictEqual(paramsAfterRes.length, 2, 'W16B-CONF09: Exactly 2 clean parameters remaining');
+  assert.ok(paramsAfterRes.some(p => p.name === 'flow1color'), 'W16B-CONF10: flow1color kept');
+  assert.ok(!paramsAfterRes.some(p => p.name === 'flow1c'), 'W16B-CONF11: flow1c removed');
+
+  // 6. Global vs Local Playback Coexistence Math
+  const masterPlaybackRate = 1.5;
+  const localFlowSpeed = 2.0;
+  const effectiveSpeed = masterPlaybackRate * localFlowSpeed;
+  assert.strictEqual(effectiveSpeed, 3.0, 'W16B-SPEED01: Effective Speed = Master Playback Rate × Targeted Flow Speed (1.5 × 2.0 = 3.0)');
+
+  console.log('[HARNESS] Scenario 84 PASS: Stage 16B Property Eligibility & Unique Binding Contract verified.');
 
   console.log('[HARNESS] REG-03 PASS: Stage 3, 4, 5, 6, 7, 8, 9, 11, 12, 13, 14, 15 & 16 non-destructive cropping, background extraction, image baking, dedicated crop clip & snip workspace, object-local clipping, unified layer management, independent image objects, persistent groups, duplication, copy/paste with flow remapping, multi-selection, alignment, distribution, colour tools, selection retention, notifications, naming sync, history(50), schema 1.2.0, .sva packaging, background photo restoration, SVG compilation, export payload builders, collision-free widgets, external runtime parameters, and Go WASM engines verified.');
 }

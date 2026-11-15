@@ -2609,39 +2609,70 @@ window.syncImageToolsFromSnip = function() {
 };
 
 // =========================================================================
+// =========================================================================
 // Accordion Overview: Widget Parameters (External Controls)
 // =========================================================================
-const drawerWidgetPropDefs = {
-  node: [
-    { prop: 'fill', label: 'Fill Colour', type: 'color', desc: 'Background color of the node shape (e.g. status indicator color).' },
-    { prop: 'stroke', label: 'Border Colour', type: 'color', desc: 'Outline border color of the node.' },
-    { prop: 'opacity', label: 'Opacity (0..1)', type: 'number', min: 0, max: 1, desc: 'Transparency level from 0.0 (transparent) to 1.0 (solid).' },
-    { prop: 'visibility', label: 'Visibility (Toggle)', type: 'boolean', desc: 'Dynamically shows or hides this node.' },
-    { prop: 'text', label: 'Text Content', type: 'text', desc: 'Label text rendered inside the node.' },
-    { prop: 'width', label: 'Width (px)', type: 'number', min: 10, max: 1000, desc: 'Horizontal width of the node in pixels.' },
-    { prop: 'height', label: 'Height (px)', type: 'number', min: 10, max: 1000, desc: 'Vertical height of the node in pixels.' }
-  ],
-  glow: [
-    { prop: 'color', label: 'Glow Colour', type: 'color', desc: 'Radiant optical glow and core illumination color (e.g. green for optimal, red for alarm).' },
-    { prop: 'opacity', label: 'Glow Intensity (0..1)', type: 'number', min: 0, max: 1, desc: 'Brilliance and intensity of the optical glow pulse.' },
-    { prop: 'visibility', label: 'Visibility (Toggle)', type: 'boolean', desc: 'Switches the optical hotspot glow on or off.' }
-  ],
-  ripple: [
-    { prop: 'color', label: 'Wave Crest Colour', type: 'color', desc: 'Color of the expanding wave pulse crest.' },
-    { prop: 'opacity', label: 'Wave Opacity (0..1)', type: 'number', min: 0, max: 1, desc: 'Wave crest opacity from 0.0 (hidden) to 1.0 (vibrant).' },
-    { prop: 'visibility', label: 'Visibility (Toggle)', type: 'boolean', desc: 'Switches the animated expanding ripple wave on or off.' }
-  ],
-  flow: [
-    { prop: 'stroke', label: 'Flow Track Colour', type: 'color', desc: 'Color of the connector line path.' },
-    { prop: 'speed', label: 'Flow Particle Speed (Rate)', type: 'speed', min: 0.1, max: 10, desc: 'Movement speed of particles along this specific flow line (1.0 = normal, 2.0 = fast).' },
-    { prop: 'opacity', label: 'Flow Opacity (0..1)', type: 'number', min: 0, max: 1, desc: 'Opacity of the flow connector track and moving particles.' },
-    { prop: 'visibility', label: 'Visibility (Toggle)', type: 'boolean', desc: 'Shows or hides this flow connector and its moving particles.' }
-  ],
-  image: [
-    { prop: 'opacity', label: 'Image Opacity (0..1)', type: 'number', min: 0, max: 1, desc: 'Opacity of the image layer.' },
-    { prop: 'visibility', label: 'Visibility (Toggle)', type: 'boolean', desc: 'Shows or hides this image object.' }
-  ]
-};
+function getDrawerWidgetPropDefs(type) {
+  if (window.EngineBridge && typeof window.EngineBridge.getEligibleWidgetProperties === 'function') {
+    const list = window.EngineBridge.getEligibleWidgetProperties(type);
+    if (Array.isArray(list) && list.length > 0) {
+      return list.map(item => ({
+        prop: item.property || item.Property,
+        label: item.label || item.Label,
+        type: item.type || item.Type,
+        desc: item.description || item.Description,
+        min: item.min !== undefined ? item.min : item.Min,
+        max: item.max !== undefined ? item.max : item.Max,
+        default: item.default !== undefined ? item.default : item.Default,
+        options: item.options || item.Options
+      }));
+    }
+  }
+  const fallbackCatalog = {
+    node: [
+      { prop: 'fill', label: 'Fill Colour', type: 'color', desc: 'Primary interior fill color of node shape' },
+      { prop: 'stroke', label: 'Border Stroke', type: 'color', desc: 'Outline and border stroke color' },
+      { prop: 'opacity', label: 'Opacity (0..1)', type: 'number', min: 0, max: 1, desc: 'Transparency level from 0.0 to 1.0' },
+      { prop: 'visibility', label: 'Visibility (Toggle)', type: 'boolean', desc: 'Toggle visibility of this node' },
+      { prop: 'text', label: 'Label Text', type: 'text', desc: 'Primary text label rendered inside the node' }
+    ],
+    flow: [
+      { prop: 'stroke', label: 'Line Colour', type: 'color', desc: 'Connector line and particle stroke color' },
+      { prop: 'speed', label: 'Flow Speed', type: 'speed', min: 0.1, max: 10, desc: 'Movement speed of particles along this specific flow line (0.1 to 10.0)' },
+      { prop: 'opacity', label: 'Opacity (0..1)', type: 'number', min: 0, max: 1, desc: 'Opacity of the flow connector track' },
+      { prop: 'visibility', label: 'Visibility (Toggle)', type: 'boolean', desc: 'Shows or hides this flow connector' }
+    ],
+    glow: [
+      { prop: 'color', label: 'Glow Colour', type: 'color', desc: 'Accent color of the glow and beacon pulse' },
+      { prop: 'opacity', label: 'Glow Intensity (0..1)', type: 'number', min: 0, max: 1, desc: 'Brilliance and intensity of the optical glow pulse' },
+      { prop: 'visibility', label: 'Visibility (Toggle)', type: 'boolean', desc: 'Switches the optical hotspot glow on or off' }
+    ],
+    ripple: [
+      { prop: 'color', label: 'Wave Crest Colour', type: 'color', desc: 'Stroke color of the propagating ripple rings' },
+      { prop: 'opacity', label: 'Wave Opacity (0..1)', type: 'number', min: 0, max: 1, desc: 'Wave crest opacity from 0.0 to 1.0' },
+      { prop: 'visibility', label: 'Visibility (Toggle)', type: 'boolean', desc: 'Switches the animated expanding ripple wave on or off' }
+    ],
+    image: [
+      { prop: 'opacity', label: 'Image Opacity (0..1)', type: 'number', min: 0, max: 1, desc: 'Opacity of the image layer' },
+      { prop: 'visibility', label: 'Visibility (Toggle)', type: 'boolean', desc: 'Shows or hides this image object' }
+    ],
+    group: [
+      { prop: 'opacity', label: 'Group Opacity (0..1)', type: 'number', min: 0, max: 1, desc: 'Opacity of the group' },
+      { prop: 'visibility', label: 'Visibility (Toggle)', type: 'boolean', desc: 'Shows or hides this group' }
+    ],
+    root: [
+      { prop: 'playbackRate', label: 'Master Speed', type: 'speed', min: 0.1, max: 5.0, desc: 'Master playback rate multiplier for the entire widget' },
+      { prop: 'visibility', label: 'Widget Visibility', type: 'boolean', desc: 'Master visibility toggle for the entire widget' },
+      { prop: 'operatingState', label: 'Operating State', type: 'enum', options: ['running', 'paused', 'stopped'], desc: 'Lifecycle operating state of the widget' }
+    ]
+  };
+  return fallbackCatalog[type] || [];
+}
+const drawerWidgetPropDefs = new Proxy({}, {
+  get(target, prop) {
+    return getDrawerWidgetPropDefs(prop);
+  }
+});
 
 function getObjectPropValue(type, id, prop) {
   if (type === 'node' && window.DiagramNodes) {
@@ -2653,8 +2684,6 @@ function getObjectPropValue(type, id, prop) {
         case 'opacity': return node.fillOpacity !== undefined ? node.fillOpacity : 0.92;
         case 'visibility': return true;
         case 'text': return node.text || 'Node';
-        case 'height': return node.height || 80;
-        case 'width': return node.width || 170;
       }
     }
   } else if (type === 'flow' && window.DataFlows) {
@@ -2740,7 +2769,7 @@ window.initDrawerWidgetEvents = function() {
       }
 
       // Validate target/property compatibility
-      const allowedDefs = drawerWidgetPropDefs[sel.type] || [];
+      const allowedDefs = getDrawerWidgetPropDefs(sel.type) || [];
       const matchedDef = allowedDefs.find(p => p.prop === prop);
       if (!matchedDef) {
         const allowedList = allowedDefs.map(p => `${p.label} (${p.prop})`).join(', ');
@@ -2846,6 +2875,36 @@ window.initDrawerWidgetEvents = function() {
     });
   }
 
+  const btnDrawerRename = document.getElementById('btnDrawerRenameWidgetParam');
+  if (btnDrawerRename) {
+    btnDrawerRename.addEventListener('click', () => {
+      const oldName = (document.getElementById('drawerWidgetParamName')?.value || '').trim();
+      if (!oldName) return;
+      const newName = prompt(`Enter new unique identifier for parameter "${oldName}":`, oldName);
+      if (!newName || newName.trim() === '' || newName.trim() === oldName) return;
+      const cleanNew = newName.trim();
+      if (!/^[a-zA-Z][a-zA-Z0-9_-]*$/.test(cleanNew)) {
+        alert('Invalid parameter name. Must start with a letter and contain only alphanumeric characters, underscores, or hyphens.');
+        return;
+      }
+      if (window.EngineBridge && typeof window.EngineBridge.renameWidgetParameter === 'function') {
+        const res = window.EngineBridge.renameWidgetParameter(oldName, cleanNew);
+        if (res && res.success) {
+          if (window.AppCoordinator) {
+            window.AppCoordinator.recordHistoryImmediate();
+            window.AppCoordinator.showNotification(`Renamed parameter to "${cleanNew}"`, 'success');
+          }
+          window.renderWidgetParametersOverview();
+          if (window.FloatingPropertiesEditor && typeof window.FloatingPropertiesEditor.syncSelection === 'function') {
+            window.FloatingPropertiesEditor.syncSelection();
+          }
+        } else {
+          alert('Failed to rename parameter: ' + ((res && res.error) || 'Name already in use or invalid.'));
+        }
+      }
+    });
+  }
+
   const btnDrawerRemove = document.getElementById('btnDrawerRemoveWidgetParam');
   if (btnDrawerRemove) {
     btnDrawerRemove.addEventListener('click', () => {
@@ -2910,6 +2969,8 @@ window.initDrawerWidgetEvents = function() {
       const defInput = document.getElementById('drawerWidgetDefaultInput');
       const statusMsg = document.getElementById('drawerWidgetStatusMsg');
       const btnSave = document.getElementById('btnDrawerSaveWidgetParam');
+      const btnRename = document.getElementById('btnDrawerRenameWidgetParam');
+      const btnRemove = document.getElementById('btnDrawerRemoveWidgetParam');
 
       if (propHelp) {
         propHelp.textContent = selectedOpt?.dataset?.desc || 'Select a property to view what changing it does.';
@@ -2942,9 +3003,11 @@ window.initDrawerWidgetEvents = function() {
         if (optRow) optRow.style.display = (typeSelect.value === 'enum') ? 'flex' : 'none';
         if (statusMsg) {
           statusMsg.style.color = '#3fb950';
-          statusMsg.textContent = `✓ Bound: "${exName}" (${typeSelect.value} ──► ${selectedProp}). Click Save to update.`;
+          statusMsg.textContent = `✓ Bound: "${exName}" (${typeSelect.value} ──► ${selectedProp}). Click Update to change settings, or Rename to change parameter name.`;
         }
-        if (btnSave) btnSave.textContent = '💾 Update Parameter';
+        if (btnSave) btnSave.textContent = '💾 Update Binding';
+        if (btnRename) btnRename.style.display = 'inline-block';
+        if (btnRemove) btnRemove.style.display = 'inline-block';
       } else {
         const defaultType = selectedOpt?.dataset?.defaultType || 'color';
         if (typeSelect) typeSelect.value = defaultType;
@@ -2981,9 +3044,11 @@ window.initDrawerWidgetEvents = function() {
         if (descInput) descInput.value = selectedOpt?.dataset?.desc || `Controls ${selectedProp} on ${sel.type} #${sel.id}`;
         if (statusMsg) {
           statusMsg.style.color = '#8b949e';
-          statusMsg.textContent = 'Ready to expose property as a new parameter. Click Save.';
+          statusMsg.textContent = `Property "${selectedProp}" is not yet exposed. Click "➕ Expose Property" to bind.`;
         }
-        if (btnSave) btnSave.textContent = '💾 Save Parameter';
+        if (btnSave) btnSave.textContent = '➕ Expose Property';
+        if (btnRename) btnRename.style.display = 'none';
+        if (btnRemove) btnRemove.style.display = 'none';
       }
     });
   }
@@ -3201,14 +3266,53 @@ window.renderWidgetParametersOverview = function(selectionPayload) {
       }
       if (drawerObjBadge) drawerObjBadge.textContent = objName;
 
-      const availableProps = drawerWidgetPropDefs[sel.type] || [];
+      // Check for existing bindings on this object
+      const targetId = `${sel.type}-${sel.id}`;
+      const existingForObj = params.filter(p => {
+        const t = p.Target || p.target;
+        return t === targetId || t === String(sel.id);
+      });
+
+      // Synchronize existing bindings badges
+      const existingWrap = document.getElementById('drawerWidgetExistingBindings');
+      const badgesContainer = document.getElementById('drawerWidgetExistingBadges');
+      if (existingWrap && badgesContainer) {
+        if (existingForObj.length > 0) {
+          existingWrap.style.display = 'flex';
+          badgesContainer.innerHTML = '';
+          existingForObj.forEach(ep => {
+            const badge = document.createElement('button');
+            badge.type = 'button';
+            badge.style.cssText = 'background: #21262d; border: 1px solid #388bfd; color: #58a6ff; font-size: 0.70rem; padding: 2px 6px; border-radius: 4px; cursor: pointer; display: flex; align-items: center; gap: 4px;';
+            badge.title = `Click to configure property "${ep.property || ep.Property}" (${ep.name || ep.Name})`;
+            badge.innerHTML = `<span>🏷️ <strong>${ep.name || ep.Name}</strong></span><span style="color: #8b949e;">(${ep.property || ep.Property})</span>`;
+            badge.addEventListener('click', () => {
+              if (drawerPropSelect) {
+                drawerPropSelect.value = ep.property || ep.Property;
+                drawerPropSelect.dispatchEvent(new Event('change'));
+              }
+            });
+            badgesContainer.appendChild(badge);
+          });
+        } else {
+          existingWrap.style.display = 'none';
+        }
+      }
+
+      const availableProps = getDrawerWidgetPropDefs(sel.type) || [];
       if (drawerPropSelect) {
         const curPropVal = drawerPropSelect.value;
         drawerPropSelect.innerHTML = '';
         availableProps.forEach(p => {
           const opt = document.createElement('option');
           opt.value = p.prop;
-          opt.textContent = `${p.label} (${p.prop})`;
+          const boundForProp = existingForObj.find(b => (b.Property || b.property) === p.prop);
+          if (boundForProp) {
+            opt.textContent = `${p.label} (${p.prop}) — [Bound: ${boundForProp.name || boundForProp.Name}]`;
+            opt.style.color = '#3fb950';
+          } else {
+            opt.textContent = `${p.label} (${p.prop})`;
+          }
           opt.dataset.defaultType = p.type;
           opt.dataset.desc = p.desc || '';
           if (p.min !== undefined) opt.dataset.min = p.min;
@@ -3217,6 +3321,8 @@ window.renderWidgetParametersOverview = function(selectionPayload) {
         });
         if (availableProps.some(p => p.prop === curPropVal)) {
           drawerPropSelect.value = curPropVal;
+        } else if (existingForObj.length > 0) {
+          drawerPropSelect.value = existingForObj[0].property || existingForObj[0].Property;
         }
         const activeOpt = (drawerPropSelect.selectedOptions && drawerPropSelect.selectedOptions[0])
           || (drawerPropSelect.options && drawerPropSelect.options[drawerPropSelect.selectedIndex || 0])
@@ -3227,12 +3333,16 @@ window.renderWidgetParametersOverview = function(selectionPayload) {
         }
       }
 
-      // Check for existing binding
-      const targetId = `${sel.type}-${sel.id}`;
-      const bound = params.find(p => {
-        const t = p.Target || p.target;
-        return t === targetId || t === String(sel.id);
+      // Check if the currently selected property is bound
+      const selectedProp = drawerPropSelect ? drawerPropSelect.value : (availableProps[0]?.prop || 'fill');
+      const bound = existingForObj.find(p => {
+        const propName = p.Property || p.property;
+        return propName === selectedProp;
       });
+
+      const btnSave = document.getElementById('btnDrawerSaveWidgetParam');
+      const btnRename = document.getElementById('btnDrawerRenameWidgetParam');
+      const btnRemove = document.getElementById('btnDrawerRemoveWidgetParam');
 
       if (bound) {
         if (chkDrawerExpose) chkDrawerExpose.checked = true;
@@ -3247,7 +3357,6 @@ window.renderWidgetParametersOverview = function(selectionPayload) {
         const bDesc = bound.Description || bound.description;
 
         if (drawerParamName) drawerParamName.value = bName || '';
-        if (drawerPropSelect) drawerPropSelect.value = bProp || availableProps[0]?.prop;
         if (drawerTypeSelect) drawerTypeSelect.value = bType || 'color';
         if (drawerDefaultInput) drawerDefaultInput.value = bDef !== undefined ? (typeof bDef === 'object' ? JSON.stringify(bDef) : String(bDef)) : '';
         if (drawerMinInput) drawerMinInput.value = (bMin !== undefined && bMin !== null) ? bMin : '';
@@ -3256,6 +3365,9 @@ window.renderWidgetParametersOverview = function(selectionPayload) {
         if (drawerDescInput) drawerDescInput.value = bDesc || '';
         if (drawerLimitsRow) drawerLimitsRow.style.display = (bType === 'number' || bType === 'speed') ? 'flex' : 'none';
         if (drawerOptionsRow) drawerOptionsRow.style.display = (bType === 'enum') ? 'flex' : 'none';
+        if (btnSave) btnSave.textContent = '💾 Update Binding';
+        if (btnRename) btnRename.style.display = 'inline-block';
+        if (btnRemove) btnRemove.style.display = 'inline-block';
         if (drawerStatusMsg) {
           drawerStatusMsg.style.color = '#3fb950';
           drawerStatusMsg.textContent = `✓ Bound: "${bName}" (${bType} ──► ${bProp})`;
@@ -3263,25 +3375,74 @@ window.renderWidgetParametersOverview = function(selectionPayload) {
       } else {
         if (chkDrawerExpose) chkDrawerExpose.checked = false;
         if (drawerFields) drawerFields.style.display = 'none';
-        const firstP = availableProps[0] || { prop: 'fill', type: 'color' };
-        if (drawerParamName) drawerParamName.value = defaultParamBase;
-        if (drawerPropSelect) drawerPropSelect.value = firstP.prop;
-        if (drawerTypeSelect) drawerTypeSelect.value = firstP.type;
-        if (drawerDefaultInput) drawerDefaultInput.value = getObjectPropValue(sel.type, sel.id, firstP.prop);
-        if (drawerMinInput) drawerMinInput.value = (firstP.min !== undefined) ? firstP.min : '';
-        if (drawerMaxInput) drawerMaxInput.value = (firstP.max !== undefined) ? firstP.max : '';
+        const curOpt = availableProps.find(p => p.prop === selectedProp) || availableProps[0] || { prop: 'fill', type: 'color' };
+        if (drawerParamName) drawerParamName.value = `${defaultParamBase}_${selectedProp.replace(/[^a-zA-Z0-9]/g, '')}`;
+        if (drawerTypeSelect) drawerTypeSelect.value = curOpt.type;
+        if (drawerDefaultInput) drawerDefaultInput.value = getObjectPropValue(sel.type, sel.id, curOpt.prop);
+        if (drawerMinInput) drawerMinInput.value = (curOpt.min !== undefined) ? curOpt.min : '';
+        if (drawerMaxInput) drawerMaxInput.value = (curOpt.max !== undefined) ? curOpt.max : '';
         if (drawerOptionsInput) drawerOptionsInput.value = '';
-        if (drawerDescInput) drawerDescInput.value = `Controls ${firstP.prop} on ${objName}`;
-        if (drawerLimitsRow) drawerLimitsRow.style.display = (firstP.type === 'number' || firstP.type === 'speed') ? 'flex' : 'none';
+        if (drawerDescInput) drawerDescInput.value = `Controls ${curOpt.prop} on ${objName}`;
+        if (drawerLimitsRow) drawerLimitsRow.style.display = (curOpt.type === 'number' || curOpt.type === 'speed') ? 'flex' : 'none';
         if (drawerOptionsRow) drawerOptionsRow.style.display = 'none';
+        if (btnSave) btnSave.textContent = '➕ Expose Property';
+        if (btnRename) btnRename.style.display = 'none';
+        if (btnRemove) btnRemove.style.display = 'none';
         if (drawerStatusMsg) {
           drawerStatusMsg.style.color = '#8b949e';
-          drawerStatusMsg.textContent = 'Not currently exposed. Check the box above to expose.';
+          drawerStatusMsg.textContent = `Property "${selectedProp}" is not yet exposed on this object. Check the box above to expose.`;
         }
       }
     } else {
       drawerNoSel.style.display = 'block';
       drawerDeck.style.display = 'none';
+    }
+  }
+
+  // Conflict Warning Banner
+  const conflicts = (window.EngineBridge && typeof window.EngineBridge.getWidgetConflicts === 'function')
+    ? window.EngineBridge.getWidgetConflicts()
+    : [];
+  const conflictBanner = document.getElementById('widgetConflictsBanner');
+  const conflictList = document.getElementById('widgetConflictsList');
+  if (conflictBanner && conflictList) {
+    if (conflicts && conflicts.length > 0) {
+      conflictBanner.style.display = 'block';
+      conflictList.innerHTML = '';
+      conflicts.forEach(c => {
+        const row = document.createElement('div');
+        row.style.cssText = 'background: #21262d; border: 1px solid #f85149; border-radius: 4px; padding: 6px; font-size: 0.72rem; display: flex; flex-direction: column; gap: 4px;';
+        const title = document.createElement('div');
+        title.innerHTML = `<strong>${c.target}.${c.property}</strong>: Conflicting duplicates (${c.parameters.map(p => `<code>${p.name}</code>`).join(', ')})`;
+        row.appendChild(title);
+        const btnWrap = document.createElement('div');
+        btnWrap.style.cssText = 'display: flex; gap: 4px; flex-wrap: wrap; margin-top: 2px;';
+        c.parameters.forEach(p => {
+          const btn = document.createElement('button');
+          btn.type = 'button';
+          btn.className = 'btn-floating-action btn-resolve-conflict';
+          btn.style.cssText = 'background: #238636; border: 1px solid #3fb950; color: #fff; font-size: 0.68rem; padding: 2px 6px; border-radius: 3px; cursor: pointer;';
+          btn.textContent = `Keep "${p.name}"`;
+          btn.addEventListener('click', (e) => {
+            e.stopPropagation();
+            if (window.EngineBridge && typeof window.EngineBridge.resolveWidgetConflict === 'function') {
+              const r = window.EngineBridge.resolveWidgetConflict(c.target, c.property, p.name);
+              if (r && r.success) {
+                if (window.AppCoordinator) {
+                  window.AppCoordinator.recordHistoryImmediate();
+                  window.AppCoordinator.showNotification(`Resolved conflict: kept "${p.name}"`, 'success');
+                }
+                window.renderWidgetParametersOverview();
+              }
+            }
+          });
+          btnWrap.appendChild(btn);
+        });
+        row.appendChild(btnWrap);
+        conflictList.appendChild(row);
+      });
+    } else {
+      conflictBanner.style.display = 'none';
     }
   }
 

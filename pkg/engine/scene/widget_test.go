@@ -243,13 +243,13 @@ func TestIsolateSVGWidgetWithManifest(t *testing.T) {
 func TestValidateWidgetParameter(t *testing.T) {
 	// 1. Valid parameter
 	minVal := 0.0
-	maxVal := 100.0
+	maxVal := 1.0
 	valid := WidgetParameter{
-		Name:     "tankLevel",
+		Name:     "tankOpacity",
 		Type:     "number",
-		Default:  50.0,
+		Default:  0.8,
 		Target:   "node-1",
-		Property: "height",
+		Property: "opacity",
 		Min:      &minVal,
 		Max:      &maxVal,
 	}
@@ -294,7 +294,7 @@ func TestValidateWidgetParameter(t *testing.T) {
 	pRange := WidgetParameter{
 		Name:     "myRange",
 		Type:     "number",
-		Target:   "node-1",
+		Target:   "custom-tank",
 		Property: "width",
 		Min:      &badMin,
 		Max:      &badMax,
@@ -393,5 +393,194 @@ func TestParameterUndoRedo(t *testing.T) {
 	}
 	if len(sc.GetParameters()) != 1 || sc.GetParameters()[0].Name != "statusColor" {
 		t.Errorf("expected 1 parameter 'statusColor' after redo, got %+v", sc.GetParameters())
+	}
+}
+
+func TestWidgetPropertyEligibilityAndUniquenessContract(t *testing.T) {
+	// 1. Check Catalog and GetEligibleProperties
+	nodeProps := GetEligibleProperties("node")
+	if len(nodeProps) == 0 {
+		t.Fatalf("expected non-empty node eligible properties")
+	}
+	hasFill := false
+	hasSpeed := false
+	for _, ep := range nodeProps {
+		if ep.Property == "fill" {
+			hasFill = true
+		}
+		if ep.Property == "speed" {
+			hasSpeed = true
+		}
+	}
+	if !hasFill {
+		t.Errorf("expected node to have 'fill'")
+	}
+	if hasSpeed {
+		t.Errorf("expected node NOT to have 'speed'")
+	}
+
+	// 2. Reject ineligible property on node
+	badNodeParam := WidgetParameter{
+		Name:     "nodeSpeed",
+		Type:     "speed",
+		Target:   "node-1",
+		Property: "speed",
+	}
+	if err := ValidateWidgetParameter(badNodeParam); err == nil {
+		t.Errorf("expected ValidateWidgetParameter to reject 'speed' on node-1, got nil")
+	}
+
+	// 3. Reject invalid type for property (e.g. number for fill)
+	badTypeParam := WidgetParameter{
+		Name:     "nodeFill",
+		Type:     "number",
+		Target:   "node-1",
+		Property: "fill",
+	}
+	if err := ValidateWidgetParameter(badTypeParam); err == nil {
+		t.Errorf("expected ValidateWidgetParameter to reject 'number' for 'fill', got nil")
+	}
+
+	// 4. Test Uniqueness Contract in Scene
+	sc := NewScene()
+
+	// Add flow-1 stroke -> flow1Color
+	err := sc.AddParameter(WidgetParameter{
+		Name:     "flow1Color",
+		Type:     "color",
+		Target:   "flow-1",
+		Property: "stroke",
+		Default:  "#38bdf8",
+	})
+	if err != nil {
+		t.Fatalf("AddParameter flow1Color failed: %v", err)
+	}
+
+	// Attempt duplicate binding for flow-1 stroke with a different name -> flow1c
+	err = sc.AddParameter(WidgetParameter{
+		Name:     "flow1c",
+		Type:     "color",
+		Target:   "flow-1",
+		Property: "stroke",
+		Default:  "#ff0000",
+	})
+	if err == nil {
+		t.Fatalf("expected duplicate binding on (flow-1, stroke) to be rejected, got nil")
+	}
+	if !strings.Contains(err.Error(), "already bound") {
+		t.Errorf("expected error message to contain 'already bound', got: %v", err)
+	}
+
+	// Updating flow1Color in place (same name, same target & property) succeeds
+	err = sc.AddParameter(WidgetParameter{
+		Name:        "flow1Color",
+		Type:        "color",
+		Target:      "flow-1",
+		Property:    "stroke",
+		Default:     "#22c55e",
+		Description: "Updated color",
+	})
+	if err != nil {
+		t.Fatalf("updating flow1Color in place failed: %v", err)
+	}
+	params := sc.GetParameters()
+	if len(params) != 1 || params[0].Default != "#22c55e" {
+		t.Errorf("expected updated flow1Color default '#22c55e', got %+v", params)
+	}
+
+	// Adding a DIFFERENT property to flow-1 succeeds (speed)
+	speedVal := 1.5
+	minSpeed := 0.1
+	maxSpeed := 5.0
+	err = sc.AddParameter(WidgetParameter{
+		Name:     "flow1Speed",
+		Type:     "speed",
+		Target:   "flow-1",
+		Property: "speed",
+		Default:  speedVal,
+		Min:      &minSpeed,
+		Max:      &maxSpeed,
+	})
+	if err != nil {
+		t.Fatalf("AddParameter flow1Speed on flow-1 failed: %v", err)
+	}
+	if len(sc.GetParameters()) != 2 {
+		t.Fatalf("expected 2 parameters on flow-1, got %d", len(sc.GetParameters()))
+	}
+
+	// 5. RenameParameter
+	// Renaming to existing name is rejected
+	err = sc.RenameParameter("flow1Speed", "flow1Color")
+	if err == nil {
+		t.Errorf("expected renaming to existing name to fail, got nil")
+	}
+	// Renaming non-existent name is rejected
+	err = sc.RenameParameter("nonExistent", "newParam")
+	if err == nil {
+		t.Errorf("expected renaming non-existent parameter to fail, got nil")
+	}
+	// Renaming flow1Speed -> flow1Rate succeeds
+	err = sc.RenameParameter("flow1Speed", "flow1Rate")
+	if err != nil {
+		t.Fatalf("RenameParameter flow1Speed -> flow1Rate failed: %v", err)
+	}
+	params = sc.GetParameters()
+	var foundRenamed bool
+	for _, p := range params {
+		if p.Name == "flow1Rate" {
+			foundRenamed = true
+			if p.Target != "flow-1" || p.Property != "speed" {
+				t.Errorf("renamed parameter lost target/property identity: %+v", p)
+			}
+		}
+	}
+	if !foundRenamed {
+		t.Errorf("renamed parameter 'flow1Rate' not found")
+	}
+
+	// 6. Conflict Detection and Resolution
+	// Simulate existing loaded project with duplicate bindings using SetParameters
+	conflictingParams := []WidgetParameter{
+		{Name: "flow1color", Type: "color", Target: "flow-1", Property: "stroke", Default: "#111111"},
+		{Name: "flow1c", Type: "color", Target: "flow-1", Property: "stroke", Default: "#222222"},
+		{Name: "flow1op", Type: "number", Target: "flow-1", Property: "opacity", Default: 0.5},
+	}
+	if err := sc.SetParameters(conflictingParams); err != nil {
+		t.Fatalf("SetParameters with conflicts failed: %v", err)
+	}
+	conflicts := sc.DetectParameterConflicts()
+	if len(conflicts) != 1 {
+		t.Fatalf("expected 1 conflict, got %d", len(conflicts))
+	}
+	if conflicts[0].Target != "flow-1" || conflicts[0].Property != "stroke" || len(conflicts[0].Parameters) != 2 {
+		t.Errorf("unexpected conflict details: %+v", conflicts[0])
+	}
+
+	// Exporting package with conflicts must fail
+	_, err = BuildWidgetPackageZip(sc, "TestWidget", "<svg></svg>", "// js")
+	if err == nil {
+		t.Fatalf("expected BuildWidgetPackageZip to fail on unresolved conflicts, got nil")
+	}
+	if !strings.Contains(err.Error(), "conflicting parameter bindings") {
+		t.Errorf("expected error to mention conflicting parameter bindings, got: %v", err)
+	}
+
+	// Resolve conflict by keeping flow1color
+	err = sc.ResolveParameterConflict("flow-1", "stroke", "flow1color")
+	if err != nil {
+		t.Fatalf("ResolveParameterConflict failed: %v", err)
+	}
+	conflictsAfter := sc.DetectParameterConflicts()
+	if len(conflictsAfter) != 0 {
+		t.Errorf("expected 0 conflicts after resolution, got %d", len(conflictsAfter))
+	}
+	resolvedParams := sc.GetParameters()
+	if len(resolvedParams) != 2 {
+		t.Fatalf("expected 2 parameters after resolution, got %d", len(resolvedParams))
+	}
+	for _, p := range resolvedParams {
+		if p.Name == "flow1c" {
+			t.Errorf("flow1c should have been removed during conflict resolution")
+		}
 	}
 }

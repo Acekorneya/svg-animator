@@ -2192,6 +2192,86 @@
       return false;
     },
 
+    getEligibleWidgetProperties(targetType = '') {
+      if (this.isReady()) {
+        const res = this.dispatch('Widget.GetEligibleProperties', { targetType: String(targetType || '') });
+        if (res && res.success) {
+          return targetType ? (res.properties || []) : (res.catalog || {});
+        }
+      }
+      const fallbackCatalog = {
+        node: [
+          { property: 'fill', type: 'color', label: 'Fill Colour', description: 'Primary interior fill color of node shape', default: '#3b82f6' },
+          { property: 'stroke', type: 'color', label: 'Border Stroke', description: 'Outline and border stroke color', default: '#1d4ed8' },
+          { property: 'opacity', type: 'number', label: 'Opacity', description: 'Transparency of the node (0.0 to 1.0)', min: 0, max: 1, default: 1.0 },
+          { property: 'visibility', type: 'boolean', label: 'Visibility', description: 'Toggle visibility of the node', default: true },
+          { property: 'text', type: 'text', label: 'Label Text', description: 'Primary text label displayed inside the node', default: 'Node' }
+        ],
+        flow: [
+          { property: 'stroke', type: 'color', label: 'Line Colour', description: 'Connector line and particle stroke color', default: '#38bdf8' },
+          { property: 'speed', type: 'speed', label: 'Flow Speed', description: 'Animation speed multiplier for this flow connector (0.1 to 10.0)', min: 0.1, max: 10.0, default: 1.0 },
+          { property: 'opacity', type: 'number', label: 'Opacity', description: 'Transparency of the connector (0.0 to 1.0)', min: 0, max: 1, default: 1.0 },
+          { property: 'visibility', type: 'boolean', label: 'Visibility', description: 'Toggle visibility of this flow connector', default: true }
+        ],
+        glow: [
+          { property: 'color', type: 'color', label: 'Glow Colour', description: 'Accent color of the glow and beacon pulse', default: '#f59e0b' },
+          { property: 'opacity', type: 'number', label: 'Glow Intensity', description: 'Transparency / intensity of the glow element (0.0 to 1.0)', min: 0, max: 1, default: 1.0 },
+          { property: 'visibility', type: 'boolean', label: 'Visibility', description: 'Toggle visibility of this glow hotspot', default: true }
+        ],
+        ripple: [
+          { property: 'color', type: 'color', label: 'Wave Colour', description: 'Stroke color of the propagating ripple rings', default: '#06b6d4' },
+          { property: 'opacity', type: 'number', label: 'Wave Opacity', description: 'Transparency of the ripple effect (0.0 to 1.0)', min: 0, max: 1, default: 1.0 },
+          { property: 'visibility', type: 'boolean', label: 'Visibility', description: 'Toggle visibility of this ripple effect', default: true }
+        ],
+        image: [
+          { property: 'opacity', type: 'number', label: 'Image Opacity', description: 'Transparency of the image layer (0.0 to 1.0)', min: 0, max: 1, default: 1.0 },
+          { property: 'visibility', type: 'boolean', label: 'Visibility', description: 'Toggle visibility of the image layer', default: true }
+        ],
+        group: [
+          { property: 'opacity', type: 'number', label: 'Group Opacity', description: 'Transparency of the group (0.0 to 1.0)', min: 0, max: 1, default: 1.0 },
+          { property: 'visibility', type: 'boolean', label: 'Visibility', description: 'Toggle visibility of the group', default: true }
+        ],
+        root: [
+          { property: 'playbackRate', type: 'speed', label: 'Master Speed', description: 'Overall playback speed rate multiplier for the widget (0.1 to 5.0)', min: 0.1, max: 5.0, default: 1.0 },
+          { property: 'visibility', type: 'boolean', label: 'Visibility', description: 'Master visibility toggle for the entire widget', default: true },
+          { property: 'operatingState', type: 'enum', label: 'Operating State', description: 'Lifecycle operating state of the widget (running, paused, stopped)', options: ['running', 'paused', 'stopped'], default: 'running' }
+        ]
+      };
+      if (targetType) {
+        const norm = (targetType === 'global' || targetType === 'stage' || targetType === 'widget') ? 'root' : targetType;
+        return fallbackCatalog[norm] || [];
+      }
+      return fallbackCatalog;
+    },
+
+    renameWidgetParameter(oldName, newName) {
+      if (this.isReady() && oldName && newName) {
+        const res = this.dispatch('Widget.RenameParameter', { oldName: String(oldName), newName: String(newName) });
+        if (res && res.success) return res;
+      }
+      return null;
+    },
+
+    getWidgetConflicts() {
+      if (this.isReady()) {
+        const res = this.dispatch('Widget.GetConflicts', {});
+        if (res && res.success) return res.conflicts || [];
+      }
+      return [];
+    },
+
+    resolveWidgetConflict(target, property, keepName) {
+      if (this.isReady() && target && property && keepName) {
+        const res = this.dispatch('Widget.ResolveConflict', {
+          target: String(target),
+          property: String(property),
+          keepName: String(keepName)
+        });
+        if (res && res.success) return res;
+      }
+      return null;
+    },
+
     generateWidgetGuide(widgetName = '', svgFilename = '', rawSvg = '') {
       if (this.isReady()) {
         const payload = {
