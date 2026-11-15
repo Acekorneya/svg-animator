@@ -16,6 +16,7 @@ import (
 
 	"gitea.seaoffate.net/blackgrape/svg-animator/internal/effects"
 	"gitea.seaoffate.net/blackgrape/svg-animator/internal/rasterizer"
+	"gitea.seaoffate.net/blackgrape/svg-animator/pkg/engine/scene"
 )
 
 // decodeWebPConfig parses RIFF/WEBP headers (VP8, VP8L, VP8X) without requiring external Go module dependencies.
@@ -203,6 +204,31 @@ func BuildStandaloneHTMLWithBackground(title string, width, height int, svgMarku
   <div class="viewport">%s</div>
 </body>
 </html>`, safeTitle, bodyBg, width, width, height, viewportBg, bgTransparent, html.EscapeString(bgColor), svgMarkup)
+}
+
+// BuildStandaloneWidgetSVG produces an isolated, collision-free reusable SVG widget string.
+func BuildStandaloneWidgetSVG(width, height int, mimeType, b64Data string, opts Options, instanceID string) string {
+	rawSVG := BuildStandaloneSVG(width, height, mimeType, b64Data, opts)
+	isolated, _, err := scene.IsolateSVGWidget(rawSVG, scene.WidgetIsolationOptions{
+		InstanceID: instanceID,
+		ScopeCSS:   true,
+	})
+	if err != nil {
+		return rawSVG
+	}
+	return isolated
+}
+
+// BuildStandaloneWidgetHTML wraps an isolated SVG widget in a reusable HTML snippet.
+func BuildStandaloneWidgetHTML(title string, width, height int, svgMarkup string, instanceID string) string {
+	isolated, _, err := scene.IsolateSVGWidget(svgMarkup, scene.WidgetIsolationOptions{
+		InstanceID: instanceID,
+		ScopeCSS:   true,
+	})
+	if err != nil {
+		isolated = svgMarkup
+	}
+	return fmt.Sprintf(`<div class="sva-widget-container" id="container-%s" style="width: 100%%; max-width: %dpx; aspect-ratio: %d / %d;">%s</div>`, instanceID, width, width, height, isolated)
 }
 
 // Run executes the generation workflow for headless CLI usage.

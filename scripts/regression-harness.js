@@ -9466,6 +9466,190 @@ async function runHarness() {
 
   console.log('[HARNESS] Scenario 75 PASS: Batch 8F Snip, Extract and Background Crop Interaction Integrity verified.');
 
+  // ===========================================================================
+  // Scenario 76: Stage 16A Reusable, Self-Contained and Collision-Free SVG Widgets
+  // ===========================================================================
+  console.log('\n[HARNESS] Testing Scenario 76: Stage 16A Reusable, Self-Contained and Collision-Free SVG Widgets...');
+
+  const SAMPLE_COMPLEX_SVG = `
+<svg xmlns="http://www.w3.org/2000/svg" xmlns:xlink="http://www.w3.org/1999/xlink" viewBox="0 0 800 450" width="800" height="450">
+  <defs>
+    <clipPath id="viewportClip"><rect x="0" y="0" width="800" height="450" /></clipPath>
+    <radialGradient id="glowGrad-1" cx="50%" cy="50%" r="50%">
+      <stop offset="0%" stop-color="#38bdf8" stop-opacity="0.9" />
+      <stop offset="100%" stop-color="#38bdf8" stop-opacity="0" />
+    </radialGradient>
+    <filter id="nodeDropShadow" x="-20%" y="-20%" width="140%" height="140%">
+      <feDropShadow dx="0" dy="3" stdDeviation="4" flood-color="#000000" flood-opacity="0.6" />
+    </filter>
+    <filter id="flowBlur-1" filterUnits="userSpaceOnUse" x="-20%" y="-20%" width="140%" height="140%">
+      <feGaussianBlur stdDeviation="1.5" />
+    </filter>
+    <marker id="flowArrow-1" viewBox="0 0 10 10" refX="7" refY="5" markerWidth="6" markerHeight="6" orient="auto-start-reverse">
+      <path d="M 0 1.5 L 9 5 L 0 8.5 z" fill="#38bdf8" />
+    </marker>
+    <pattern id="bgGrid" width="30" height="30" patternUnits="userSpaceOnUse">
+      <path d="M 30 0 L 0 0 0 30" fill="none" stroke="#1f2937" stroke-width="0.75" />
+    </pattern>
+  </defs>
+  <style>
+    .camera-rig {
+      transform-origin: 0px 0px;
+      animation: camKenBurns 6s cubic-bezier(0.42, 0, 0.58, 1) infinite alternate;
+    }
+    @keyframes camKenBurns {
+      0%   { transform: translate3d(0px, 0px, 0px) scale(1.0); }
+      100% { transform: translate3d(-15px, -10px, 0px) scale(1.04); }
+    }
+  </style>
+  <rect width="800" height="450" fill="url(#bgGrid)" clip-path="url(#viewportClip)" />
+  <circle cx="400" cy="225" r="160" fill="url(#glowGrad-1)" />
+  <g class="camera-rig">
+    <g id="scene-layers">
+      <path id="flowPath-1" d="M 160 225 C 280 120 520 330 640 225" fill="none" stroke="#38bdf8" stroke-width="3" stroke-dasharray="6,4" marker-end="url(#flowArrow-1)" opacity="0.85">
+        <animate attributeName="stroke-dashoffset" from="40" to="0" dur="1.2s" repeatCount="indefinite" />
+      </path>
+      <g class="flow-payload">
+        <circle r="6" fill="#f43f5e" filter="url(#flowBlur-1)">
+          <animateMotion dur="2.4s" repeatCount="indefinite" rotate="auto">
+            <mpath href="#flowPath-1" xlink:href="#flowPath-1" />
+          </animateMotion>
+        </circle>
+      </g>
+      <g data-node-id="1" transform="translate(160, 225)" filter="url(#nodeDropShadow)">
+        <rect x="-60" y="-30" width="120" height="60" rx="8" fill="#1e293b" stroke="#38bdf8" stroke-width="2" />
+        <text y="4" fill="#ffffff" font-family="sans-serif" font-size="12" font-weight="bold" text-anchor="middle">Source #Node 1</text>
+      </g>
+      <image id="img-logo" href="data:image/png;base64,iVBORw0KGgoAAAANSUhEUgAAAAEAAAABCAYAAAAfFcSJAAAADUlEQVR42mP8z8BQDwAEhQGAhKmMIQAAAABJRU5ErkJggg==" x="390" y="215" width="20" height="20" />
+    </g>
+  </g>
+</svg>`.trim();
+
+  // Test 1: Go Engine Protocol Command Widget.IsolateSVG
+  const pfx1 = 'go_inst1__';
+  const goRes = window.EngineBridge.dispatch('Widget.IsolateSVG', {
+    svg: SAMPLE_COMPLEX_SVG,
+    instanceId: 'go-inst1',
+    prefix: pfx1,
+    scopeCss: true
+  });
+  assert.ok(goRes && goRes.success, 'Test 1: Widget.IsolateSVG protocol command succeeded');
+  assert.strictEqual(goRes.instanceId, 'go-inst1', 'Test 1: instanceId preserved');
+  assert.strictEqual(goRes.prefix, pfx1, 'Test 1: prefix preserved');
+  assert.ok(goRes.isolatedSvg.includes(`id="sva-widget-go-inst1"`), 'Test 1: root SVG has isolated ID');
+  assert.ok(goRes.isolatedSvg.includes(`data-sva-widget-instance="go-inst1"`), 'Test 1: root SVG has instance data attribute');
+  assert.ok(goRes.isolatedSvg.includes(`id="${pfx1}flowPath-1"`), 'Test 1: flowPath-1 ID remapped');
+  assert.ok(goRes.isolatedSvg.includes(`href="#${pfx1}flowPath-1"`), 'Test 1: mpath href remapped');
+  assert.ok(goRes.isolatedSvg.includes(`xlink:href="#${pfx1}flowPath-1"`), 'Test 1: mpath xlink:href remapped');
+  assert.ok(goRes.isolatedSvg.includes(`marker-end="url(#${pfx1}flowArrow-1)"`), 'Test 1: marker-end remapped');
+  assert.ok(goRes.isolatedSvg.includes(`fill="url(#${pfx1}glowGrad-1)"`), 'Test 1: fill gradient remapped');
+  assert.ok(goRes.isolatedSvg.includes(`clip-path="url(#${pfx1}viewportClip)"`), 'Test 1: clip-path remapped');
+  assert.ok(goRes.isolatedSvg.includes(`filter="url(#${pfx1}nodeDropShadow)"`), 'Test 1: filter drop shadow remapped');
+  assert.ok(goRes.isolatedSvg.includes(`filter="url(#${pfx1}flowBlur-1)"`), 'Test 1: filter flow blur remapped');
+  assert.ok(goRes.isolatedSvg.includes(`data:image/png;base64,iVBORw0KGgoAAAANSUhEUgAAAAEAAAABCAYAAAAfFcSJAAAADUlEQVR42mP8z8BQDwAEhQGAhKmMIQAAAABJRU5ErkJggg==`), 'Test 1: data URL preserved untouched');
+  assert.ok(goRes.isolatedSvg.includes('Source #Node 1'), 'Test 1: text containing # preserved untouched');
+  assert.ok(goRes.isolatedSvg.includes(`@keyframes ${pfx1}camKenBurns`), 'Test 1: @keyframes renamed with prefix');
+  assert.ok(goRes.isolatedSvg.includes(`animation: ${pfx1}camKenBurns`), 'Test 1: animation property references prefixed keyframe');
+  assert.ok(goRes.isolatedSvg.includes(`#sva-widget-go-inst1 .camera-rig`), 'Test 1: .camera-rig selector scoped to root widget ID');
+
+  // Test 2: Standalone SVGWidget JavaScript Library
+  const SVGWidgetLib = require(path.join(JS_DIR, 'svg-widget.js'));
+  assert.ok(SVGWidgetLib, 'Test 2: svg-widget.js loaded via CommonJS require');
+  assert.strictEqual(SVGWidgetLib.version, '1.0.0', 'Test 2: SVGWidget version 1.0.0');
+
+  const isoAlpha = SVGWidgetLib.isolate(SAMPLE_COMPLEX_SVG, {
+    instanceId: 'inst-alpha',
+    prefix: 'alpha__',
+    rawDetails: true
+  });
+  const isoBeta = SVGWidgetLib.isolate(SAMPLE_COMPLEX_SVG, {
+    instanceId: 'inst-beta',
+    prefix: 'beta__',
+    rawDetails: true
+  });
+
+  assert.ok(isoAlpha && isoAlpha.success, 'Test 2: Instance Alpha isolation succeeded');
+  assert.ok(isoBeta && isoBeta.success, 'Test 2: Instance Beta isolation succeeded');
+
+  // Verify zero ID overlap between Alpha and Beta
+  const idsAlpha = new Set(Object.values(isoAlpha.idMap));
+  const idsBeta = new Set(Object.values(isoBeta.idMap));
+  for (const id of idsAlpha) {
+    assert.strictEqual(idsBeta.has(id), false, `Test 2: Cross-instance ID collision detected for ${id}`);
+  }
+  assert.strictEqual(isoAlpha.isolatedSvg.includes('beta__'), false, 'Test 2: Instance Alpha does not reference Beta prefix');
+  assert.strictEqual(isoBeta.isolatedSvg.includes('alpha__'), false, 'Test 2: Instance Beta does not reference Alpha prefix');
+
+  // Test 3: Presentation Adapter & Global Delegator
+  assert.ok(typeof window.SVGExportAdapter.isolateWidget === 'function', 'Test 3: SVGExportAdapter.isolateWidget is a function');
+  assert.ok(typeof window.isolateSVGForWidget === 'function', 'Test 3: window.isolateSVGForWidget is a function');
+
+  const isoGamma = window.isolateSVGForWidget(SAMPLE_COMPLEX_SVG, 'inst-gamma', { prefix: 'gamma__' });
+  assert.ok(isoGamma.includes('id="sva-widget-inst-gamma"'), 'Test 3: Adapter result has root widget ID');
+  assert.ok(isoGamma.includes('data-sva-widget-instance="inst-gamma"'), 'Test 3: Adapter result has instance attribute');
+  assert.ok(isoGamma.includes('gamma__flowArrow-1'), 'Test 3: Adapter result has gamma prefix on markers');
+
+  // Test 4: Multi-Instance DOM Mounting Simulation
+  class MockDOMElement {
+    constructor(tagName) {
+      this.tagName = tagName;
+      this.children = [];
+      this.attributes = {};
+      this.style = {};
+      this.parentNode = null;
+      this.innerHTML = '';
+    }
+    setAttribute(k, v) { this.attributes[k] = String(v); }
+    getAttribute(k) { return this.attributes[k] || null; }
+    appendChild(child) {
+      child.parentNode = this;
+      this.children.push(child);
+      return child;
+    }
+    removeChild(child) {
+      const idx = this.children.indexOf(child);
+      if (idx !== -1) {
+        this.children.splice(idx, 1);
+        child.parentNode = null;
+      }
+      return child;
+    }
+    querySelector(sel) {
+      if (sel === 'svg') return new MockDOMElement('svg');
+      return null;
+    }
+  }
+
+  const origDocument = global.document;
+  try {
+    const mockContainer1 = new MockDOMElement('div');
+    const mockContainer2 = new MockDOMElement('div');
+    global.document = {
+      createElement(tag) { return new MockDOMElement(tag); },
+      querySelector(sel) { return null; }
+    };
+
+    const handle1 = SVGWidgetLib.mount(mockContainer1, SAMPLE_COMPLEX_SVG, { instanceId: 'mount-1', prefix: 'm1__' });
+    const handle2 = SVGWidgetLib.mount(mockContainer2, SAMPLE_COMPLEX_SVG, { instanceId: 'mount-2', prefix: 'm2__' });
+
+    assert.strictEqual(mockContainer1.children.length, 1, 'Test 4: Container 1 mounted 1 wrapper');
+    assert.strictEqual(mockContainer2.children.length, 1, 'Test 4: Container 2 mounted 1 wrapper');
+    assert.strictEqual(handle1.instanceId, 'mount-1', 'Test 4: Handle 1 instanceId');
+    assert.strictEqual(handle2.instanceId, 'mount-2', 'Test 4: Handle 2 instanceId');
+
+    handle1.unmount();
+    assert.strictEqual(mockContainer1.children.length, 0, 'Test 4: Container 1 empty after unmount');
+    assert.strictEqual(mockContainer2.children.length, 1, 'Test 4: Container 2 remains intact');
+  } finally {
+    global.document = origDocument;
+  }
+
+  // Test 5: Reusable SVG Widget Export UI Button
+  const btnExportWidget = document.getElementById('btnDownloadWidgetSVG');
+  assert.ok(btnExportWidget, 'Test 5: #btnDownloadWidgetSVG button present in index.html DOM');
+
+  console.log('[HARNESS] Scenario 76 PASS: Stage 16A Reusable, Self-Contained and Collision-Free SVG Widgets verified.');
+
   console.log('[HARNESS] REG-03 PASS: Stage 3, 4, 5, 6, 7, 8, 9, 11, 12, 13, 14 & 15 non-destructive cropping, background extraction, image baking, dedicated crop clip & snip workspace, object-local clipping, unified layer management, independent image objects, persistent groups, duplication, copy/paste with flow remapping, multi-selection, alignment, distribution, colour tools, selection retention, notifications, naming sync, history(50), schema 1.2.0, .sva packaging, background photo restoration, SVG compilation, export payload builders, and Go WASM Node, Flow, Glow, Ripple, Camera, Optics, Frame, State, History & Naming engines verified.');
 }
 

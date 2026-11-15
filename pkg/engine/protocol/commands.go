@@ -1195,6 +1195,24 @@ type ValidateSVAResponse struct {
 	Error    string        `json:"error,omitempty"`
 }
 
+// IsolateSVGWidgetRequest is the payload for "Widget.IsolateSVG".
+type IsolateSVGWidgetRequest struct {
+	SVG        string `json:"svg"`
+	InstanceID string `json:"instanceId,omitempty"`
+	Prefix     string `json:"prefix,omitempty"`
+	ScopeCSS   *bool  `json:"scopeCss,omitempty"`
+}
+
+// IsolateSVGWidgetResponse is returned by "Widget.IsolateSVG".
+type IsolateSVGWidgetResponse struct {
+	Success     bool              `json:"success"`
+	IsolatedSVG string            `json:"isolatedSvg,omitempty"`
+	InstanceID  string            `json:"instanceId,omitempty"`
+	Prefix      string            `json:"prefix,omitempty"`
+	IDMap       map[string]string `json:"idMap,omitempty"`
+	Error       string            `json:"error,omitempty"`
+}
+
 // Dispatch processes incoming commands and returns JSON-encoded responses.
 func Dispatch(command string, payloadJSON []byte) ([]byte, error) {
 	switch command {
@@ -3303,6 +3321,50 @@ func Dispatch(command string, payloadJSON []byte) ([]byte, error) {
 			return json.Marshal(BackgroundCropResponse{Success: false, Error: err.Error()})
 		}
 		return json.Marshal(BackgroundCropResponse{Success: true, Background: bg})
+
+	case "Widget.IsolateSVG":
+		var req IsolateSVGWidgetRequest
+		if err := json.Unmarshal(payloadJSON, &req); err != nil {
+			return json.Marshal(IsolateSVGWidgetResponse{
+				Success: false,
+				Error:   fmt.Sprintf("decoding IsolateSVGWidgetRequest: %v", err),
+			})
+		}
+		scopeCSS := true
+		if req.ScopeCSS != nil {
+			scopeCSS = *req.ScopeCSS
+		}
+		isolated, idMap, err := scene.IsolateSVGWidget(req.SVG, scene.WidgetIsolationOptions{
+			InstanceID: req.InstanceID,
+			Prefix:     req.Prefix,
+			ScopeCSS:   scopeCSS,
+		})
+		if err != nil {
+			return json.Marshal(IsolateSVGWidgetResponse{
+				Success: false,
+				Error:   err.Error(),
+			})
+		}
+		instID := req.InstanceID
+		if instID == "" {
+			for _, v := range idMap {
+				if idx := strings.Index(v, "__"); idx > 0 {
+					instID = v[:idx]
+					break
+				}
+			}
+		}
+		prefix := req.Prefix
+		if prefix == "" && instID != "" {
+			prefix = instID + "__"
+		}
+		return json.Marshal(IsolateSVGWidgetResponse{
+			Success:     true,
+			IsolatedSVG: isolated,
+			InstanceID:  instID,
+			Prefix:      prefix,
+			IDMap:       idMap,
+		})
 
 	default:
 		return nil, errors.New("unknown engine command: " + command)

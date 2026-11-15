@@ -2143,6 +2143,19 @@
       return null;
     },
 
+    isolateSVGWidget(rawSvg, instanceId = '', prefix = '', scopeCss = true) {
+      if (this.isReady() && rawSvg) {
+        const res = this.dispatch('Widget.IsolateSVG', {
+          svg: String(rawSvg),
+          instanceId: String(instanceId || ''),
+          prefix: String(prefix || ''),
+          scopeCss: Boolean(scopeCss)
+        });
+        if (res && res.success) return res;
+      }
+      return null;
+    },
+
     getActiveEngineName() {
       if (!this.isReady()) return 'JS fallback';
       if (this._lastSyncError) return 'Sync Failed (JS fallback)';

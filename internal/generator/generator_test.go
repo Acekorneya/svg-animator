@@ -22,3 +22,17 @@ func TestStandaloneHTMLTransparencyAttributes(t *testing.T) {
 		t.Errorf("expected html to contain data-bg-color=\"#abcdef\"")
 	}
 }
+
+func TestBuildStandaloneWidgetHTML(t *testing.T) {
+	svg := `<svg width="400" height="300"><defs><filter id="f1"/></defs><rect filter="url(#f1)"/></svg>`
+	out := BuildStandaloneWidgetHTML("Test Widget", 400, 300, svg, "inst1")
+	if !strings.Contains(out, `id="container-inst1"`) {
+		t.Errorf("expected container-inst1 in output")
+	}
+	if !strings.Contains(out, `id="inst1__f1"`) {
+		t.Errorf("expected inst1__f1 mapped ID in output")
+	}
+	if !strings.Contains(out, `filter="url(#inst1__f1)"`) {
+		t.Errorf("expected filter url to be remapped in output")
+	}
+}

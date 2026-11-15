@@ -1,0 +1,108 @@
+=============================================================================
+SVG Animator Studio — Stage 16A Implementation Evidence Log
+=============================================================================
+Timestamp: 2026-11-15T05:21:45Z
+Baseline Commit: 54c4488b02131aa3b246a47a1ec63ca492e76f9d
+Milestone: Stage 16A — Reusable, Self-Contained and Collision-Free SVG Widgets
+
+-----------------------------------------------------------------------------
+1. GIT STATUS & BASELINE
+-----------------------------------------------------------------------------
+$ git branch --show-current
+main
+
+$ git rev-parse HEAD
+54c4488b02131aa3b246a47a1ec63ca492e76f9d
+
+-----------------------------------------------------------------------------
+2. GO ENGINE VET & UNIT TESTS
+-----------------------------------------------------------------------------
+$ go vet ./...
+(exit code 0 - Clean)
+
+$ go test -count=1 ./...
+?   	gitea.seaoffate.net/blackgrape/svg-animator/cmd/svg-animator	[no test files]
+ok  	gitea.seaoffate.net/blackgrape/svg-animator/internal/db	0.032s
+?   	gitea.seaoffate.net/blackgrape/svg-animator/internal/effects	[no test files]
+ok  	gitea.seaoffate.net/blackgrape/svg-animator/internal/generator	0.002s
+ok  	gitea.seaoffate.net/blackgrape/svg-animator/internal/rasterizer	0.034s
+ok  	gitea.seaoffate.net/blackgrape/svg-animator/internal/web	0.095s
+ok  	gitea.seaoffate.net/blackgrape/svg-animator/pkg/engine/geometry	0.002s
+ok  	gitea.seaoffate.net/blackgrape/svg-animator/pkg/engine/protocol	0.012s
+ok  	gitea.seaoffate.net/blackgrape/svg-animator/pkg/engine/scene	0.016s
+ok  	gitea.seaoffate.net/blackgrape/svg-animator/pkg/engine/sva	0.864s
+ok  	gitea.seaoffate.net/blackgrape/svg-animator/pkg/engine/timeline	0.007s
+
+$ go test -race -count=1 ./pkg/engine/scene/...
+ok  	gitea.seaoffate.net/blackgrape/svg-animator/pkg/engine/scene	1.031s
+
+-----------------------------------------------------------------------------
+3. WEBASSEMBLY ENGINE RECOMPILATION
+-----------------------------------------------------------------------------
+$ GOOS=js GOARCH=wasm go build -o internal/web/static/wasm/engine.wasm ./cmd/wasm
+(exit code 0 - Clean)
+
+$ ls -lh internal/web/static/wasm/engine.wasm
+-rwxr-xr-x 1 root root 8.5M Nov 15 05:07 internal/web/static/wasm/engine.wasm
+
+-----------------------------------------------------------------------------
+4. STATIC ARCHITECTURE SCAN (verify-architecture.sh)
+-----------------------------------------------------------------------------
+$ bash scripts/verify-architecture.sh
+=============================================================================
+ SVG Animator Studio — Phase 1 Static Architecture Report ([STATIC])
+=============================================================================
+[RESULT] PASS | ARCH-01 | [STATIC] | No recognised direct DOM access found in inspected operational/coordination core (effects.js, coordinator.js, shape-registry.js, scene-state.js lines 1..653) — effects.js=0, coordinator.js=0, shape-registry.js=0, scene-state.js(1..653)=0
+[RESULT] PASS | ARCH-02 | [STATIC] | SceneState.serializeSVGForExport has no browser Web API dependency
+[RESULT] PASS | ARCH-03 | [STATIC] | Targeted static scan found no recognised direct DOM access or Layer 1 UI method calls in the inspected Layer 3 sections of presets, nodes, flows, glows, ripples, stage, and export-modal (pattern-based static scan of inspected regions, not proof of complete UI independence) — presets.js(46..146), nodes.js(24..366), flows.js(28..552), glows.js(22..410), ripples.js(22..347), stage.js(60..122), export-modal.js(37..186)
+[RESULT] PASS | ARCH-04 | [STATIC] | No recognised document.getElementById calls in history.js and projects.js Layer 3 sections
+[RESULT] WARNING | ARCH-05 | [STATIC] | Known architectural exception: StillExportStudio.bakeStaticSVGAtTime (Layer 3) uses offscreen DOM sandbox for SVG path geometry — still-export-modal.js(L3 25..434) lines [209, 212, 213, 380]
+[RESULT] PASS | ARCH-06 | [STATIC] | No direct UI presentation method calls in Layer 3 restore methods
+[RESULT] PASS | ARCH-07 | [STATIC] | Targeted static scan found no recognised direct cross-module state mutations or peer Layer 1 UI calls in the inspected Layer 1 regions (pattern-based static check, not proof that all interactions exclusively use AppCoordinator)
+[RESULT] PASS | ARCH-08 | [STATIC] | ControlStateAdaptor object (lines 663..711) defines syncFromDOM, syncToDOM, and setPairValue as direct object methods and confines all document.getElementById calls in scene-state.js to this boundary — direct_methods=[syncFromDOM:L664, syncToDOM:L687, setPairValue:L701], adaptor_getElementById_lines=[671, 679, 693, 706, 707], outside_adaptor_getElementById_lines=[]
+[RESULT] PASS | ARCH-09 | [STATIC] | Control ID sets verified across HistoryManager, SceneState, ControlStateAdaptor, and index.html — HistoryManager.trackedControlIds=95 == SceneState.trackedControlIds=95; ControlStateAdaptor=96 (95 + chkAutoApplyPreset); all present in index.html (390 total form controls)
+[RESULT] PASS | ARCH-10 | [STATIC] | All 25 <script> tags in index.html are in exact dependency order and all required window.* globals/method definitions are present in stripped source (static definition check) — scripts=25, method_and_global_definitions_verified=127
+=============================================================================
+
+-----------------------------------------------------------------------------
+5. RUNTIME DEPLOYMENT SCAN (verify-runtime.sh)
+-----------------------------------------------------------------------------
+$ bash scripts/verify-runtime.sh
+=============================================================================
+ SVG Animator Studio — Phase 1 Runtime & Deployment Report ([RUNTIME])
+=============================================================================
+>> Running RUN-01: go vet ./..., go build ./cmd/svg-animator, and go test...
+[RESULT] PASS | RUN-01 | [RUNTIME] | go vet ./..., package build (go build ./cmd/svg-animator), and go test -count=1 ./... succeeded
+>> Running RUN-02: CLI standalone SVG & HTML generation (-format both)...
+[RESULT] PASS | RUN-02 | [RUNTIME] | CLI standalone SVG and HTML generation (-format both) produced non-empty verify_asset.svg and verify_asset.html
+>> Running RUN-03: Starting studio server with isolated -config and -datadir...
+[RESULT] PASS | RUN-03 | [RUNTIME] | Studio server started on 127.0.0.1:56439, listening socket ownership verified via ss, using verified isolated DB; repository database metadata unchanged
+>> Running RUN-04: Verifying live HTTP delivery, Content-Type, and source match...
+[RESULT] PASS | RUN-04 | [RUNTIME] | Live HTTP server delivered /, all 25 embedded /js/*.js files, and /wasm/engine.wasm with HTTP 200 and exact byte-for-byte match
+>> Running RUN-05: Verifying live 11-step REST API round-trip against isolated temp DB...
+[RESULT] PASS | RUN-05 | [RUNTIME] | All 11 REST API verification steps passed against isolated temp DB
+>> Running RUN-06: Checking Chromium browser binary installation...
+[RESULT] NOT VERIFIED | RUN-06 | [RUNTIME] | Headless Chromium binary availability check only: no chromium/google-chrome binary installed on LXC
+>> Running RUN-07: Checking FFmpeg and ffprobe binary installation...
+[RESULT] PASS | RUN-07 | [RUNTIME] | FFmpeg (/usr/bin/ffmpeg) and ffprobe (/usr/bin/ffprobe) binaries installed
+=============================================================================
+
+-----------------------------------------------------------------------------
+6. REGRESSION HARNESS SUITE (76/76 SCENARIOS)
+-----------------------------------------------------------------------------
+$ node scripts/regression-harness.js
+...
+[HARNESS] Scenario 75 PASS: Batch 8F Snip, Extract and Background Crop Interaction Integrity verified.
+[HARNESS] Testing Scenario 76: Stage 16A Reusable, Self-Contained and Collision-Free SVG Widgets...
+[HARNESS] Scenario 76 PASS: Stage 16A Reusable, Self-Contained and Collision-Free SVG Widgets verified.
+[HARNESS] REG-03 PASS: All engines verified.
+
+-----------------------------------------------------------------------------
+7. LIVE PREVIEW & HTTP STATUS
+-----------------------------------------------------------------------------
+$ curl -s -o /dev/null -w "%{http_code}\n" http://127.0.0.1:8089/
+200
+$ curl -s -o /dev/null -w "%{http_code}\n" http://127.0.0.1:8089/demo-widgets.html
+200
+$ curl -s -o /dev/null -w "%{http_code}\n" http://127.0.0.1:8089/js/svg-widget.js
+200

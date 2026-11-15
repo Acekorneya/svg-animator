@@ -3,6 +3,7 @@ package protocol
 import (
 	"encoding/json"
 	"fmt"
+	"strings"
 	"testing"
 
 	"gitea.seaoffate.net/blackgrape/svg-animator/pkg/engine/geometry"
@@ -3240,5 +3241,49 @@ func TestDispatchImageBakeProtocol(t *testing.T) {
 	}
 	if removeRes.Background == nil || removeRes.Background.Src != "data:image/png;base64,BAKED_REMOVE" {
 		t.Errorf("unexpected background after bake remove: %+v", removeRes.Background)
+	}
+}
+
+func TestDispatchWidgetIsolateSVG(t *testing.T) {
+	rawSVG := `<svg width="100" height="100"><defs><filter id="f1"><feGaussianBlur/></filter></defs><style>.camera-rig { animation: camKB 1s; } @keyframes camKB { 0% {} }</style><rect filter="url(#f1)"/><image href="data:image/png;base64,123"/></svg>`
+	req, _ := json.Marshal(IsolateSVGWidgetRequest{
+		SVG:        rawSVG,
+		InstanceID: "unit-inst-1",
+		Prefix:     "pfx1__",
+	})
+
+	respBytes, err := Dispatch("Widget.IsolateSVG", req)
+	if err != nil {
+		t.Fatalf("Widget.IsolateSVG dispatch failed: %v", err)
+	}
+
+	var res IsolateSVGWidgetResponse
+	if err := json.Unmarshal(respBytes, &res); err != nil {
+		t.Fatalf("unmarshaling IsolateSVGWidgetResponse: %v", err)
+	}
+
+	if !res.Success {
+		t.Fatalf("expected success true, got false: %s", res.Error)
+	}
+	if res.InstanceID != "unit-inst-1" {
+		t.Errorf("expected instanceId unit-inst-1, got %s", res.InstanceID)
+	}
+	if res.Prefix != "pfx1__" {
+		t.Errorf("expected prefix pfx1__, got %s", res.Prefix)
+	}
+	if res.IDMap["f1"] != "pfx1__f1" {
+		t.Errorf("expected idMap[f1] == pfx1__f1, got %s", res.IDMap["f1"])
+	}
+	if !strings.Contains(res.IsolatedSVG, `id="pfx1__f1"`) {
+		t.Errorf("expected isolated SVG to contain id=\"pfx1__f1\"")
+	}
+	if !strings.Contains(res.IsolatedSVG, `filter="url(#pfx1__f1)"`) {
+		t.Errorf("expected isolated SVG to contain filter=\"url(#pfx1__f1)\"")
+	}
+	if !strings.Contains(res.IsolatedSVG, `data:image/png;base64,123`) {
+		t.Errorf("expected data URL to be preserved untouched")
+	}
+	if !strings.Contains(res.IsolatedSVG, `@keyframes pfx1__camKB`) {
+		t.Errorf("expected @keyframes to be renamed")
 	}
 }

@@ -3607,6 +3607,42 @@ document.addEventListener('DOMContentLoaded', () => {
     }
   });
 
+  document.getElementById('btnDownloadWidgetSVG')?.addEventListener('click', () => {
+    try {
+      if (!currentImage || !window.currentRenderState) return;
+      const rawSvg = getExportSVG();
+      const instanceId = 'widget-' + (Date.now() % 1000000);
+      const isolatedSvg = (window.SVGExportAdapter && typeof window.SVGExportAdapter.isolateWidget === 'function')
+        ? window.SVGExportAdapter.isolateWidget(rawSvg, instanceId, { scopeCss: true })
+        : (window.SVGWidget && typeof window.SVGWidget.isolate === 'function')
+          ? window.SVGWidget.isolate(rawSvg, { instanceId, scopeCss: true })
+          : rawSvg;
+
+      const blob = new Blob([isolatedSvg], { type: 'image/svg+xml;charset=utf-8' });
+      const url = URL.createObjectURL(blob);
+      const a = document.createElement('a');
+      a.style.display = 'none';
+      a.href = url;
+      a.download = getCleanBaseName() + '_widget.svg';
+      document.body.appendChild(a);
+      a.click();
+      setTimeout(() => {
+        document.body.removeChild(a);
+        URL.revokeObjectURL(url);
+      }, 150);
+
+      if (window.AppCoordinator && typeof window.AppCoordinator.showNotification === 'function') {
+        window.AppCoordinator.showNotification('Reusable SVG Widget exported (ID namespace: ' + instanceId + ')', 'success');
+      }
+    } catch (err) {
+      if (window.AppCoordinator && typeof window.AppCoordinator.showNotification === 'function') {
+        window.AppCoordinator.showNotification('Widget Export Error: ' + err.message, 'error');
+      } else {
+        alert('Widget Export Error: ' + err.message);
+      }
+    }
+  });
+
   if (typeof populateShapeDropdowns === 'function') {
     populateShapeDropdowns();
   }
