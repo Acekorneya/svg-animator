@@ -37,13 +37,14 @@
       'acc-camera': 'Camera Rig & Motion',
       'acc-optics': 'Optical Effects',
       'acc-frame': 'Presentation Frame',
+      'acc-widget-params': 'Widget Parameters & External Controls',
       'acc-export': 'Export & Render Studio'
     },
 
     showToolPanel(toolId) {
       if (!toolId) return;
       const isLeft = ['acc-background', 'acc-nodes', 'acc-presets', 'acc-flows', 'acc-glows', 'acc-ripples', 'acc-layers', 'acc-image-tools'].includes(toolId);
-      const isRight = ['acc-playback', 'acc-camera', 'acc-optics', 'acc-frame', 'acc-export'].includes(toolId);
+      const isRight = ['acc-playback', 'acc-camera', 'acc-optics', 'acc-frame', 'acc-widget-params', 'acc-export'].includes(toolId);
       if (!isLeft && !isRight) return;
 
       if (isLeft) {
@@ -105,7 +106,7 @@
         }
 
         const domSectionId = (toolId === 'acc-frame') ? 'acc-optics' : toolId;
-        const rightSections = ['acc-playback', 'acc-camera', 'acc-optics', 'acc-export'];
+        const rightSections = ['acc-playback', 'acc-camera', 'acc-optics', 'acc-widget-params', 'acc-export'];
         rightSections.forEach((secId) => {
           const sec = document.getElementById(secId);
           if (sec && sec.classList) {
@@ -118,6 +119,9 @@
             }
           }
         });
+        if (toolId === 'acc-widget-params' && typeof window.renderWidgetParametersOverview === 'function') {
+          window.renderWidgetParametersOverview();
+        }
         this.syncRailForAccordion(toolId);
       }
       this._syncOverlays();

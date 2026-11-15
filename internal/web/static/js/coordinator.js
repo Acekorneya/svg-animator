@@ -98,6 +98,10 @@
       };
     },
 
+    getSelection() {
+      return this.getActiveSelection();
+    },
+
     getSelectedItems() {
       return Array.isArray(this.activeSelection.items) ? [...this.activeSelection.items] : [];
     },

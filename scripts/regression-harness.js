@@ -10256,6 +10256,100 @@ async function runHarness() {
   assert.strictEqual(paramsAfterRem.length, 3, 'W16B-V35: Exactly 3 parameters remain after removal');
   assert.strictEqual(paramsAfterRem.some(p => p.name === 'alarmActive'), false, 'W16B-V36: alarmActive is gone');
 
+  // 7. Test Coordinator Selection API and Widget Parameters Overview without getSelection()
+  console.log('[HARNESS] Testing AppCoordinator Selection API & renderWidgetParametersOverview robustness...');
+  assert.strictEqual(typeof window.AppCoordinator, 'object', 'W16B-V37: AppCoordinator must be an object');
+  assert.strictEqual(typeof window.AppCoordinator.getActiveSelection, 'function', 'W16B-V38: AppCoordinator must provide getActiveSelection');
+
+  // Temporarily delete window.AppCoordinator.getSelection to verify zero reliance on getSelection
+  const originalGetSelection = window.AppCoordinator.getSelection;
+  delete window.AppCoordinator.getSelection;
+  assert.strictEqual(typeof window.AppCoordinator.getSelection, 'undefined', 'W16B-V39: window.AppCoordinator.getSelection is undefined for strict verification');
+
+  // Verify renderWidgetParametersOverview runs with no selection and doesn't throw
+  assert.doesNotThrow(() => {
+    window.renderWidgetParametersOverview();
+  }, 'W16B-V40: renderWidgetParametersOverview must not throw when AppCoordinator.getSelection does not exist');
+
+  const btnExposeActive = document.getElementById('btnExposeActiveWidgetParam');
+  assert.ok(btnExposeActive, 'W16B-V41: btnExposeActiveWidgetParam exists in DOM');
+
+  // Ensure valid objects exist for testing real selection dispatch across all types
+  const robNode = (window.DiagramNodes && window.DiagramNodes.nodes && window.DiagramNodes.nodes.length > 0)
+    ? window.DiagramNodes.nodes[0]
+    : window.DiagramNodes.createNode({ name: 'Rob Node' });
+
+  const robFlow = (window.DataFlows && window.DataFlows.flows && window.DataFlows.flows.length > 0)
+    ? window.DataFlows.flows[0]
+    : window.DataFlows.createFlow({ name: 'Rob Flow', fromNodeId: robNode.id });
+
+  const robGlow = (window.Glows && window.Glows.glows && window.Glows.glows.length > 0)
+    ? window.Glows.glows[0]
+    : window.Glows.createGlow({ name: 'Rob Glow', cx: 50, cy: 50, r: 20 });
+
+  const robRipple = (window.Ripples && window.Ripples.ripples && window.Ripples.ripples.length > 0)
+    ? window.Ripples.ripples[0]
+    : window.Ripples.createRipple({ name: 'Rob Ripple', cx: 50, cy: 50, minR: 10, maxR: 30 });
+
+  let robImageId = null;
+  if (window.EngineBridge && typeof window.EngineBridge.getAllImages === 'function') {
+    const imgs = window.EngineBridge.getAllImages();
+    if (imgs && imgs.length > 0) {
+      robImageId = imgs[0].id;
+    }
+  }
+  if (!robImageId && window.EngineBridge && typeof window.EngineBridge.createImage === 'function') {
+    const newImg = window.EngineBridge.createImage({
+      name: 'harness_test.png',
+      x: 100,
+      y: 100,
+      width: 150,
+      height: 150
+    });
+    if (newImg && newImg.id) robImageId = newImg.id;
+  }
+
+  // Test Node selection via real AppCoordinator
+  window.AppCoordinator.selectObject('node', robNode.id);
+  assert.strictEqual(window.AppCoordinator.getActiveSelection().type, 'node', 'W16B-V42: Node selected');
+  assert.strictEqual(btnExposeActive.style.display, 'inline-block', 'W16B-V43: btnExposeActive displayed for node');
+  assert.strictEqual(btnExposeActive.textContent, '+ Expose Node', 'W16B-V44: Button text says + Expose Node');
+
+  // Test Flow selection via real AppCoordinator
+  window.AppCoordinator.selectObject('flow', robFlow.id);
+  assert.strictEqual(window.AppCoordinator.getActiveSelection().type, 'flow', 'W16B-V45: Flow selected');
+  assert.strictEqual(btnExposeActive.style.display, 'inline-block');
+  assert.strictEqual(btnExposeActive.textContent, '+ Expose Flow');
+
+  // Test Glow selection via real AppCoordinator
+  window.AppCoordinator.selectObject('glow', robGlow.id);
+  assert.strictEqual(window.AppCoordinator.getActiveSelection().type, 'glow', 'W16B-V46: Glow selected');
+  assert.strictEqual(btnExposeActive.style.display, 'inline-block');
+  assert.strictEqual(btnExposeActive.textContent, '+ Expose Glow');
+
+  // Test Ripple selection via real AppCoordinator
+  window.AppCoordinator.selectObject('ripple', robRipple.id);
+  assert.strictEqual(window.AppCoordinator.getActiveSelection().type, 'ripple', 'W16B-V47: Ripple selected');
+  assert.strictEqual(btnExposeActive.style.display, 'inline-block');
+  assert.strictEqual(btnExposeActive.textContent, '+ Expose Ripple');
+
+  // Test Image selection via real AppCoordinator
+  if (robImageId) {
+    window.AppCoordinator.selectObject('image', robImageId);
+    assert.strictEqual(window.AppCoordinator.getActiveSelection().type, 'image', 'W16B-V48: Image selected');
+    assert.strictEqual(btnExposeActive.style.display, 'inline-block');
+    assert.strictEqual(btnExposeActive.textContent, '+ Expose Image');
+  }
+
+  // Test Clear selection via real AppCoordinator
+  window.AppCoordinator.clearSelection();
+  assert.strictEqual(window.AppCoordinator.getActiveSelection().type, null, 'W16B-V49: Selection cleared');
+  assert.strictEqual(btnExposeActive.style.display, 'none', 'W16B-V50: btnExposeActive hidden when no selection');
+
+  // Restore getSelection alias
+  window.AppCoordinator.getSelection = originalGetSelection;
+  assert.strictEqual(typeof window.AppCoordinator.getSelection, 'function', 'W16B-V51: AppCoordinator.getSelection restored as alias');
+
   console.log('[HARNESS] Scenario 78 PASS: Stage 16B Visual Widget Property Bindings Inside Editor verified.');
 
   // ===========================================================================
@@ -10315,6 +10409,154 @@ async function runHarness() {
   assert.ok(demoHtml.includes('statusText'), 'W16B-PKG21: demo.html binds statusText');
 
   console.log('[HARNESS] Scenario 79 PASS: Stage 16B Automatic Widget Properties Guide & Portable Package verified.');
+
+  // ===========================================================================
+  // Scenario 80: Stage 16B Offline Double-Click File:// Package Loading, Independent Multi-Instance Mounting & Asset Preservation
+  // ===========================================================================
+  console.log('[HARNESS] Testing Scenario 80: Stage 16B Offline Double-Click File:// Package Loading & Multi-Instance Mounting...');
+
+  // 1. Verify demo.html contains embedded Base64 payload for zero-fetch offline execution
+  const guideWithSvg = window.EngineBridge.generateWidgetGuide('Storage Tank Widget', 'Storage Tank Widget', mockSceneSvg);
+  const demoHtmlFull = guideWithSvg.demoHTML || guideWithSvg.demoHtml;
+  assert.ok(demoHtmlFull.includes('<script id="embedded-widget-svg" type="application/base64">'), 'W16B-OFF01: demo.html contains embedded-widget-svg payload');
+  assert.ok(demoHtmlFull.includes('function getRawSvg()'), 'W16B-OFF02: demo.html contains getRawSvg() extraction helper');
+
+  // Extract embedded Base64 payload from demoHtml
+  const b64Match = demoHtmlFull.match(/<script id="embedded-widget-svg" type="application\/base64">([\s\S]*?)<\/script>/);
+  assert.ok(b64Match && b64Match[1], 'W16B-OFF03: extracted embedded base64 SVG payload');
+  const b64Str = b64Match[1].trim();
+  assert.ok(b64Str.length > 50, 'W16B-OFF04: Base64 payload is non-empty');
+
+  // Decode Base64 in JavaScript (emulating browser getRawSvg without HTTP/fetch)
+  const decodedSvg = Buffer.from(b64Str, 'base64').toString('utf-8');
+  assert.ok(decodedSvg.includes('<svg'), 'W16B-OFF05: Decoded SVG starts with svg tag');
+  assert.ok(decodedSvg.includes('</svg>'), 'W16B-OFF06: Decoded SVG terminates with closing svg tag');
+  assert.ok(decodedSvg.includes('sva-widget-manifest'), 'W16B-OFF07: Decoded SVG contains embedded widget manifest');
+
+  // 2. Independent Multi-Instance Mounting in Simulated DOM without HTTP fetch
+  if (typeof window.SVGWidget !== 'undefined' && typeof window.SVGWidget.mount === 'function') {
+    const containerA = document.createElement('div');
+    const containerB = document.createElement('div');
+    const containerC = document.createElement('div');
+    document.body.appendChild(containerA);
+    document.body.appendChild(containerB);
+    document.body.appendChild(containerC);
+
+    const instA = window.SVGWidget.mount(containerA, decodedSvg, { instanceId: 'unit-a', scopeCss: true });
+    const instB = window.SVGWidget.mount(containerB, decodedSvg, { instanceId: 'unit-b', scopeCss: true });
+    const instC = window.SVGWidget.mount(containerC, decodedSvg, { instanceId: 'unit-c', scopeCss: true });
+
+    assert.ok(instA && instB && instC, 'W16B-OFF08: All 3 instances mounted from decoded offline SVG');
+    assert.strictEqual(instA.instanceId, 'unit-a', 'W16B-OFF09: Instance A ID is unit-a');
+    assert.strictEqual(instB.instanceId, 'unit-b', 'W16B-OFF10: Instance B ID is unit-b');
+    assert.strictEqual(instC.instanceId, 'unit-c', 'W16B-OFF11: Instance C ID is unit-c');
+
+    // Test parameter independence across instances
+    instA.setParameter('tankBodyColor', '#22c55e');
+    instB.setParameter('tankBodyColor', '#ef4444');
+    assert.strictEqual(instA.getParameter('tankBodyColor'), '#22c55e', 'W16B-OFF12: Instance A color is green');
+    assert.strictEqual(instB.getParameter('tankBodyColor'), '#ef4444', 'W16B-OFF13: Instance B color is red');
+
+    // Reset defaults on Instance A
+    instA.resetParameters();
+    assert.strictEqual(instA.getParameter('tankBodyColor'), '#1e293b', 'W16B-OFF14: Instance A reset to default');
+    assert.strictEqual(instB.getParameter('tankBodyColor'), '#ef4444', 'W16B-OFF15: Instance B retains red color');
+
+    // Clean up DOM containers
+    containerA.remove();
+    containerB.remove();
+    containerC.remove();
+  }
+
+  // 3. Image Visibility: Test SVG with embedded raster photo (data:image/png;base64,...)
+  const photoSvg = `<svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 512 512">` +
+    `<image id="photo-bg" href="data:image/png;base64,iVBORw0KGgoAAAANSUhEUgAAAAEAAAABCAYAAAAfFcSJAAAADUlEQVR42mNk+M9QDwADhgGAWjR9awAAAABJRU5ErkJggg==" width="512" height="512"/>` +
+    `<text id="mytext1" x="20" y="50">Mail Delivery</text>` +
+    `</svg>`;
+
+  const photoPkgRes = window.EngineBridge.buildWidgetPackage('Mail Delivery', photoSvg);
+  assert.strictEqual(photoPkgRes.success, true, 'W16B-OFF16: photo widget package built successfully');
+  const photoZipBuf = Buffer.from(photoPkgRes.zipBase64, 'base64');
+  const photoZipStr = photoZipBuf.toString('binary');
+  assert.ok(photoZipStr.includes('mail-delivery/demo.html'), 'W16B-OFF17: ZIP contains demo.html');
+
+  // Verify Base64 payload in photo demo.html preserves image data URI
+  const photoGuideRes = window.EngineBridge.generateWidgetGuide('Mail Delivery', 'Mail Delivery', photoSvg);
+  const photoDemoHtml = photoGuideRes.demoHTML || photoGuideRes.demoHtml;
+  assert.ok(photoDemoHtml.includes('<script id="embedded-widget-svg" type="application/base64">'), 'W16B-OFF18: photo demo.html has embedded-widget-svg');
+
+  const photoB64Match = photoDemoHtml.match(/<script id="embedded-widget-svg" type="application\/base64">([\s\S]*?)<\/script>/);
+  assert.ok(photoB64Match && photoB64Match[1], 'W16B-OFF19: photo base64 payload extracted');
+  const photoDecodedSvg = Buffer.from(photoB64Match[1].trim(), 'base64').toString('utf-8');
+  assert.ok(photoDecodedSvg.includes('data:image/png;base64,iVBORw0KGgoAAAANSUhEUgAAAAEAAAABCAYAAAAfFcSJAAAADUlEQVR42mNk+M9QDwADhgGAWjR9awAAAABJRU5ErkJggg=='), 'W16B-OFF20: raster photo data URI is preserved completely in offline payload');
+  assert.ok(photoDecodedSvg.includes('Mail Delivery'), 'W16B-OFF21: text object is preserved');
+
+  // 4. Zero-parameter widget handling (e.g. mail.svg before parameters authored)
+  // Clear parameters in scene to test clean unexposed package
+  window.EngineBridge.setWidgetParameters([]);
+  assert.strictEqual(window.EngineBridge.getWidgetParameters().length, 0, 'W16B-OFF22: cleared scene parameters');
+
+  const unexposedPkg = window.EngineBridge.buildWidgetPackage('Unexposed Widget', photoSvg);
+  assert.strictEqual(unexposedPkg.success, true, 'W16B-OFF23: unexposed widget package built');
+  const unexposedGuide = window.EngineBridge.generateWidgetGuide('Unexposed Widget', 'Unexposed Widget', photoSvg);
+  const unexposedDemoHtml = unexposedGuide.demoHTML || unexposedGuide.demoHtml;
+  assert.ok(unexposedDemoHtml.includes('Standard Playback Mode'), 'W16B-OFF24: unexposed demo.html renders Standard Playback Mode');
+  assert.ok(unexposedDemoHtml.includes('embedded-widget-svg'), 'W16B-OFF25: unexposed demo.html still embeds SVG for offline double-click operation');
+
+  console.log('[HARNESS] Scenario 80 PASS: Stage 16B Offline Double-Click File:// Package Loading & Multi-Instance Mounting verified.');
+
+  // ===========================================================================
+  // Scenario 81: Stage 16B UI Authoring: Right Drawer Widget Rail Click, Object Binding & End-to-End Export
+  // ===========================================================================
+  console.log('[HARNESS] Testing Scenario 81: Stage 16B UI Authoring: Right Drawer Widget Rail Click, Object Binding & End-to-End Export...');
+
+  // 1. Test clicking the widget rail button
+  assert.ok(typeof window.WorkspaceController.showToolPanel === 'function', 'W16B-UI01: showToolPanel available');
+  window.WorkspaceController.showToolPanel('acc-widget-params');
+  assert.strictEqual(window.WorkspaceController.rightDrawerOpen, true, 'W16B-UI02: Right drawer opened by acc-widget-params');
+  const accWidgetParams = document.getElementById('acc-widget-params');
+  assert.ok(accWidgetParams && accWidgetParams.classList.contains('active-tool'), 'W16B-UI03: acc-widget-params has active-tool class');
+
+  // 2. Select Gateway node and verify inline deck sync
+  const gwNode = window.DiagramNodes.createNode({ shape: 'rect', x: 100, y: 100, text: 'Gateway', width: 140, height: 70 });
+  window.AppCoordinator.selectObject('node', gwNode.id);
+
+  const drawerDeck = document.getElementById('drawerWidgetAuthoringDeck');
+  const drawerNoSel = document.getElementById('drawerWidgetNoSelection');
+  const objBadge = document.getElementById('drawerWidgetObjBadge');
+  const propSelect = document.getElementById('drawerWidgetPropSelect');
+  const nameInput = document.getElementById('drawerWidgetParamName');
+  const chkExpose = document.getElementById('chkDrawerExposeWidget');
+  const btnSave = document.getElementById('btnDrawerSaveWidgetParam');
+
+  assert.strictEqual(drawerNoSel.style.display, 'none', 'W16B-UI04: No-selection prompt hidden');
+  assert.strictEqual(drawerDeck.style.display, 'block', 'W16B-UI05: Authoring deck displayed');
+  assert.ok(objBadge.textContent.includes('Gateway'), 'W16B-UI06: Object badge displays Gateway');
+  assert.ok(propSelect.options.length >= 5, 'W16B-UI07: Node properties populated in dropdown');
+
+  // 3. Configure and save external parameter via the UI
+  nameInput.value = 'gateway_status';
+  propSelect.value = 'fill';
+  chkExpose.checked = true;
+  document.getElementById('drawerWidgetFields').style.display = 'flex';
+  document.getElementById('drawerWidgetDefaultInput').value = '#22c55e';
+  btnSave.click();
+
+  // Verify saved in Go engine
+  const paramsAfterSave = window.EngineBridge.getWidgetParameters();
+  assert.strictEqual(paramsAfterSave.length, 1, 'W16B-UI08: 1 parameter saved to engine');
+  assert.strictEqual(paramsAfterSave[0].name, 'gateway_status', 'W16B-UI09: Parameter name is gateway_status');
+  assert.strictEqual(paramsAfterSave[0].target, `node-${gwNode.id}`, 'W16B-UI10: Target is node ID');
+  assert.strictEqual(paramsAfterSave[0].default, '#22c55e', 'W16B-UI11: Default value saved');
+
+  // 4. Export package with authored parameter
+  const authoredPkg = window.EngineBridge.buildWidgetPackage('Gateway', '<svg viewBox="0 0 800 600"><rect id="node-1"/></svg>');
+  assert.strictEqual(authoredPkg.success, true, 'W16B-UI12: Package built successfully');
+  const authoredGuide = window.EngineBridge.generateWidgetGuide('Gateway', 'Gateway', '<svg viewBox="0 0 800 600"><rect id="node-1"/></svg>');
+  assert.ok(authoredGuide.markdown.includes('`gateway_status`'), 'W16B-UI13: Exported guide contains gateway_status');
+  assert.ok(!authoredGuide.markdown.includes('exampleParam'), 'W16B-UI14: Exported guide does not use exampleParam');
+
+  console.log('[HARNESS] Scenario 81 PASS: Stage 16B UI Authoring: Right Drawer Widget Rail Click, Object Binding & End-to-End Export verified.');
 
   console.log('[HARNESS] REG-03 PASS: Stage 3, 4, 5, 6, 7, 8, 9, 11, 12, 13, 14, 15 & 16 non-destructive cropping, background extraction, image baking, dedicated crop clip & snip workspace, object-local clipping, unified layer management, independent image objects, persistent groups, duplication, copy/paste with flow remapping, multi-selection, alignment, distribution, colour tools, selection retention, notifications, naming sync, history(50), schema 1.2.0, .sva packaging, background photo restoration, SVG compilation, export payload builders, collision-free widgets, external runtime parameters, and Go WASM engines verified.');
 }

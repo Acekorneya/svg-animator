@@ -1244,6 +1244,7 @@ type WidgetParametersResponse struct {
 type WidgetGenerateGuideRequest struct {
 	WidgetName  string `json:"widgetName,omitempty"`
 	SVGFilename string `json:"svgFilename,omitempty"`
+	SVG         string `json:"svg,omitempty"`
 }
 
 // WidgetGenerateGuideResponse is returned by "Widget.GenerateGuide".
@@ -3516,9 +3517,34 @@ func Dispatch(command string, payloadJSON []byte) ([]byte, error) {
 			SchemaVersion: 1,
 			Parameters:    activeScene.GetParameters(),
 		}
+		if len(manifest.Parameters) == 0 && strings.TrimSpace(req.SVG) != "" {
+			if extracted := scene.ExtractWidgetManifest(req.SVG); extracted != nil {
+				manifest = extracted
+				for _, p := range extracted.Parameters {
+					_ = activeScene.AddParameter(p)
+				}
+			}
+		}
+		svgToEmbed := req.SVG
+		if strings.TrimSpace(req.SVG) != "" {
+			reg := regexp.MustCompile(`[^a-zA-Z0-9_-]+`)
+			cleanSlug := strings.ToLower(reg.ReplaceAllString(wName, "-"))
+			cleanSlug = strings.Trim(cleanSlug, "-")
+			if cleanSlug == "" {
+				cleanSlug = "widget"
+			}
+			iso, _, err := scene.IsolateSVGWidget(req.SVG, scene.WidgetIsolationOptions{
+				InstanceID: cleanSlug,
+				ScopeCSS:   true,
+				Manifest:   manifest,
+			})
+			if err == nil && iso != "" {
+				svgToEmbed = iso
+			}
+		}
 		guide := scene.GenerateWidgetPropertiesGuide(activeScene, wName, svgName, manifest)
 		readme := scene.GenerateWidgetReadme(wName, svgName, manifest)
-		demoHTML := scene.GenerateWidgetDemoHTML(wName, svgName, manifest)
+		demoHTML := scene.GenerateWidgetDemoHTML(wName, svgName, manifest, svgToEmbed)
 		manifestBytes, _ := json.MarshalIndent(manifest, "", "  ")
 
 		return json.Marshal(WidgetGenerateGuideResponse{

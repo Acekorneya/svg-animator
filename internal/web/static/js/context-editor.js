@@ -58,6 +58,36 @@ window.FloatingPropertiesEditor = {
       this._clickCoords = null;
     }
 
+    if (options.focusWidgetSection || options.autoExpose) {
+      setTimeout(() => {
+        const sec = document.getElementById('fctx-widgetSection');
+        const exposeToggle = document.getElementById('fctx-widgetExposeToggle');
+        const deck = document.getElementById('fctx-widgetConfigDeck');
+        const propSelect = document.getElementById('fctx-widgetPropSelect');
+
+        if (exposeToggle && !exposeToggle.checked && options.autoExpose) {
+          exposeToggle.checked = true;
+          if (deck) deck.style.display = 'block';
+          if (propSelect && propSelect.value) {
+            this._updateDefaultFromActiveObject(propSelect.value);
+          }
+          this._saveWidgetBinding();
+          if (window.AppCoordinator && typeof window.AppCoordinator.showNotification === 'function') {
+            window.AppCoordinator.showNotification('Exposed as widget parameter.', 'success', 2500);
+          }
+        }
+
+        if (sec) {
+          sec.scrollIntoView({ behavior: 'smooth', block: 'nearest' });
+        }
+        const nameInp = document.getElementById('fctx-widgetParamName');
+        if (nameInp && nameInp.offsetParent !== null) {
+          nameInp.focus();
+          nameInp.select();
+        }
+      }, 80);
+    }
+
     const iconEl = document.getElementById('floatingEditorIcon');
     const badgeEl = document.getElementById('floatingEditorBadge');
     if (badgeEl) {
@@ -1540,6 +1570,16 @@ window.FloatingPropertiesEditor = {
     this._bindWidgetControls();
   },
 
+  _debounceSaveWidgetBinding() {
+    clearTimeout(this._widgetSaveTimer);
+    this._widgetSaveTimer = setTimeout(() => {
+      const exposeToggle = document.getElementById('fctx-widgetExposeToggle');
+      if (exposeToggle && exposeToggle.checked) {
+        this._saveWidgetBinding(true);
+      }
+    }, 300);
+  },
+
   _bindWidgetControls() {
     const exposeToggle = document.getElementById('fctx-widgetExposeToggle');
     const deck = document.getElementById('fctx-widgetConfigDeck');
@@ -1549,6 +1589,10 @@ window.FloatingPropertiesEditor = {
     const optRow = document.getElementById('fctx-widgetOptionsRow');
     const minInput = document.getElementById('fctx-widgetMinInput');
     const maxInput = document.getElementById('fctx-widgetMaxInput');
+    const nameInput = document.getElementById('fctx-widgetParamName');
+    const defaultInput = document.getElementById('fctx-widgetDefaultInput');
+    const optionsInput = document.getElementById('fctx-widgetOptionsInput');
+    const descInput = document.getElementById('fctx-widgetDescInput');
     const saveBtn = document.getElementById('fctx-btnSaveWidgetParam');
     const removeBtn = document.getElementById('fctx-btnRemoveWidgetParam');
 
@@ -1559,6 +1603,7 @@ window.FloatingPropertiesEditor = {
           if (propSelect && propSelect.value) {
             this._updateDefaultFromActiveObject(propSelect.value);
           }
+          this._saveWidgetBinding();
         } else {
           this._removeWidgetBinding();
         }
@@ -1576,6 +1621,9 @@ window.FloatingPropertiesEditor = {
           if (maxInput && selectedOpt.dataset.max !== undefined) maxInput.value = selectedOpt.dataset.max;
         }
         this._updateDefaultFromActiveObject(propSelect.value);
+        if (exposeToggle && exposeToggle.checked) {
+          this._saveWidgetBinding();
+        }
       });
     }
 
@@ -1583,8 +1631,17 @@ window.FloatingPropertiesEditor = {
       typeSelect.addEventListener('change', () => {
         if (numRow) numRow.style.display = (typeSelect.value === 'number' || typeSelect.value === 'speed') ? 'flex' : 'none';
         if (optRow) optRow.style.display = (typeSelect.value === 'enum') ? 'flex' : 'none';
+        if (exposeToggle && exposeToggle.checked) {
+          this._saveWidgetBinding();
+        }
       });
     }
+
+    [nameInput, defaultInput, minInput, maxInput, optionsInput, descInput].forEach(inp => {
+      if (inp) {
+        inp.addEventListener('input', () => this._debounceSaveWidgetBinding());
+      }
+    });
 
     if (saveBtn) {
       saveBtn.addEventListener('click', () => {
@@ -1627,33 +1684,33 @@ window.FloatingPropertiesEditor = {
 
     const propertyDefs = {
       node: [
-        { prop: 'fill', label: 'Fill Colour', type: 'color' },
-        { prop: 'stroke', label: 'Border Colour', type: 'color' },
-        { prop: 'opacity', label: 'Opacity (0..1)', type: 'number', min: 0, max: 1 },
-        { prop: 'visibility', label: 'Visibility (Toggle)', type: 'boolean' },
-        { prop: 'text', label: 'Text Content', type: 'text' },
-        { prop: 'height', label: 'Height (px)', type: 'number', min: 10, max: 1000 },
-        { prop: 'width', label: 'Width (px)', type: 'number', min: 10, max: 1000 }
-      ],
-      flow: [
-        { prop: 'stroke', label: 'Flow Track Colour', type: 'color' },
-        { prop: 'opacity', label: 'Opacity (0..1)', type: 'number', min: 0, max: 1 },
-        { prop: 'visibility', label: 'Visibility (Toggle)', type: 'boolean' },
-        { prop: 'speed', label: 'Animation Speed (Rate)', type: 'speed', min: 0.1, max: 10 }
+        { prop: 'fill', label: 'Fill Colour', type: 'color', desc: 'Background color of the node shape (e.g. status indicator color).' },
+        { prop: 'stroke', label: 'Border Colour', type: 'color', desc: 'Outline border color of the node.' },
+        { prop: 'opacity', label: 'Opacity (0..1)', type: 'number', min: 0, max: 1, desc: 'Transparency level from 0.0 (transparent) to 1.0 (solid).' },
+        { prop: 'visibility', label: 'Visibility (Toggle)', type: 'boolean', desc: 'Dynamically shows or hides this node.' },
+        { prop: 'text', label: 'Text Content', type: 'text', desc: 'Label text rendered inside the node.' },
+        { prop: 'width', label: 'Width (px)', type: 'number', min: 10, max: 1000, desc: 'Horizontal width of the node in pixels.' },
+        { prop: 'height', label: 'Height (px)', type: 'number', min: 10, max: 1000, desc: 'Vertical height of the node in pixels.' }
       ],
       glow: [
-        { prop: 'color', label: 'Glow Colour', type: 'color' },
-        { prop: 'opacity', label: 'Glow Opacity (0..1)', type: 'number', min: 0, max: 1 },
-        { prop: 'visibility', label: 'Visibility (Toggle)', type: 'boolean' }
+        { prop: 'color', label: 'Glow Colour', type: 'color', desc: 'Radiant optical glow and core illumination color (e.g. green for optimal, red for alarm).' },
+        { prop: 'opacity', label: 'Glow Intensity (0..1)', type: 'number', min: 0, max: 1, desc: 'Brilliance and intensity of the optical glow pulse.' },
+        { prop: 'visibility', label: 'Visibility (Toggle)', type: 'boolean', desc: 'Switches the optical hotspot glow on or off.' }
       ],
       ripple: [
-        { prop: 'color', label: 'Wave Crest Colour', type: 'color' },
-        { prop: 'opacity', label: 'Opacity (0..1)', type: 'number', min: 0, max: 1 },
-        { prop: 'visibility', label: 'Visibility (Toggle)', type: 'boolean' }
+        { prop: 'color', label: 'Wave Crest Colour', type: 'color', desc: 'Color of the expanding wave pulse crest.' },
+        { prop: 'opacity', label: 'Wave Opacity (0..1)', type: 'number', min: 0, max: 1, desc: 'Wave crest opacity from 0.0 (hidden) to 1.0 (vibrant).' },
+        { prop: 'visibility', label: 'Visibility (Toggle)', type: 'boolean', desc: 'Switches the animated expanding ripple wave on or off.' }
+      ],
+      flow: [
+        { prop: 'stroke', label: 'Flow Track Colour', type: 'color', desc: 'Color of the connector line path.' },
+        { prop: 'speed', label: 'Flow Particle Speed (Rate)', type: 'speed', min: 0.1, max: 10, desc: 'Movement speed of particles along this specific flow line (1.0 = normal, 2.0 = fast).' },
+        { prop: 'opacity', label: 'Flow Opacity (0..1)', type: 'number', min: 0, max: 1, desc: 'Opacity of the flow connector track and moving particles.' },
+        { prop: 'visibility', label: 'Visibility (Toggle)', type: 'boolean', desc: 'Shows or hides this flow connector and its moving particles.' }
       ],
       image: [
-        { prop: 'opacity', label: 'Opacity (0..1)', type: 'number', min: 0, max: 1 },
-        { prop: 'visibility', label: 'Visibility (Toggle)', type: 'boolean' }
+        { prop: 'opacity', label: 'Image Opacity (0..1)', type: 'number', min: 0, max: 1, desc: 'Opacity of the image layer.' },
+        { prop: 'visibility', label: 'Visibility (Toggle)', type: 'boolean', desc: 'Shows or hides this image object.' }
       ]
     };
 
@@ -1824,6 +1881,22 @@ window.FloatingPropertiesEditor = {
       if (statusMsg) {
         statusMsg.style.color = '#f85149';
         statusMsg.textContent = 'Name must start with a letter (alphanumeric, _, -).';
+      }
+      return;
+    }
+
+    const allowedProps = {
+      node: ['fill', 'stroke', 'opacity', 'visibility', 'text', 'height', 'width'],
+      glow: ['color', 'opacity', 'visibility'],
+      ripple: ['color', 'opacity', 'visibility'],
+      flow: ['stroke', 'speed', 'opacity', 'visibility'],
+      image: ['opacity', 'visibility']
+    };
+    const validProps = allowedProps[this.activeType] || [];
+    if (!validProps.includes(prop)) {
+      if (statusMsg) {
+        statusMsg.style.color = '#f85149';
+        statusMsg.textContent = `Property "${prop}" is not externally controllable on ${this.activeType}. Supported: ${validProps.join(', ')}`;
       }
       return;
     }

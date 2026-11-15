@@ -427,8 +427,41 @@
         }
         break;
       case 'playbackRate':
-      case 'speed':
         if (instance && typeof instance.setSpeed === 'function') {
+          instance.setSpeed(value);
+        }
+        break;
+      case 'speed':
+        if (el && paramDef && paramDef.target && paramDef.target !== 'root' && paramDef.target !== 'global') {
+          // Object-specific targeted animation speed adjustment
+          const rate = Number(value);
+          if (!isNaN(rate) && rate > 0) {
+            // 1. Web Animations API within target element subtree only
+            if (typeof el.getAnimations === 'function') {
+              const anims = el.getAnimations({ subtree: true });
+              if (anims && anims.length > 0) {
+                anims.forEach((a) => {
+                  try { a.playbackRate = rate; } catch (err) {}
+                });
+              }
+            }
+            // 2. SMIL animations (<animate>, <animateMotion>, <animateTransform>) in target element subtree
+            if (typeof el.querySelectorAll === 'function') {
+              el.querySelectorAll('animate, animateMotion, animateTransform').forEach((animEl) => {
+                let baseDur = animEl.getAttribute('data-base-dur');
+                if (!baseDur) {
+                  const curDurStr = animEl.getAttribute('dur') || '2s';
+                  const curDur = parseFloat(curDurStr) || 2;
+                  baseDur = String(curDur);
+                  animEl.setAttribute('data-base-dur', baseDur);
+                }
+                const newDur = (parseFloat(baseDur) / rate).toFixed(3);
+                animEl.setAttribute('dur', `${newDur}s`);
+              });
+            }
+          }
+        } else if (instance && typeof instance.setSpeed === 'function') {
+          // Global widget instance playback rate
           instance.setSpeed(value);
         }
         break;
@@ -646,7 +679,8 @@
               throw new Error(valRes.error);
             }
             const targetEl = resolveTargetElement(svgEl, details.idMap, paramDef.target);
-            if (!targetEl && paramDef.property !== 'speed' && paramDef.property !== 'playbackRate') {
+            const isGlobalTarget = !paramDef.target || paramDef.target === 'root' || paramDef.target === 'global';
+            if (!targetEl && !isGlobalTarget) {
               throw new Error(`Target element '${paramDef.target}' not found in widget for parameter '${key}'.`);
             }
             validatedUpdates.push({ paramDef, targetEl, cleanVal: valRes.value });

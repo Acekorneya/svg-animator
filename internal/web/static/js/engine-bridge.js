@@ -2192,12 +2192,16 @@
       return false;
     },
 
-    generateWidgetGuide(widgetName = '', svgFilename = '') {
+    generateWidgetGuide(widgetName = '', svgFilename = '', rawSvg = '') {
       if (this.isReady()) {
-        const res = this.dispatch('Widget.GenerateGuide', {
+        const payload = {
           widgetName: String(widgetName || ''),
           svgFilename: String(svgFilename || '')
-        });
+        };
+        if (rawSvg) {
+          payload.svg = String(rawSvg);
+        }
+        const res = this.dispatch('Widget.GenerateGuide', payload);
         if (res && res.success) {
           res.markdown = res.guideMarkdown || '';
           res.demoHTML = res.demoHtml || res.demoHTML || '';

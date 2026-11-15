@@ -3,6 +3,7 @@ package scene
 import (
 	"archive/zip"
 	"bytes"
+	"encoding/base64"
 	"encoding/json"
 	"fmt"
 	"path"
@@ -258,8 +259,9 @@ func GenerateWidgetPropertiesGuide(sc *Scene, widgetName, svgFilename string, ma
 	sb.WriteString("<!-- 2. Target container element -->\n")
 	sb.WriteString(fmt.Sprintf("<div id=\"%s-container\" style=\"width: 400px; height: 320px;\"></div>\n\n", cleanBase))
 	sb.WriteString("<script>\n")
-	sb.WriteString(fmt.Sprintf("  // 3. Mount instance\n"))
-	sb.WriteString(fmt.Sprintf("  const myWidget = SVGWidget.mount('#%s-container', '%s', {\n", cleanBase, svgFilename))
+	sb.WriteString(fmt.Sprintf("  // 3. Mount instance (offline file:// supported via inline template/markup or HTTP URL)\n"))
+	sb.WriteString(fmt.Sprintf("  const svgSource = document.getElementById('%s-template') ? document.getElementById('%s-template').innerHTML : '%s';\n", cleanBase, cleanBase, svgFilename))
+	sb.WriteString(fmt.Sprintf("  const myWidget = SVGWidget.mount('#%s-container', svgSource, {\n", cleanBase))
 	sb.WriteString(fmt.Sprintf("    instanceId: '%s-1'\n", cleanBase))
 	sb.WriteString("  });\n")
 	sb.WriteString("</script>\n")
@@ -272,7 +274,7 @@ func GenerateWidgetPropertiesGuide(sc *Scene, widgetName, svgFilename string, ma
 		sb.WriteString(fmt.Sprintf("// Single parameter update (using real exported parameter '%s'):\n", firstP.Name))
 		if firstP.Type == "color" {
 			sb.WriteString(fmt.Sprintf("myWidget.setParameter('%s', '#22c55e');\n\n", firstP.Name))
-		} else if firstP.Type == "number" {
+		} else if firstP.Type == "number" || firstP.Type == "speed" {
 			sb.WriteString(fmt.Sprintf("myWidget.setParameter('%s', %v);\n\n", firstP.Name, firstP.Default))
 		} else if firstP.Type == "boolean" {
 			sb.WriteString(fmt.Sprintf("myWidget.setParameter('%s', false);\n\n", firstP.Name))
@@ -298,14 +300,15 @@ func GenerateWidgetPropertiesGuide(sc *Scene, widgetName, svgFilename string, ma
 		}
 		sb.WriteString("});\n\n")
 	} else {
-		sb.WriteString("myWidget.setParameter('exampleParam', 100);\n\n")
+		sb.WriteString("// (No external parameters have been configured for this widget in SVG Animator Studio.)\n")
+		sb.WriteString("// Select an object in the editor and enable 'Expose as Widget Parameter' to define external controls.\n\n")
 	}
 
 	sb.WriteString("// Read current value:\n")
 	if manifest != nil && len(manifest.Parameters) > 0 {
 		sb.WriteString(fmt.Sprintf("const val = myWidget.getParameter('%s');\n\n", manifest.Parameters[0].Name))
 	} else {
-		sb.WriteString("const val = myWidget.getParameter('exampleParam');\n\n")
+		sb.WriteString("// const val = myWidget.getParameter('paramName'); // Active when parameters are defined\n\n")
 	}
 
 	sb.WriteString("// Reset to authored defaults:\n")
@@ -319,26 +322,69 @@ func GenerateWidgetPropertiesGuide(sc *Scene, widgetName, svgFilename string, ma
 
 	sb.WriteString("### Multi-Instance Independence Example\n\n")
 	sb.WriteString("```javascript\n")
-	sb.WriteString(fmt.Sprintf("const instA = SVGWidget.mount('#unitA', '%s', { instanceId: 'unit-a' });\n", svgFilename))
-	sb.WriteString(fmt.Sprintf("const instB = SVGWidget.mount('#unitB', '%s', { instanceId: 'unit-b' });\n", svgFilename))
-	sb.WriteString(fmt.Sprintf("const instC = SVGWidget.mount('#unitC', '%s', { instanceId: 'unit-c' });\n\n", svgFilename))
+	sb.WriteString(fmt.Sprintf("const svgSource = document.getElementById('%s-template') ? document.getElementById('%s-template').innerHTML : '%s';\n\n", cleanBase, cleanBase, svgFilename))
+	sb.WriteString("const instA = SVGWidget.mount('#unitA', svgSource, { instanceId: 'unit-a' });\n")
+	sb.WriteString("const instB = SVGWidget.mount('#unitB', svgSource, { instanceId: 'unit-b' });\n")
+	sb.WriteString("const instC = SVGWidget.mount('#unitC', svgSource, { instanceId: 'unit-c' });\n\n")
 
 	if manifest != nil && len(manifest.Parameters) > 0 {
-		pName := manifest.Parameters[0].Name
-		pType := manifest.Parameters[0].Type
-		if pType == "color" {
-			sb.WriteString(fmt.Sprintf("instA.setParameter('%s', '#22c55e'); // Green (Optimal)\n", pName))
-			sb.WriteString(fmt.Sprintf("instB.setParameter('%s', '#f59e0b'); // Amber (Warning)\n", pName))
-			sb.WriteString(fmt.Sprintf("instC.setParameter('%s', '#ef4444'); // Red (Alarm)\n", pName))
-		} else if pType == "number" {
-			sb.WriteString(fmt.Sprintf("instA.setParameter('%s', 180); // High\n", pName))
-			sb.WriteString(fmt.Sprintf("instB.setParameter('%s', 90);  // Medium\n", pName))
-			sb.WriteString(fmt.Sprintf("instC.setParameter('%s', 20);  // Low\n", pName))
-		} else {
-			sb.WriteString(fmt.Sprintf("instA.setParameter('%s', 'NORMAL');\n", pName))
-			sb.WriteString(fmt.Sprintf("instB.setParameter('%s', 'WARNING');\n", pName))
-			sb.WriteString(fmt.Sprintf("instC.setParameter('%s', 'CRITICAL');\n", pName))
+		firstP := manifest.Parameters[0]
+		pName := firstP.Name
+		pType := firstP.Type
+		switch pType {
+		case "color":
+			sb.WriteString(fmt.Sprintf("instA.setParameter('%s', '#22c55e'); // Green (Active / Healthy)\n", pName))
+			sb.WriteString(fmt.Sprintf("instB.setParameter('%s', '#f59e0b'); // Amber (Warning / Standby)\n", pName))
+			sb.WriteString(fmt.Sprintf("instC.setParameter('%s', '#ef4444'); // Red (Alarm / Critical)\n", pName))
+		case "boolean":
+			sb.WriteString(fmt.Sprintf("instA.setParameter('%s', true);  // Visible / Active\n", pName))
+			sb.WriteString(fmt.Sprintf("instB.setParameter('%s', false); // Hidden / Inactive\n", pName))
+			sb.WriteString(fmt.Sprintf("instC.setParameter('%s', true);  // Visible / Active\n", pName))
+		case "speed":
+			sb.WriteString(fmt.Sprintf("instA.setParameter('%s', 1.0); // Normal motion rate (1.0x)\n", pName))
+			sb.WriteString(fmt.Sprintf("instB.setParameter('%s', 2.5); // Fast motion rate (2.5x)\n", pName))
+			sb.WriteString(fmt.Sprintf("instC.setParameter('%s', 0.5); // Slow motion rate (0.5x)\n", pName))
+		case "number":
+			minVal := 10.0
+			maxVal := 100.0
+			if firstP.Min != nil {
+				minVal = *firstP.Min
+			}
+			if firstP.Max != nil {
+				maxVal = *firstP.Max
+			}
+			midVal := (minVal + maxVal) / 2.0
+			sb.WriteString(fmt.Sprintf("instA.setParameter('%s', %.1f); // High value\n", pName, maxVal))
+			sb.WriteString(fmt.Sprintf("instB.setParameter('%s', %.1f);  // Mid value\n", pName, midVal))
+			sb.WriteString(fmt.Sprintf("instC.setParameter('%s', %.1f);  // Low value\n", pName, minVal))
+		case "enum":
+			optA := "optionA"
+			optB := "optionB"
+			optC := "optionC"
+			if len(firstP.Options) >= 3 {
+				optA, optB, optC = firstP.Options[0], firstP.Options[1], firstP.Options[2]
+			} else if len(firstP.Options) == 2 {
+				optA, optB, optC = firstP.Options[0], firstP.Options[1], firstP.Options[0]
+			} else if len(firstP.Options) == 1 {
+				optA, optB, optC = firstP.Options[0], firstP.Options[0], firstP.Options[0]
+			}
+			sb.WriteString(fmt.Sprintf("instA.setParameter('%s', '%s');\n", pName, optA))
+			sb.WriteString(fmt.Sprintf("instB.setParameter('%s', '%s');\n", pName, optB))
+			sb.WriteString(fmt.Sprintf("instC.setParameter('%s', '%s');\n", pName, optC))
+		case "text":
+			sb.WriteString(fmt.Sprintf("instA.setParameter('%s', 'Unit 1 Active');\n", pName))
+			sb.WriteString(fmt.Sprintf("instB.setParameter('%s', 'Unit 2 Standby');\n", pName))
+			sb.WriteString(fmt.Sprintf("instC.setParameter('%s', 'Unit 3 Offline');\n", pName))
+		default:
+			sb.WriteString(fmt.Sprintf("instA.setParameter('%s', '%v');\n", pName, firstP.Default))
+			sb.WriteString(fmt.Sprintf("instB.setParameter('%s', '%v');\n", pName, firstP.Default))
+			sb.WriteString(fmt.Sprintf("instC.setParameter('%s', '%v');\n", pName, firstP.Default))
 		}
+	} else {
+		sb.WriteString("// All three instances animate and control playback completely independently:\n")
+		sb.WriteString("instA.play();\n")
+		sb.WriteString("instB.pause();\n")
+		sb.WriteString("instC.play();\n")
 	}
 	sb.WriteString("```\n\n")
 
@@ -383,7 +429,9 @@ func GenerateWidgetReadme(widgetName, svgFilename string, manifest *WidgetManife
 }
 
 // GenerateWidgetDemoHTML creates a ready-to-run, no-code interactive control page.
-func GenerateWidgetDemoHTML(widgetName, svgFilename string, manifest *WidgetManifest) string {
+// If rawSVG is supplied, it embeds the SVG as a Base64-encoded payload, enabling
+// completely offline double-click operation via file:// across all major browsers.
+func GenerateWidgetDemoHTML(widgetName, svgFilename string, manifest *WidgetManifest, rawSVG ...string) string {
 	cleanBase := cleanWidgetSlug(widgetName)
 
 	manifestJson := "{}"
@@ -477,20 +525,57 @@ func GenerateWidgetDemoHTML(widgetName, svgFilename string, manifest *WidgetMani
 	sb.WriteString("    <span>SVG Animator Studio v1.2.0 • Standalone No-Code Package</span>\n")
 	sb.WriteString("  </div>\n\n")
 
+	// Embed self-contained Base64 SVG payload if supplied, enabling instant file:// offline operation
+	var b64Payload string
+	if len(rawSVG) > 0 && strings.TrimSpace(rawSVG[0]) != "" {
+		b64Payload = base64.StdEncoding.EncodeToString([]byte(rawSVG[0]))
+	}
+	if b64Payload != "" {
+		sb.WriteString("  <!-- Embedded self-contained offline SVG payload enables direct file:// double-click operation without an HTTP server -->\n")
+		sb.WriteString(fmt.Sprintf("  <script id=\"embedded-widget-svg\" type=\"application/base64\">%s</script>\n\n", b64Payload))
+	}
+
 	// Embedded runtime wiring script
 	sb.WriteString("  <script>\n")
 	sb.WriteString(fmt.Sprintf("    const SVG_FILE = '%s';\n", svgFilename))
 	sb.WriteString(fmt.Sprintf("    const MANIFEST = %s;\n\n", manifestJson))
 	sb.WriteString("    const instances = {};\n\n")
 
-	sb.WriteString("    async function init() {\n")
-	sb.WriteString("      const resp = await fetch(SVG_FILE);\n")
-	sb.WriteString("      if (!resp.ok) {\n")
-	sb.WriteString("        document.body.innerHTML = '<div style=\"color:#f85149;padding:40px;text-align:center;\"><h2>Failed to load SVG asset</h2><p>' + SVG_FILE + ' (HTTP ' + resp.status + ')</p></div>';\n")
+	sb.WriteString("    function getRawSvg() {\n")
+	sb.WriteString("      const embeddedScript = document.getElementById('embedded-widget-svg');\n")
+	sb.WriteString("      if (embeddedScript && embeddedScript.textContent.trim()) {\n")
+	sb.WriteString("        try {\n")
+	sb.WriteString("          const binaryStr = atob(embeddedScript.textContent.trim());\n")
+	sb.WriteString("          const bytes = new Uint8Array(binaryStr.length);\n")
+	sb.WriteString("          for (let i = 0; i < binaryStr.length; i++) {\n")
+	sb.WriteString("            bytes[i] = binaryStr.charCodeAt(i);\n")
+	sb.WriteString("          }\n")
+	sb.WriteString("          return new TextDecoder('utf-8').decode(bytes);\n")
+	sb.WriteString("        } catch (e) {\n")
+	sb.WriteString("          console.warn('[demo] Base64 decode failed, falling back to fetch:', e);\n")
+	sb.WriteString("        }\n")
+	sb.WriteString("      }\n")
+	sb.WriteString("      return null;\n")
+	sb.WriteString("    }\n\n")
+
+	sb.WriteString("    function init() {\n")
+	sb.WriteString("      const rawSvg = getRawSvg();\n")
+	sb.WriteString("      if (rawSvg) {\n")
+	sb.WriteString("        mountAll(rawSvg);\n")
 	sb.WriteString("        return;\n")
 	sb.WriteString("      }\n")
-	sb.WriteString("      const rawSvg = await resp.text();\n\n")
+	sb.WriteString("      fetch(SVG_FILE)\n")
+	sb.WriteString("        .then(resp => {\n")
+	sb.WriteString("          if (!resp.ok) throw new Error('HTTP ' + resp.status);\n")
+	sb.WriteString("          return resp.text();\n")
+	sb.WriteString("        })\n")
+	sb.WriteString("        .then(mountAll)\n")
+	sb.WriteString("        .catch(err => {\n")
+	sb.WriteString("          document.body.innerHTML = '<div style=\"color:#f85149;padding:40px;text-align:center;\"><h2>Failed to load SVG asset</h2><p>' + SVG_FILE + ' (' + err.message + ')</p><p style=\"color:#8b949e;font-size:0.85rem;margin-top:8px;\">Keep demo.html in the same directory as ' + SVG_FILE + '.</p></div>';\n")
+	sb.WriteString("        });\n")
+	sb.WriteString("    }\n\n")
 
+	sb.WriteString("    function mountAll(rawSvg) {\n")
 	sb.WriteString("      ['unit-a', 'unit-b', 'unit-c'].forEach((instId, idx) => {\n")
 	sb.WriteString("        const container = document.getElementById('container-' + instId);\n")
 	sb.WriteString("        const controlsDeck = document.getElementById('controls-' + instId);\n\n")
@@ -510,7 +595,13 @@ func GenerateWidgetDemoHTML(widgetName, svgFilename string, manifest *WidgetMani
 
 	sb.WriteString("        // Build Controls from Manifest\n")
 	sb.WriteString("        const params = (widget.manifest && widget.manifest.parameters) || (MANIFEST.parameters) || [];\n")
-	sb.WriteString("        params.forEach((p) => {\n")
+	sb.WriteString("        if (params.length === 0) {\n")
+	sb.WriteString("          const emptyMsg = document.createElement('div');\n")
+	sb.WriteString("          emptyMsg.style.cssText = 'color:#8b949e;font-size:0.75rem;text-align:center;padding:12px;background:#0d1117;border-radius:6px;border:1px dashed #30363d;margin-top:8px;';\n")
+	sb.WriteString("          emptyMsg.innerHTML = '<span style=\"color:#58a6ff;font-weight:600;\">Standard Playback Mode</span><br><span style=\"color:#7d8590;font-size:0.7rem;\">Widget running with authored scene defaults. Use transport controls above to test multi-instance animation.</span>';\n")
+	sb.WriteString("          controlsDeck.appendChild(emptyMsg);\n")
+	sb.WriteString("        } else {\n")
+	sb.WriteString("          params.forEach((p) => {\n")
 	sb.WriteString("          const item = document.createElement('div');\n")
 	sb.WriteString("          item.className = 'control-item';\n\n")
 	sb.WriteString("          const labelRow = document.createElement('div');\n")
@@ -585,6 +676,7 @@ func GenerateWidgetDemoHTML(widgetName, svgFilename string, manifest *WidgetMani
 	sb.WriteString("          }\n")
 	sb.WriteString("          controlsDeck.appendChild(item);\n")
 	sb.WriteString("        });\n")
+	sb.WriteString("      }\n")
 	sb.WriteString("      });\n")
 	sb.WriteString("    }\n\n")
 
@@ -599,7 +691,11 @@ func GenerateWidgetDemoHTML(widgetName, svgFilename string, manifest *WidgetMani
 	sb.WriteString("      });\n")
 	sb.WriteString("    }\n\n")
 
-	sb.WriteString("    window.addEventListener('DOMContentLoaded', init);\n")
+	sb.WriteString("    if (document.readyState === 'loading') {\n")
+	sb.WriteString("      window.addEventListener('DOMContentLoaded', init);\n")
+	sb.WriteString("    } else {\n")
+	sb.WriteString("      init();\n")
+	sb.WriteString("    }\n")
 	sb.WriteString("  </script>\n")
 	sb.WriteString("</body>\n</html>\n")
 
@@ -615,7 +711,7 @@ func BuildWidgetPackageZip(sc *Scene, widgetName, rawSVG, svgWidgetJS string) ([
 	svgFilename := cleanBase + ".svg"
 	guideFilename := cleanBase + "-properties.md"
 
-	// 1. Extract validated manifest from Scene
+	// 1. Extract validated manifest from Scene (or fallback to embedded in rawSVG)
 	var manifest *WidgetManifest
 	if sc != nil {
 		params := sc.GetParameters()
@@ -623,6 +719,14 @@ func BuildWidgetPackageZip(sc *Scene, widgetName, rawSVG, svgWidgetJS string) ([
 			manifest = &WidgetManifest{
 				SchemaVersion: 1,
 				Parameters:    params,
+			}
+		}
+	}
+	if manifest == nil && strings.TrimSpace(rawSVG) != "" {
+		manifest = ExtractWidgetManifest(rawSVG)
+		if manifest != nil && sc != nil && len(sc.GetParameters()) == 0 {
+			for _, p := range manifest.Parameters {
+				_ = sc.AddParameter(p)
 			}
 		}
 	}
@@ -640,10 +744,10 @@ func BuildWidgetPackageZip(sc *Scene, widgetName, rawSVG, svgWidgetJS string) ([
 		}
 	}
 
-	// 3. Generate documentation and inspection copies
+	// 3. Generate documentation and inspection copies (embedding isolatedSVG into demo.html for direct offline file:// operation)
 	guideMarkdown := GenerateWidgetPropertiesGuide(sc, widgetName, svgFilename, manifest)
 	readmeMarkdown := GenerateWidgetReadme(widgetName, svgFilename, manifest)
-	demoHTML := GenerateWidgetDemoHTML(widgetName, svgFilename, manifest)
+	demoHTML := GenerateWidgetDemoHTML(widgetName, svgFilename, manifest, isolatedSVG)
 
 	manifestBytes := []byte("{}\n")
 	if manifest != nil {

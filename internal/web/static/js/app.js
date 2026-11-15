@@ -2608,23 +2608,791 @@ window.syncImageToolsFromSnip = function() {
   }
 };
 
+// =========================================================================
+// Accordion Overview: Widget Parameters (External Controls)
+// =========================================================================
+const drawerWidgetPropDefs = {
+  node: [
+    { prop: 'fill', label: 'Fill Colour', type: 'color', desc: 'Background color of the node shape (e.g. status indicator color).' },
+    { prop: 'stroke', label: 'Border Colour', type: 'color', desc: 'Outline border color of the node.' },
+    { prop: 'opacity', label: 'Opacity (0..1)', type: 'number', min: 0, max: 1, desc: 'Transparency level from 0.0 (transparent) to 1.0 (solid).' },
+    { prop: 'visibility', label: 'Visibility (Toggle)', type: 'boolean', desc: 'Dynamically shows or hides this node.' },
+    { prop: 'text', label: 'Text Content', type: 'text', desc: 'Label text rendered inside the node.' },
+    { prop: 'width', label: 'Width (px)', type: 'number', min: 10, max: 1000, desc: 'Horizontal width of the node in pixels.' },
+    { prop: 'height', label: 'Height (px)', type: 'number', min: 10, max: 1000, desc: 'Vertical height of the node in pixels.' }
+  ],
+  glow: [
+    { prop: 'color', label: 'Glow Colour', type: 'color', desc: 'Radiant optical glow and core illumination color (e.g. green for optimal, red for alarm).' },
+    { prop: 'opacity', label: 'Glow Intensity (0..1)', type: 'number', min: 0, max: 1, desc: 'Brilliance and intensity of the optical glow pulse.' },
+    { prop: 'visibility', label: 'Visibility (Toggle)', type: 'boolean', desc: 'Switches the optical hotspot glow on or off.' }
+  ],
+  ripple: [
+    { prop: 'color', label: 'Wave Crest Colour', type: 'color', desc: 'Color of the expanding wave pulse crest.' },
+    { prop: 'opacity', label: 'Wave Opacity (0..1)', type: 'number', min: 0, max: 1, desc: 'Wave crest opacity from 0.0 (hidden) to 1.0 (vibrant).' },
+    { prop: 'visibility', label: 'Visibility (Toggle)', type: 'boolean', desc: 'Switches the animated expanding ripple wave on or off.' }
+  ],
+  flow: [
+    { prop: 'stroke', label: 'Flow Track Colour', type: 'color', desc: 'Color of the connector line path.' },
+    { prop: 'speed', label: 'Flow Particle Speed (Rate)', type: 'speed', min: 0.1, max: 10, desc: 'Movement speed of particles along this specific flow line (1.0 = normal, 2.0 = fast).' },
+    { prop: 'opacity', label: 'Flow Opacity (0..1)', type: 'number', min: 0, max: 1, desc: 'Opacity of the flow connector track and moving particles.' },
+    { prop: 'visibility', label: 'Visibility (Toggle)', type: 'boolean', desc: 'Shows or hides this flow connector and its moving particles.' }
+  ],
+  image: [
+    { prop: 'opacity', label: 'Image Opacity (0..1)', type: 'number', min: 0, max: 1, desc: 'Opacity of the image layer.' },
+    { prop: 'visibility', label: 'Visibility (Toggle)', type: 'boolean', desc: 'Shows or hides this image object.' }
+  ]
+};
+
+function getObjectPropValue(type, id, prop) {
+  if (type === 'node' && window.DiagramNodes) {
+    const node = window.DiagramNodes.getNode(id);
+    if (node) {
+      switch (prop) {
+        case 'fill': return node.fillColor || '#161b22';
+        case 'stroke': return node.strokeColor || '#58a6ff';
+        case 'opacity': return node.fillOpacity !== undefined ? node.fillOpacity : 0.92;
+        case 'visibility': return true;
+        case 'text': return node.text || 'Node';
+        case 'height': return node.height || 80;
+        case 'width': return node.width || 170;
+      }
+    }
+  } else if (type === 'flow' && window.DataFlows) {
+    const flow = window.DataFlows.getFlow(id);
+    if (flow) {
+      switch (prop) {
+        case 'stroke':
+        case 'color': return flow.color || '#00ffcc';
+        case 'opacity': return flow.opacity !== undefined ? flow.opacity : 1.0;
+        case 'visibility': return true;
+        case 'speed': return flow.speed !== undefined ? flow.speed : 2.0;
+      }
+    }
+  } else if (type === 'glow' && window.Glows) {
+    const glow = window.Glows.getGlow(id);
+    if (glow) {
+      switch (prop) {
+        case 'color':
+        case 'fill': return glow.color || '#ff0044';
+        case 'opacity': return glow.opacity !== undefined ? glow.opacity : 1.0;
+        case 'visibility': return true;
+      }
+    }
+  } else if (type === 'ripple' && window.Ripples) {
+    const ripple = window.Ripples.getRipple(id);
+    if (ripple) {
+      switch (prop) {
+        case 'color':
+        case 'stroke': return ripple.color || '#ffffff';
+        case 'opacity': return ripple.opacity !== undefined ? ripple.opacity : 0.4;
+        case 'visibility': return true;
+      }
+    }
+  } else if (type === 'image' && window.ImageObjects) {
+    const img = window.ImageObjects.getImage(id);
+    if (img) {
+      switch (prop) {
+        case 'opacity': return img.opacity !== undefined ? img.opacity : 1.0;
+        case 'visibility': return img.visible !== false;
+      }
+    }
+  }
+  return '';
+}
+
+window.initDrawerWidgetEvents = function() {
+  if (window._drawerWidgetEventsBound) return;
+  window._drawerWidgetEventsBound = true;
+
+  const btnDrawerSave = document.getElementById('btnDrawerSaveWidgetParam');
+  if (btnDrawerSave) {
+    btnDrawerSave.addEventListener('click', () => {
+      const sel = (window.AppCoordinator && typeof window.AppCoordinator.getActiveSelection === 'function')
+        ? window.AppCoordinator.getActiveSelection()
+        : null;
+      if (!sel || !sel.type || sel.id === null) {
+        alert('Please select an object first.');
+        return;
+      }
+      const name = (document.getElementById('drawerWidgetParamName')?.value || '').trim();
+      const prop = document.getElementById('drawerWidgetPropSelect')?.value;
+      const type = document.getElementById('drawerWidgetTypeSelect')?.value;
+      const rawDef = document.getElementById('drawerWidgetDefaultInput')?.value || '';
+      const minValStr = document.getElementById('drawerWidgetMinInput')?.value;
+      const maxValStr = document.getElementById('drawerWidgetMaxInput')?.value;
+      const optionsStr = document.getElementById('drawerWidgetOptionsInput')?.value || '';
+      const desc = (document.getElementById('drawerWidgetDescInput')?.value || '').trim();
+      const statusMsg = document.getElementById('drawerWidgetStatusMsg');
+
+      if (!name) {
+        if (statusMsg) {
+          statusMsg.style.color = '#f85149';
+          statusMsg.textContent = 'Parameter name is required.';
+        }
+        return;
+      }
+      if (!/^[a-zA-Z][a-zA-Z0-9_-]*$/.test(name)) {
+        if (statusMsg) {
+          statusMsg.style.color = '#f85149';
+          statusMsg.textContent = 'Name must start with a letter (alphanumeric, _, -).';
+        }
+        return;
+      }
+
+      // Validate target/property compatibility
+      const allowedDefs = drawerWidgetPropDefs[sel.type] || [];
+      const matchedDef = allowedDefs.find(p => p.prop === prop);
+      if (!matchedDef) {
+        const allowedList = allowedDefs.map(p => `${p.label} (${p.prop})`).join(', ');
+        const errText = `Property "${prop}" is not externally controllable on ${sel.type}. Supported: ${allowedList}`;
+        if (statusMsg) {
+          statusMsg.style.color = '#f85149';
+          statusMsg.textContent = errText;
+        }
+        alert(errText);
+        return;
+      }
+
+      let defaultVal = rawDef;
+      if (type === 'number' || type === 'speed') {
+        defaultVal = parseFloat(rawDef);
+        if (isNaN(defaultVal)) defaultVal = (type === 'speed' ? 1.0 : 0);
+      } else if (type === 'boolean') {
+        defaultVal = (rawDef === 'true' || rawDef === '1' || rawDef === true);
+      }
+
+      const param = {
+        name: name,
+        type: type,
+        target: `${sel.type}-${sel.id}`,
+        property: prop,
+        default: defaultVal,
+        description: desc || matchedDef.desc || `Controls ${prop} on ${sel.type} #${sel.id}`
+      };
+      if (minValStr !== '' && minValStr !== undefined && !isNaN(parseFloat(minValStr))) {
+        param.min = parseFloat(minValStr);
+      }
+      if (maxValStr !== '' && maxValStr !== undefined && !isNaN(parseFloat(maxValStr))) {
+        param.max = parseFloat(maxValStr);
+      }
+      if (type === 'enum' && optionsStr) {
+        param.options = optionsStr.split(',').map(s => s.trim()).filter(Boolean);
+      }
+
+      if (window.EngineBridge && typeof window.EngineBridge.addWidgetParameter === 'function') {
+        const res = window.EngineBridge.addWidgetParameter(param);
+        if (res && (!res.error || res.success !== false)) {
+          if (statusMsg) {
+            statusMsg.style.color = '#3fb950';
+            statusMsg.textContent = `✓ Parameter "${name}" saved to scene.`;
+          }
+          if (window.AppCoordinator) {
+            window.AppCoordinator.recordHistoryImmediate();
+            window.AppCoordinator.showNotification(`Saved widget parameter '${name}'`, 'success');
+          }
+          window.renderWidgetParametersOverview();
+          if (window.FloatingPropertiesEditor && typeof window.FloatingPropertiesEditor.syncSelection === 'function') {
+            window.FloatingPropertiesEditor.syncSelection();
+          }
+        } else {
+          const errText = (res && res.error) || (window.EngineBridge && window.EngineBridge.getLastError()) || 'Failed to save parameter';
+          if (statusMsg) {
+            statusMsg.style.color = '#f85149';
+            statusMsg.textContent = errText;
+          }
+          alert('Error saving parameter: ' + errText);
+        }
+      }
+    });
+  }
+
+  const btnDrawerRemove = document.getElementById('btnDrawerRemoveWidgetParam');
+  if (btnDrawerRemove) {
+    btnDrawerRemove.addEventListener('click', () => {
+      const name = (document.getElementById('drawerWidgetParamName')?.value || '').trim();
+      if (!name) return;
+      if (confirm(`Remove exposed parameter "${name}"?`)) {
+        if (window.EngineBridge && typeof window.EngineBridge.removeWidgetParameter === 'function') {
+          window.EngineBridge.removeWidgetParameter(name);
+          if (window.AppCoordinator) {
+            window.AppCoordinator.recordHistoryImmediate();
+            window.AppCoordinator.showNotification(`Removed parameter '${name}'`, 'info');
+          }
+          window.renderWidgetParametersOverview();
+          if (window.FloatingPropertiesEditor && typeof window.FloatingPropertiesEditor.syncSelection === 'function') {
+            window.FloatingPropertiesEditor.syncSelection();
+          }
+        }
+      }
+    });
+  }
+
+  const chkDrawerExpose = document.getElementById('chkDrawerExposeWidget');
+  if (chkDrawerExpose) {
+    chkDrawerExpose.addEventListener('change', () => {
+      const fields = document.getElementById('drawerWidgetFields');
+      if (chkDrawerExpose.checked) {
+        if (fields) fields.style.display = 'flex';
+        const nameInput = document.getElementById('drawerWidgetParamName');
+        if (nameInput && nameInput.value) {
+          document.getElementById('btnDrawerSaveWidgetParam')?.click();
+        } else if (nameInput) {
+          nameInput.focus();
+        }
+      } else {
+        if (fields) fields.style.display = 'none';
+        document.getElementById('btnDrawerRemoveWidgetParam')?.click();
+      }
+    });
+  }
+
+  const drawerPropSelect = document.getElementById('drawerWidgetPropSelect');
+  if (drawerPropSelect) {
+    drawerPropSelect.addEventListener('change', () => {
+      const sel = (window.AppCoordinator && typeof window.AppCoordinator.getActiveSelection === 'function')
+        ? window.AppCoordinator.getActiveSelection()
+        : null;
+      if (!sel || !sel.type || sel.id === null) return;
+      const selectedOpt = (drawerPropSelect.selectedOptions && drawerPropSelect.selectedOptions[0])
+        || (drawerPropSelect.options && drawerPropSelect.options[drawerPropSelect.selectedIndex || 0])
+        || null;
+      const typeSelect = document.getElementById('drawerWidgetTypeSelect');
+      const minInput = document.getElementById('drawerWidgetMinInput');
+      const maxInput = document.getElementById('drawerWidgetMaxInput');
+      const limitsRow = document.getElementById('drawerWidgetLimitsRow');
+      const optRow = document.getElementById('drawerWidgetOptionsRow');
+      const propHelp = document.getElementById('drawerWidgetPropHelp');
+      if (propHelp) {
+        propHelp.textContent = selectedOpt?.dataset?.desc || 'Select a property to view what changing it does.';
+      }
+      if (selectedOpt && selectedOpt.dataset.defaultType && typeSelect) {
+        typeSelect.value = selectedOpt.dataset.defaultType;
+        if (limitsRow) limitsRow.style.display = (typeSelect.value === 'number' || typeSelect.value === 'speed') ? 'flex' : 'none';
+        if (optRow) optRow.style.display = (typeSelect.value === 'enum') ? 'flex' : 'none';
+        if (minInput && selectedOpt.dataset.min !== undefined) minInput.value = selectedOpt.dataset.min;
+        if (maxInput && selectedOpt.dataset.max !== undefined) maxInput.value = selectedOpt.dataset.max;
+      }
+      const defInput = document.getElementById('drawerWidgetDefaultInput');
+      if (defInput) {
+        defInput.value = getObjectPropValue(sel.type, sel.id, drawerPropSelect.value);
+      }
+      if (chkDrawerExpose && chkDrawerExpose.checked) {
+        document.getElementById('btnDrawerSaveWidgetParam')?.click();
+      }
+    });
+  }
+
+  const drawerTypeSelect = document.getElementById('drawerWidgetTypeSelect');
+  if (drawerTypeSelect) {
+    drawerTypeSelect.addEventListener('change', () => {
+      const limitsRow = document.getElementById('drawerWidgetLimitsRow');
+      const optRow = document.getElementById('drawerWidgetOptionsRow');
+      if (limitsRow) limitsRow.style.display = (drawerTypeSelect.value === 'number' || drawerTypeSelect.value === 'speed') ? 'flex' : 'none';
+      if (optRow) optRow.style.display = (drawerTypeSelect.value === 'enum') ? 'flex' : 'none';
+    });
+  }
+
+  // Whole Widget Controls (Global)
+  const btnAddSpeed = document.getElementById('btnAddGlobalSpeedParam');
+  if (btnAddSpeed) {
+    btnAddSpeed.addEventListener('click', () => {
+      if (window.EngineBridge && typeof window.EngineBridge.addWidgetParameter === 'function') {
+        const res = window.EngineBridge.addWidgetParameter({
+          name: 'playbackRate',
+          target: 'root',
+          property: 'playbackRate',
+          type: 'speed',
+          default: 1.0,
+          min: 0.1,
+          max: 5.0,
+          step: 0.1,
+          description: 'Global widget animation playback speed (instance-wide clock)'
+        });
+        if (res && (!res.error || res.success !== false)) {
+          if (window.AppCoordinator) {
+            window.AppCoordinator.recordHistoryImmediate();
+            window.AppCoordinator.showNotification('Added global parameter "playbackRate"', 'success');
+          }
+          window.renderWidgetParametersOverview();
+        } else {
+          alert('Failed to add parameter: ' + ((res && res.error) || window.EngineBridge.getLastError()));
+        }
+      }
+    });
+  }
+
+  const btnAddVis = document.getElementById('btnAddGlobalVisParam');
+  if (btnAddVis) {
+    btnAddVis.addEventListener('click', () => {
+      if (window.EngineBridge && typeof window.EngineBridge.addWidgetParameter === 'function') {
+        const res = window.EngineBridge.addWidgetParameter({
+          name: 'widgetVisible',
+          target: 'root',
+          property: 'visibility',
+          type: 'boolean',
+          default: true,
+          description: 'Master visibility toggle for entire widget instance'
+        });
+        if (res && (!res.error || res.success !== false)) {
+          if (window.AppCoordinator) {
+            window.AppCoordinator.recordHistoryImmediate();
+            window.AppCoordinator.showNotification('Added global parameter "widgetVisible"', 'success');
+          }
+          window.renderWidgetParametersOverview();
+        } else {
+          alert('Failed to add parameter: ' + ((res && res.error) || window.EngineBridge.getLastError()));
+        }
+      }
+    });
+  }
+
+  const btnAddState = document.getElementById('btnAddGlobalStateParam');
+  if (btnAddState) {
+    btnAddState.addEventListener('click', () => {
+      if (window.EngineBridge && typeof window.EngineBridge.addWidgetParameter === 'function') {
+        const res = window.EngineBridge.addWidgetParameter({
+          name: 'operatingState',
+          target: 'root',
+          property: 'state',
+          type: 'enum',
+          default: 'running',
+          options: ['running', 'paused', 'stopped'],
+          description: 'Operating lifecycle state control (running, paused, stopped)'
+        });
+        if (res && (!res.error || res.success !== false)) {
+          if (window.AppCoordinator) {
+            window.AppCoordinator.recordHistoryImmediate();
+            window.AppCoordinator.showNotification('Added global parameter "operatingState"', 'success');
+          }
+          window.renderWidgetParametersOverview();
+        } else {
+          alert('Failed to add parameter: ' + ((res && res.error) || window.EngineBridge.getLastError()));
+        }
+      }
+    });
+  }
+};
+
+window.renderWidgetParametersOverview = function(selectionPayload) {
+  if (!window._drawerWidgetEventsBound && typeof window.initDrawerWidgetEvents === 'function') {
+    window.initDrawerWidgetEvents();
+  }
+
+  const listEl = document.getElementById('widgetParamsList');
+  const countEl = document.getElementById('widgetParamCount');
+  const btnExposeActive = document.getElementById('btnExposeActiveWidgetParam');
+  if (!listEl) return;
+
+  let params = [];
+  if (window.EngineBridge && typeof window.EngineBridge.getWidgetParameters === 'function') {
+    params = window.EngineBridge.getWidgetParameters() || [];
+  }
+
+  if (countEl) {
+    countEl.textContent = String(params.length);
+  }
+
+  const sel = (selectionPayload && typeof selectionPayload === 'object' && 'type' in selectionPayload)
+    ? selectionPayload
+    : (window.AppCoordinator && typeof window.AppCoordinator.getActiveSelection === 'function'
+      ? window.AppCoordinator.getActiveSelection()
+      : null);
+
+  if (btnExposeActive) {
+    if (sel && ['node', 'flow', 'glow', 'ripple', 'image'].includes(sel.type) && sel.id !== null) {
+      btnExposeActive.style.display = 'inline-block';
+      btnExposeActive.textContent = `+ Expose ${sel.type.charAt(0).toUpperCase() + sel.type.slice(1)}`;
+      btnExposeActive.title = `Expose selected ${sel.type} #${sel.id} as a widget parameter`;
+    } else {
+      btnExposeActive.style.display = 'none';
+    }
+  }
+
+  // Update Left Drawer quick-action buttons with real-time binding status
+  const updateSidebarBtn = (btnId, type) => {
+    const btn = document.getElementById(btnId);
+    if (!btn) return;
+    let targetId = (sel && sel.type === type && sel.id !== null) ? sel.id : null;
+    if (targetId === null) {
+      if (type === 'node' && window.DiagramNodes) targetId = window.DiagramNodes.activeId;
+      else if (type === 'flow' && window.DataFlows) targetId = window.DataFlows.activeId;
+      else if (type === 'glow' && window.Glows) targetId = window.Glows.activeId;
+      else if (type === 'ripple' && window.Ripples) targetId = window.Ripples.activeId;
+    }
+    if (targetId !== null) {
+      const boundParam = params.find(p => {
+        const t = p.Target || p.target;
+        return t === `${type}-${targetId}` || t === String(targetId);
+      });
+      const labelSpan = btn.querySelector('span:first-child');
+      if (boundParam) {
+        btn.style.borderColor = '#3fb950';
+        btn.style.color = '#3fb950';
+        if (labelSpan) labelSpan.textContent = `🌐 Param: "${boundParam.Name || boundParam.name}" (Bound)`;
+        btn.title = `Parameter "${boundParam.Name || boundParam.name}" is bound. Click to edit property controls.`;
+      } else {
+        btn.style.borderColor = '#30363d';
+        btn.style.color = '#58a6ff';
+        if (labelSpan) labelSpan.textContent = `🌐 Expose as Parameter`;
+        btn.title = `Expose this ${type} as an external host parameter`;
+      }
+    }
+  };
+  updateSidebarBtn('btnNodeExposeWidget', 'node');
+  updateSidebarBtn('btnFlowExposeWidget', 'flow');
+  updateSidebarBtn('btnGlowExposeWidget', 'glow');
+  updateSidebarBtn('btnRippleExposeWidget', 'ripple');
+
+  // Synchronize Right Drawer Inline Parameter Authoring Deck
+  const drawerNoSel = document.getElementById('drawerWidgetNoSelection');
+  const drawerDeck = document.getElementById('drawerWidgetAuthoringDeck');
+  const drawerObjBadge = document.getElementById('drawerWidgetObjBadge');
+  const drawerObjTypeBadge = document.getElementById('drawerWidgetObjTypeBadge');
+  const chkDrawerExpose = document.getElementById('chkDrawerExposeWidget');
+  const drawerFields = document.getElementById('drawerWidgetFields');
+  const drawerPropSelect = document.getElementById('drawerWidgetPropSelect');
+  const drawerParamName = document.getElementById('drawerWidgetParamName');
+  const drawerTypeSelect = document.getElementById('drawerWidgetTypeSelect');
+  const drawerDefaultInput = document.getElementById('drawerWidgetDefaultInput');
+  const drawerMinInput = document.getElementById('drawerWidgetMinInput');
+  const drawerMaxInput = document.getElementById('drawerWidgetMaxInput');
+  const drawerOptionsInput = document.getElementById('drawerWidgetOptionsInput');
+  const drawerDescInput = document.getElementById('drawerWidgetDescInput');
+  const drawerStatusMsg = document.getElementById('drawerWidgetStatusMsg');
+  const drawerLimitsRow = document.getElementById('drawerWidgetLimitsRow');
+  const drawerOptionsRow = document.getElementById('drawerWidgetOptionsRow');
+
+  if (drawerDeck && drawerNoSel) {
+    if (sel && ['node', 'flow', 'glow', 'ripple', 'image'].includes(sel.type) && sel.id !== null) {
+      drawerNoSel.style.display = 'none';
+      drawerDeck.style.display = 'block';
+      if (drawerObjTypeBadge) drawerObjTypeBadge.textContent = sel.type.toUpperCase();
+
+      let objName = `${sel.type.charAt(0).toUpperCase() + sel.type.slice(1)} #${sel.id}`;
+      let defaultParamBase = `${sel.type}${sel.id}`;
+      if (sel.type === 'node' && window.DiagramNodes) {
+        const n = window.DiagramNodes.getNode(sel.id);
+        if (n && (n.name || n.text)) {
+          objName = `${n.name || n.text} (#${sel.id})`;
+          const raw = (n.name || n.text).replace(/[^a-zA-Z0-9]/g, '');
+          if (raw) defaultParamBase = raw.charAt(0).toLowerCase() + raw.slice(1);
+        }
+      } else if (sel.type === 'flow' && window.DataFlows) {
+        const f = window.DataFlows.getFlow(sel.id);
+        if (f && f.name) objName = `${f.name} (#${sel.id})`;
+      } else if (sel.type === 'glow' && window.Glows) {
+        const g = window.Glows.getGlow(sel.id);
+        if (g && g.name) objName = `${g.name} (#${sel.id})`;
+      } else if (sel.type === 'ripple' && window.Ripples) {
+        const r = window.Ripples.getRipple(sel.id);
+        if (r && r.name) objName = `${r.name} (#${sel.id})`;
+      }
+      if (drawerObjBadge) drawerObjBadge.textContent = objName;
+
+      const availableProps = drawerWidgetPropDefs[sel.type] || [];
+      if (drawerPropSelect) {
+        const curPropVal = drawerPropSelect.value;
+        drawerPropSelect.innerHTML = '';
+        availableProps.forEach(p => {
+          const opt = document.createElement('option');
+          opt.value = p.prop;
+          opt.textContent = `${p.label} (${p.prop})`;
+          opt.dataset.defaultType = p.type;
+          opt.dataset.desc = p.desc || '';
+          if (p.min !== undefined) opt.dataset.min = p.min;
+          if (p.max !== undefined) opt.dataset.max = p.max;
+          drawerPropSelect.appendChild(opt);
+        });
+        if (availableProps.some(p => p.prop === curPropVal)) {
+          drawerPropSelect.value = curPropVal;
+        }
+        const activeOpt = (drawerPropSelect.selectedOptions && drawerPropSelect.selectedOptions[0])
+          || (drawerPropSelect.options && drawerPropSelect.options[drawerPropSelect.selectedIndex || 0])
+          || null;
+        const propHelp = document.getElementById('drawerWidgetPropHelp');
+        if (propHelp) {
+          propHelp.textContent = activeOpt?.dataset?.desc || 'Select a property to view what changing it does.';
+        }
+      }
+
+      // Check for existing binding
+      const targetId = `${sel.type}-${sel.id}`;
+      const bound = params.find(p => {
+        const t = p.Target || p.target;
+        return t === targetId || t === String(sel.id);
+      });
+
+      if (bound) {
+        if (chkDrawerExpose) chkDrawerExpose.checked = true;
+        if (drawerFields) drawerFields.style.display = 'flex';
+        const bName = bound.Name || bound.name;
+        const bProp = bound.Property || bound.property;
+        const bType = bound.Type || bound.type;
+        const bDef = bound.Default !== undefined ? bound.Default : bound.default;
+        const bMin = bound.Min !== undefined ? bound.Min : bound.min;
+        const bMax = bound.Max !== undefined ? bound.Max : bound.max;
+        const bOpts = bound.Options || bound.options;
+        const bDesc = bound.Description || bound.description;
+
+        if (drawerParamName) drawerParamName.value = bName || '';
+        if (drawerPropSelect) drawerPropSelect.value = bProp || availableProps[0]?.prop;
+        if (drawerTypeSelect) drawerTypeSelect.value = bType || 'color';
+        if (drawerDefaultInput) drawerDefaultInput.value = bDef !== undefined ? (typeof bDef === 'object' ? JSON.stringify(bDef) : String(bDef)) : '';
+        if (drawerMinInput) drawerMinInput.value = (bMin !== undefined && bMin !== null) ? bMin : '';
+        if (drawerMaxInput) drawerMaxInput.value = (bMax !== undefined && bMax !== null) ? bMax : '';
+        if (drawerOptionsInput) drawerOptionsInput.value = Array.isArray(bOpts) ? bOpts.join(', ') : '';
+        if (drawerDescInput) drawerDescInput.value = bDesc || '';
+        if (drawerLimitsRow) drawerLimitsRow.style.display = (bType === 'number' || bType === 'speed') ? 'flex' : 'none';
+        if (drawerOptionsRow) drawerOptionsRow.style.display = (bType === 'enum') ? 'flex' : 'none';
+        if (drawerStatusMsg) {
+          drawerStatusMsg.style.color = '#3fb950';
+          drawerStatusMsg.textContent = `✓ Bound: "${bName}" (${bType} ──► ${bProp})`;
+        }
+      } else {
+        if (chkDrawerExpose) chkDrawerExpose.checked = false;
+        if (drawerFields) drawerFields.style.display = 'none';
+        const firstP = availableProps[0] || { prop: 'fill', type: 'color' };
+        if (drawerParamName) drawerParamName.value = defaultParamBase;
+        if (drawerPropSelect) drawerPropSelect.value = firstP.prop;
+        if (drawerTypeSelect) drawerTypeSelect.value = firstP.type;
+        if (drawerDefaultInput) drawerDefaultInput.value = getObjectPropValue(sel.type, sel.id, firstP.prop);
+        if (drawerMinInput) drawerMinInput.value = (firstP.min !== undefined) ? firstP.min : '';
+        if (drawerMaxInput) drawerMaxInput.value = (firstP.max !== undefined) ? firstP.max : '';
+        if (drawerOptionsInput) drawerOptionsInput.value = '';
+        if (drawerDescInput) drawerDescInput.value = `Controls ${firstP.prop} on ${objName}`;
+        if (drawerLimitsRow) drawerLimitsRow.style.display = (firstP.type === 'number' || firstP.type === 'speed') ? 'flex' : 'none';
+        if (drawerOptionsRow) drawerOptionsRow.style.display = 'none';
+        if (drawerStatusMsg) {
+          drawerStatusMsg.style.color = '#8b949e';
+          drawerStatusMsg.textContent = 'Not currently exposed. Check the box above to expose.';
+        }
+      }
+    } else {
+      drawerNoSel.style.display = 'block';
+      drawerDeck.style.display = 'none';
+    }
+  }
+
+  if (!params || params.length === 0) {
+    listEl.innerHTML = '<div style="font-size: 0.75rem; color: #8b949e; text-align: center; padding: 0.8rem 0;">No widget parameters defined. Select an object to expose properties.</div>';
+    return;
+  }
+
+  listEl.innerHTML = '';
+  params.forEach((param) => {
+    const card = document.createElement('div');
+    card.className = 'widget-param-card';
+    card.style.cssText = 'background: #161b22; border: 1px solid #30363d; border-radius: 6px; padding: 8px; font-size: 0.76rem; display: flex; flex-direction: column; gap: 6px;';
+
+    // Header row
+    const headerRow = document.createElement('div');
+    headerRow.style.cssText = 'display: flex; justify-content: space-between; align-items: center;';
+
+    const titleWrap = document.createElement('div');
+    titleWrap.style.cssText = 'display: flex; align-items: center; gap: 6px; overflow: hidden;';
+
+    const nameBadge = document.createElement('code');
+    nameBadge.style.cssText = 'font-weight: 600; color: #58a6ff; background: rgba(56, 139, 253, 0.1); padding: 1px 4px; border-radius: 3px; font-size: 0.75rem;';
+    nameBadge.textContent = param.name;
+
+    const typeBadge = document.createElement('span');
+    typeBadge.style.cssText = 'font-size: 0.68rem; color: #8b949e; background: #21262d; padding: 1px 4px; border-radius: 3px;';
+    typeBadge.textContent = param.type || 'text';
+
+    const isGlobal = !param.target || param.target === 'root' || param.target === 'global';
+    const targetBadge = document.createElement('span');
+    targetBadge.style.cssText = isGlobal
+      ? 'font-size: 0.68rem; color: #d29922; background: rgba(210, 153, 34, 0.15); padding: 1px 5px; border-radius: 3px;'
+      : 'font-size: 0.68rem; color: #58a6ff; background: rgba(56, 139, 253, 0.15); padding: 1px 5px; border-radius: 3px;';
+    targetBadge.textContent = isGlobal ? '🌐 Whole Widget' : `🎯 Target: ${param.target}`;
+
+    titleWrap.appendChild(nameBadge);
+    titleWrap.appendChild(typeBadge);
+    titleWrap.appendChild(targetBadge);
+
+    const delBtn = document.createElement('button');
+    delBtn.type = 'button';
+    delBtn.className = 'btn-floating-action';
+    delBtn.style.cssText = 'background: transparent; border: none; color: #f85149; cursor: pointer; padding: 0 4px; font-size: 0.82rem;';
+    delBtn.title = `Remove external binding '${param.name}'`;
+    delBtn.textContent = '✕';
+    delBtn.addEventListener('click', (e) => {
+      e.stopPropagation();
+      if (confirm(`Remove exposed parameter "${param.name}"?`)) {
+        if (window.EngineBridge && typeof window.EngineBridge.removeWidgetParameter === 'function') {
+          window.EngineBridge.removeWidgetParameter(param.name);
+          if (window.AppCoordinator) {
+            window.AppCoordinator.recordHistoryImmediate();
+            window.AppCoordinator.showNotification(`Removed parameter '${param.name}'`, 'info');
+          }
+          window.renderWidgetParametersOverview();
+          if (window.FloatingPropertiesEditor && typeof window.FloatingPropertiesEditor.syncSelection === 'function') {
+            window.FloatingPropertiesEditor.syncSelection();
+          }
+        }
+      }
+    });
+
+    headerRow.appendChild(titleWrap);
+    headerRow.appendChild(delBtn);
+    card.appendChild(headerRow);
+
+    // Target & Property metadata
+    const metaRow = document.createElement('div');
+    metaRow.style.cssText = 'color: #8b949e; font-size: 0.71rem; display: flex; justify-content: space-between;';
+    const targetLabel = document.createElement('span');
+    targetLabel.textContent = `Target: ${param.target || 'root'}`;
+    const propLabel = document.createElement('span');
+    propLabel.textContent = `Property: ${param.property}`;
+    metaRow.appendChild(targetLabel);
+    metaRow.appendChild(propLabel);
+    card.appendChild(metaRow);
+
+    if (param.description) {
+      const descRow = document.createElement('div');
+      descRow.style.cssText = 'color: #7d8590; font-size: 0.7rem; font-style: italic;';
+      descRow.textContent = param.description;
+      card.appendChild(descRow);
+    }
+
+    // Live External Preview Row
+    const previewRow = document.createElement('div');
+    previewRow.style.cssText = 'display: flex; align-items: center; justify-content: space-between; gap: 6px; padding-top: 4px; border-top: 1px dashed #30363d;';
+
+    const previewLabel = document.createElement('span');
+    previewLabel.style.cssText = 'color: #e6edf3; font-size: 0.7rem; font-weight: 500; min-width: 44px;';
+    previewLabel.textContent = 'Preview:';
+
+    const previewInputContainer = document.createElement('div');
+    previewInputContainer.style.cssText = 'flex: 1; display: flex; align-items: center; gap: 4px;';
+
+    let inputEl;
+    let valDisplay = null;
+
+    const applyPreview = (val) => {
+      const svgContainer = document.getElementById('svgContainer');
+      if (!svgContainer) return;
+      const svgEl = svgContainer.querySelector('svg');
+      if (!svgEl) return;
+      const targetEl = (window.SVGWidget && typeof window.SVGWidget.resolveTargetElement === 'function')
+        ? window.SVGWidget.resolveTargetElement(svgEl, null, param.target)
+        : (svgEl.querySelector(`[data-semantic-target="${param.target}"], [data-node-id="${param.target}"], [id="${param.target}"]`));
+      if (targetEl && window.SVGWidget && typeof window.SVGWidget.applyPropertyToElement === 'function') {
+        window.SVGWidget.applyPropertyToElement(targetEl, param.property, val, param, null);
+      }
+    };
+
+    if (param.type === 'color') {
+      inputEl = document.createElement('input');
+      inputEl.type = 'color';
+      inputEl.value = (typeof param.default === 'string' && param.default.startsWith('#')) ? param.default : '#58a6ff';
+      inputEl.style.cssText = 'width: 32px; height: 22px; padding: 0; border: 1px solid #30363d; border-radius: 3px; cursor: pointer; background: transparent;';
+      inputEl.addEventListener('input', (e) => applyPreview(e.target.value));
+      previewInputContainer.appendChild(inputEl);
+    } else if (param.type === 'number' || param.type === 'speed') {
+      const minVal = (param.min !== undefined && param.min !== null) ? param.min : 0;
+      const maxVal = (param.max !== undefined && param.max !== null) ? param.max : 100;
+      const stepVal = (param.step !== undefined && param.step !== null) ? param.step : (param.type === 'speed' ? 0.1 : 1);
+      const curVal = (param.default !== undefined && param.default !== null) ? param.default : minVal;
+
+      inputEl = document.createElement('input');
+      inputEl.type = 'range';
+      inputEl.min = String(minVal);
+      inputEl.max = String(maxVal);
+      inputEl.step = String(stepVal);
+      inputEl.value = String(curVal);
+      inputEl.style.cssText = 'flex: 1; height: 5px; cursor: pointer; accent-color: #58a6ff;';
+
+      valDisplay = document.createElement('span');
+      valDisplay.style.cssText = 'font-size: 0.69rem; color: #8b949e; min-width: 30px; text-align: right; font-family: monospace;';
+      valDisplay.textContent = String(curVal);
+
+      inputEl.addEventListener('input', (e) => {
+        const num = parseFloat(e.target.value);
+        if (valDisplay) valDisplay.textContent = String(num);
+        applyPreview(num);
+      });
+      previewInputContainer.appendChild(inputEl);
+      previewInputContainer.appendChild(valDisplay);
+    } else if (param.type === 'boolean') {
+      inputEl = document.createElement('input');
+      inputEl.type = 'checkbox';
+      inputEl.checked = param.default === true || param.default === 'true' || param.default === 1;
+      inputEl.style.cssText = 'cursor: pointer; accent-color: #58a6ff;';
+      inputEl.addEventListener('change', (e) => applyPreview(e.target.checked));
+      previewInputContainer.appendChild(inputEl);
+    } else if (param.type === 'enum' && Array.isArray(param.options)) {
+      inputEl = document.createElement('select');
+      inputEl.style.cssText = 'flex: 1; font-size: 0.71rem; padding: 2px 4px; background: #0d1117; color: #c9d1d9; border: 1px solid #30363d; border-radius: 3px;';
+      param.options.forEach((opt) => {
+        const optEl = document.createElement('option');
+        optEl.value = opt;
+        optEl.textContent = opt;
+        if (opt === param.default) optEl.selected = true;
+        inputEl.appendChild(optEl);
+      });
+      inputEl.addEventListener('change', (e) => applyPreview(e.target.value));
+      previewInputContainer.appendChild(inputEl);
+    } else {
+      inputEl = document.createElement('input');
+      inputEl.type = 'text';
+      inputEl.value = (param.default !== undefined && param.default !== null) ? String(param.default) : '';
+      inputEl.style.cssText = 'flex: 1; font-size: 0.71rem; padding: 2px 5px; background: #0d1117; color: #c9d1d9; border: 1px solid #30363d; border-radius: 3px;';
+      inputEl.addEventListener('input', (e) => applyPreview(e.target.value));
+      previewInputContainer.appendChild(inputEl);
+    }
+
+    const resetBtn = document.createElement('button');
+    resetBtn.type = 'button';
+    resetBtn.className = 'btn-floating-action';
+    resetBtn.style.cssText = 'font-size: 0.68rem; padding: 1px 4px; background: #21262d; border: 1px solid #30363d; color: #8b949e; cursor: pointer;';
+    resetBtn.title = 'Reset preview to authored default';
+    resetBtn.textContent = '↺';
+    resetBtn.addEventListener('click', () => {
+      const defVal = param.default;
+      if (param.type === 'color') {
+        inputEl.value = (typeof defVal === 'string' && defVal.startsWith('#')) ? defVal : '#58a6ff';
+      } else if (param.type === 'number' || param.type === 'speed') {
+        inputEl.value = String(defVal);
+        if (valDisplay) valDisplay.textContent = String(defVal);
+      } else if (param.type === 'boolean') {
+        inputEl.checked = defVal === true || defVal === 'true' || defVal === 1;
+      } else if (param.type === 'enum') {
+        inputEl.value = defVal;
+      } else {
+        inputEl.value = String(defVal || '');
+      }
+      applyPreview(defVal);
+    });
+
+    previewRow.appendChild(previewLabel);
+    previewRow.appendChild(previewInputContainer);
+    previewRow.appendChild(resetBtn);
+    card.appendChild(previewRow);
+
+    listEl.appendChild(card);
+  });
+};
+
 if (window.AppCoordinator) {
   window.AppCoordinator.on('layers:changed', () => {
     if (typeof window.renderLayersList === 'function') window.renderLayersList();
     if (typeof window.syncInspectorLayerSections === 'function') window.syncInspectorLayerSections();
     if (typeof window.syncImageToolsUI === 'function') window.syncImageToolsUI();
   });
-  window.AppCoordinator.on('selection:changed', () => {
+  window.AppCoordinator.on('selection:changed', (sel) => {
     if (typeof window.renderLayersList === 'function') window.renderLayersList();
     if (typeof window.syncInspectorLayerSections === 'function') window.syncInspectorLayerSections();
     if (typeof window.syncImageEditorUI === 'function') window.syncImageEditorUI();
     if (typeof window.syncImageToolsUI === 'function') window.syncImageToolsUI();
+    if (typeof window.renderWidgetParametersOverview === 'function') window.renderWidgetParametersOverview(sel);
   });
   window.AppCoordinator.on('state:restored', () => {
     if (typeof window.renderLayersList === 'function') window.renderLayersList();
     if (typeof window.syncInspectorLayerSections === 'function') window.syncInspectorLayerSections();
     if (typeof window.syncImageEditorUI === 'function') window.syncImageEditorUI();
     if (typeof window.syncImageToolsUI === 'function') window.syncImageToolsUI();
+    if (typeof window.renderWidgetParametersOverview === 'function') window.renderWidgetParametersOverview();
   });
 }
 
@@ -3753,212 +4521,9 @@ document.addEventListener('DOMContentLoaded', () => {
   // =========================================================================
   // Accordion Overview: Widget Parameters (External Controls)
   // =========================================================================
-  window.renderWidgetParametersOverview = function() {
-    const listEl = document.getElementById('widgetParamsList');
-    const countEl = document.getElementById('widgetParamCount');
-    if (!listEl) return;
-
-    let params = [];
-    if (window.EngineBridge && typeof window.EngineBridge.getWidgetParameters === 'function') {
-      params = window.EngineBridge.getWidgetParameters() || [];
-    }
-
-    if (countEl) {
-      countEl.textContent = String(params.length);
-    }
-
-    if (!params || params.length === 0) {
-      listEl.innerHTML = '<div style="font-size: 0.75rem; color: #8b949e; text-align: center; padding: 0.8rem 0;">No widget parameters defined. Select an object to expose properties.</div>';
-      return;
-    }
-
-    listEl.innerHTML = '';
-    params.forEach((param) => {
-      const card = document.createElement('div');
-      card.className = 'widget-param-card';
-      card.style.cssText = 'background: #161b22; border: 1px solid #30363d; border-radius: 6px; padding: 8px; font-size: 0.76rem; display: flex; flex-direction: column; gap: 6px;';
-
-      // Header row
-      const headerRow = document.createElement('div');
-      headerRow.style.cssText = 'display: flex; justify-content: space-between; align-items: center;';
-
-      const titleWrap = document.createElement('div');
-      titleWrap.style.cssText = 'display: flex; align-items: center; gap: 6px; overflow: hidden;';
-
-      const nameBadge = document.createElement('code');
-      nameBadge.style.cssText = 'font-weight: 600; color: #58a6ff; background: rgba(56, 139, 253, 0.1); padding: 1px 4px; border-radius: 3px; font-size: 0.75rem;';
-      nameBadge.textContent = param.name;
-
-      const typeBadge = document.createElement('span');
-      typeBadge.style.cssText = 'font-size: 0.68rem; color: #8b949e; background: #21262d; padding: 1px 4px; border-radius: 3px;';
-      typeBadge.textContent = param.type || 'text';
-
-      titleWrap.appendChild(nameBadge);
-      titleWrap.appendChild(typeBadge);
-
-      const delBtn = document.createElement('button');
-      delBtn.type = 'button';
-      delBtn.className = 'btn-floating-action';
-      delBtn.style.cssText = 'background: transparent; border: none; color: #f85149; cursor: pointer; padding: 0 4px; font-size: 0.82rem;';
-      delBtn.title = `Remove external binding '${param.name}'`;
-      delBtn.textContent = '✕';
-      delBtn.addEventListener('click', (e) => {
-        e.stopPropagation();
-        if (confirm(`Remove exposed parameter "${param.name}"?`)) {
-          if (window.EngineBridge && typeof window.EngineBridge.removeWidgetParameter === 'function') {
-            window.EngineBridge.removeWidgetParameter(param.name);
-            if (window.AppCoordinator) {
-              window.AppCoordinator.recordHistoryImmediate();
-              window.AppCoordinator.showNotification(`Removed parameter '${param.name}'`, 'info');
-            }
-            window.renderWidgetParametersOverview();
-            if (window.FloatingPropertiesEditor && typeof window.FloatingPropertiesEditor.syncSelection === 'function') {
-              window.FloatingPropertiesEditor.syncSelection();
-            }
-          }
-        }
-      });
-
-      headerRow.appendChild(titleWrap);
-      headerRow.appendChild(delBtn);
-      card.appendChild(headerRow);
-
-      // Target & Property metadata
-      const metaRow = document.createElement('div');
-      metaRow.style.cssText = 'color: #8b949e; font-size: 0.71rem; display: flex; justify-content: space-between;';
-      const targetLabel = document.createElement('span');
-      targetLabel.textContent = `Target: ${param.target || 'root'}`;
-      const propLabel = document.createElement('span');
-      propLabel.textContent = `Property: ${param.property}`;
-      metaRow.appendChild(targetLabel);
-      metaRow.appendChild(propLabel);
-      card.appendChild(metaRow);
-
-      if (param.description) {
-        const descRow = document.createElement('div');
-        descRow.style.cssText = 'color: #7d8590; font-size: 0.7rem; font-style: italic;';
-        descRow.textContent = param.description;
-        card.appendChild(descRow);
-      }
-
-      // Live External Preview Row
-      const previewRow = document.createElement('div');
-      previewRow.style.cssText = 'display: flex; align-items: center; justify-content: space-between; gap: 6px; padding-top: 4px; border-top: 1px dashed #30363d;';
-
-      const previewLabel = document.createElement('span');
-      previewLabel.style.cssText = 'color: #e6edf3; font-size: 0.7rem; font-weight: 500; min-width: 44px;';
-      previewLabel.textContent = 'Preview:';
-
-      const previewInputContainer = document.createElement('div');
-      previewInputContainer.style.cssText = 'flex: 1; display: flex; align-items: center; gap: 4px;';
-
-      let inputEl;
-      let valDisplay = null;
-
-      const applyPreview = (val) => {
-        const svgContainer = document.getElementById('svgContainer');
-        if (!svgContainer) return;
-        const svgEl = svgContainer.querySelector('svg');
-        if (!svgEl) return;
-        const targetEl = (window.SVGWidget && typeof window.SVGWidget.resolveTargetElement === 'function')
-          ? window.SVGWidget.resolveTargetElement(svgEl, null, param.target)
-          : (svgEl.querySelector(`[data-semantic-target="${param.target}"], [data-node-id="${param.target}"], [id="${param.target}"]`));
-        if (targetEl && window.SVGWidget && typeof window.SVGWidget.applyPropertyToElement === 'function') {
-          window.SVGWidget.applyPropertyToElement(targetEl, param.property, val, param, null);
-        }
-      };
-
-      if (param.type === 'color') {
-        inputEl = document.createElement('input');
-        inputEl.type = 'color';
-        inputEl.value = (typeof param.default === 'string' && param.default.startsWith('#')) ? param.default : '#58a6ff';
-        inputEl.style.cssText = 'width: 32px; height: 22px; padding: 0; border: 1px solid #30363d; border-radius: 3px; cursor: pointer; background: transparent;';
-        inputEl.addEventListener('input', (e) => applyPreview(e.target.value));
-        previewInputContainer.appendChild(inputEl);
-      } else if (param.type === 'number' || param.type === 'speed') {
-        const minVal = (param.min !== undefined && param.min !== null) ? param.min : 0;
-        const maxVal = (param.max !== undefined && param.max !== null) ? param.max : 100;
-        const stepVal = (param.step !== undefined && param.step !== null) ? param.step : (param.type === 'speed' ? 0.1 : 1);
-        const curVal = (param.default !== undefined && param.default !== null) ? param.default : minVal;
-
-        inputEl = document.createElement('input');
-        inputEl.type = 'range';
-        inputEl.min = String(minVal);
-        inputEl.max = String(maxVal);
-        inputEl.step = String(stepVal);
-        inputEl.value = String(curVal);
-        inputEl.style.cssText = 'flex: 1; height: 5px; cursor: pointer; accent-color: #58a6ff;';
-
-        valDisplay = document.createElement('span');
-        valDisplay.style.cssText = 'font-size: 0.69rem; color: #8b949e; min-width: 30px; text-align: right; font-family: monospace;';
-        valDisplay.textContent = String(curVal);
-
-        inputEl.addEventListener('input', (e) => {
-          const num = parseFloat(e.target.value);
-          if (valDisplay) valDisplay.textContent = String(num);
-          applyPreview(num);
-        });
-        previewInputContainer.appendChild(inputEl);
-        previewInputContainer.appendChild(valDisplay);
-      } else if (param.type === 'boolean') {
-        inputEl = document.createElement('input');
-        inputEl.type = 'checkbox';
-        inputEl.checked = param.default === true || param.default === 'true' || param.default === 1;
-        inputEl.style.cssText = 'cursor: pointer; accent-color: #58a6ff;';
-        inputEl.addEventListener('change', (e) => applyPreview(e.target.checked));
-        previewInputContainer.appendChild(inputEl);
-      } else if (param.type === 'enum' && Array.isArray(param.options)) {
-        inputEl = document.createElement('select');
-        inputEl.style.cssText = 'flex: 1; font-size: 0.71rem; padding: 2px 4px; background: #0d1117; color: #c9d1d9; border: 1px solid #30363d; border-radius: 3px;';
-        param.options.forEach((opt) => {
-          const optEl = document.createElement('option');
-          optEl.value = opt;
-          optEl.textContent = opt;
-          if (opt === param.default) optEl.selected = true;
-          inputEl.appendChild(optEl);
-        });
-        inputEl.addEventListener('change', (e) => applyPreview(e.target.value));
-        previewInputContainer.appendChild(inputEl);
-      } else {
-        inputEl = document.createElement('input');
-        inputEl.type = 'text';
-        inputEl.value = (param.default !== undefined && param.default !== null) ? String(param.default) : '';
-        inputEl.style.cssText = 'flex: 1; font-size: 0.71rem; padding: 2px 5px; background: #0d1117; color: #c9d1d9; border: 1px solid #30363d; border-radius: 3px;';
-        inputEl.addEventListener('input', (e) => applyPreview(e.target.value));
-        previewInputContainer.appendChild(inputEl);
-      }
-
-      const resetBtn = document.createElement('button');
-      resetBtn.type = 'button';
-      resetBtn.className = 'btn-floating-action';
-      resetBtn.style.cssText = 'font-size: 0.68rem; padding: 1px 4px; background: #21262d; border: 1px solid #30363d; color: #8b949e; cursor: pointer;';
-      resetBtn.title = 'Reset preview to authored default';
-      resetBtn.textContent = '↺';
-      resetBtn.addEventListener('click', () => {
-        const defVal = param.default;
-        if (param.type === 'color') {
-          inputEl.value = (typeof defVal === 'string' && defVal.startsWith('#')) ? defVal : '#58a6ff';
-        } else if (param.type === 'number' || param.type === 'speed') {
-          inputEl.value = String(defVal);
-          if (valDisplay) valDisplay.textContent = String(defVal);
-        } else if (param.type === 'boolean') {
-          inputEl.checked = defVal === true || defVal === 'true' || defVal === 1;
-        } else if (param.type === 'enum') {
-          inputEl.value = defVal;
-        } else {
-          inputEl.value = String(defVal || '');
-        }
-        applyPreview(defVal);
-      });
-
-      previewRow.appendChild(previewLabel);
-      previewRow.appendChild(previewInputContainer);
-      previewRow.appendChild(resetBtn);
-      card.appendChild(previewRow);
-
-      listEl.appendChild(card);
-    });
-  };
+  if (typeof window.renderWidgetParametersOverview === 'function') {
+    window.renderWidgetParametersOverview();
+  }
 
   const btnAddGlobal = document.getElementById('btnAddGlobalWidgetParam');
   if (btnAddGlobal) {
@@ -3994,6 +4559,69 @@ document.addEventListener('DOMContentLoaded', () => {
       }
     });
   }
+
+  // Right Drawer Inline Widget Parameter Authoring Controls
+  if (typeof window.initDrawerWidgetEvents === 'function') {
+    window.initDrawerWidgetEvents();
+  }
+
+  const btnExposeActive = document.getElementById('btnExposeActiveWidgetParam');
+  if (btnExposeActive) {
+    btnExposeActive.addEventListener('click', (e) => {
+      e.preventDefault();
+      const sel = (window.AppCoordinator && typeof window.AppCoordinator.getActiveSelection === 'function')
+        ? window.AppCoordinator.getActiveSelection()
+        : null;
+      if (sel && ['node', 'flow', 'glow', 'ripple', 'image'].includes(sel.type) && sel.id !== null) {
+        if (typeof window.openAccordionById === 'function') {
+          window.openAccordionById('acc-widget-params');
+        }
+        const chk = document.getElementById('chkDrawerExposeWidget');
+        if (chk && !chk.checked) {
+          chk.checked = true;
+          const fields = document.getElementById('drawerWidgetFields');
+          if (fields) fields.style.display = 'flex';
+          document.getElementById('btnDrawerSaveWidgetParam')?.click();
+        }
+        if (window.FloatingPropertiesEditor && typeof window.FloatingPropertiesEditor.openFor === 'function') {
+          window.FloatingPropertiesEditor.openFor(sel.type, sel.id, { focusWidgetSection: true, autoExpose: true });
+        }
+      }
+    });
+  }
+
+  const wireExposeBtn = (btnId, type) => {
+    const btn = document.getElementById(btnId);
+    if (!btn) return;
+    btn.addEventListener('click', (e) => {
+      e.preventDefault();
+      const sel = (window.AppCoordinator && typeof window.AppCoordinator.getActiveSelection === 'function')
+        ? window.AppCoordinator.getActiveSelection()
+        : null;
+      let targetId = (sel && sel.type === type && sel.id !== null) ? sel.id : null;
+      if (targetId === null) {
+        if (type === 'node' && window.DiagramNodes) targetId = window.DiagramNodes.activeId;
+        else if (type === 'flow' && window.DataFlows) targetId = window.DataFlows.activeId;
+        else if (type === 'glow' && window.Glows) targetId = window.Glows.activeId;
+        else if (type === 'ripple' && window.Ripples) targetId = window.Ripples.activeId;
+      }
+      if (targetId !== null) {
+        if (window.AppCoordinator && typeof window.AppCoordinator.selectObject === 'function') {
+          window.AppCoordinator.selectObject(type, targetId);
+        }
+        if (typeof window.openAccordionById === 'function') {
+          window.openAccordionById('acc-widget-params');
+        }
+        if (window.FloatingPropertiesEditor && typeof window.FloatingPropertiesEditor.openFor === 'function') {
+          window.FloatingPropertiesEditor.openFor(type, targetId, { focusWidgetSection: true, autoExpose: true });
+        }
+      }
+    });
+  };
+  wireExposeBtn('btnNodeExposeWidget', 'node');
+  wireExposeBtn('btnFlowExposeWidget', 'flow');
+  wireExposeBtn('btnGlowExposeWidget', 'glow');
+  wireExposeBtn('btnRippleExposeWidget', 'ripple');
 
   if (typeof populateShapeDropdowns === 'function') {
     populateShapeDropdowns();

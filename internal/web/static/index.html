@@ -432,6 +432,14 @@
                     </div>
                   </div>
                 </div>
+
+                <div class="inspector-prop-row" style="margin-top: 0.5rem; padding-top: 0.4rem; border-top: 1px dashed var(--border-color, #30363d);">
+                  <label style="color: #58a6ff;">Widget</label>
+                  <button type="button" class="btn-sidebar-widget-expose" id="btnNodeExposeWidget" style="flex: 1; padding: 0.25rem 0.5rem; font-size: 0.72rem; background: #21262d; border: 1px solid #30363d; color: #58a6ff; border-radius: 4px; cursor: pointer; text-align: left; display: flex; justify-content: space-between; align-items: center;" title="Expose this shape as an external widget parameter">
+                    <span>🌐 Expose as Parameter</span>
+                    <span style="font-size: 0.65rem; color: #8b949e;">➔</span>
+                  </button>
+                </div>
               </div>
             </div>
           </div>
@@ -800,6 +808,14 @@
                     </div>
                   </div>
                 </div>
+
+                <div class="inspector-prop-row" style="margin-top: 0.5rem; padding-top: 0.4rem; border-top: 1px dashed var(--border-color, #30363d);">
+                  <label style="color: #58a6ff;">Widget</label>
+                  <button type="button" class="btn-sidebar-widget-expose" id="btnFlowExposeWidget" style="flex: 1; padding: 0.25rem 0.5rem; font-size: 0.72rem; background: #21262d; border: 1px solid #30363d; color: #58a6ff; border-radius: 4px; cursor: pointer; text-align: left; display: flex; justify-content: space-between; align-items: center;" title="Expose this connector as an external widget parameter">
+                    <span>🌐 Expose as Parameter</span>
+                    <span style="font-size: 0.65rem; color: #8b949e;">➔</span>
+                  </button>
+                </div>
               </div>
             </div>
           </div>
@@ -962,6 +978,14 @@
                     </div>
                   </div>
                 </div>
+
+                <div class="inspector-prop-row" style="margin-top: 0.5rem; padding-top: 0.4rem; border-top: 1px dashed var(--border-color, #30363d);">
+                  <label style="color: #58a6ff;">Widget</label>
+                  <button type="button" class="btn-sidebar-widget-expose" id="btnGlowExposeWidget" style="flex: 1; padding: 0.25rem 0.5rem; font-size: 0.72rem; background: #21262d; border: 1px solid #30363d; color: #58a6ff; border-radius: 4px; cursor: pointer; text-align: left; display: flex; justify-content: space-between; align-items: center;" title="Expose this glow hotspot as an external widget parameter">
+                    <span>🌐 Expose as Parameter</span>
+                    <span style="font-size: 0.65rem; color: #8b949e;">➔</span>
+                  </button>
+                </div>
               </div>
             </div>
           </div>
@@ -1082,6 +1106,14 @@
                       <button type="button" class="btn-layer-toggle btn-layer-lock" id="btnRippleLayerLock" data-action="toggleLock" title="Toggle Lock">🔓 Unlocked</button>
                     </div>
                   </div>
+                </div>
+
+                <div class="inspector-prop-row" style="margin-top: 0.5rem; padding-top: 0.4rem; border-top: 1px dashed var(--border-color, #30363d);">
+                  <label style="color: #58a6ff;">Widget</label>
+                  <button type="button" class="btn-sidebar-widget-expose" id="btnRippleExposeWidget" style="flex: 1; padding: 0.25rem 0.5rem; font-size: 0.72rem; background: #21262d; border: 1px solid #30363d; color: #58a6ff; border-radius: 4px; cursor: pointer; text-align: left; display: flex; justify-content: space-between; align-items: center;" title="Expose this ripple wave as an external widget parameter">
+                    <span>🌐 Expose as Parameter</span>
+                    <span style="font-size: 0.65rem; color: #8b949e;">➔</span>
+                  </button>
                 </div>
               </div>
             </div>
@@ -2406,19 +2438,128 @@
       <!-- 4. ACCORDION: WIDGET PARAMETERS OVERVIEW & PREVIEW -->
       <div class="accordion-section open" id="acc-widget-params">
         <div class="accordion-header">
-          <span>🌐 Widget Parameters (External Controls)</span>
+          <span>🌐 Widget Parameters &amp; External Controls</span>
           <span class="accordion-chevron">▾</span>
         </div>
         <div class="accordion-body">
           <div class="widget-params-overview-wrap">
-            <div style="display: flex; justify-content: space-between; align-items: center; margin-bottom: 0.5rem;">
-              <span style="font-size: 0.76rem; color: #8b949e;">Exposed Bindings: <strong id="widgetParamCount" style="color: #58a6ff;">0</strong></span>
-              <button type="button" class="btn-floating-action" id="btnAddGlobalWidgetParam" style="font-size: 0.72rem; padding: 0.18rem 0.4rem; background: #21262d; border: 1px solid #30363d; color: #58a6ff;" title="Add global scene parameter (e.g. animation speed or lifecycle state)">+ Global Param</button>
+            <!-- SECTION 1: SELECTED OBJECT CONTROLS -->
+            <div style="font-size: 0.72rem; font-weight: 700; text-transform: uppercase; color: #58a6ff; letter-spacing: 0.04em; margin-bottom: 4px;">
+              🎯 Selected Object Controls
+            </div>
+
+            <div id="drawerWidgetNoSelection" style="font-size: 0.74rem; color: #8b949e; padding: 10px; background: #161b22; border: 1px dashed #30363d; border-radius: 6px; margin-bottom: 0.65rem; text-align: center;">
+              👈 Select a <strong>Node, Glow, Flow, Ripple</strong>, or <strong>Image</strong> on the canvas to configure its external host properties.
+            </div>
+
+            <div id="drawerWidgetAuthoringDeck" style="display: none; background: #161b22; border: 1px solid #388bfd; border-radius: 6px; padding: 10px; margin-bottom: 0.65rem; box-shadow: 0 2px 8px rgba(0,0,0,0.3);">
+              <div style="display: flex; justify-content: space-between; align-items: center; margin-bottom: 8px; border-bottom: 1px solid #30363d; padding-bottom: 6px;">
+                <span id="drawerWidgetObjBadge" style="font-size: 0.75rem; font-weight: 600; color: #58a6ff;">Selected Object</span>
+                <span id="drawerWidgetObjTypeBadge" style="font-size: 0.68rem; background: #21262d; color: #7ee787; padding: 1px 6px; border-radius: 4px; text-transform: uppercase;">NODE</span>
+              </div>
+
+              <div style="margin-bottom: 8px;">
+                <label style="display: flex; align-items: center; gap: 8px; font-size: 0.76rem; font-weight: 600; color: #e6edf3; cursor: pointer;">
+                  <input type="checkbox" id="chkDrawerExposeWidget" style="accent-color: #388bfd; width: 14px; height: 14px;">
+                  <span>Expose as Widget Parameter</span>
+                </label>
+              </div>
+
+              <div id="drawerWidgetFields" style="display: none; flex-direction: column; gap: 6px;">
+                <div>
+                  <label for="drawerWidgetPropSelect" style="display: block; font-size: 0.71rem; color: #8b949e; margin-bottom: 2px;">Target Property:</label>
+                  <select id="drawerWidgetPropSelect" style="width: 100%; font-size: 0.75rem; padding: 3px 6px; background: #0d1117; border: 1px solid #30363d; border-radius: 4px; color: #e6edf3;"></select>
+                  <div id="drawerWidgetPropHelp" style="font-size: 0.71rem; color: #8b949e; line-height: 1.35; margin-top: 3px; font-style: italic;">Select a property to view what changing it does.</div>
+                </div>
+
+                <div style="display: flex; gap: 6px;">
+                  <div style="flex: 3;">
+                    <label for="drawerWidgetParamName" style="display: block; font-size: 0.71rem; color: #8b949e; margin-bottom: 2px;">Public Name (camelCase/snake):</label>
+                    <input type="text" id="drawerWidgetParamName" placeholder="e.g. gateway_status" style="width: 100%; font-size: 0.75rem; padding: 3px 6px; background: #0d1117; border: 1px solid #30363d; border-radius: 4px; color: #e6edf3;">
+                  </div>
+                  <div style="flex: 2;">
+                    <label for="drawerWidgetTypeSelect" style="display: block; font-size: 0.71rem; color: #8b949e; margin-bottom: 2px;">Type:</label>
+                    <select id="drawerWidgetTypeSelect" style="width: 100%; font-size: 0.75rem; padding: 3px 6px; background: #0d1117; border: 1px solid #30363d; border-radius: 4px; color: #e6edf3;">
+                      <option value="color">Color</option>
+                      <option value="number">Number</option>
+                      <option value="speed">Speed Rate</option>
+                      <option value="boolean">Boolean</option>
+                      <option value="text">Text</option>
+                      <option value="enum">Enum Options</option>
+                    </select>
+                  </div>
+                </div>
+
+                <div>
+                  <label for="drawerWidgetDefaultInput" style="display: block; font-size: 0.71rem; color: #8b949e; margin-bottom: 2px;">Default Value:</label>
+                  <input type="text" id="drawerWidgetDefaultInput" style="width: 100%; font-size: 0.75rem; padding: 3px 6px; background: #0d1117; border: 1px solid #30363d; border-radius: 4px; color: #e6edf3;">
+                </div>
+
+                <div id="drawerWidgetLimitsRow" style="display: none; gap: 6px;">
+                  <div style="flex: 1;">
+                    <label for="drawerWidgetMinInput" style="display: block; font-size: 0.71rem; color: #8b949e; margin-bottom: 2px;">Min:</label>
+                    <input type="number" id="drawerWidgetMinInput" step="any" style="width: 100%; font-size: 0.75rem; padding: 3px 6px; background: #0d1117; border: 1px solid #30363d; border-radius: 4px; color: #e6edf3;">
+                  </div>
+                  <div style="flex: 1;">
+                    <label for="drawerWidgetMaxInput" style="display: block; font-size: 0.71rem; color: #8b949e; margin-bottom: 2px;">Max:</label>
+                    <input type="number" id="drawerWidgetMaxInput" step="any" style="width: 100%; font-size: 0.75rem; padding: 3px 6px; background: #0d1117; border: 1px solid #30363d; border-radius: 4px; color: #e6edf3;">
+                  </div>
+                </div>
+
+                <div id="drawerWidgetOptionsRow" style="display: none;">
+                  <label for="drawerWidgetOptionsInput" style="display: block; font-size: 0.71rem; color: #8b949e; margin-bottom: 2px;">Enum Options (comma separated):</label>
+                  <input type="text" id="drawerWidgetOptionsInput" placeholder="low, medium, high" style="width: 100%; font-size: 0.75rem; padding: 3px 6px; background: #0d1117; border: 1px solid #30363d; border-radius: 4px; color: #e6edf3;">
+                </div>
+
+                <div>
+                  <label for="drawerWidgetDescInput" style="display: block; font-size: 0.71rem; color: #8b949e; margin-bottom: 2px;">Description / Documentation:</label>
+                  <input type="text" id="drawerWidgetDescInput" placeholder="Brief note explaining external usage" style="width: 100%; font-size: 0.75rem; padding: 3px 6px; background: #0d1117; border: 1px solid #30363d; border-radius: 4px; color: #e6edf3;">
+                </div>
+
+                <div style="display: flex; gap: 6px; margin-top: 4px;">
+                  <button type="button" class="primary" id="btnDrawerSaveWidgetParam" style="flex: 1; background: #238636; font-size: 0.75rem; padding: 4px 8px;">💾 Save Binding</button>
+                  <button type="button" class="secondary" id="btnDrawerRemoveWidgetParam" style="background: #21262d; border: 1px solid #da3633; color: #f85149; font-size: 0.75rem; padding: 4px 8px;">✕ Remove</button>
+                </div>
+                <div id="drawerWidgetStatusMsg" style="font-size: 0.71rem; min-height: 16px; margin-top: 2px;"></div>
+              </div>
+            </div>
+
+            <!-- SECTION 2: WHOLE WIDGET CONTROLS (GLOBAL INSTANCE LEVEL) -->
+            <div style="margin-top: 0.8rem; margin-bottom: 0.5rem; background: #161b22; border: 1px solid #30363d; border-radius: 6px; padding: 8px;">
+              <div style="display: flex; justify-content: space-between; align-items: center; margin-bottom: 4px;">
+                <span style="font-size: 0.72rem; font-weight: 700; text-transform: uppercase; color: #d29922; letter-spacing: 0.04em;">🌐 Whole Widget Controls</span>
+                <span style="font-size: 0.65rem; background: #21262d; color: #8b949e; padding: 1px 5px; border-radius: 3px;">GLOBAL (ROOT)</span>
+              </div>
+              <div style="font-size: 0.70rem; color: #8b949e; margin-bottom: 6px;">
+                Expose controls that affect the entire widget instance runtime (all elements together):
+              </div>
+              <div style="display: flex; flex-direction: column; gap: 4px;">
+                <button type="button" class="btn-floating-action" id="btnAddGlobalSpeedParam" style="width: 100%; text-align: left; padding: 4px 8px; font-size: 0.72rem; background: #0d1117; border: 1px solid #30363d; color: #58a6ff; border-radius: 4px; display: flex; justify-content: space-between; align-items: center;" title="Expose global playback speed for the entire widget clock">
+                  <span>⏱️ <strong>Global Playback Speed</strong> (speed)</span>
+                  <span style="font-size: 0.68rem; color: #7ee787;">+ Add</span>
+                </button>
+                <button type="button" class="btn-floating-action" id="btnAddGlobalVisParam" style="width: 100%; text-align: left; padding: 4px 8px; font-size: 0.72rem; background: #0d1117; border: 1px solid #30363d; color: #3fb950; border-radius: 4px; display: flex; justify-content: space-between; align-items: center;" title="Expose master visibility toggle for the entire widget">
+                  <span>👁️ <strong>Widget Visibility</strong> (boolean)</span>
+                  <span style="font-size: 0.68rem; color: #7ee787;">+ Add</span>
+                </button>
+                <button type="button" class="btn-floating-action" id="btnAddGlobalStateParam" style="width: 100%; text-align: left; padding: 4px 8px; font-size: 0.72rem; background: #0d1117; border: 1px solid #30363d; color: #e3b341; border-radius: 4px; display: flex; justify-content: space-between; align-items: center;" title="Expose running / paused / stopped state enum">
+                  <span>⚡ <strong>Operating State</strong> (enum: running/paused)</span>
+                  <span style="font-size: 0.68rem; color: #7ee787;">+ Add</span>
+                </button>
+              </div>
+            </div>
+
+            <!-- SECTION 3: EXPOSED PARAMETERS OVERVIEW -->
+            <div style="display: flex; justify-content: space-between; align-items: center; margin-top: 0.8rem; margin-bottom: 0.4rem; gap: 4px;">
+              <span style="font-size: 0.74rem; font-weight: 700; text-transform: uppercase; color: #8b949e; letter-spacing: 0.04em;">📋 Active Parameters (<strong id="widgetParamCount" style="color: #58a6ff;">0</strong>)</span>
+              <button type="button" class="btn-floating-action" id="btnExposeActiveWidgetParam" style="font-size: 0.70rem; padding: 0.15rem 0.4rem; background: #21262d; border: 1px solid #30363d; color: #3fb950; display: none;" title="Expose selected object's properties">+ Expose Selected</button>
             </div>
             <div id="widgetParamsList" class="widget-params-list" style="display: flex; flex-direction: column; gap: 6px; max-height: 260px; overflow-y: auto;">
               <div style="font-size: 0.75rem; color: #8b949e; text-align: center; padding: 0.8rem 0;">No widget parameters defined. Select an object to expose properties.</div>
             </div>
           </div>
+        </div>
+      </div>
         </div>
       </div>
 

@@ -3,7 +3,9 @@ package scene
 import (
 	"archive/zip"
 	"bytes"
+	"encoding/base64"
 	"io"
+	"os"
 	"strings"
 	"testing"
 )
@@ -160,6 +162,7 @@ func TestWidgetDocsGeneration(t *testing.T) {
 		"industrial-storage-tank/js/svg-widget.js":                      false,
 	}
 
+	var demoHTMLContent string
 	for _, f := range zr.File {
 		if _, ok := expectedFiles[f.Name]; ok {
 			expectedFiles[f.Name] = true
@@ -173,6 +176,9 @@ func TestWidgetDocsGeneration(t *testing.T) {
 			if len(content) == 0 {
 				t.Errorf("Zip entry %s is empty", f.Name)
 			}
+			if f.Name == "industrial-storage-tank/demo.html" {
+				demoHTMLContent = string(content)
+			}
 		}
 	}
 
@@ -180,5 +186,230 @@ func TestWidgetDocsGeneration(t *testing.T) {
 		if !found {
 			t.Errorf("ZIP archive missing expected file: %s", fname)
 		}
+	}
+
+	// Verify embedded Base64 payload in demo.html for direct offline file:// operation
+	if !strings.Contains(demoHTMLContent, `<script id="embedded-widget-svg" type="application/base64">`) {
+		t.Errorf("demo.html in ZIP is missing embedded Base64 payload for offline file:// loading")
+	}
+	if !strings.Contains(demoHTMLContent, `function getRawSvg()`) {
+		t.Errorf("demo.html in ZIP is missing getRawSvg() function")
+	}
+}
+
+func TestWidgetPackageOfflineDirectFileOperation(t *testing.T) {
+	// Test SVG with embedded raster photo (data:image/png;base64,...)
+	imageSVG := `<svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 512 512">` +
+		`<image id="bg-photo" href="data:image/png;base64,iVBORw0KGgoAAAANSUhEUgAAAAEAAAABCAYAAAAfFcSJAAAADUlEQVR42mNk+M9QDwADhgGAWjR9awAAAABJRU5ErkJggg==" width="512" height="512"/>` +
+		`<text id="mytext1" x="20" y="50">Hello World</text>` +
+		`</svg>`
+
+	sc := NewScene()
+	zipBytes, err := BuildWidgetPackageZip(sc, "photo-widget", imageSVG, "// mock js")
+	if err != nil {
+		t.Fatalf("BuildWidgetPackageZip failed: %v", err)
+	}
+
+	zr, err := zip.NewReader(bytes.NewReader(zipBytes), int64(len(zipBytes)))
+	if err != nil {
+		t.Fatalf("failed reading zip: %v", err)
+	}
+
+	var demoHTML, manifestJSON string
+	for _, f := range zr.File {
+		if f.Name == "photo-widget/demo.html" {
+			rc, _ := f.Open()
+			b, _ := io.ReadAll(rc)
+			rc.Close()
+			demoHTML = string(b)
+		} else if f.Name == "photo-widget/widget-manifest.json" {
+			rc, _ := f.Open()
+			b, _ := io.ReadAll(rc)
+			rc.Close()
+			manifestJSON = string(b)
+		}
+	}
+
+	if demoHTML == "" {
+		t.Fatalf("demo.html not found in package")
+	}
+
+	// 1. Verify offline Base64 payload exists
+	idxStart := strings.Index(demoHTML, `<script id="embedded-widget-svg" type="application/base64">`)
+	if idxStart == -1 {
+		t.Fatalf("embedded-widget-svg tag missing from demo.html")
+	}
+	idxEnd := strings.Index(demoHTML[idxStart:], `</script>`)
+	if idxEnd == -1 {
+		t.Fatalf("embedded-widget-svg closing tag missing")
+	}
+	tagLen := len(`<script id="embedded-widget-svg" type="application/base64">`)
+	b64Payload := demoHTML[idxStart+tagLen : idxStart+idxEnd]
+
+	// 2. Decode Base64 and verify image data URI is preserved
+	decodedBytes, err := base64.StdEncoding.DecodeString(strings.TrimSpace(b64Payload))
+	if err != nil {
+		t.Fatalf("failed decoding embedded base64 payload: %v", err)
+	}
+	decodedSVG := string(decodedBytes)
+	if !strings.Contains(decodedSVG, `data:image/png;base64,iVBORw0KGgoAAAANSUhEUgAAAAEAAAABCAYAAAAfFcSJAAAADUlEQVR42mNk+M9QDwADhgGAWjR9awAAAABJRU5ErkJggg==`) {
+		t.Errorf("decoded SVG lost the embedded data URI image")
+	}
+	if !strings.Contains(decodedSVG, `Hello World`) {
+		t.Errorf("decoded SVG lost text content")
+	}
+
+	// 3. Verify zero-parameter fallback note
+	if !strings.Contains(demoHTML, `Standard Playback Mode`) {
+		t.Errorf("expected demo.html to indicate standard playback mode when parameters are empty")
+	}
+	if strings.TrimSpace(manifestJSON) != "{}" {
+		t.Errorf("expected manifest to be {} for unexposed widget, got: %s", manifestJSON)
+	}
+}
+
+func TestExtractWidgetManifestAndFallback(t *testing.T) {
+	svgWithManifest := `<svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 100 100">` +
+		`<rect id="box" width="50" height="50" fill="#ff0000"/>` +
+		`<script type="application/json" id="test-instance__sva-widget-manifest">` +
+		`{"schemaVersion":1,"parameters":[{"name":"boxColor","target":"box","property":"fill","type":"color","default":"#ff0000","description":"Box fill colour"}]}` +
+		`</script></svg>`
+
+	// Test ExtractWidgetManifest
+	manifest := ExtractWidgetManifest(svgWithManifest)
+	if manifest == nil {
+		t.Fatalf("ExtractWidgetManifest returned nil")
+	}
+	if len(manifest.Parameters) != 1 || manifest.Parameters[0].Name != "boxColor" {
+		t.Fatalf("unexpected parameters extracted: %+v", manifest.Parameters)
+	}
+
+	// Test BuildWidgetPackageZip fallback when scene has no parameters
+	sc := NewScene() // empty scene
+	zipBytes, err := BuildWidgetPackageZip(sc, "extracted-test", svgWithManifest, "// mock js")
+	if err != nil {
+		t.Fatalf("BuildWidgetPackageZip with manifest fallback failed: %v", err)
+	}
+
+	zr, err := zip.NewReader(bytes.NewReader(zipBytes), int64(len(zipBytes)))
+	if err != nil {
+		t.Fatalf("reading zip failed: %v", err)
+	}
+
+	var manifestContent, guideContent string
+	for _, f := range zr.File {
+		if f.Name == "extracted-test/widget-manifest.json" {
+			rc, _ := f.Open()
+			b, _ := io.ReadAll(rc)
+			rc.Close()
+			manifestContent = string(b)
+		} else if f.Name == "extracted-test/extracted-test-properties.md" {
+			rc, _ := f.Open()
+			b, _ := io.ReadAll(rc)
+			rc.Close()
+			guideContent = string(b)
+		}
+	}
+
+	if !strings.Contains(manifestContent, `"boxColor"`) {
+		t.Errorf("extracted-test manifest missing boxColor parameter: %s", manifestContent)
+	}
+	if !strings.Contains(guideContent, "`boxColor`") {
+		t.Errorf("extracted-test guide missing boxColor parameter: %s", guideContent)
+	}
+}
+
+func TestRealMailSVGPackageGeneration(t *testing.T) {
+	mailSVGBytes, err := os.ReadFile("/tmp/mail.svg")
+	if err != nil {
+		t.Skip("skipping real mail svg test if /tmp/mail.svg not present")
+	}
+	sc := NewScene()
+	zipBytes, err := BuildWidgetPackageZip(sc, "mail", string(mailSVGBytes), "// mock js")
+	if err != nil {
+		t.Fatalf("BuildWidgetPackageZip failed: %v", err)
+	}
+	zr, err := zip.NewReader(bytes.NewReader(zipBytes), int64(len(zipBytes)))
+	if err != nil {
+		t.Fatalf("zip reader failed: %v", err)
+	}
+	var demoHTML, manifestJSON string
+	for _, f := range zr.File {
+		if f.Name == "mail/demo.html" {
+			rc, _ := f.Open()
+			b, _ := io.ReadAll(rc)
+			rc.Close()
+			demoHTML = string(b)
+		} else if f.Name == "mail/widget-manifest.json" {
+			rc, _ := f.Open()
+			b, _ := io.ReadAll(rc)
+			rc.Close()
+			manifestJSON = string(b)
+		}
+	}
+	if !strings.Contains(demoHTML, `<script id="embedded-widget-svg" type="application/base64">`) {
+		t.Errorf("demo.html missing embedded Base64 payload")
+	}
+	if !strings.Contains(demoHTML, `Standard Playback Mode`) {
+		t.Errorf("demo.html missing standard playback mode indication")
+	}
+	if strings.TrimSpace(manifestJSON) != "{}" {
+		t.Errorf("expected manifest to be {} for unexposed mail widget, got: %s", manifestJSON)
+	}
+
+	// Write updated demo.html to /tmp/mail_demo.html so we can upload to Kiwiberry for user's convenience
+	_ = os.WriteFile("/tmp/mail_demo.html", []byte(demoHTML), 0644)
+}
+
+func TestWidgetDocsEmptyManifest(t *testing.T) {
+	sc := NewScene()
+	manifest := &WidgetManifest{
+		SchemaVersion: 1,
+		Parameters:    []WidgetParameter{},
+	}
+	guide := GenerateWidgetPropertiesGuide(sc, "Gateway", "gateway.svg", manifest)
+	if strings.Contains(guide, "exampleParam") {
+		t.Errorf("guide should not contain placeholder 'exampleParam' when no parameters exist")
+	}
+	if !strings.Contains(guide, "No external parameters are exposed") && !strings.Contains(guide, "No external parameters have been configured") {
+		t.Errorf("guide should indicate no parameters are exposed")
+	}
+	if !strings.Contains(guide, "gateway-template") {
+		t.Errorf("guide should illustrate offline template mounting")
+	}
+}
+
+func TestWidgetDocsBooleanAndSpeedTypes(t *testing.T) {
+	sc := NewScene()
+	manifest := &WidgetManifest{
+		SchemaVersion: 1,
+		Parameters: []WidgetParameter{
+			{
+				Name:        "flowing",
+				Type:        "boolean",
+				Target:      "root",
+				Property:    "visibility",
+				Default:     true,
+				Description: "Toggle widget visibility",
+			},
+			{
+				Name:        "flow1",
+				Type:        "speed",
+				Target:      "flow-1",
+				Property:    "speed",
+				Default:     1.0,
+				Description: "Flow animation speed",
+			},
+		},
+	}
+	guide := GenerateWidgetPropertiesGuide(sc, "Birdscroll", "birdscroll.svg", manifest)
+	if strings.Contains(guide, "'flowing', 'NORMAL'") {
+		t.Errorf("guide should never emit string 'NORMAL' for boolean parameter 'flowing'")
+	}
+	if !strings.Contains(guide, "instA.setParameter('flowing', true)") {
+		t.Errorf("guide should illustrate boolean parameter using boolean literals")
+	}
+	if !strings.Contains(guide, "instB.setParameter('flowing', false)") {
+		t.Errorf("guide should illustrate boolean parameter using false literal for unit-b")
 	}
 }

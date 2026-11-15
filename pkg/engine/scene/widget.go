@@ -387,3 +387,24 @@ func ValidateWidgetParameter(p WidgetParameter) error {
 
 	return nil
 }
+
+// ExtractWidgetManifest parses an embedded sva-widget-manifest script tag from raw SVG markup.
+func ExtractWidgetManifest(rawSVG string) *WidgetManifest {
+	re := regexp.MustCompile(`(?i)<script\b[^>]*\bid=["'](?:[^"']*__)?sva-widget-manifest["'][^>]*>([\s\S]*?)</script>`)
+	matches := re.FindStringSubmatch(rawSVG)
+	if len(matches) < 2 {
+		return nil
+	}
+	rawJSON := strings.TrimSpace(matches[1])
+	if rawJSON == "" || rawJSON == "{}" {
+		return nil
+	}
+	var manifest WidgetManifest
+	if err := json.Unmarshal([]byte(rawJSON), &manifest); err != nil {
+		return nil
+	}
+	if len(manifest.Parameters) == 0 {
+		return nil
+	}
+	return &manifest
+}
