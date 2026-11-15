@@ -2083,6 +2083,75 @@
           </div>
           <div id="fctx-groupMembersList" style="margin-top: 0.4rem; max-height: 140px; overflow-y: auto; display: flex; flex-direction: column; gap: 3px;"></div>
         </div>
+
+        <!-- WIDGET / EXTERNAL CONTROLS SECTION -->
+        <div id="fctx-widgetSection" class="floating-editor-section" style="border-top: 1px solid var(--border, #30363d); margin-top: 0.75rem; padding-top: 0.6rem;">
+          <div style="display: flex; justify-content: space-between; align-items: center; margin-bottom: 0.45rem;">
+            <span style="font-size: 0.76rem; font-weight: 600; color: #58a6ff; display: flex; align-items: center; gap: 4px;">
+              <span>🌐</span> Widget / External Controls
+            </span>
+            <label class="toggle-switch" style="font-size: 0.72rem; margin: 0; display: flex; align-items: center; gap: 4px; cursor: pointer;">
+              <input type="checkbox" id="fctx-widgetExposeToggle">
+              <span>Expose</span>
+            </label>
+          </div>
+
+          <div id="fctx-widgetConfigDeck" style="display: none; background: rgba(0, 0, 0, 0.25); border: 1px solid var(--border, #30363d); border-radius: 6px; padding: 0.5rem; margin-top: 0.35rem;">
+            <div class="floating-prop-row">
+              <label for="fctx-widgetParamName" title="Public parameter identifier (e.g. tankLevel, statusColor)">Name</label>
+              <input type="text" id="fctx-widgetParamName" class="text-field-input" placeholder="e.g. statusColor">
+            </div>
+
+            <div class="floating-prop-row">
+              <label for="fctx-widgetPropSelect" title="Target object attribute to expose">Property</label>
+              <select id="fctx-widgetPropSelect"></select>
+            </div>
+
+            <div class="floating-prop-row">
+              <label for="fctx-widgetTypeSelect" title="Parameter data type">Type</label>
+              <select id="fctx-widgetTypeSelect">
+                <option value="color">color (Hex / RGB)</option>
+                <option value="number">number (Float / Int)</option>
+                <option value="boolean">boolean (True / False)</option>
+                <option value="text">text (String)</option>
+                <option value="speed">speed (Playback Rate)</option>
+                <option value="enum">enum (State List)</option>
+              </select>
+            </div>
+
+            <div class="floating-prop-row" id="fctx-widgetDefaultRow">
+              <label for="fctx-widgetDefaultInput" title="Initial / authored default value">Default</label>
+              <input type="text" id="fctx-widgetDefaultInput" class="text-field-input" placeholder="Default value">
+            </div>
+
+            <!-- Numeric Min / Max Limits -->
+            <div class="floating-prop-row" id="fctx-widgetNumericLimitsRow" style="display: none;">
+              <label title="Numeric min and max value limits">Limits</label>
+              <div style="display: flex; gap: 6px; width: 100%;">
+                <input type="number" id="fctx-widgetMinInput" placeholder="Min" class="num-input" style="flex: 1;">
+                <input type="number" id="fctx-widgetMaxInput" placeholder="Max" class="num-input" style="flex: 1;">
+              </div>
+            </div>
+
+            <!-- Enum Options -->
+            <div class="floating-prop-row" id="fctx-widgetOptionsRow" style="display: none;">
+              <label for="fctx-widgetOptionsInput" title="Comma-separated permitted enum states">Options</label>
+              <input type="text" id="fctx-widgetOptionsInput" class="text-field-input" placeholder="e.g. running, paused, stopped, alarm">
+            </div>
+
+            <div class="floating-prop-row">
+              <label for="fctx-widgetDescInput" title="Optional documentation description">Description</label>
+              <input type="text" id="fctx-widgetDescInput" class="text-field-input" placeholder="Optional description">
+            </div>
+
+            <div style="display: flex; justify-content: space-between; align-items: center; margin-top: 0.5rem; gap: 6px;">
+              <button type="button" class="btn-floating-action" id="fctx-btnSaveWidgetParam" style="background: #238636; color: #fff; flex: 1; padding: 0.25rem 0.5rem;" title="Save parameter binding to scene">💾 Save Binding</button>
+              <button type="button" class="btn-floating-action btn-del" id="fctx-btnRemoveWidgetParam" style="padding: 0.25rem 0.5rem;" title="Remove this parameter binding">&times; Remove</button>
+            </div>
+
+            <div id="fctx-widgetStatusMsg" style="font-size: 0.72rem; margin-top: 0.35rem; color: #8b949e; min-height: 1.2em;"></div>
+          </div>
+        </div>
       </div>
     </div>
 
@@ -2334,7 +2403,26 @@
         </div>
       </div>
 
-      <!-- 4. ACCORDION: EXPORT & RENDER -->
+      <!-- 4. ACCORDION: WIDGET PARAMETERS OVERVIEW & PREVIEW -->
+      <div class="accordion-section open" id="acc-widget-params">
+        <div class="accordion-header">
+          <span>🌐 Widget Parameters (External Controls)</span>
+          <span class="accordion-chevron">▾</span>
+        </div>
+        <div class="accordion-body">
+          <div class="widget-params-overview-wrap">
+            <div style="display: flex; justify-content: space-between; align-items: center; margin-bottom: 0.5rem;">
+              <span style="font-size: 0.76rem; color: #8b949e;">Exposed Bindings: <strong id="widgetParamCount" style="color: #58a6ff;">0</strong></span>
+              <button type="button" class="btn-floating-action" id="btnAddGlobalWidgetParam" style="font-size: 0.72rem; padding: 0.18rem 0.4rem; background: #21262d; border: 1px solid #30363d; color: #58a6ff;" title="Add global scene parameter (e.g. animation speed or lifecycle state)">+ Global Param</button>
+            </div>
+            <div id="widgetParamsList" class="widget-params-list" style="display: flex; flex-direction: column; gap: 6px; max-height: 260px; overflow-y: auto;">
+              <div style="font-size: 0.75rem; color: #8b949e; text-align: center; padding: 0.8rem 0;">No widget parameters defined. Select an object to expose properties.</div>
+            </div>
+          </div>
+        </div>
+      </div>
+
+      <!-- 5. ACCORDION: EXPORT & RENDER -->
       <div class="accordion-section open" id="acc-export">
         <div class="accordion-header">
           <span>🚀 Export &amp; Render Studio</span>
@@ -2370,6 +2458,10 @@
       <button type="button" class="icon-rail-btn" id="railBtn-frame" data-target-acc="acc-frame" data-acc-action="focus-frame" title="Presentation Picture Frame" aria-label="Presentation Picture Frame" aria-controls="acc-optics" aria-expanded="false">
         <span class="rail-icon">🖼️</span>
         <span class="rail-label">Frame</span>
+      </button>
+      <button type="button" class="icon-rail-btn" id="railBtn-widget-params" data-target-acc="acc-widget-params" title="Widget Parameters &amp; External Controls" aria-label="Widget Parameters &amp; External Controls" aria-controls="acc-widget-params" aria-expanded="false">
+        <span class="rail-icon">🌐</span>
+        <span class="rail-label">Widget</span>
       </button>
       <button type="button" class="icon-rail-btn active" id="railBtn-export" data-target-acc="acc-export" title="Production Render &amp; Downloads" aria-label="Production Render &amp; Downloads" aria-controls="acc-export" aria-expanded="true">
         <span class="rail-icon">🚀</span>

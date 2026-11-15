@@ -1,0 +1,100 @@
+================================================================================
+SVG Animator Studio — Stage 16B Visual Authoring Evidence Log
+================================================================================
+Timestamp: 2026-11-15T08:19:00Z
+Initial Git Commit: b2de129
+Branch: main
+
+--------------------------------------------------------------------------------
+1. Go Test Suite Execution (Unit Tests & Protocol Tests)
+--------------------------------------------------------------------------------
+$ go test -count=1 ./...
+?       gitea.seaoffate.net/blackgrape/svg-animator/cmd/svg-animator    [no test files]
+ok      gitea.seaoffate.net/blackgrape/svg-animator/internal/db 0.134s
+?       gitea.seaoffate.net/blackgrape/svg-animator/internal/effects    [no test files]
+ok      gitea.seaoffate.net/blackgrape/svg-animator/internal/generator  0.004s
+ok      gitea.seaoffate.net/blackgrape/svg-animator/internal/rasterizer 0.009s
+ok      gitea.seaoffate.net/blackgrape/svg-animator/internal/web        0.309s
+ok      gitea.seaoffate.net/blackgrape/svg-animator/pkg/engine/geometry 0.002s
+ok      gitea.seaoffate.net/blackgrape/svg-animator/pkg/engine/protocol 0.014s
+ok      gitea.seaoffate.net/blackgrape/svg-animator/pkg/engine/scene    0.014s
+ok      gitea.seaoffate.net/blackgrape/svg-animator/pkg/engine/sva      0.766s
+ok      gitea.seaoffate.net/blackgrape/svg-animator/pkg/engine/timeline 0.008s
+[RESULT] Exit Code: 0 (ALL 11 PACKAGES PASSED)
+
+$ go vet ./...
+[RESULT] Exit Code: 0 (ZERO WARNINGS)
+
+--------------------------------------------------------------------------------
+2. WebAssembly Engine Compilation
+--------------------------------------------------------------------------------
+$ ./scripts/build-wasm.sh
+>> Compiling Go WebAssembly engine (GOOS=js GOARCH=wasm cmd/wasm -> internal/web/static/wasm/engine.wasm)...
+>> WebAssembly build successful: internal/web/static/wasm/engine.wasm (6.1M)
+[RESULT] Exit Code: 0
+
+--------------------------------------------------------------------------------
+3. JavaScript Regression Harness (Scenarios 1 through 78)
+--------------------------------------------------------------------------------
+$ node scripts/regression-harness.js
+[HARNESS] REG-02 PASS: Stage 1 & 2 operational state, math, presets, and CRUD verified.
+...
+[HARNESS] Scenario 76 PASS: Stage 16A Reusable, Self-Contained and Collision-Free SVG Widgets verified.
+[HARNESS] Scenario 77 PASS: Stage 16B External Widget Controls, Runtime Parameters & API verified.
+[HARNESS] Testing Scenario 78: Stage 16B Visual Widget Property Bindings Inside Editor...
+[HARNESS] Scenario 78 PASS: Stage 16B Visual Widget Property Bindings Inside Editor verified.
+[HARNESS] REG-03 PASS: Stage 3, 4, 5, 6, 7, 8, 9, 11, 12, 13, 14, 15 & 16 verified.
+[RESULT] Exit Code: 0 (ALL 78 SCENARIOS PASSED)
+
+--------------------------------------------------------------------------------
+4. Studio-Authored Test Scene & Lifecycle Verification
+--------------------------------------------------------------------------------
+$ node scripts/verify-studio-widget-authoring.js
+========================================================
+ Stage 16B Verification: Studio-Authored Widget Lifecycle
+========================================================
+
+[STEP 1] Saving project "Storage Tank Widget" to SQLite Library...
+[PASS] Saved project with database ID: #2
+
+[STEP 2] Reopening project #2 from SQLite Library...
+[PASS] Reopened project successfully: 3 nodes, 1 glow, 7 widget parameters preserved.
+
+[STEP 3] Generating SVG and isolating into reusable widget...
+[PASS] Exported widget saved to: /root/projects/svg-animator/docs/demonstrations/widget-demo/studio_tank_widget.svg (3101 bytes)
+
+[STEP 4] Testing 3-instance mounting and independent parameter control...
+[PASS] Mounted 3 independent widget instances (tank-a, tank-b, tank-c)
+[PASS] Verified complete parameter independence across instances:
+       Tank A: liquidLevel=210, status="OPTIMAL (88%)", beacon=#22c55e
+       Tank B: liquidLevel=55, status="LOW LEVEL (22%)", beacon=#f59e0b
+       Tank C: liquidLevel=15, status="CRITICAL EMPTY", beacon=#ef4444
+[PASS] Reset parameters on Tank B restored defaults (160, NORMAL) without crosstalk.
+
+[STEP 5] Updating Kiwiberry demonstration page (demo-widgets.html)...
+[PASS] Added "Storage Tank Widget (Studio-Authored)" as default preset in demo-widgets.html
+Stage 16B Demo Package built successfully!
+
+========================================================
+ ALL VERIFICATION CHECKS PASSED: Stage 16B Visual Authoring Complete!
+========================================================
+[RESULT] Exit Code: 0
+
+--------------------------------------------------------------------------------
+5. Kiwiberry Deployment & Verification
+--------------------------------------------------------------------------------
+$ go build -o ./bin/svg-animator-linux ./cmd/svg-animator
+[RESULT] Exit Code: 0
+
+$ scp bin/svg-animator-linux nigel@192.168.100.40:~/svg-animator
+svg-animator-linux                            100%   26MB 102.9MB/s   00:00
+[RESULT] Exit Code: 0
+
+$ ssh nigel@192.168.100.40 "ls -lh ~/svg-animator && ~/svg-animator -version"
+-rwxr-xr-x 1 nigel nigel 26M Nov 15 08:18 /home/nigel/svg-animator
+SVG Animator Studio v1.2.0 (commit: 63b4c91, built: 2026-11-10)
+  Protocol Version:   1.0.0
+  SVA Format Version: 1.0.0
+  Project Schema:     1.2.0
+[RESULT] Exit Code: 0
+================================================================================

@@ -2179,9 +2179,9 @@
     addWidgetParameter(parameter) {
       if (this.isReady() && parameter) {
         const res = this.dispatch('Widget.AddParameter', { parameter });
-        if (res && res.success) return res.parameters || [];
+        if (res && res.success) return res;
       }
-      return [];
+      return null;
     },
 
     removeWidgetParameter(name) {

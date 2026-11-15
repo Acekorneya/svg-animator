@@ -295,7 +295,7 @@
     syncRailForAccordion(accId) {
       if (!accId) return;
       const isLeftSection = ['acc-background', 'acc-nodes', 'acc-presets', 'acc-flows', 'acc-glows', 'acc-ripples', 'acc-layers', 'acc-image-tools'].includes(accId);
-      const isRightSection = ['acc-playback', 'acc-camera', 'acc-optics', 'acc-frame', 'acc-export'].includes(accId);
+      const isRightSection = ['acc-playback', 'acc-camera', 'acc-optics', 'acc-frame', 'acc-widget-params', 'acc-export'].includes(accId);
       if (isLeftSection) this.lastLeftAccId = accId;
       if (isRightSection) this.lastRightAccId = accId;
 

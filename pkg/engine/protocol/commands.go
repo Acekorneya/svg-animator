@@ -3418,7 +3418,12 @@ func Dispatch(command string, payloadJSON []byte) ([]byte, error) {
 				Error:   fmt.Sprintf("decoding WidgetSetParametersRequest: %v", err),
 			})
 		}
-		activeScene.SetParameters(req.Parameters)
+		if err := activeScene.SetParameters(req.Parameters); err != nil {
+			return json.Marshal(WidgetParametersResponse{
+				Success: false,
+				Error:   err.Error(),
+			})
+		}
 		return json.Marshal(WidgetParametersResponse{
 			Success:    true,
 			Parameters: activeScene.GetParameters(),
@@ -3432,7 +3437,12 @@ func Dispatch(command string, payloadJSON []byte) ([]byte, error) {
 				Error:   fmt.Sprintf("decoding WidgetAddParameterRequest: %v", err),
 			})
 		}
-		activeScene.AddParameter(req.Parameter)
+		if err := activeScene.AddParameter(req.Parameter); err != nil {
+			return json.Marshal(WidgetParametersResponse{
+				Success: false,
+				Error:   err.Error(),
+			})
+		}
 		return json.Marshal(WidgetParametersResponse{
 			Success:    true,
 			Parameters: activeScene.GetParameters(),

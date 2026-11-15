@@ -371,7 +371,7 @@ window.Glows = {
       hitTargetEl = '<circle class="glow-hit-target" cx="' + px.toFixed(2) + '" cy="' + py.toFixed(2) + '" r="' + hitRadius.toFixed(2) + '" fill="transparent" pointer-events="all" style="cursor: pointer;" />';
     }
 
-    return '<g class="diagram-glow-instance" data-glow-id="' + glow.id + '">' +
+    return '<g id="glow-' + glow.id + '" class="diagram-glow-instance" data-glow-id="' + glow.id + '" data-semantic-target="' + (glow.name || 'glow-' + glow.id) + '">' +
       hitTargetEl +
       '<g ' + visibilityControl + ' pointer-events="none">' + setAnim + '<g opacity="0">' + animTag + shapeEl + '</g></g>' +
       '</g>';

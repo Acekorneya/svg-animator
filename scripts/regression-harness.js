@@ -9724,6 +9724,8 @@ async function runHarness() {
       while ((em = reElems.exec(html)) !== null) {
         const childEl = new MockStage16BElement(em[1]);
         childEl.id = em[3];
+        const semM = /data-semantic-target=["']([^"']+)["']/.exec(em[2]);
+        if (semM) childEl.setAttribute('data-semantic-target', semM[1]);
         childEl.ownerDocument = this.ownerDocument;
         rootSvg.children.push(childEl);
       }
@@ -9739,6 +9741,14 @@ async function runHarness() {
         if (this.id === targetId) return this;
         for (const c of this.children) {
           if (c.id === targetId) return c;
+          const found = c.querySelector(sel);
+          if (found) return found;
+        }
+      }
+      if (sel.includes('data-semantic-target=')) {
+        const m = /data-semantic-target=["']([^"']+)["']/.exec(sel);
+        if (m && this.getAttribute('data-semantic-target') === m[1]) return this;
+        for (const c of this.children) {
           const found = c.querySelector(sel);
           if (found) return found;
         }
@@ -10001,6 +10011,238 @@ async function runHarness() {
   }
 
   console.log('[HARNESS] Scenario 77 PASS: Stage 16B External Widget Controls, Runtime Parameters & API verified.');
+
+  // =========================================================================
+  // Scenario 78: Stage 16B Completion — Visual Widget Property Bindings
+  // =========================================================================
+  console.log('[HARNESS] Testing Scenario 78: Stage 16B Visual Widget Property Bindings Inside Editor...');
+
+  // 1. Engine parameter validation tests
+  const invalidNameRes = window.EngineBridge.addWidgetParameter({
+    name: '123_invalid-start',
+    target: 'node-1',
+    property: 'fill',
+    type: 'color',
+    default: '#ff0000'
+  });
+  assert.strictEqual(invalidNameRes, null, 'W16B-V01: Engine rejects parameter name starting with digit');
+  assert.ok(window.EngineBridge.getLastError().includes('must start with a letter'), 'W16B-V01b: Error message specifies start with letter');
+
+  const unsafePropRes = window.EngineBridge.addWidgetParameter({
+    name: 'badScript',
+    target: 'node-1',
+    property: 'onclick',
+    type: 'text',
+    default: 'alert(1)'
+  });
+  assert.strictEqual(unsafePropRes, null, 'W16B-V02: Engine rejects unsafe property "onclick"');
+  assert.ok(window.EngineBridge.getLastError().includes('unsafe property'), 'W16B-V02b: Error specifies unsafe property');
+
+  const badRangeRes = window.EngineBridge.addWidgetParameter({
+    name: 'invertedRange',
+    target: 'node-1',
+    property: 'height',
+    type: 'number',
+    default: 50,
+    min: 100,
+    max: 20
+  });
+  assert.strictEqual(badRangeRes, null, 'W16B-V03: Engine rejects min > max');
+  assert.ok(window.EngineBridge.getLastError().includes('cannot be greater than max'), 'W16B-V03b: Error specifies min > max');
+
+  // 2. Add valid parameter bindings
+  const p1 = {
+    name: 'tankBodyColor',
+    target: 'tank-body',
+    property: 'fill',
+    type: 'color',
+    default: '#1f2937',
+    description: 'Main tank vessel fill color'
+  };
+  const p2 = {
+    name: 'liquidLevel',
+    target: 'liquid-level',
+    property: 'height',
+    type: 'number',
+    default: 120,
+    min: 0,
+    max: 200,
+    step: 5,
+    description: 'Internal liquid level height'
+  };
+  const p3 = {
+    name: 'statusText',
+    target: 'status-label',
+    property: 'text',
+    type: 'text',
+    default: 'STANDBY',
+    description: 'Current vessel status label'
+  };
+  const p4 = {
+    name: 'alarmActive',
+    target: 'alarm-beacon',
+    property: 'visibility',
+    type: 'boolean',
+    default: false,
+    description: 'Beacon visibility state'
+  };
+
+  const add1 = window.EngineBridge.addWidgetParameter(p1);
+  assert.ok(add1, 'W16B-V04: addWidgetParameter tankBodyColor succeeded');
+
+  const add2 = window.EngineBridge.addWidgetParameter(p2);
+  assert.ok(add2, 'W16B-V05: addWidgetParameter liquidLevel succeeded');
+
+  const add3 = window.EngineBridge.addWidgetParameter(p3);
+  assert.ok(add3, 'W16B-V06: addWidgetParameter statusText succeeded');
+
+  const add4 = window.EngineBridge.addWidgetParameter(p4);
+  assert.ok(add4, 'W16B-V07: addWidgetParameter alarmActive succeeded');
+
+  // 3. Retrieve all parameters
+  const storedParams = window.EngineBridge.getWidgetParameters();
+  assert.strictEqual(storedParams.length, 4, 'W16B-V08: Exactly 4 parameters retrieved from Go engine');
+  assert.strictEqual(storedParams.find(p => p.name === 'tankBodyColor').default, '#1f2937');
+  assert.strictEqual(storedParams.find(p => p.name === 'liquidLevel').max, 200);
+
+  // 4. Test auto-manifest generation on widget isolation
+  const mockSceneSvg = `<svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 400 300">
+    <g id="tank-body" data-node-id="1" data-semantic-target="tank-body">
+      <rect x="50" y="50" width="200" height="200" fill="#1f2937" rx="10"/>
+    </g>
+    <g id="liquid-level" data-node-id="2" data-semantic-target="liquid-level">
+      <rect x="55" y="100" width="190" height="120" fill="#3b82f6"/>
+    </g>
+    <g id="status-label" data-node-id="3" data-semantic-target="status-label">
+      <text x="150" y="150" fill="#ffffff">STANDBY</text>
+    </g>
+    <g id="alarm-beacon" data-node-id="4" data-semantic-target="alarm-beacon" visibility="hidden">
+      <circle cx="270" cy="70" r="15" fill="#ef4444"/>
+    </g>
+  </svg>`;
+
+  const isolateRes = window.EngineBridge.isolateSVGWidget(mockSceneSvg, 'v-tank-01', 'vt01__', true);
+  assert.strictEqual(isolateRes.success, true, 'W16B-V09: Widget.IsolateSVG succeeded');
+  assert.ok(isolateRes.isolatedSvg.includes('id="vt01__sva-widget-manifest"'), 'W16B-V10: Manifest auto-embedded with isolated ID');
+  assert.ok(isolateRes.isolatedSvg.includes('"tankBodyColor"'), 'W16B-V11: Embedded manifest contains tankBodyColor');
+  assert.ok(isolateRes.isolatedSvg.includes('"liquidLevel"'), 'W16B-V12: Embedded manifest contains liquidLevel');
+  assert.ok(isolateRes.isolatedSvg.includes('"statusText"'), 'W16B-V13: Embedded manifest contains statusText');
+  assert.ok(isolateRes.isolatedSvg.includes('"alarmActive"'), 'W16B-V14: Embedded manifest contains alarmActive');
+
+  // 5. Test 3-instance mounting and independent control using the auto-generated widget SVG
+  const origDoc78 = global.document;
+  try {
+    const mockElements78 = {};
+    const mockDoc = {
+      createElement(tag) {
+        const el = new MockStage16BElement(tag);
+        el.ownerDocument = mockDoc;
+        return el;
+      },
+      getElementById(id) {
+        return mockElements78[id] || null;
+      },
+      querySelector(sel) {
+        if (sel.startsWith('#')) {
+          const id = sel.slice(1);
+          return mockElements78[id] || null;
+        }
+        return null;
+      },
+      head: new MockStage16BElement('head')
+    };
+    mockDoc.head.ownerDocument = mockDoc;
+    global.document = mockDoc;
+
+    mockElements78['instA'] = new MockStage16BElement('div');
+    mockElements78['instA'].id = 'instA';
+    mockElements78['instA'].ownerDocument = mockDoc;
+
+    mockElements78['instB'] = new MockStage16BElement('div');
+    mockElements78['instB'].id = 'instB';
+    mockElements78['instB'].ownerDocument = mockDoc;
+
+    mockElements78['instC'] = new MockStage16BElement('div');
+    mockElements78['instC'].id = 'instC';
+    mockElements78['instC'].ownerDocument = mockDoc;
+
+    const SVGWidget = require('../internal/web/static/js/svg-widget.js');
+
+    const widgetA = SVGWidget.mount(mockElements78['instA'], isolateRes.isolatedSvg, { instanceId: 'inst-a' });
+    const widgetB = SVGWidget.mount(mockElements78['instB'], isolateRes.isolatedSvg, { instanceId: 'inst-b' });
+    const widgetC = SVGWidget.mount(mockElements78['instC'], isolateRes.isolatedSvg, { instanceId: 'inst-c' });
+
+    assert.ok(widgetA && widgetB && widgetC, 'W16B-V15: All 3 instances mounted successfully');
+    assert.strictEqual(widgetA.getParameter('tankBodyColor'), '#1f2937', 'W16B-V16: Default color on inst-a');
+    assert.strictEqual(widgetB.getParameter('liquidLevel'), 120, 'W16B-V17: Default liquid level on inst-b');
+
+    // Control instance A: Green operational state
+    widgetA.setParameters({
+      tankBodyColor: '#064e3b',
+      liquidLevel: 180,
+      statusText: 'OPTIMAL',
+      alarmActive: false
+    });
+
+    // Control instance B: Amber warning state
+    widgetB.setParameters({
+      tankBodyColor: '#78350f',
+      liquidLevel: 45,
+      statusText: 'WARNING LOW',
+      alarmActive: true
+    });
+
+    // Control instance C: Red alarm state
+    widgetC.setParameters({
+      tankBodyColor: '#7f1d1d',
+      liquidLevel: 10,
+      statusText: 'CRITICAL EMPTY',
+      alarmActive: true
+    });
+
+    // Verify complete independence across all 3 instances
+    assert.strictEqual(widgetA.getParameter('tankBodyColor'), '#064e3b', 'W16B-V18: Inst A tankBodyColor #064e3b');
+    assert.strictEqual(widgetB.getParameter('tankBodyColor'), '#78350f', 'W16B-V19: Inst B tankBodyColor #78350f');
+    assert.strictEqual(widgetC.getParameter('tankBodyColor'), '#7f1d1d', 'W16B-V20: Inst C tankBodyColor #7f1d1d');
+
+    assert.strictEqual(widgetA.getParameter('liquidLevel'), 180, 'W16B-V21: Inst A liquidLevel 180');
+    assert.strictEqual(widgetB.getParameter('liquidLevel'), 45, 'W16B-V22: Inst B liquidLevel 45');
+    assert.strictEqual(widgetC.getParameter('liquidLevel'), 10, 'W16B-V23: Inst C liquidLevel 10');
+
+    assert.strictEqual(widgetA.getParameter('statusText'), 'OPTIMAL', 'W16B-V24: Inst A statusText OPTIMAL');
+    assert.strictEqual(widgetB.getParameter('statusText'), 'WARNING LOW', 'W16B-V25: Inst B statusText WARNING LOW');
+    assert.strictEqual(widgetC.getParameter('statusText'), 'CRITICAL EMPTY', 'W16B-V26: Inst C statusText CRITICAL EMPTY');
+
+    assert.strictEqual(widgetA.getParameter('alarmActive'), false, 'W16B-V27: Inst A alarmActive false');
+    assert.strictEqual(widgetB.getParameter('alarmActive'), true, 'W16B-V28: Inst B alarmActive true');
+    assert.strictEqual(widgetC.getParameter('alarmActive'), true, 'W16B-V29: Inst C alarmActive true');
+
+    // Verify DOM elements inside instances reflected values
+    const domTankA = mockElements78['instA'].querySelector('[data-semantic-target="tank-body"]');
+    assert.ok(domTankA, 'W16B-V30: Target element found in instance A DOM');
+
+    // Test parameter reset on instance A
+    widgetA.resetParameters();
+    assert.strictEqual(widgetA.getParameter('tankBodyColor'), '#1f2937', 'W16B-V31: Reset restored default #1f2937 on inst-a');
+    assert.strictEqual(widgetA.getParameter('liquidLevel'), 120, 'W16B-V32: Reset restored default 120 on inst-a');
+    assert.strictEqual(widgetB.getParameter('tankBodyColor'), '#78350f', 'W16B-V33: Inst B remained unaffected by Inst A reset');
+
+    // Clean up instances
+    widgetA.destroy();
+    widgetB.destroy();
+    widgetC.destroy();
+  } finally {
+    global.document = origDoc78;
+  }
+
+  // 6. Test removing parameter
+  const remRes = window.EngineBridge.removeWidgetParameter('alarmActive');
+  assert.ok(remRes, 'W16B-V34: removeWidgetParameter succeeded');
+  const paramsAfterRem = window.EngineBridge.getWidgetParameters();
+  assert.strictEqual(paramsAfterRem.length, 3, 'W16B-V35: Exactly 3 parameters remain after removal');
+  assert.strictEqual(paramsAfterRem.some(p => p.name === 'alarmActive'), false, 'W16B-V36: alarmActive is gone');
+
+  console.log('[HARNESS] Scenario 78 PASS: Stage 16B Visual Widget Property Bindings Inside Editor verified.');
 
   console.log('[HARNESS] REG-03 PASS: Stage 3, 4, 5, 6, 7, 8, 9, 11, 12, 13, 14, 15 & 16 non-destructive cropping, background extraction, image baking, dedicated crop clip & snip workspace, object-local clipping, unified layer management, independent image objects, persistent groups, duplication, copy/paste with flow remapping, multi-selection, alignment, distribution, colour tools, selection retention, notifications, naming sync, history(50), schema 1.2.0, .sva packaging, background photo restoration, SVG compilation, export payload builders, collision-free widgets, external runtime parameters, and Go WASM engines verified.');
 }

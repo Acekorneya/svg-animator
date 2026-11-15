@@ -3368,6 +3368,41 @@ func TestDispatchWidgetParameters(t *testing.T) {
 		t.Fatalf("Widget.RemoveParameter response mismatch: %+v", remRes)
 	}
 
+	// 4b. Rejection of invalid parameter name & unsafe property
+	badAddReq, _ := json.Marshal(WidgetAddParameterRequest{
+		Parameter: scene.WidgetParameter{
+			Name:     "123bad",
+			Type:     "color",
+			Target:   "node-1",
+			Property: "fill",
+		},
+	})
+	badBytes, err := Dispatch("Widget.AddParameter", badAddReq)
+	if err != nil {
+		t.Fatalf("Widget.AddParameter dispatch error: %v", err)
+	}
+	var badRes WidgetParametersResponse
+	if err := json.Unmarshal(badBytes, &badRes); err != nil || badRes.Success {
+		t.Fatalf("expected Widget.AddParameter to reject invalid name '123bad', got %+v", badRes)
+	}
+
+	unsafeReq, _ := json.Marshal(WidgetAddParameterRequest{
+		Parameter: scene.WidgetParameter{
+			Name:     "badProp",
+			Type:     "text",
+			Target:   "node-1",
+			Property: "onclick",
+		},
+	})
+	unsafeBytes, err := Dispatch("Widget.AddParameter", unsafeReq)
+	if err != nil {
+		t.Fatalf("Widget.AddParameter dispatch error: %v", err)
+	}
+	var unsafeRes WidgetParametersResponse
+	if err := json.Unmarshal(unsafeBytes, &unsafeRes); err != nil || unsafeRes.Success {
+		t.Fatalf("expected Widget.AddParameter to reject unsafe property 'onclick', got %+v", unsafeRes)
+	}
+
 	// 5. Widget.IsolateSVG automatically injects active scene manifest
 	rawSVG := `<svg width="200" height="200"><rect id="node-1" fill="#00ff00"/></svg>`
 	isoReq, _ := json.Marshal(IsolateSVGWidgetRequest{

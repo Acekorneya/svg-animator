@@ -308,7 +308,7 @@ window.Ripples = {
       : '';
     const maxR = Math.max(30, rp.outerR || 100);
     const hitTargetEl = '<circle class="ripple-hit-target" cx="' + px.toFixed(2) + '" cy="' + py.toFixed(2) + '" r="' + maxR.toFixed(2) + '" fill="transparent" pointer-events="all" style="cursor: pointer;" />';
-    return '<g class="diagram-ripple-instance" data-ripple-id="' + rp.id + '">' +
+    return '<g id="ripple-' + rp.id + '" class="diagram-ripple-instance" data-ripple-id="' + rp.id + '" data-semantic-target="' + (rp.name || 'ripple-' + rp.id) + '">' +
       hitTargetEl +
       refractedPhoto + '<g pointer-events="none">' + ringShadows + '</g><g pointer-events="none">' + ringHighlights + '</g>' +
       '</g>';

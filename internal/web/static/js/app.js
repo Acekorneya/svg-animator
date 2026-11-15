@@ -3440,6 +3440,10 @@ document.addEventListener('DOMContentLoaded', () => {
     const flDetails = document.getElementById('frameLightingDetails');
     if (flDetails) flDetails.style.display = flOn ? 'flex' : 'none';
 
+    if (typeof window.renderWidgetParametersOverview === 'function') {
+      window.renderWidgetParametersOverview();
+    }
+
     render();
   };
 
@@ -3650,6 +3654,251 @@ document.addEventListener('DOMContentLoaded', () => {
     }
   });
 
+  // =========================================================================
+  // Accordion Overview: Widget Parameters (External Controls)
+  // =========================================================================
+  window.renderWidgetParametersOverview = function() {
+    const listEl = document.getElementById('widgetParamsList');
+    const countEl = document.getElementById('widgetParamCount');
+    if (!listEl) return;
+
+    let params = [];
+    if (window.EngineBridge && typeof window.EngineBridge.getWidgetParameters === 'function') {
+      params = window.EngineBridge.getWidgetParameters() || [];
+    }
+
+    if (countEl) {
+      countEl.textContent = String(params.length);
+    }
+
+    if (!params || params.length === 0) {
+      listEl.innerHTML = '<div style="font-size: 0.75rem; color: #8b949e; text-align: center; padding: 0.8rem 0;">No widget parameters defined. Select an object to expose properties.</div>';
+      return;
+    }
+
+    listEl.innerHTML = '';
+    params.forEach((param) => {
+      const card = document.createElement('div');
+      card.className = 'widget-param-card';
+      card.style.cssText = 'background: #161b22; border: 1px solid #30363d; border-radius: 6px; padding: 8px; font-size: 0.76rem; display: flex; flex-direction: column; gap: 6px;';
+
+      // Header row
+      const headerRow = document.createElement('div');
+      headerRow.style.cssText = 'display: flex; justify-content: space-between; align-items: center;';
+
+      const titleWrap = document.createElement('div');
+      titleWrap.style.cssText = 'display: flex; align-items: center; gap: 6px; overflow: hidden;';
+
+      const nameBadge = document.createElement('code');
+      nameBadge.style.cssText = 'font-weight: 600; color: #58a6ff; background: rgba(56, 139, 253, 0.1); padding: 1px 4px; border-radius: 3px; font-size: 0.75rem;';
+      nameBadge.textContent = param.name;
+
+      const typeBadge = document.createElement('span');
+      typeBadge.style.cssText = 'font-size: 0.68rem; color: #8b949e; background: #21262d; padding: 1px 4px; border-radius: 3px;';
+      typeBadge.textContent = param.type || 'text';
+
+      titleWrap.appendChild(nameBadge);
+      titleWrap.appendChild(typeBadge);
+
+      const delBtn = document.createElement('button');
+      delBtn.type = 'button';
+      delBtn.className = 'btn-floating-action';
+      delBtn.style.cssText = 'background: transparent; border: none; color: #f85149; cursor: pointer; padding: 0 4px; font-size: 0.82rem;';
+      delBtn.title = `Remove external binding '${param.name}'`;
+      delBtn.textContent = '✕';
+      delBtn.addEventListener('click', (e) => {
+        e.stopPropagation();
+        if (confirm(`Remove exposed parameter "${param.name}"?`)) {
+          if (window.EngineBridge && typeof window.EngineBridge.removeWidgetParameter === 'function') {
+            window.EngineBridge.removeWidgetParameter(param.name);
+            if (window.AppCoordinator) {
+              window.AppCoordinator.recordHistoryImmediate();
+              window.AppCoordinator.showNotification(`Removed parameter '${param.name}'`, 'info');
+            }
+            window.renderWidgetParametersOverview();
+            if (window.FloatingPropertiesEditor && typeof window.FloatingPropertiesEditor.syncSelection === 'function') {
+              window.FloatingPropertiesEditor.syncSelection();
+            }
+          }
+        }
+      });
+
+      headerRow.appendChild(titleWrap);
+      headerRow.appendChild(delBtn);
+      card.appendChild(headerRow);
+
+      // Target & Property metadata
+      const metaRow = document.createElement('div');
+      metaRow.style.cssText = 'color: #8b949e; font-size: 0.71rem; display: flex; justify-content: space-between;';
+      const targetLabel = document.createElement('span');
+      targetLabel.textContent = `Target: ${param.target || 'root'}`;
+      const propLabel = document.createElement('span');
+      propLabel.textContent = `Property: ${param.property}`;
+      metaRow.appendChild(targetLabel);
+      metaRow.appendChild(propLabel);
+      card.appendChild(metaRow);
+
+      if (param.description) {
+        const descRow = document.createElement('div');
+        descRow.style.cssText = 'color: #7d8590; font-size: 0.7rem; font-style: italic;';
+        descRow.textContent = param.description;
+        card.appendChild(descRow);
+      }
+
+      // Live External Preview Row
+      const previewRow = document.createElement('div');
+      previewRow.style.cssText = 'display: flex; align-items: center; justify-content: space-between; gap: 6px; padding-top: 4px; border-top: 1px dashed #30363d;';
+
+      const previewLabel = document.createElement('span');
+      previewLabel.style.cssText = 'color: #e6edf3; font-size: 0.7rem; font-weight: 500; min-width: 44px;';
+      previewLabel.textContent = 'Preview:';
+
+      const previewInputContainer = document.createElement('div');
+      previewInputContainer.style.cssText = 'flex: 1; display: flex; align-items: center; gap: 4px;';
+
+      let inputEl;
+      let valDisplay = null;
+
+      const applyPreview = (val) => {
+        const svgContainer = document.getElementById('svgContainer');
+        if (!svgContainer) return;
+        const svgEl = svgContainer.querySelector('svg');
+        if (!svgEl) return;
+        const targetEl = (window.SVGWidget && typeof window.SVGWidget.resolveTargetElement === 'function')
+          ? window.SVGWidget.resolveTargetElement(svgEl, null, param.target)
+          : (svgEl.querySelector(`[data-semantic-target="${param.target}"], [data-node-id="${param.target}"], [id="${param.target}"]`));
+        if (targetEl && window.SVGWidget && typeof window.SVGWidget.applyPropertyToElement === 'function') {
+          window.SVGWidget.applyPropertyToElement(targetEl, param.property, val, param, null);
+        }
+      };
+
+      if (param.type === 'color') {
+        inputEl = document.createElement('input');
+        inputEl.type = 'color';
+        inputEl.value = (typeof param.default === 'string' && param.default.startsWith('#')) ? param.default : '#58a6ff';
+        inputEl.style.cssText = 'width: 32px; height: 22px; padding: 0; border: 1px solid #30363d; border-radius: 3px; cursor: pointer; background: transparent;';
+        inputEl.addEventListener('input', (e) => applyPreview(e.target.value));
+        previewInputContainer.appendChild(inputEl);
+      } else if (param.type === 'number' || param.type === 'speed') {
+        const minVal = (param.min !== undefined && param.min !== null) ? param.min : 0;
+        const maxVal = (param.max !== undefined && param.max !== null) ? param.max : 100;
+        const stepVal = (param.step !== undefined && param.step !== null) ? param.step : (param.type === 'speed' ? 0.1 : 1);
+        const curVal = (param.default !== undefined && param.default !== null) ? param.default : minVal;
+
+        inputEl = document.createElement('input');
+        inputEl.type = 'range';
+        inputEl.min = String(minVal);
+        inputEl.max = String(maxVal);
+        inputEl.step = String(stepVal);
+        inputEl.value = String(curVal);
+        inputEl.style.cssText = 'flex: 1; height: 5px; cursor: pointer; accent-color: #58a6ff;';
+
+        valDisplay = document.createElement('span');
+        valDisplay.style.cssText = 'font-size: 0.69rem; color: #8b949e; min-width: 30px; text-align: right; font-family: monospace;';
+        valDisplay.textContent = String(curVal);
+
+        inputEl.addEventListener('input', (e) => {
+          const num = parseFloat(e.target.value);
+          if (valDisplay) valDisplay.textContent = String(num);
+          applyPreview(num);
+        });
+        previewInputContainer.appendChild(inputEl);
+        previewInputContainer.appendChild(valDisplay);
+      } else if (param.type === 'boolean') {
+        inputEl = document.createElement('input');
+        inputEl.type = 'checkbox';
+        inputEl.checked = param.default === true || param.default === 'true' || param.default === 1;
+        inputEl.style.cssText = 'cursor: pointer; accent-color: #58a6ff;';
+        inputEl.addEventListener('change', (e) => applyPreview(e.target.checked));
+        previewInputContainer.appendChild(inputEl);
+      } else if (param.type === 'enum' && Array.isArray(param.options)) {
+        inputEl = document.createElement('select');
+        inputEl.style.cssText = 'flex: 1; font-size: 0.71rem; padding: 2px 4px; background: #0d1117; color: #c9d1d9; border: 1px solid #30363d; border-radius: 3px;';
+        param.options.forEach((opt) => {
+          const optEl = document.createElement('option');
+          optEl.value = opt;
+          optEl.textContent = opt;
+          if (opt === param.default) optEl.selected = true;
+          inputEl.appendChild(optEl);
+        });
+        inputEl.addEventListener('change', (e) => applyPreview(e.target.value));
+        previewInputContainer.appendChild(inputEl);
+      } else {
+        inputEl = document.createElement('input');
+        inputEl.type = 'text';
+        inputEl.value = (param.default !== undefined && param.default !== null) ? String(param.default) : '';
+        inputEl.style.cssText = 'flex: 1; font-size: 0.71rem; padding: 2px 5px; background: #0d1117; color: #c9d1d9; border: 1px solid #30363d; border-radius: 3px;';
+        inputEl.addEventListener('input', (e) => applyPreview(e.target.value));
+        previewInputContainer.appendChild(inputEl);
+      }
+
+      const resetBtn = document.createElement('button');
+      resetBtn.type = 'button';
+      resetBtn.className = 'btn-floating-action';
+      resetBtn.style.cssText = 'font-size: 0.68rem; padding: 1px 4px; background: #21262d; border: 1px solid #30363d; color: #8b949e; cursor: pointer;';
+      resetBtn.title = 'Reset preview to authored default';
+      resetBtn.textContent = '↺';
+      resetBtn.addEventListener('click', () => {
+        const defVal = param.default;
+        if (param.type === 'color') {
+          inputEl.value = (typeof defVal === 'string' && defVal.startsWith('#')) ? defVal : '#58a6ff';
+        } else if (param.type === 'number' || param.type === 'speed') {
+          inputEl.value = String(defVal);
+          if (valDisplay) valDisplay.textContent = String(defVal);
+        } else if (param.type === 'boolean') {
+          inputEl.checked = defVal === true || defVal === 'true' || defVal === 1;
+        } else if (param.type === 'enum') {
+          inputEl.value = defVal;
+        } else {
+          inputEl.value = String(defVal || '');
+        }
+        applyPreview(defVal);
+      });
+
+      previewRow.appendChild(previewLabel);
+      previewRow.appendChild(previewInputContainer);
+      previewRow.appendChild(resetBtn);
+      card.appendChild(previewRow);
+
+      listEl.appendChild(card);
+    });
+  };
+
+  const btnAddGlobal = document.getElementById('btnAddGlobalWidgetParam');
+  if (btnAddGlobal) {
+    btnAddGlobal.addEventListener('click', () => {
+      const name = prompt('Enter public parameter name (e.g. playbackRate, mainColor):', 'playbackRate');
+      if (!name || !name.trim()) return;
+      const cleanName = name.trim();
+      const prop = (cleanName === 'playbackRate') ? 'playbackRate' : 'visibility';
+      const type = (cleanName === 'playbackRate') ? 'speed' : 'boolean';
+      const def = (cleanName === 'playbackRate') ? 1.0 : true;
+
+      if (window.EngineBridge && typeof window.EngineBridge.addWidgetParameter === 'function') {
+        const res = window.EngineBridge.addWidgetParameter({
+          name: cleanName,
+          target: 'root',
+          property: prop,
+          type: type,
+          default: def,
+          min: (type === 'speed') ? 0.1 : undefined,
+          max: (type === 'speed') ? 5.0 : undefined,
+          step: (type === 'speed') ? 0.1 : undefined,
+          description: `Global scene ${prop}`
+        });
+        if (!res) {
+          alert('Failed to add parameter: ' + (window.EngineBridge.getLastError() || 'Invalid parameter'));
+          return;
+        }
+        if (window.AppCoordinator) {
+          window.AppCoordinator.recordHistoryImmediate();
+          window.AppCoordinator.showNotification(`Added global parameter '${cleanName}'`, 'success');
+        }
+        window.renderWidgetParametersOverview();
+      }
+    });
+  }
+
   if (typeof populateShapeDropdowns === 'function') {
     populateShapeDropdowns();
   }
@@ -3666,6 +3915,9 @@ document.addEventListener('DOMContentLoaded', () => {
       }
       if (ready && typeof window.triggerAppRender === 'function') {
         window.triggerAppRender();
+      }
+      if (typeof window.renderWidgetParametersOverview === 'function') {
+        window.renderWidgetParametersOverview();
       }
     });
   }
@@ -3790,4 +4042,7 @@ document.addEventListener('DOMContentLoaded', () => {
     window.ImageToolsController.init();
   }
   renderLayersList();
+  if (typeof window.renderWidgetParametersOverview === 'function') {
+    window.renderWidgetParametersOverview();
+  }
 });

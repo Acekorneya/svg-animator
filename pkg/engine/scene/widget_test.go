@@ -239,3 +239,159 @@ func TestIsolateSVGWidgetWithManifest(t *testing.T) {
 		t.Errorf("expected isolated SVG to contain id=\"barrel_a__statusBox\"")
 	}
 }
+
+func TestValidateWidgetParameter(t *testing.T) {
+	// 1. Valid parameter
+	minVal := 0.0
+	maxVal := 100.0
+	valid := WidgetParameter{
+		Name:     "tankLevel",
+		Type:     "number",
+		Default:  50.0,
+		Target:   "node-1",
+		Property: "height",
+		Min:      &minVal,
+		Max:      &maxVal,
+	}
+	if err := ValidateWidgetParameter(valid); err != nil {
+		t.Fatalf("expected valid parameter to pass, got: %v", err)
+	}
+
+	// 2. Invalid names (empty, starts with digit, contains space, symbols)
+	invalidNames := []string{"", "123level", "tank level", "tank@color", "tank.val"}
+	for _, badName := range invalidNames {
+		p := valid
+		p.Name = badName
+		if err := ValidateWidgetParameter(p); err == nil {
+			t.Errorf("expected error for invalid name %q, got nil", badName)
+		}
+	}
+
+	// 3. Unsafe properties (script, onclick, href, style, javascript)
+	unsafeProps := []string{"onclick", "onmouseover", "href", "xlink:href", "style", "script", "javascript:void(0)"}
+	for _, badProp := range unsafeProps {
+		p := valid
+		p.Property = badProp
+		if err := ValidateWidgetParameter(p); err == nil {
+			t.Errorf("expected error for unsafe property %q, got nil", badProp)
+		}
+	}
+
+	// 4. Incompatible type and property
+	pColorWrong := WidgetParameter{
+		Name:     "myColor",
+		Type:     "color",
+		Target:   "node-1",
+		Property: "height",
+	}
+	if err := ValidateWidgetParameter(pColorWrong); err == nil {
+		t.Errorf("expected error when color parameter has property 'height', got nil")
+	}
+
+	// 5. Min > Max
+	badMin := 200.0
+	badMax := 100.0
+	pRange := WidgetParameter{
+		Name:     "myRange",
+		Type:     "number",
+		Target:   "node-1",
+		Property: "width",
+		Min:      &badMin,
+		Max:      &badMax,
+	}
+	if err := ValidateWidgetParameter(pRange); err == nil {
+		t.Errorf("expected error when min > max, got nil")
+	}
+
+	// 6. Enum with empty options
+	pEnumEmpty := WidgetParameter{
+		Name:     "myState",
+		Type:     "enum",
+		Target:   "root",
+		Property: "state",
+		Options:  []string{},
+	}
+	if err := ValidateWidgetParameter(pEnumEmpty); err == nil {
+		t.Errorf("expected error when enum has empty options, got nil")
+	}
+}
+
+func TestSceneParameterPruningOnDelete(t *testing.T) {
+	sc := NewScene()
+	n1 := sc.CreateNode(Node{Shape: "rect", X: 10, Y: 10, Width: 100, Height: 50}, nil, false)
+
+	err := sc.AddParameter(WidgetParameter{
+		Name:     "nodeColor",
+		Type:     "color",
+		Default:  "#ff0000",
+		Target:   "node-" + string(n1.ID),
+		Property: "fill",
+	})
+	if err != nil {
+		t.Fatalf("AddParameter failed: %v", err)
+	}
+
+	err = sc.AddParameter(WidgetParameter{
+		Name:     "globalSpeed",
+		Type:     "speed",
+		Default:  1.0,
+		Target:   "root",
+		Property: "playbackRate",
+	})
+	if err != nil {
+		t.Fatalf("AddParameter failed: %v", err)
+	}
+
+	if len(sc.GetParameters()) != 2 {
+		t.Fatalf("expected 2 parameters, got %d", len(sc.GetParameters()))
+	}
+
+	// Remove node n1 -> parameter 'nodeColor' targeting 'node-1' should be safely pruned
+	sc.RemoveNode(n1.ID)
+
+	paramsAfter := sc.GetParameters()
+	if len(paramsAfter) != 1 {
+		t.Fatalf("expected 1 parameter after node removal, got %d", len(paramsAfter))
+	}
+	if paramsAfter[0].Name != "globalSpeed" {
+		t.Errorf("expected globalSpeed remaining, got %s", paramsAfter[0].Name)
+	}
+}
+
+func TestParameterUndoRedo(t *testing.T) {
+	sc := NewScene()
+	sc.RecordHistory() // Record baseline state
+
+	p := WidgetParameter{
+		Name:     "statusColor",
+		Type:     "color",
+		Default:  "#22c55e",
+		Target:   "node-1",
+		Property: "fill",
+	}
+
+	if err := sc.AddParameter(p); err != nil {
+		t.Fatalf("AddParameter failed: %v", err)
+	}
+	if len(sc.GetParameters()) != 1 {
+		t.Fatalf("expected 1 parameter, got %d", len(sc.GetParameters()))
+	}
+
+	// Undo addition
+	_, err := sc.UndoHistory()
+	if err != nil {
+		t.Fatalf("expected undo to succeed, got %v", err)
+	}
+	if len(sc.GetParameters()) != 0 {
+		t.Errorf("expected 0 parameters after undo, got %d", len(sc.GetParameters()))
+	}
+
+	// Redo addition
+	_, err = sc.RedoHistory()
+	if err != nil {
+		t.Fatalf("expected redo to succeed, got %v", err)
+	}
+	if len(sc.GetParameters()) != 1 || sc.GetParameters()[0].Name != "statusColor" {
+		t.Errorf("expected 1 parameter 'statusColor' after redo, got %+v", sc.GetParameters())
+	}
+}

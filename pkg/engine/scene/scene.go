@@ -512,6 +512,8 @@ func (s *Scene) removeNodeLocked(id StringID) bool {
 	s.pruneSelectionLocked(SelectionNode, id)
 	s.pruneGroupMembersLocked(SelectionNode, id)
 	s.removeLayerEntryLocked(SelectionNode, id)
+	s.pruneParametersForTargetLocked("node-" + string(id))
+	s.pruneParametersForTargetLocked(string(id))
 	return true
 }
 
@@ -542,6 +544,8 @@ func (s *Scene) removeFlowLocked(id StringID) bool {
 	s.pruneSelectionLocked(SelectionFlow, id)
 	s.pruneGroupMembersLocked(SelectionFlow, id)
 	s.removeLayerEntryLocked(SelectionFlow, id)
+	s.pruneParametersForTargetLocked("flow-" + string(id))
+	s.pruneParametersForTargetLocked(string(id))
 	return true
 }
 
@@ -561,6 +565,8 @@ func (s *Scene) removeGlowLocked(id StringID) bool {
 	s.pruneSelectionLocked(SelectionGlow, id)
 	s.pruneGroupMembersLocked(SelectionGlow, id)
 	s.removeLayerEntryLocked(SelectionGlow, id)
+	s.pruneParametersForTargetLocked("glow-" + string(id))
+	s.pruneParametersForTargetLocked(string(id))
 	return true
 }
 
@@ -580,6 +586,8 @@ func (s *Scene) removeRippleLocked(id StringID) bool {
 	s.pruneSelectionLocked(SelectionRipple, id)
 	s.pruneGroupMembersLocked(SelectionRipple, id)
 	s.removeLayerEntryLocked(SelectionRipple, id)
+	s.pruneParametersForTargetLocked("ripple-" + string(id))
+	s.pruneParametersForTargetLocked(string(id))
 	return true
 }
 
@@ -974,8 +982,15 @@ func (s *Scene) GetParameters() []WidgetParameter {
 	return out
 }
 
-// SetParameters replaces the external widget parameter definitions.
-func (s *Scene) SetParameters(params []WidgetParameter) {
+// SetParameters replaces the external widget parameter definitions after validation.
+func (s *Scene) SetParameters(params []WidgetParameter) error {
+	if params != nil {
+		for _, p := range params {
+			if err := ValidateWidgetParameter(p); err != nil {
+				return err
+			}
+		}
+	}
 	s.mu.Lock()
 	defer s.mu.Unlock()
 	if params == nil {
@@ -988,10 +1003,14 @@ func (s *Scene) SetParameters(params []WidgetParameter) {
 	if s.history != nil {
 		s.history.Record(s.getSnapshotLocked(), s.selection)
 	}
+	return nil
 }
 
-// AddParameter appends or replaces a widget parameter by name.
-func (s *Scene) AddParameter(p WidgetParameter) {
+// AddParameter appends or replaces a widget parameter by name after validation.
+func (s *Scene) AddParameter(p WidgetParameter) error {
+	if err := ValidateWidgetParameter(p); err != nil {
+		return err
+	}
 	s.mu.Lock()
 	defer s.mu.Unlock()
 	for i, existing := range s.parameters {
@@ -1001,7 +1020,7 @@ func (s *Scene) AddParameter(p WidgetParameter) {
 			if s.history != nil {
 				s.history.Record(s.getSnapshotLocked(), s.selection)
 			}
-			return
+			return nil
 		}
 	}
 	s.parameters = append(s.parameters, p)
@@ -1009,6 +1028,7 @@ func (s *Scene) AddParameter(p WidgetParameter) {
 	if s.history != nil {
 		s.history.Record(s.getSnapshotLocked(), s.selection)
 	}
+	return nil
 }
 
 // RemoveParameter deletes a widget parameter by name.
@@ -1026,6 +1046,20 @@ func (s *Scene) RemoveParameter(name string) bool {
 		}
 	}
 	return false
+}
+
+// pruneParametersForTargetLocked removes any widget parameters bound to the given target identifier.
+func (s *Scene) pruneParametersForTargetLocked(targetID string) {
+	if len(s.parameters) == 0 || targetID == "" {
+		return
+	}
+	var kept []WidgetParameter
+	for _, p := range s.parameters {
+		if p.Target != targetID {
+			kept = append(kept, p)
+		}
+	}
+	s.parameters = kept
 }
 
 func (s *Scene) getSnapshotLocked() Snapshot {

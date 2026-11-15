@@ -309,3 +309,81 @@ func scopeCSSRules(css string, rootID string, idMap map[string]string) string {
 
 	return scoped
 }
+
+// ValidateWidgetParameter validates a WidgetParameter definition according to the Stage 16B schema.
+func ValidateWidgetParameter(p WidgetParameter) error {
+	name := strings.TrimSpace(p.Name)
+	if name == "" {
+		return fmt.Errorf("parameter name cannot be empty")
+	}
+	// Check valid identifier: must start with letter, followed by letters, digits, underscores, or hyphens
+	reIdent := regexp.MustCompile(`^[a-zA-Z][a-zA-Z0-9_-]{0,63}$`)
+	if !reIdent.MatchString(name) {
+		return fmt.Errorf("invalid parameter name %q: must start with a letter and contain only alphanumeric characters, underscores, or hyphens (max 64 chars)", name)
+	}
+
+	target := strings.TrimSpace(p.Target)
+	if target == "" {
+		return fmt.Errorf("parameter target cannot be empty")
+	}
+
+	// Supported types
+	switch p.Type {
+	case "color", "number", "boolean", "text", "enum", "speed":
+		// valid
+	default:
+		return fmt.Errorf("unsupported parameter type %q: must be color, number, boolean, text, enum, or speed", p.Type)
+	}
+
+	// Supported safe properties
+	prop := strings.TrimSpace(p.Property)
+	if prop == "" {
+		return fmt.Errorf("parameter property cannot be empty")
+	}
+
+	// Reject unsafe properties or script injection vectors
+	lowerProp := strings.ToLower(prop)
+	if strings.Contains(lowerProp, "script") ||
+		(strings.HasPrefix(lowerProp, "on") && len(lowerProp) > 2) ||
+		strings.Contains(lowerProp, "handler") ||
+		strings.Contains(lowerProp, "href") ||
+		strings.Contains(lowerProp, "style") ||
+		strings.Contains(lowerProp, "javascript") {
+		return fmt.Errorf("unsafe property %q is rejected", prop)
+	}
+
+	// Validate property compatibility with type
+	switch p.Type {
+	case "color":
+		if prop != "fill" && prop != "stroke" && prop != "color" {
+			return fmt.Errorf("color parameter does not support property %q (allowed: fill, stroke, color)", prop)
+		}
+	case "boolean":
+		if prop != "visibility" && prop != "display" {
+			return fmt.Errorf("boolean parameter does not support property %q (allowed: visibility, display)", prop)
+		}
+	case "text":
+		if prop != "text" && prop != "textContent" {
+			return fmt.Errorf("text parameter does not support property %q (allowed: text, textContent)", prop)
+		}
+	case "speed":
+		if prop != "playbackRate" && prop != "speed" {
+			return fmt.Errorf("speed parameter does not support property %q (allowed: playbackRate, speed)", prop)
+		}
+	case "enum":
+		if len(p.Options) == 0 {
+			return fmt.Errorf("enum parameter must have at least one allowed option")
+		}
+		for _, opt := range p.Options {
+			if strings.TrimSpace(opt) == "" {
+				return fmt.Errorf("enum options cannot contain empty strings")
+			}
+		}
+	case "number":
+		if p.Min != nil && p.Max != nil && *p.Min > *p.Max {
+			return fmt.Errorf("numeric min (%v) cannot be greater than max (%v)", *p.Min, *p.Max)
+		}
+	}
+
+	return nil
+}

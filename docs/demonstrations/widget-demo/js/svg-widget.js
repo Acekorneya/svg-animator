@@ -332,9 +332,16 @@
       if (el) return el;
     }
 
-    // 3. data-node-id, data-flow-id, data-image-id, data-glow-id
-    el = svgEl.querySelector(`[data-node-id="${targetName}"], [data-flow-id="${targetName}"], [data-image-id="${targetName}"], [data-glow-id="${targetName}"]`);
+    // 3. data-node-id, data-flow-id, data-image-id, data-glow-id, data-ripple-id
+    el = svgEl.querySelector(`[data-node-id="${targetName}"], [data-flow-id="${targetName}"], [data-image-id="${targetName}"], [data-glow-id="${targetName}"], [data-ripple-id="${targetName}"]`);
     if (el) return el;
+
+    // Stripped prefix fallback (e.g. "node-1" -> "1")
+    const strippedId = String(targetName).replace(/^(node|flow|glow|ripple|image)-/, '');
+    if (strippedId !== targetName) {
+      el = svgEl.querySelector(`[data-node-id="${strippedId}"], [data-flow-id="${strippedId}"], [data-image-id="${strippedId}"], [data-glow-id="${strippedId}"], [data-ripple-id="${strippedId}"]`);
+      if (el) return el;
+    }
 
     // 4. Scoped direct ID query
     try {
@@ -360,12 +367,24 @@
         if (el) {
           el.setAttribute('fill', value);
           el.style.fill = value;
+          if (el.tagName && el.tagName.toLowerCase() === 'g') {
+            el.querySelectorAll('rect, circle, path, polygon, ellipse').forEach(c => {
+              c.setAttribute('fill', value);
+              c.style.fill = value;
+            });
+          }
         }
         break;
       case 'stroke':
         if (el) {
           el.setAttribute('stroke', value);
           el.style.stroke = value;
+          if (el.tagName && el.tagName.toLowerCase() === 'g') {
+            el.querySelectorAll('rect, circle, path, polygon, ellipse, line').forEach(c => {
+              c.setAttribute('stroke', value);
+              c.style.stroke = value;
+            });
+          }
         }
         break;
       case 'color':
@@ -373,6 +392,12 @@
           el.style.color = value;
           el.setAttribute('fill', value);
           el.style.fill = value;
+          if (el.tagName && el.tagName.toLowerCase() === 'g') {
+            el.querySelectorAll('rect, circle, path, polygon, ellipse').forEach(c => {
+              c.setAttribute('fill', value);
+              c.style.fill = value;
+            });
+          }
         }
         break;
       case 'visibility': {
@@ -393,7 +418,12 @@
       case 'text':
       case 'textContent':
         if (el) {
-          el.textContent = String(value);
+          const textEl = (el.tagName && el.tagName.toLowerCase() === 'text') ? el : el.querySelector('text');
+          if (textEl) {
+            textEl.textContent = String(value);
+          } else {
+            el.textContent = String(value);
+          }
         }
         break;
       case 'playbackRate':
@@ -422,6 +452,13 @@
         if (el) {
           try { el.setAttribute(property, String(value)); } catch (e) {}
           try { el.style[property] = String(value); } catch (e) {}
+          if (el.tagName && el.tagName.toLowerCase() === 'g') {
+            const primary = el.querySelector('rect, circle, path, polygon, ellipse');
+            if (primary) {
+              try { primary.setAttribute(property, String(value)); } catch (e) {}
+              try { primary.style[property] = String(value); } catch (e) {}
+            }
+          }
         }
         break;
     }
@@ -642,7 +679,7 @@
         play() {
           if (handle.isDestroyed) return handle;
           isPaused = false;
-          if (wrapper) wrapper.classList.remove('sva-paused');
+          if (wrapper && wrapper.classList && typeof wrapper.classList.remove === 'function') wrapper.classList.remove('sva-paused');
           if (svgEl && typeof svgEl.unpauseAnimations === 'function') {
             try { svgEl.unpauseAnimations(); } catch (e) {}
           }
@@ -659,7 +696,7 @@
         pause() {
           if (handle.isDestroyed) return handle;
           isPaused = true;
-          if (wrapper) wrapper.classList.add('sva-paused');
+          if (wrapper && wrapper.classList && typeof wrapper.classList.add === 'function') wrapper.classList.add('sva-paused');
           if (svgEl && typeof svgEl.pauseAnimations === 'function') {
             try { svgEl.pauseAnimations(); } catch (e) {}
           }

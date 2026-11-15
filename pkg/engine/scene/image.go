@@ -443,10 +443,13 @@ func (s *Scene) removeImageLocked(id StringID) bool {
 	}
 	s.imageIDs = newIDs
 
-	// Prune from selection, parent group and layers
+	// Prune from selection, parent group, layers and widget parameters
 	s.pruneSelectionLocked(SelectionImage, id)
 	s.pruneGroupMembersLocked(SelectionImage, id)
 	s.removeLayerEntryLocked(SelectionImage, id)
+	s.pruneParametersForTargetLocked("image-" + string(id))
+	s.pruneParametersForTargetLocked("img-" + string(id))
+	s.pruneParametersForTargetLocked(string(id))
 	return true
 }
 

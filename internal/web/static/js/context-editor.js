@@ -574,6 +574,8 @@ window.FloatingPropertiesEditor = {
           }
         }
       }
+
+      this._syncWidgetControls();
     } finally {
       this._isSyncing = false;
     }
@@ -1522,6 +1524,368 @@ window.FloatingPropertiesEditor = {
           }
         }
       });
+    }
+
+    this._bindWidgetControls();
+  },
+
+  _bindWidgetControls() {
+    const exposeToggle = document.getElementById('fctx-widgetExposeToggle');
+    const deck = document.getElementById('fctx-widgetConfigDeck');
+    const propSelect = document.getElementById('fctx-widgetPropSelect');
+    const typeSelect = document.getElementById('fctx-widgetTypeSelect');
+    const numRow = document.getElementById('fctx-widgetNumericLimitsRow');
+    const optRow = document.getElementById('fctx-widgetOptionsRow');
+    const minInput = document.getElementById('fctx-widgetMinInput');
+    const maxInput = document.getElementById('fctx-widgetMaxInput');
+    const saveBtn = document.getElementById('fctx-btnSaveWidgetParam');
+    const removeBtn = document.getElementById('fctx-btnRemoveWidgetParam');
+
+    if (exposeToggle) {
+      exposeToggle.addEventListener('change', () => {
+        if (exposeToggle.checked) {
+          if (deck) deck.style.display = 'block';
+          if (propSelect && propSelect.value) {
+            this._updateDefaultFromActiveObject(propSelect.value);
+          }
+        } else {
+          this._removeWidgetBinding();
+        }
+      });
+    }
+
+    if (propSelect) {
+      propSelect.addEventListener('change', () => {
+        const selectedOpt = propSelect.selectedOptions[0];
+        if (selectedOpt && selectedOpt.dataset.defaultType && typeSelect) {
+          typeSelect.value = selectedOpt.dataset.defaultType;
+          if (numRow) numRow.style.display = (typeSelect.value === 'number' || typeSelect.value === 'speed') ? 'flex' : 'none';
+          if (optRow) optRow.style.display = (typeSelect.value === 'enum') ? 'flex' : 'none';
+          if (minInput && selectedOpt.dataset.min !== undefined) minInput.value = selectedOpt.dataset.min;
+          if (maxInput && selectedOpt.dataset.max !== undefined) maxInput.value = selectedOpt.dataset.max;
+        }
+        this._updateDefaultFromActiveObject(propSelect.value);
+      });
+    }
+
+    if (typeSelect) {
+      typeSelect.addEventListener('change', () => {
+        if (numRow) numRow.style.display = (typeSelect.value === 'number' || typeSelect.value === 'speed') ? 'flex' : 'none';
+        if (optRow) optRow.style.display = (typeSelect.value === 'enum') ? 'flex' : 'none';
+      });
+    }
+
+    if (saveBtn) {
+      saveBtn.addEventListener('click', () => {
+        this._saveWidgetBinding();
+      });
+    }
+
+    if (removeBtn) {
+      removeBtn.addEventListener('click', () => {
+        this._removeWidgetBinding();
+      });
+    }
+  },
+
+  _syncWidgetControls() {
+    const sec = document.getElementById('fctx-widgetSection');
+    if (!sec) return;
+
+    if (!['node', 'flow', 'glow', 'ripple', 'image'].includes(this.activeType) || this.activeId === null) {
+      sec.style.display = 'none';
+      return;
+    }
+    sec.style.display = 'block';
+
+    const exposeToggle = document.getElementById('fctx-widgetExposeToggle');
+    const deck = document.getElementById('fctx-widgetConfigDeck');
+    const nameInput = document.getElementById('fctx-widgetParamName');
+    const propSelect = document.getElementById('fctx-widgetPropSelect');
+    const typeSelect = document.getElementById('fctx-widgetTypeSelect');
+    const defaultInput = document.getElementById('fctx-widgetDefaultInput');
+    const minInput = document.getElementById('fctx-widgetMinInput');
+    const maxInput = document.getElementById('fctx-widgetMaxInput');
+    const optionsInput = document.getElementById('fctx-widgetOptionsInput');
+    const descInput = document.getElementById('fctx-widgetDescInput');
+    const statusMsg = document.getElementById('fctx-widgetStatusMsg');
+    const numRow = document.getElementById('fctx-widgetNumericLimitsRow');
+    const optRow = document.getElementById('fctx-widgetOptionsRow');
+
+    const targetId = `${this.activeType}-${this.activeId}`;
+
+    const propertyDefs = {
+      node: [
+        { prop: 'fill', label: 'Fill Colour', type: 'color' },
+        { prop: 'stroke', label: 'Border Colour', type: 'color' },
+        { prop: 'opacity', label: 'Opacity (0..1)', type: 'number', min: 0, max: 1 },
+        { prop: 'visibility', label: 'Visibility (Toggle)', type: 'boolean' },
+        { prop: 'text', label: 'Text Content', type: 'text' },
+        { prop: 'height', label: 'Height (px)', type: 'number', min: 10, max: 1000 },
+        { prop: 'width', label: 'Width (px)', type: 'number', min: 10, max: 1000 }
+      ],
+      flow: [
+        { prop: 'stroke', label: 'Flow Track Colour', type: 'color' },
+        { prop: 'opacity', label: 'Opacity (0..1)', type: 'number', min: 0, max: 1 },
+        { prop: 'visibility', label: 'Visibility (Toggle)', type: 'boolean' },
+        { prop: 'speed', label: 'Animation Speed (Rate)', type: 'speed', min: 0.1, max: 10 }
+      ],
+      glow: [
+        { prop: 'color', label: 'Glow Colour', type: 'color' },
+        { prop: 'opacity', label: 'Glow Opacity (0..1)', type: 'number', min: 0, max: 1 },
+        { prop: 'visibility', label: 'Visibility (Toggle)', type: 'boolean' }
+      ],
+      ripple: [
+        { prop: 'color', label: 'Wave Crest Colour', type: 'color' },
+        { prop: 'opacity', label: 'Opacity (0..1)', type: 'number', min: 0, max: 1 },
+        { prop: 'visibility', label: 'Visibility (Toggle)', type: 'boolean' }
+      ],
+      image: [
+        { prop: 'opacity', label: 'Opacity (0..1)', type: 'number', min: 0, max: 1 },
+        { prop: 'visibility', label: 'Visibility (Toggle)', type: 'boolean' }
+      ]
+    };
+
+    const availableProps = propertyDefs[this.activeType] || [];
+    if (propSelect) {
+      propSelect.innerHTML = '';
+      availableProps.forEach(p => {
+        const opt = document.createElement('option');
+        opt.value = p.prop;
+        opt.textContent = `${p.label} (${p.prop})`;
+        opt.dataset.defaultType = p.type;
+        if (p.min !== undefined) opt.dataset.min = p.min;
+        if (p.max !== undefined) opt.dataset.max = p.max;
+        propSelect.appendChild(opt);
+      });
+    }
+
+    let existing = null;
+    if (window.EngineBridge && typeof window.EngineBridge.getWidgetParameters === 'function') {
+      const allParams = window.EngineBridge.getWidgetParameters() || [];
+      existing = allParams.find(p => {
+        const t = p.Target || p.target;
+        return t === targetId || t === String(this.activeId);
+      });
+    }
+
+    if (existing) {
+      const exName = existing.Name || existing.name;
+      const exProp = existing.Property || existing.property;
+      const exType = existing.Type || existing.type;
+      const exDef = existing.Default !== undefined ? existing.Default : existing.default;
+      const exMin = existing.Min !== undefined ? existing.Min : existing.min;
+      const exMax = existing.Max !== undefined ? existing.Max : existing.max;
+      const exOpts = existing.Options || existing.options;
+      const exDesc = existing.Description || existing.description;
+
+      if (exposeToggle) exposeToggle.checked = true;
+      if (deck) deck.style.display = 'block';
+      if (nameInput) nameInput.value = exName || '';
+      if (propSelect) propSelect.value = exProp || availableProps[0]?.prop;
+      if (typeSelect) typeSelect.value = exType || 'color';
+      if (defaultInput) defaultInput.value = exDef !== undefined ? (typeof exDef === 'object' ? JSON.stringify(exDef) : String(exDef)) : '';
+      if (minInput) minInput.value = (exMin !== undefined && exMin !== null) ? exMin : '';
+      if (maxInput) maxInput.value = (exMax !== undefined && exMax !== null) ? exMax : '';
+      if (optionsInput) optionsInput.value = Array.isArray(exOpts) ? exOpts.join(', ') : '';
+      if (descInput) descInput.value = exDesc || '';
+
+      if (numRow) numRow.style.display = (exType === 'number' || exType === 'speed') ? 'flex' : 'none';
+      if (optRow) optRow.style.display = (exType === 'enum') ? 'flex' : 'none';
+
+      if (statusMsg) {
+        statusMsg.style.color = '#3fb950';
+        statusMsg.textContent = `✓ Bound as "${exName}" (${exType} ──► ${exProp})`;
+      }
+    } else {
+      if (exposeToggle) exposeToggle.checked = false;
+      if (deck) deck.style.display = 'none';
+
+      let defaultName = `${this.activeType}${this.activeId}`;
+      if (this.activeType === 'node' && window.DiagramNodes) {
+        const node = window.DiagramNodes.getNode(this.activeId);
+        if (node) {
+          const rawName = (node.name || node.text || '').replace(/[^a-zA-Z0-9]/g, '');
+          if (rawName) defaultName = rawName.charAt(0).toLowerCase() + rawName.slice(1);
+        }
+      }
+
+      if (nameInput) nameInput.value = defaultName;
+      if (propSelect && availableProps[0]) {
+        propSelect.value = availableProps[0].prop;
+        if (typeSelect) typeSelect.value = availableProps[0].type;
+        this._updateDefaultFromActiveObject(availableProps[0].prop);
+      }
+      if (minInput) minInput.value = '';
+      if (maxInput) maxInput.value = '';
+      if (optionsInput) optionsInput.value = '';
+      if (descInput) descInput.value = '';
+      if (numRow) numRow.style.display = 'none';
+      if (optRow) optRow.style.display = 'none';
+      if (statusMsg) {
+        statusMsg.style.color = '#8b949e';
+        statusMsg.textContent = 'Not currently exposed.';
+      }
+    }
+  },
+
+  _updateDefaultFromActiveObject(property) {
+    const defaultInput = document.getElementById('fctx-widgetDefaultInput');
+    if (!defaultInput || !this.activeType || this.activeId === null) return;
+
+    let val = '';
+    if (this.activeType === 'node' && window.DiagramNodes) {
+      const node = window.DiagramNodes.getNode(this.activeId);
+      if (node) {
+        switch (property) {
+          case 'fill': val = node.fillColor || '#161b22'; break;
+          case 'stroke': val = node.strokeColor || '#58a6ff'; break;
+          case 'opacity': val = node.fillOpacity !== undefined ? node.fillOpacity : 0.92; break;
+          case 'visibility': val = true; break;
+          case 'text': val = node.text || 'Node'; break;
+          case 'height': val = node.height || 80; break;
+          case 'width': val = node.width || 170; break;
+        }
+      }
+    } else if (this.activeType === 'flow' && window.DataFlows) {
+      const flow = window.DataFlows.getFlow(this.activeId);
+      if (flow) {
+        switch (property) {
+          case 'stroke':
+          case 'color': val = flow.color || '#00ffcc'; break;
+          case 'opacity': val = flow.opacity !== undefined ? flow.opacity : 1.0; break;
+          case 'visibility': val = true; break;
+          case 'speed': val = flow.speed !== undefined ? flow.speed : 2.0; break;
+        }
+      }
+    } else if (this.activeType === 'glow' && window.Glows) {
+      const glow = window.Glows.getGlow(this.activeId);
+      if (glow) {
+        switch (property) {
+          case 'color':
+          case 'fill': val = glow.color || '#ff0044'; break;
+          case 'opacity': val = glow.opacity !== undefined ? glow.opacity : 1.0; break;
+          case 'visibility': val = true; break;
+        }
+      }
+    } else if (this.activeType === 'ripple' && window.Ripples) {
+      const ripple = window.Ripples.getRipple(this.activeId);
+      if (ripple) {
+        switch (property) {
+          case 'color':
+          case 'stroke': val = ripple.color || '#ffffff'; break;
+          case 'opacity': val = ripple.opacity !== undefined ? ripple.opacity : 0.4; break;
+          case 'visibility': val = true; break;
+        }
+      }
+    } else if (this.activeType === 'image' && window.ImageObjects) {
+      const img = window.ImageObjects.getImage(this.activeId);
+      if (img) {
+        switch (property) {
+          case 'opacity': val = img.opacity !== undefined ? img.opacity : 1.0; break;
+          case 'visibility': val = img.visible !== false; break;
+        }
+      }
+    }
+    defaultInput.value = val;
+  },
+
+  _saveWidgetBinding() {
+    const name = (document.getElementById('fctx-widgetParamName')?.value || '').trim();
+    const prop = document.getElementById('fctx-widgetPropSelect')?.value;
+    const type = document.getElementById('fctx-widgetTypeSelect')?.value;
+    const rawDef = document.getElementById('fctx-widgetDefaultInput')?.value || '';
+    const minValStr = document.getElementById('fctx-widgetMinInput')?.value;
+    const maxValStr = document.getElementById('fctx-widgetMaxInput')?.value;
+    const optionsStr = document.getElementById('fctx-widgetOptionsInput')?.value || '';
+    const desc = (document.getElementById('fctx-widgetDescInput')?.value || '').trim();
+    const statusMsg = document.getElementById('fctx-widgetStatusMsg');
+
+    if (!name) {
+      if (statusMsg) {
+        statusMsg.style.color = '#f85149';
+        statusMsg.textContent = 'Parameter name is required.';
+      }
+      return;
+    }
+
+    if (!/^[a-zA-Z][a-zA-Z0-9_-]*$/.test(name)) {
+      if (statusMsg) {
+        statusMsg.style.color = '#f85149';
+        statusMsg.textContent = 'Name must start with a letter (alphanumeric, _, -).';
+      }
+      return;
+    }
+
+    let defaultVal = rawDef;
+    if (type === 'number' || type === 'speed') {
+      defaultVal = parseFloat(rawDef);
+      if (isNaN(defaultVal)) defaultVal = 0;
+    } else if (type === 'boolean') {
+      defaultVal = (rawDef === 'true' || rawDef === '1' || rawDef === true);
+    }
+
+    const param = {
+      name: name,
+      type: type,
+      target: `${this.activeType}-${this.activeId}`,
+      property: prop,
+      default: defaultVal,
+      description: desc || `Controls ${prop} on ${this.activeType} #${this.activeId}`
+    };
+
+    if (minValStr !== '' && minValStr !== undefined && !isNaN(parseFloat(minValStr))) {
+      param.min = parseFloat(minValStr);
+    }
+    if (maxValStr !== '' && maxValStr !== undefined && !isNaN(parseFloat(maxValStr))) {
+      param.max = parseFloat(maxValStr);
+    }
+    if (type === 'enum' && optionsStr) {
+      param.options = optionsStr.split(',').map(s => s.trim()).filter(Boolean);
+    }
+
+    if (window.EngineBridge && typeof window.EngineBridge.addWidgetParameter === 'function') {
+      const res = window.EngineBridge.addWidgetParameter(param);
+      if (res && (!res.error || res.success !== false)) {
+        if (statusMsg) {
+          statusMsg.style.color = '#3fb950';
+          statusMsg.textContent = `✓ Parameter "${name}" saved to scene.`;
+        }
+        if (window.AppCoordinator && typeof window.AppCoordinator.recordHistoryDebounced === 'function') {
+          window.AppCoordinator.recordHistoryDebounced();
+        }
+        if (typeof window.renderWidgetParametersOverview === 'function') {
+          window.renderWidgetParametersOverview();
+        }
+      } else {
+        if (statusMsg) {
+          statusMsg.style.color = '#f85149';
+          statusMsg.textContent = (res && res.error) || (window.EngineBridge && window.EngineBridge.getLastError()) || 'Validation error saving parameter.';
+        }
+      }
+    }
+  },
+
+  _removeWidgetBinding() {
+    const name = (document.getElementById('fctx-widgetParamName')?.value || '').trim();
+    const statusMsg = document.getElementById('fctx-widgetStatusMsg');
+    const deck = document.getElementById('fctx-widgetConfigDeck');
+    const toggle = document.getElementById('fctx-widgetExposeToggle');
+
+    if (name && window.EngineBridge && typeof window.EngineBridge.removeWidgetParameter === 'function') {
+      window.EngineBridge.removeWidgetParameter(name);
+    }
+    if (toggle) toggle.checked = false;
+    if (deck) deck.style.display = 'none';
+    if (statusMsg) {
+      statusMsg.style.color = '#8b949e';
+      statusMsg.textContent = 'Parameter binding removed.';
+    }
+    if (window.AppCoordinator && typeof window.AppCoordinator.recordHistoryDebounced === 'function') {
+      window.AppCoordinator.recordHistoryDebounced();
+    }
+    if (typeof window.renderWidgetParametersOverview === 'function') {
+      window.renderWidgetParametersOverview();
     }
   },
 
