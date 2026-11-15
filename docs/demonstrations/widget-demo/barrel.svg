@@ -1,0 +1,146 @@
+<svg xmlns="http://www.w3.org/2000/svg" xmlns:xlink="http://www.w3.org/1999/xlink" viewBox="0 0 400 260" width="400" height="260">
+  <defs>
+    <radialGradient id="statusGlow" cx="50%" cy="50%" r="50%">
+      <stop offset="0%" stop-color="#22c55e" stop-opacity="0.8" />
+      <stop offset="100%" stop-color="#22c55e" stop-opacity="0" />
+    </radialGradient>
+    <linearGradient id="tankGrad" x1="0%" y1="0%" x2="100%" y2="0%">
+      <stop offset="0%" stop-color="#1e293b" />
+      <stop offset="50%" stop-color="#334155" />
+      <stop offset="100%" stop-color="#0f172a" />
+    </linearGradient>
+    <linearGradient id="fluidGrad" x1="0%" y1="0%" x2="0%" y2="100%">
+      <stop offset="0%" stop-color="#38bdf8" stop-opacity="0.9" />
+      <stop offset="100%" stop-color="#0284c7" stop-opacity="0.95" />
+    </linearGradient>
+    <filter id="shadowFilter" x="-10%" y="-10%" width="120%" height="120%">
+      <feDropShadow dx="0" dy="4" stdDeviation="4" flood-color="#000000" flood-opacity="0.5"/>
+    </filter>
+    <clipPath id="barrelClip">
+      <rect x="60" y="30" width="160" height="190" rx="14" />
+    </clipPath>
+  </defs>
+  <style>
+    .fluid-wave {
+      animation: waveFlow 4s ease-in-out infinite alternate;
+    }
+    @keyframes waveFlow {
+      0%   { transform: translateY(0px) skewX(0deg); }
+      100% { transform: translateY(6px) skewX(2deg); }
+    }
+    .impeller {
+      transform-origin: 320px 125px;
+      animation: spinImpeller 2s linear infinite;
+    }
+    @keyframes spinImpeller {
+      from { transform: rotate(0deg); }
+      to   { transform: rotate(360deg); }
+    }
+    .beacon-pulse {
+      animation: beaconAnim 1.5s ease-in-out infinite alternate;
+    }
+    @keyframes beaconAnim {
+      0%   { opacity: 0.3; transform: scale(0.9); }
+      100% { opacity: 1.0; transform: scale(1.1); }
+    }
+  </style>
+
+  <!-- Background grid pattern -->
+  <rect width="400" height="260" fill="#090d13" />
+
+  <!-- Tank Vessel -->
+  <g id="tankVessel" filter="url(#shadowFilter)">
+    <rect x="60" y="30" width="160" height="190" rx="14" fill="url(#tankGrad)" stroke="#475569" stroke-width="2" />
+    <!-- Tank Fluid Layer (clipped) -->
+    <g clip-path="url(#barrelClip)">
+      <rect id="fluidLevel" x="60" y="90" width="160" height="130" fill="url(#fluidGrad)" class="fluid-wave" />
+    </g>
+    <!-- Measurement Ribs -->
+    <line x1="60" y1="75" x2="85" y2="75" stroke="#94a3b8" stroke-width="1.5" opacity="0.6"/>
+    <line x1="60" y1="125" x2="90" y2="125" stroke="#94a3b8" stroke-width="2" opacity="0.8"/>
+    <line x1="60" y1="175" x2="85" y2="175" stroke="#94a3b8" stroke-width="1.5" opacity="0.6"/>
+  </g>
+
+  <!-- Agitator / Impeller (Rotating) -->
+  <g id="impellerRig" class="impeller">
+    <circle cx="320" cy="125" r="32" fill="#1e293b" stroke="#64748b" stroke-width="2" />
+    <path d="M 320 95 L 320 155 M 290 125 L 350 125" stroke="#38bdf8" stroke-width="4" stroke-linecap="round"/>
+    <circle cx="320" cy="125" r="8" fill="#38bdf8" />
+  </g>
+
+  <!-- Connective Pipe -->
+  <path d="M 220 125 L 288 125" stroke="#475569" stroke-width="8" stroke-linecap="round" fill="none" />
+  <path d="M 220 125 L 288 125" stroke="#38bdf8" stroke-width="2" stroke-dasharray="4,4" fill="none" opacity="0.7"/>
+
+  <!-- Status Beacon & Indicator -->
+  <g id="alarmBeacon" transform="translate(140, 30)">
+    <circle cx="0" cy="0" r="22" fill="url(#statusGlow)" class="beacon-pulse" />
+    <circle id="statusDot" cx="0" cy="0" r="7" fill="#22c55e" stroke="#ffffff" stroke-width="1.5" />
+  </g>
+
+  <!-- Target Badge & Text Elements -->
+  <rect id="statusBadge" x="250" y="180" width="130" height="34" rx="6" fill="#1e293b" stroke="#22c55e" stroke-width="2" />
+  <text id="statusLabel" x="315" y="201" fill="#f0f6fc" font-family="sans-serif" font-size="10" font-weight="bold" text-anchor="middle">ONLINE</text>
+
+  <!-- Embedded Stage 16B Parameter Manifest -->
+  <script type="application/json" id="sva-widget-manifest">
+  {
+    "schemaVersion": 1,
+    "parameters": [
+      {
+        "name": "operatingState",
+        "type": "enum",
+        "default": "running",
+        "target": "root",
+        "property": "state",
+        "options": ["running", "paused", "stopped", "alarm"],
+        "description": "Operating lifecycle state of the process unit"
+      },
+      {
+        "name": "statusColor",
+        "type": "color",
+        "default": "#22c55e",
+        "target": "statusDot",
+        "property": "fill",
+        "description": "LED beacon and indicator accent color"
+      },
+      {
+        "name": "fillLevel",
+        "type": "number",
+        "default": 85,
+        "target": "fluidLevel",
+        "property": "height",
+        "min": 0,
+        "max": 190,
+        "description": "Tank fluid volume height in pixels"
+      },
+      {
+        "name": "speed",
+        "type": "speed",
+        "default": 1.0,
+        "target": "root",
+        "property": "playbackRate",
+        "min": 0.1,
+        "max": 4.0,
+        "description": "Animation playback speed rate"
+      },
+      {
+        "name": "statusText",
+        "type": "text",
+        "default": "ONLINE",
+        "target": "statusLabel",
+        "property": "textContent",
+        "description": "Status text displayed on the front panel badge"
+      },
+      {
+        "name": "beaconVisible",
+        "type": "boolean",
+        "default": true,
+        "target": "alarmBeacon",
+        "property": "visibility",
+        "description": "Top warning beacon visibility toggle"
+      }
+    ]
+  }
+  </script>
+</svg>

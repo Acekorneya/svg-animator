@@ -74,3 +74,21 @@ PASS (0 whitespace or conflict errors)
 - Offline Tar: docs/demonstrations/svg-widget-offline-demo.tar.gz (29,474 bytes)
 
 Stage 16B implementation is complete, fully verified, and ready for publication.
+
+-----------------------------------------------------------------------------
+4. KIWIBERRY DEMONSTRATION HOSTING AMENDMENT
+-----------------------------------------------------------------------------
+- Host: kiwiberry (192.168.100.40)
+- Deployment binary: bin/svg-animator-linux (contains embedded demo-widgets.html, barrel.svg, unbound-sample.svg, svg-widget.js v1.2.0)
+- Deployment target command:
+  scp bin/svg-animator-linux nigel@192.168.100.40:~/svg-animator/svg-animator-stage16b
+  ssh nigel@192.168.100.40 "~/svg-animator/svg-animator-stage16b -serve :8091"
+- Isolated Demo URLs:
+  * Embedded Binary: http://192.168.100.40:8091/demo-widgets.html (or http://kiwiberry.seaoffate.net:8091/demo-widgets.html)
+  * Pure Static Deployment: docs/demonstrations/widget-demo/ (index.html, standalone-demo.html, barrel.svg, unbound-sample.svg, js/svg-widget.js)
+- Production Protection: Production service on port 8090/8088 and root binaries are preserved 100% untouched.
+- Asset Verification:
+  * Dynamic file loading of user barrel.svg or built-in barrel.svg
+  * 3 concurrent independent instances mounted (Barrel A, B, C)
+  * Detection of Stage 16B manifest: active controls generated for mapped properties (state, color, speed, fill height, label, beacon)
+  * Unbound SVG explanation: When SVG lacks sva-widget-manifest, UI explicitly indicates element-specific controls are unavailable while preserving instance-level playback and ID isolation.

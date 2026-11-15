@@ -109,10 +109,24 @@ All instances operate concurrently with **0 DOM ID collisions**, independent ani
 - **Race Detector:** 0 data races detected (`go test -race ./pkg/engine/scene/...`).
 - **Go Vet:** 0 warnings (`go vet ./...`).
 - **Architecture & Runtime Scripts:** All static and runtime verification checks PASSED.
+
+---
+
+## 5. Kiwiberry Demonstration Hosting Amendment
+
+In accordance with the Stage 16B Amendment, Kiwiberry (192.168.100.40) serves as the preferred browser demonstration environment for isolated widget testbenches:
+
+- **Isolated Deployment:** Upload binary to dedicated path `~/svg-animator/svg-animator-stage16b` or host static assets from `docs/demonstrations/widget-demo/`.
+- **Target URL:** `http://192.168.100.40:8091/demo-widgets.html` (isolated port 8091, preserving production 8090/8088 untouched).
+- **Dynamic Asset Loading:**
+  - Users can upload or select custom `barrel.svg` or use the built-in Stage 16B process barrel.
+  - Mounts 3 independent instances (`Barrel A`, `Barrel B`, `Barrel C`) with zero DOM ID collisions.
+  - Automatically identifies whether an SVG declares `sva-widget-manifest`.
+  - For unbound SVGs, the UI explicitly indicates which controls are unavailable rather than pretending all arbitrary SVG elements are controllable.
 """
 
 def publish():
-    url = f"{BOOKSTACK_URL}/api/pages"
+    url = f"{BOOKSTACK_URL}/api/pages/456"
     headers = {
         "Authorization": f"Token {TOKEN_ID}:{TOKEN_SECRET}",
         "Content-Type": "application/json"
@@ -122,11 +136,11 @@ def publish():
         "name": PAGE_TITLE,
         "markdown": PAGE_MARKDOWN
     }
-    req = urllib.request.Request(url, data=json.dumps(payload).encode("utf-8"), headers=headers, method="POST")
+    req = urllib.request.Request(url, data=json.dumps(payload).encode("utf-8"), headers=headers, method="PUT")
     try:
         with urllib.request.urlopen(req) as resp:
             data = json.loads(resp.read().decode())
-            print(f"Successfully published BookStack page: ID {data.get('id')}, Slug: {data.get('slug')}")
+            print(f"Successfully updated BookStack page: ID {data.get('id')}, Slug: {data.get('slug')}")
             return data
     except Exception as e:
         print("BookStack publish error:", e)
