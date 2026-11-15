@@ -506,7 +506,8 @@ window.DataFlows = {
       elements += '<g class="flow-payload-wrapper" ' + visibilityControl + ' pointer-events="none">' + setAnim + '<g opacity="0" class="flow-payload-group" data-flow-id="' + f.id + '">' + opAnim + motionAnim + payloadSVG + '</g></g>';
     }
 
-    return '<g id="flow-' + f.id + '" data-flow-id="' + f.id + '" data-semantic-target="' + (f.name || 'flow-' + f.id) + '" class="diagram-flow-instance">' + elements + '</g>';
+    const flowNameAttr = f.name ? ' data-semantic-name="' + String(f.name).replace(/"/g, '&quot;') + '"' : '';
+    return '<g id="flow-' + f.id + '" data-flow-id="' + f.id + '" data-semantic-target="flow-' + f.id + '"' + flowNameAttr + ' class="diagram-flow-instance">' + elements + '</g>';
   },
 
   injectIntoSVG(svgString, stateOrWidth, heightArg) {

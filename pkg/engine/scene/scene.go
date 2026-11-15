@@ -1006,7 +1006,7 @@ func (s *Scene) SetParameters(params []WidgetParameter) error {
 	return nil
 }
 
-// AddParameter appends or replaces a widget parameter by name after validation.
+// AddParameter appends or replaces a widget parameter by name or target/property after validation.
 func (s *Scene) AddParameter(p WidgetParameter) error {
 	if err := ValidateWidgetParameter(p); err != nil {
 		return err
@@ -1014,7 +1014,8 @@ func (s *Scene) AddParameter(p WidgetParameter) error {
 	s.mu.Lock()
 	defer s.mu.Unlock()
 	for i, existing := range s.parameters {
-		if existing.Name == p.Name {
+		isSameTargetProp := (p.Target != "root" && p.Target != "global" && existing.Target == p.Target && existing.Property == p.Property)
+		if existing.Name == p.Name || isSameTargetProp {
 			s.parameters[i] = p
 			s.revision++
 			if s.history != nil {

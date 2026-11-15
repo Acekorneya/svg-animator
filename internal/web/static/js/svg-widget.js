@@ -314,25 +314,40 @@
 
   /**
    * Resolves semantic target name to a DOM element inside the mounted SVG.
+   * Handles authored IDs, isolated IDs (prefix__id), semantic targets and stable entity IDs.
    */
   function resolveTargetElement(svgEl, idMap, targetName) {
     if (!svgEl) return null;
-    if (!targetName || targetName === 'root' || targetName === 'svg') {
+    if (!targetName || targetName === 'root' || targetName === 'svg' || targetName === 'global') {
       return svgEl;
     }
 
-    // 1. data-semantic-target
+    // 1. Exact data-semantic-target match (e.g. data-semantic-target="flow-1")
     let el = svgEl.querySelector(`[data-semantic-target="${targetName}"]`);
     if (el) return el;
 
-    // 2. idMap lookup (authored ID -> isolated ID)
-    const mappedId = idMap && idMap[targetName];
-    if (mappedId) {
+    // 2. Exact data-semantic-name match (e.g. data-semantic-name="mail-flow")
+    el = svgEl.querySelector(`[data-semantic-name="${targetName}"]`);
+    if (el) return el;
+
+    // 3. idMap direct lookup (authored ID -> isolated ID)
+    if (idMap && idMap[targetName]) {
+      const mappedId = idMap[targetName];
       el = svgEl.querySelector(`#${mappedId}`) || (svgEl.ownerDocument && svgEl.ownerDocument.getElementById(mappedId));
       if (el) return el;
     }
 
-    // 3. data-node-id, data-flow-id, data-image-id, data-glow-id, data-ripple-id
+    // 4. idMap suffix lookup (handles multi-stage isolation e.g. target "flow-1" matching idMap key "mail__flow-1")
+    if (idMap) {
+      for (const [authoredKey, isolatedVal] of Object.entries(idMap)) {
+        if (authoredKey === targetName || authoredKey.endsWith('__' + targetName) || authoredKey.endsWith('-' + targetName)) {
+          el = svgEl.querySelector(`#${isolatedVal}`) || (svgEl.ownerDocument && svgEl.ownerDocument.getElementById(isolatedVal));
+          if (el) return el;
+        }
+      }
+    }
+
+    // 5. Stable entity data attributes (data-node-id, data-flow-id, data-image-id, data-glow-id, data-ripple-id)
     el = svgEl.querySelector(`[data-node-id="${targetName}"], [data-flow-id="${targetName}"], [data-image-id="${targetName}"], [data-glow-id="${targetName}"], [data-ripple-id="${targetName}"]`);
     if (el) return el;
 
@@ -343,13 +358,15 @@
       if (el) return el;
     }
 
-    // 4. Scoped direct ID query
+    // 6. Direct or isolated ID query (exact match or endsWith __targetName)
     try {
       el = svgEl.querySelector(`#${targetName}`);
       if (el) return el;
+      el = svgEl.querySelector(`[id$="__${targetName}"], [id$="-${targetName}"]`);
+      if (el) return el;
     } catch (e) {}
 
-    // 5. CSS selector fallback
+    // 7. CSS selector fallback
     try {
       el = svgEl.querySelector(targetName);
       if (el) return el;
@@ -390,13 +407,38 @@
       case 'color':
         if (el) {
           el.style.color = value;
-          el.setAttribute('fill', value);
-          el.style.fill = value;
-          if (el.tagName && el.tagName.toLowerCase() === 'g') {
-            el.querySelectorAll('rect, circle, path, polygon, ellipse').forEach(c => {
+          // Specialized styling based on element type
+          if (el.classList?.contains('diagram-flow-instance') || el.hasAttribute('data-flow-id') || el.querySelector?.('.flow-track-path')) {
+            el.querySelectorAll('path.flow-track-path, .flow-track-path').forEach(p => {
+              p.setAttribute('stroke', value);
+              p.style.stroke = value;
+            });
+            el.querySelectorAll('.flow-payload-group circle, .flow-payload-group path').forEach(c => {
               c.setAttribute('fill', value);
               c.style.fill = value;
             });
+          } else if (el.classList?.contains('diagram-ripple-instance') || el.hasAttribute('data-ripple-id')) {
+            el.querySelectorAll('circle, path').forEach(c => {
+              c.setAttribute('stroke', value);
+              c.style.stroke = value;
+            });
+          } else {
+            el.setAttribute('fill', value);
+            el.style.fill = value;
+            if (el.tagName && el.tagName.toLowerCase() === 'g') {
+              el.querySelectorAll('rect, circle, path, polygon, ellipse').forEach(c => {
+                const curFill = c.getAttribute('fill');
+                if (curFill && curFill !== 'none') {
+                  c.setAttribute('fill', value);
+                  c.style.fill = value;
+                }
+                const curStroke = c.getAttribute('stroke');
+                if (curStroke && curStroke !== 'none') {
+                  c.setAttribute('stroke', value);
+                  c.style.stroke = value;
+                }
+              });
+            }
           }
         }
         break;
@@ -411,8 +453,14 @@
       }
       case 'opacity':
         if (el) {
-          el.setAttribute('opacity', String(value));
-          el.style.opacity = String(value);
+          const num = Math.max(0, Math.min(1, parseFloat(value) || 0));
+          el.setAttribute('opacity', String(num));
+          el.style.opacity = String(num);
+          if (el.tagName && el.tagName.toLowerCase() === 'g') {
+            el.querySelectorAll('rect, circle, path, polygon, ellipse, image').forEach(c => {
+              c.style.opacity = String(num);
+            });
+          }
         }
         break;
       case 'text':

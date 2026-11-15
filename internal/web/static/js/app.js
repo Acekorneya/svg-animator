@@ -2769,12 +2769,52 @@ window.initDrawerWidgetEvents = function() {
         default: defaultVal,
         description: desc || matchedDef.desc || `Controls ${prop} on ${sel.type} #${sel.id}`
       };
-      if (minValStr !== '' && minValStr !== undefined && !isNaN(parseFloat(minValStr))) {
-        param.min = parseFloat(minValStr);
+
+      if (type === 'number' || type === 'speed') {
+        let minNum = (minValStr !== '' && minValStr !== undefined && !isNaN(parseFloat(minValStr))) ? parseFloat(minValStr) : null;
+        let maxNum = (maxValStr !== '' && maxValStr !== undefined && !isNaN(parseFloat(maxValStr))) ? parseFloat(maxValStr) : null;
+
+        if (prop === 'opacity') {
+          if (minNum === null || minNum < 0) minNum = 0;
+          if (maxNum === null || maxNum > 1) maxNum = 1;
+          if (minNum > 1) minNum = 1;
+          if (maxNum < 0) maxNum = 0;
+        }
+
+        if (minNum !== null && maxNum !== null && minNum > maxNum) {
+          const errText = `Minimum value (${minNum}) cannot be greater than maximum (${maxNum}).`;
+          if (statusMsg) {
+            statusMsg.style.color = '#f85149';
+            statusMsg.textContent = errText;
+          }
+          alert(errText);
+          return;
+        }
+
+        if (minNum !== null && defaultVal < minNum) {
+          const errText = `Default value (${defaultVal}) cannot be less than minimum (${minNum}).`;
+          if (statusMsg) {
+            statusMsg.style.color = '#f85149';
+            statusMsg.textContent = errText;
+          }
+          alert(errText);
+          return;
+        }
+
+        if (maxNum !== null && defaultVal > maxNum) {
+          const errText = `Default value (${defaultVal}) cannot be greater than maximum (${maxNum}).`;
+          if (statusMsg) {
+            statusMsg.style.color = '#f85149';
+            statusMsg.textContent = errText;
+          }
+          alert(errText);
+          return;
+        }
+
+        if (minNum !== null) param.min = minNum;
+        if (maxNum !== null) param.max = maxNum;
       }
-      if (maxValStr !== '' && maxValStr !== undefined && !isNaN(parseFloat(maxValStr))) {
-        param.max = parseFloat(maxValStr);
-      }
+
       if (type === 'enum' && optionsStr) {
         param.options = optionsStr.split(',').map(s => s.trim()).filter(Boolean);
       }
@@ -2853,31 +2893,97 @@ window.initDrawerWidgetEvents = function() {
         ? window.AppCoordinator.getActiveSelection()
         : null;
       if (!sel || !sel.type || sel.id === null) return;
+      const targetId = `${sel.type}-${sel.id}`;
+      const selectedProp = drawerPropSelect.value;
       const selectedOpt = (drawerPropSelect.selectedOptions && drawerPropSelect.selectedOptions[0])
         || (drawerPropSelect.options && drawerPropSelect.options[drawerPropSelect.selectedIndex || 0])
         || null;
+      const nameInput = document.getElementById('drawerWidgetParamName');
       const typeSelect = document.getElementById('drawerWidgetTypeSelect');
       const minInput = document.getElementById('drawerWidgetMinInput');
       const maxInput = document.getElementById('drawerWidgetMaxInput');
+      const optionsInput = document.getElementById('drawerWidgetOptionsInput');
+      const descInput = document.getElementById('drawerWidgetDescInput');
       const limitsRow = document.getElementById('drawerWidgetLimitsRow');
       const optRow = document.getElementById('drawerWidgetOptionsRow');
       const propHelp = document.getElementById('drawerWidgetPropHelp');
+      const defInput = document.getElementById('drawerWidgetDefaultInput');
+      const statusMsg = document.getElementById('drawerWidgetStatusMsg');
+      const btnSave = document.getElementById('btnDrawerSaveWidgetParam');
+
       if (propHelp) {
         propHelp.textContent = selectedOpt?.dataset?.desc || 'Select a property to view what changing it does.';
       }
-      if (selectedOpt && selectedOpt.dataset.defaultType && typeSelect) {
-        typeSelect.value = selectedOpt.dataset.defaultType;
+
+      // Check if this object already has a parameter bound to THIS property
+      let existing = null;
+      if (window.EngineBridge && typeof window.EngineBridge.getWidgetParameters === 'function') {
+        const allParams = window.EngineBridge.getWidgetParameters() || [];
+        existing = allParams.find(p => (p.Target || p.target) === targetId && (p.Property || p.property) === selectedProp);
+      }
+
+      if (existing) {
+        const exName = existing.Name || existing.name;
+        const exType = existing.Type || existing.type;
+        const exDef = existing.Default !== undefined ? existing.Default : existing.default;
+        const exMin = existing.Min !== undefined ? existing.Min : existing.min;
+        const exMax = existing.Max !== undefined ? existing.Max : existing.max;
+        const exOpts = existing.Options || existing.options;
+        const exDesc = existing.Description || existing.description;
+
+        if (nameInput) nameInput.value = exName || '';
+        if (typeSelect) typeSelect.value = exType || selectedOpt?.dataset?.defaultType || 'color';
+        if (defInput) defInput.value = exDef !== undefined ? (typeof exDef === 'object' ? JSON.stringify(exDef) : String(exDef)) : '';
+        if (minInput) minInput.value = (exMin !== undefined && exMin !== null) ? exMin : '';
+        if (maxInput) maxInput.value = (exMax !== undefined && exMax !== null) ? exMax : '';
+        if (optionsInput) optionsInput.value = Array.isArray(exOpts) ? exOpts.join(', ') : '';
+        if (descInput) descInput.value = exDesc || '';
         if (limitsRow) limitsRow.style.display = (typeSelect.value === 'number' || typeSelect.value === 'speed') ? 'flex' : 'none';
         if (optRow) optRow.style.display = (typeSelect.value === 'enum') ? 'flex' : 'none';
-        if (minInput && selectedOpt.dataset.min !== undefined) minInput.value = selectedOpt.dataset.min;
-        if (maxInput && selectedOpt.dataset.max !== undefined) maxInput.value = selectedOpt.dataset.max;
-      }
-      const defInput = document.getElementById('drawerWidgetDefaultInput');
-      if (defInput) {
-        defInput.value = getObjectPropValue(sel.type, sel.id, drawerPropSelect.value);
-      }
-      if (chkDrawerExpose && chkDrawerExpose.checked) {
-        document.getElementById('btnDrawerSaveWidgetParam')?.click();
+        if (statusMsg) {
+          statusMsg.style.color = '#3fb950';
+          statusMsg.textContent = `✓ Bound: "${exName}" (${typeSelect.value} ──► ${selectedProp}). Click Save to update.`;
+        }
+        if (btnSave) btnSave.textContent = '💾 Update Parameter';
+      } else {
+        const defaultType = selectedOpt?.dataset?.defaultType || 'color';
+        if (typeSelect) typeSelect.value = defaultType;
+        if (defInput) defInput.value = getObjectPropValue(sel.type, sel.id, selectedProp);
+
+        let baseName = `${sel.type}${sel.id}`;
+        if (sel.type === 'node' && window.DiagramNodes) {
+          const n = window.DiagramNodes.getNode(sel.id);
+          if (n && (n.name || n.text)) {
+            const raw = (n.name || n.text).replace(/[^a-zA-Z0-9]/g, '');
+            if (raw) baseName = raw.charAt(0).toLowerCase() + raw.slice(1);
+          }
+        }
+        if (nameInput) nameInput.value = `${baseName}_${selectedProp.replace(/[^a-zA-Z0-9]/g, '')}`;
+
+        if (defaultType === 'number' || defaultType === 'speed') {
+          if (limitsRow) limitsRow.style.display = 'flex';
+          if (selectedProp === 'opacity') {
+            if (minInput) minInput.value = '0';
+            if (maxInput) maxInput.value = '1';
+          } else if (selectedProp === 'speed') {
+            if (minInput) minInput.value = '0.1';
+            if (maxInput) maxInput.value = '10';
+          } else {
+            if (minInput) minInput.value = selectedOpt?.dataset?.min !== undefined ? selectedOpt.dataset.min : '0';
+            if (maxInput) maxInput.value = selectedOpt?.dataset?.max !== undefined ? selectedOpt.dataset.max : '100';
+          }
+        } else {
+          if (limitsRow) limitsRow.style.display = 'none';
+          if (minInput) minInput.value = '';
+          if (maxInput) maxInput.value = '';
+        }
+        if (optRow) optRow.style.display = (defaultType === 'enum') ? 'flex' : 'none';
+        if (descInput) descInput.value = selectedOpt?.dataset?.desc || `Controls ${selectedProp} on ${sel.type} #${sel.id}`;
+        if (statusMsg) {
+          statusMsg.style.color = '#8b949e';
+          statusMsg.textContent = 'Ready to expose property as a new parameter. Click Save.';
+        }
+        if (btnSave) btnSave.textContent = '💾 Save Parameter';
       }
     });
   }
@@ -2887,8 +2993,14 @@ window.initDrawerWidgetEvents = function() {
     drawerTypeSelect.addEventListener('change', () => {
       const limitsRow = document.getElementById('drawerWidgetLimitsRow');
       const optRow = document.getElementById('drawerWidgetOptionsRow');
+      const minInput = document.getElementById('drawerWidgetMinInput');
+      const maxInput = document.getElementById('drawerWidgetMaxInput');
       if (limitsRow) limitsRow.style.display = (drawerTypeSelect.value === 'number' || drawerTypeSelect.value === 'speed') ? 'flex' : 'none';
       if (optRow) optRow.style.display = (drawerTypeSelect.value === 'enum') ? 'flex' : 'none';
+      if (drawerTypeSelect.value !== 'number' && drawerTypeSelect.value !== 'speed') {
+        if (minInput) minInput.value = '';
+        if (maxInput) maxInput.value = '';
+      }
     });
   }
 
@@ -3210,6 +3322,42 @@ window.renderWidgetParametersOverview = function(selectionPayload) {
     titleWrap.appendChild(typeBadge);
     titleWrap.appendChild(targetBadge);
 
+    const actionWrap = document.createElement('div');
+    actionWrap.style.cssText = 'display: flex; align-items: center; gap: 4px;';
+
+    const editBtn = document.createElement('button');
+    editBtn.type = 'button';
+    editBtn.className = 'btn-floating-action btn-edit-param';
+    editBtn.style.cssText = 'background: #21262d; border: 1px solid #30363d; color: #58a6ff; cursor: pointer; padding: 2px 6px; border-radius: 4px; font-size: 0.70rem; display: flex; align-items: center; gap: 3px;';
+    editBtn.title = `Edit parameter "${param.name}"`;
+    editBtn.textContent = '✏️ Edit';
+    editBtn.innerHTML = '✏️ Edit';
+    editBtn.addEventListener('click', (e) => {
+      e.stopPropagation();
+      const target = param.target || '';
+      if (target && target !== 'root' && target !== 'global') {
+        const parts = target.split('-');
+        if (parts.length >= 2) {
+          const objType = parts[0];
+          const objId = parseInt(parts[1], 10);
+          if (window.AppCoordinator && typeof window.AppCoordinator.selectObject === 'function') {
+            window.AppCoordinator.selectObject(objType, objId);
+          }
+          const rightDrawer = document.getElementById('rightDrawer');
+          if (rightDrawer && rightDrawer.classList.contains('collapsed') && typeof window.toggleDrawer === 'function') {
+            window.toggleDrawer('right');
+          }
+          setTimeout(() => {
+            const propSel = document.getElementById('drawerWidgetPropSelect');
+            if (propSel) {
+              propSel.value = param.property;
+              propSel.dispatchEvent(new Event('change'));
+            }
+          }, 60);
+        }
+      }
+    });
+
     const delBtn = document.createElement('button');
     delBtn.type = 'button';
     delBtn.className = 'btn-floating-action';
@@ -3233,8 +3381,10 @@ window.renderWidgetParametersOverview = function(selectionPayload) {
       }
     });
 
+    actionWrap.appendChild(editBtn);
+    actionWrap.appendChild(delBtn);
     headerRow.appendChild(titleWrap);
-    headerRow.appendChild(delBtn);
+    headerRow.appendChild(actionWrap);
     card.appendChild(headerRow);
 
     // Target & Property metadata

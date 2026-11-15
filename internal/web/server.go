@@ -678,9 +678,11 @@ func handleExportWidgetPackage(w http.ResponseWriter, r *http.Request) {
 		}
 		r.Body = http.MaxBytesReader(w, r.Body, 50*1024*1024)
 		var req struct {
-			Name       string          `json:"name"`
-			SVG        string          `json:"svg"`
-			SchemaJSON json.RawMessage `json:"schemaJson"`
+			Name             string          `json:"name"`
+			SVG              string          `json:"svg"`
+			SchemaJSON       json.RawMessage `json:"schemaJson"`
+			SceneState       json.RawMessage `json:"sceneState"`
+			SchemaUnderscore json.RawMessage `json:"schema_json"`
 		}
 		if err := json.NewDecoder(r.Body).Decode(&req); err != nil {
 			http.Error(w, "Invalid request JSON: "+err.Error(), http.StatusBadRequest)
@@ -688,9 +690,16 @@ func handleExportWidgetPackage(w http.ResponseWriter, r *http.Request) {
 		}
 		widgetName = req.Name
 		rawSVG = req.SVG
-		if len(req.SchemaJSON) > 0 {
+		rawSchema := req.SchemaJSON
+		if len(rawSchema) == 0 && len(req.SceneState) > 0 {
+			rawSchema = req.SceneState
+		}
+		if len(rawSchema) == 0 && len(req.SchemaUnderscore) > 0 {
+			rawSchema = req.SchemaUnderscore
+		}
+		if len(rawSchema) > 0 {
 			var snap scene.Snapshot
-			if err := json.Unmarshal(req.SchemaJSON, &snap); err == nil {
+			if err := json.Unmarshal(rawSchema, &snap); err == nil {
 				sc = scene.NewScene()
 				sc.SetFromSnapshot(snap)
 			}

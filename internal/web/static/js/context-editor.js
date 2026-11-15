@@ -1613,16 +1613,76 @@ window.FloatingPropertiesEditor = {
     if (propSelect) {
       propSelect.addEventListener('change', () => {
         const selectedOpt = propSelect.selectedOptions[0];
-        if (selectedOpt && selectedOpt.dataset.defaultType && typeSelect) {
-          typeSelect.value = selectedOpt.dataset.defaultType;
+        const curProp = propSelect.value;
+        const targetId = `${this.activeType}-${this.activeId}`;
+
+        // Check if an existing binding is already controlling this property
+        let existing = null;
+        if (window.EngineBridge && typeof window.EngineBridge.getWidgetParameters === 'function') {
+          const allParams = window.EngineBridge.getWidgetParameters() || [];
+          existing = allParams.find(p => (p.Target || p.target) === targetId && (p.Property || p.property) === curProp);
+        }
+
+        if (existing) {
+          const exName = existing.Name || existing.name;
+          const exType = existing.Type || existing.type;
+          const exDef = existing.Default !== undefined ? existing.Default : existing.default;
+          const exMin = existing.Min !== undefined ? existing.Min : existing.min;
+          const exMax = existing.Max !== undefined ? existing.Max : existing.max;
+          const exOpts = existing.Options || existing.options;
+          const exDesc = existing.Description || existing.description;
+
+          if (nameInput) nameInput.value = exName || '';
+          if (typeSelect) typeSelect.value = exType || selectedOpt?.dataset?.defaultType || 'color';
+          if (defaultInput) defaultInput.value = exDef !== undefined ? (typeof exDef === 'object' ? JSON.stringify(exDef) : String(exDef)) : '';
+          if (minInput) minInput.value = (exMin !== undefined && exMin !== null) ? exMin : '';
+          if (maxInput) maxInput.value = (exMax !== undefined && exMax !== null) ? exMax : '';
+          if (optionsInput) optionsInput.value = Array.isArray(exOpts) ? exOpts.join(', ') : '';
+          if (descInput) descInput.value = exDesc || '';
           if (numRow) numRow.style.display = (typeSelect.value === 'number' || typeSelect.value === 'speed') ? 'flex' : 'none';
           if (optRow) optRow.style.display = (typeSelect.value === 'enum') ? 'flex' : 'none';
-          if (minInput && selectedOpt.dataset.min !== undefined) minInput.value = selectedOpt.dataset.min;
-          if (maxInput && selectedOpt.dataset.max !== undefined) maxInput.value = selectedOpt.dataset.max;
-        }
-        this._updateDefaultFromActiveObject(propSelect.value);
-        if (exposeToggle && exposeToggle.checked) {
-          this._saveWidgetBinding();
+          if (statusMsg) {
+            statusMsg.style.color = '#3fb950';
+            statusMsg.textContent = `✓ Bound: "${exName}" (${typeSelect.value} ──► ${curProp}). Click Save to update.`;
+          }
+        } else {
+          const defaultType = selectedOpt?.dataset?.defaultType || 'color';
+          if (typeSelect) typeSelect.value = defaultType;
+          this._updateDefaultFromActiveObject(curProp);
+
+          let defaultName = `${this.activeType}${this.activeId}_${curProp.replace(/[^a-zA-Z0-9]/g, '')}`;
+          if (this.activeType === 'node' && window.DiagramNodes) {
+            const node = window.DiagramNodes.getNode(this.activeId);
+            if (node) {
+              const rawName = (node.name || node.text || '').replace(/[^a-zA-Z0-9]/g, '');
+              if (rawName) defaultName = `${rawName.charAt(0).toLowerCase() + rawName.slice(1)}_${curProp.replace(/[^a-zA-Z0-9]/g, '')}`;
+            }
+          }
+          if (nameInput) nameInput.value = defaultName;
+
+          if (defaultType === 'number' || defaultType === 'speed') {
+            if (numRow) numRow.style.display = 'flex';
+            if (curProp === 'opacity') {
+              if (minInput) minInput.value = '0';
+              if (maxInput) maxInput.value = '1';
+            } else if (curProp === 'speed') {
+              if (minInput) minInput.value = '0.1';
+              if (maxInput) maxInput.value = '10';
+            } else {
+              if (minInput) minInput.value = selectedOpt?.dataset?.min !== undefined ? selectedOpt.dataset.min : '0';
+              if (maxInput) maxInput.value = selectedOpt?.dataset?.max !== undefined ? selectedOpt.dataset.max : '100';
+            }
+          } else {
+            if (numRow) numRow.style.display = 'none';
+            if (minInput) minInput.value = '';
+            if (maxInput) maxInput.value = '';
+          }
+          if (optRow) optRow.style.display = (defaultType === 'enum') ? 'flex' : 'none';
+          if (descInput) descInput.value = selectedOpt?.dataset?.desc || `Controls ${curProp} on ${this.activeType} #${this.activeId}`;
+          if (statusMsg) {
+            statusMsg.style.color = '#8b949e';
+            statusMsg.textContent = 'Ready to expose property. Click Save.';
+          }
         }
       });
     }
@@ -1631,13 +1691,14 @@ window.FloatingPropertiesEditor = {
       typeSelect.addEventListener('change', () => {
         if (numRow) numRow.style.display = (typeSelect.value === 'number' || typeSelect.value === 'speed') ? 'flex' : 'none';
         if (optRow) optRow.style.display = (typeSelect.value === 'enum') ? 'flex' : 'none';
-        if (exposeToggle && exposeToggle.checked) {
-          this._saveWidgetBinding();
+        if (typeSelect.value !== 'number' && typeSelect.value !== 'speed') {
+          if (minInput) minInput.value = '';
+          if (maxInput) maxInput.value = '';
         }
       });
     }
 
-    [nameInput, defaultInput, minInput, maxInput, optionsInput, descInput].forEach(inp => {
+    [defaultInput, minInput, maxInput, optionsInput, descInput].forEach(inp => {
       if (inp) {
         inp.addEventListener('input', () => this._debounceSaveWidgetBinding());
       }
@@ -1904,7 +1965,7 @@ window.FloatingPropertiesEditor = {
     let defaultVal = rawDef;
     if (type === 'number' || type === 'speed') {
       defaultVal = parseFloat(rawDef);
-      if (isNaN(defaultVal)) defaultVal = 0;
+      if (isNaN(defaultVal)) defaultVal = (type === 'speed' ? 1.0 : 0);
     } else if (type === 'boolean') {
       defaultVal = (rawDef === 'true' || rawDef === '1' || rawDef === true);
     }
@@ -1918,11 +1979,46 @@ window.FloatingPropertiesEditor = {
       description: desc || `Controls ${prop} on ${this.activeType} #${this.activeId}`
     };
 
-    if (minValStr !== '' && minValStr !== undefined && !isNaN(parseFloat(minValStr))) {
-      param.min = parseFloat(minValStr);
-    }
-    if (maxValStr !== '' && maxValStr !== undefined && !isNaN(parseFloat(maxValStr))) {
-      param.max = parseFloat(maxValStr);
+    if (type === 'number' || type === 'speed') {
+      let minNum = (minValStr !== '' && minValStr !== undefined && !isNaN(parseFloat(minValStr))) ? parseFloat(minValStr) : null;
+      let maxNum = (maxValStr !== '' && maxValStr !== undefined && !isNaN(parseFloat(maxValStr))) ? parseFloat(maxValStr) : null;
+
+      if (prop === 'opacity') {
+        if (minNum === null || minNum < 0) minNum = 0;
+        if (maxNum === null || maxNum > 1) maxNum = 1;
+        if (minNum > 1) minNum = 1;
+        if (maxNum < 0) maxNum = 0;
+      }
+
+      if (minNum !== null && maxNum !== null && minNum > maxNum) {
+        const errText = `Minimum value (${minNum}) cannot be greater than maximum (${maxNum}).`;
+        if (statusMsg) {
+          statusMsg.style.color = '#f85149';
+          statusMsg.textContent = errText;
+        }
+        return;
+      }
+
+      if (minNum !== null && defaultVal < minNum) {
+        const errText = `Default value (${defaultVal}) cannot be less than minimum (${minNum}).`;
+        if (statusMsg) {
+          statusMsg.style.color = '#f85149';
+          statusMsg.textContent = errText;
+        }
+        return;
+      }
+
+      if (maxNum !== null && defaultVal > maxNum) {
+        const errText = `Default value (${defaultVal}) cannot be greater than maximum (${maxNum}).`;
+        if (statusMsg) {
+          statusMsg.style.color = '#f85149';
+          statusMsg.textContent = errText;
+        }
+        return;
+      }
+
+      if (minNum !== null) param.min = minNum;
+      if (maxNum !== null) param.max = maxNum;
     }
     if (type === 'enum' && optionsStr) {
       param.options = optionsStr.split(',').map(s => s.trim()).filter(Boolean);

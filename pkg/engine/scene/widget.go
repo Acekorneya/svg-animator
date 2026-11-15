@@ -3,6 +3,7 @@ package scene
 import (
 	"encoding/json"
 	"fmt"
+	"math"
 	"regexp"
 	"strings"
 	"sync/atomic"
@@ -352,6 +353,13 @@ func ValidateWidgetParameter(p WidgetParameter) error {
 		return fmt.Errorf("unsafe property %q is rejected", prop)
 	}
 
+	// Prohibit min/max on non-numeric types
+	if p.Type != "number" && p.Type != "speed" {
+		if p.Min != nil || p.Max != nil {
+			return fmt.Errorf("parameter %q of type %q cannot define numeric min or max limits", name, p.Type)
+		}
+	}
+
 	// Validate property compatibility with type
 	switch p.Type {
 	case "color":
@@ -370,6 +378,20 @@ func ValidateWidgetParameter(p WidgetParameter) error {
 		if prop != "playbackRate" && prop != "speed" {
 			return fmt.Errorf("speed parameter does not support property %q (allowed: playbackRate, speed)", prop)
 		}
+		if p.Min != nil && p.Max != nil && *p.Min > *p.Max {
+			return fmt.Errorf("speed min (%v) cannot be greater than max (%v)", *p.Min, *p.Max)
+		}
+		if p.Default != nil {
+			defNum := toFloat64(p.Default, math.NaN())
+			if !math.IsNaN(defNum) {
+				if p.Min != nil && defNum < *p.Min {
+					return fmt.Errorf("speed default value (%v) cannot be less than minimum (%v)", defNum, *p.Min)
+				}
+				if p.Max != nil && defNum > *p.Max {
+					return fmt.Errorf("speed default value (%v) cannot be greater than maximum (%v)", defNum, *p.Max)
+				}
+			}
+		}
 	case "enum":
 		if len(p.Options) == 0 {
 			return fmt.Errorf("enum parameter must have at least one allowed option")
@@ -382,6 +404,25 @@ func ValidateWidgetParameter(p WidgetParameter) error {
 	case "number":
 		if p.Min != nil && p.Max != nil && *p.Min > *p.Max {
 			return fmt.Errorf("numeric min (%v) cannot be greater than max (%v)", *p.Min, *p.Max)
+		}
+		if prop == "opacity" {
+			if p.Min != nil && *p.Min < 0 {
+				return fmt.Errorf("opacity min (%v) cannot be less than 0", *p.Min)
+			}
+			if p.Max != nil && *p.Max > 1.0 {
+				return fmt.Errorf("opacity max (%v) cannot exceed 1.0", *p.Max)
+			}
+		}
+		if p.Default != nil {
+			defNum := toFloat64(p.Default, math.NaN())
+			if !math.IsNaN(defNum) {
+				if p.Min != nil && defNum < *p.Min {
+					return fmt.Errorf("numeric default value (%v) cannot be less than minimum (%v)", defNum, *p.Min)
+				}
+				if p.Max != nil && defNum > *p.Max {
+					return fmt.Errorf("numeric default value (%v) cannot be greater than maximum (%v)", defNum, *p.Max)
+				}
+			}
 		}
 	}
 

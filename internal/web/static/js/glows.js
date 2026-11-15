@@ -371,7 +371,8 @@ window.Glows = {
       hitTargetEl = '<circle class="glow-hit-target" cx="' + px.toFixed(2) + '" cy="' + py.toFixed(2) + '" r="' + hitRadius.toFixed(2) + '" fill="transparent" pointer-events="all" style="cursor: pointer;" />';
     }
 
-    return '<g id="glow-' + glow.id + '" class="diagram-glow-instance" data-glow-id="' + glow.id + '" data-semantic-target="' + (glow.name || 'glow-' + glow.id) + '">' +
+    const glowNameAttr = glow.name ? ' data-semantic-name="' + String(glow.name).replace(/"/g, '&quot;') + '"' : '';
+    return '<g id="glow-' + glow.id + '" class="diagram-glow-instance" data-glow-id="' + glow.id + '" data-semantic-target="glow-' + glow.id + '"' + glowNameAttr + '>' +
       hitTargetEl +
       '<g ' + visibilityControl + ' pointer-events="none">' + setAnim + '<g opacity="0">' + animTag + shapeEl + '</g></g>' +
       '</g>';

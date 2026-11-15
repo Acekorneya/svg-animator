@@ -679,6 +679,18 @@ async function runHarness() {
       },
       scrollIntoView() {},
       querySelector(sel) {
+        if (sel && sel.startsWith('.')) {
+          const cls = sel.slice(1);
+          const findCls = (n) => {
+            if (n !== this && n.classList && n.classList.contains(cls)) return n;
+            for (const child of (n.children || [])) {
+              const res = findCls(child);
+              if (res) return res;
+            }
+            return null;
+          };
+          return findCls(this);
+        }
         if (sel === 'option[data-unknown-shape="true"]') {
           return this.children.find((c) => c.dataset && c.dataset.unknownShape === 'true') || null;
         }
@@ -687,7 +699,21 @@ async function runHarness() {
         }
         return null;
       },
-      querySelectorAll() { return []; },
+      querySelectorAll(sel) {
+        if (sel && sel.startsWith('.')) {
+          const cls = sel.slice(1);
+          const results = [];
+          const scan = (n) => {
+            for (const child of (n.children || [])) {
+              if (child.classList && child.classList.contains(cls)) results.push(child);
+              scan(child);
+            }
+          };
+          scan(this);
+          return results;
+        }
+        return [];
+      },
       getBoundingClientRect() { return { left: 0, top: 0, width: 1600, height: 900 }; }
     };
     Object.defineProperty(el, 'firstChild', {
@@ -10608,6 +10634,115 @@ async function runHarness() {
   }
 
   console.log('[HARNESS] Scenario 82 PASS: Export & Production Render Accordion Containment Integrity verified.');
+
+  // =========================================================================
+  // Scenario 83: Stage 16B Property Authoring & Binding Correctness Pass
+  // =========================================================================
+  console.log('\n[HARNESS] Testing Scenario 83: Stage 16B Property Authoring & Binding Correctness...');
+
+  // Test 1: Preventing duplicate bindings on the same (target, property)
+  window.EngineBridge.setWidgetParameters([]);
+  let pRes1 = window.EngineBridge.addWidgetParameter({
+    name: 'flow1color',
+    type: 'color',
+    target: 'flow-1',
+    property: 'stroke',
+    default: '#00ffcc',
+    description: 'First flow color'
+  });
+  assert.ok(pRes1 && !pRes1.error, 'W16B-CORR01: Initial flow1color parameter added successfully');
+  let currentParams = window.EngineBridge.getWidgetParameters();
+  assert.strictEqual(currentParams.length, 1, 'W16B-CORR02: Exactly 1 parameter in scene');
+
+  // Attempting to add a second parameter targeting the exact same flow-1.stroke
+  let pRes2 = window.EngineBridge.addWidgetParameter({
+    name: 'flow1c',
+    type: 'color',
+    target: 'flow-1',
+    property: 'stroke',
+    default: '#ff00aa',
+    description: 'Updated flow color'
+  });
+  assert.ok(pRes2 && !pRes2.error, 'W16B-CORR03: Adding flow1c replacing existing flow-1.stroke binding succeeds');
+  currentParams = window.EngineBridge.getWidgetParameters();
+  assert.strictEqual(currentParams.length, 1, 'W16B-CORR04: Still exactly 1 parameter in scene (duplicate prevented/updated)');
+  assert.strictEqual(currentParams[0].name, 'flow1c', 'W16B-CORR05: Parameter name updated to flow1c');
+  assert.strictEqual(currentParams[0].default, '#ff00aa', 'W16B-CORR06: Default value updated to #ff00aa');
+
+  // Test 2: Stripping / rejecting min/max on non-numeric types
+  let pResColorWithLimits = window.EngineBridge.addWidgetParameter({
+    name: 'invalidColorLimits',
+    type: 'color',
+    target: 'flow-1',
+    property: 'fill',
+    default: '#ffffff',
+    min: 0,
+    max: 100
+  });
+  assert.ok(!pResColorWithLimits || pResColorWithLimits.success === false, 'W16B-CORR07: Adding color parameter with min/max is rejected by Go engine validator');
+
+  // Test 3: Rejecting defaults outside permitted [min, max] range
+  let pResSpeedInvalidDefault = window.EngineBridge.addWidgetParameter({
+    name: 'flow1speed',
+    type: 'speed',
+    target: 'flow-1',
+    property: 'speed',
+    default: 2.0,
+    min: 0.0,
+    max: 1.0
+  });
+  assert.ok(!pResSpeedInvalidDefault || pResSpeedInvalidDefault.success === false, 'W16B-CORR08: Adding speed parameter with default 2.0 outside [0, 1] is rejected');
+
+  // Test 4: Rejecting opacity exceeding 0..1 limits
+  let pResOpacityExcessive = window.EngineBridge.addWidgetParameter({
+    name: 'flow1opac',
+    type: 'number',
+    target: 'flow-1',
+    property: 'opacity',
+    default: 0.8,
+    min: 0.0,
+    max: 7.0
+  });
+  assert.ok(!pResOpacityExcessive || pResOpacityExcessive.success === false, 'W16B-CORR09: Opacity with max 7.0 (exceeding 1.0) is rejected');
+
+  // Test 5: Valid opacity and speed parameters succeed
+  let pResOpacityValid = window.EngineBridge.addWidgetParameter({
+    name: 'flow1opac',
+    type: 'number',
+    target: 'flow-1',
+    property: 'opacity',
+    default: 0.8,
+    min: 0.0,
+    max: 1.0
+  });
+  assert.ok(pResOpacityValid && !pResOpacityValid.error, 'W16B-CORR10: Valid opacity parameter in [0, 1] accepted');
+
+  let pResSpeedValid = window.EngineBridge.addWidgetParameter({
+    name: 'flow1speed',
+    type: 'speed',
+    target: 'flow-1',
+    property: 'speed',
+    default: 1.5,
+    min: 0.1,
+    max: 5.0
+  });
+  assert.ok(pResSpeedValid && !pResSpeedValid.error, 'W16B-CORR11: Valid speed parameter accepted');
+
+  // Test 6: Verify Active Parameters List UI and Edit Button
+  if (typeof window.renderWidgetParametersOverview === 'function') {
+    window.renderWidgetParametersOverview();
+  }
+  const widgetListEl = document.getElementById('widgetParamsList');
+  assert.ok(widgetListEl, 'W16B-CORR12: widgetParamsList DOM container exists');
+  const cards = widgetListEl.querySelectorAll('.widget-param-card');
+  assert.strictEqual(cards.length, 3, 'W16B-CORR13: 3 parameter cards rendered in overview list');
+
+  const firstCard = cards[0];
+  const editBtn = firstCard.querySelector('.btn-edit-param');
+  assert.ok(editBtn, 'W16B-CORR14: Edit button exists on parameter card');
+  assert.ok(editBtn.textContent.includes('Edit'), 'W16B-CORR15: Edit button contains text "Edit"');
+
+  console.log('[HARNESS] Scenario 83 PASS: Stage 16B Property Authoring & Binding Correctness verified.');
 
   console.log('[HARNESS] REG-03 PASS: Stage 3, 4, 5, 6, 7, 8, 9, 11, 12, 13, 14, 15 & 16 non-destructive cropping, background extraction, image baking, dedicated crop clip & snip workspace, object-local clipping, unified layer management, independent image objects, persistent groups, duplication, copy/paste with flow remapping, multi-selection, alignment, distribution, colour tools, selection retention, notifications, naming sync, history(50), schema 1.2.0, .sva packaging, background photo restoration, SVG compilation, export payload builders, collision-free widgets, external runtime parameters, and Go WASM engines verified.');
 }

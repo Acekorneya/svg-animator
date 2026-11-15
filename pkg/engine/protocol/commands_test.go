@@ -3323,7 +3323,7 @@ func TestDispatchWidgetParameters(t *testing.T) {
 			Type:     "number",
 			Default:  50.0,
 			Target:   "node-1",
-			Property: "opacity",
+			Property: "height",
 			Min:      &minVal,
 			Max:      &maxVal,
 		},
