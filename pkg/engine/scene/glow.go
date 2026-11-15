@@ -99,6 +99,9 @@ func (s *Scene) CreateGlow(initial Glow) Glow {
 			s.layers = append(s.layers, LayerEntry{Type: SelectionGlow, ID: initial.ID})
 		}
 	}
+	if initial.Name != "" {
+		initial.Name = s.EnsureUniqueObjectName(SelectionGlow, initial.Name, initial.ID)
+	}
 	s.glows[initial.ID] = initial
 	s.revision++
 

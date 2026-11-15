@@ -539,7 +539,8 @@ func GenerateWidgetDemoHTML(widgetName, svgFilename string, manifest *WidgetMani
 	sb.WriteString("  <script>\n")
 	sb.WriteString(fmt.Sprintf("    const SVG_FILE = '%s';\n", svgFilename))
 	sb.WriteString(fmt.Sprintf("    const MANIFEST = %s;\n\n", manifestJson))
-	sb.WriteString("    const instances = {};\n\n")
+	sb.WriteString("    const instances = {};\n")
+	sb.WriteString("    window.instances = instances;\n\n")
 
 	sb.WriteString("    function getRawSvg() {\n")
 	sb.WriteString("      const embeddedScript = document.getElementById('embedded-widget-svg');\n")
@@ -730,6 +731,7 @@ func BuildWidgetPackageZip(sc *Scene, widgetName, rawSVG, svgWidgetJS string) ([
 	// 2. Extract validated manifest from Scene (or fallback to embedded in rawSVG)
 	var manifest *WidgetManifest
 	if sc != nil {
+		sc.SyncParameterNamesWithObjectNames()
 		params := sc.GetParameters()
 		if len(params) > 0 {
 			manifest = &WidgetManifest{

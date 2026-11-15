@@ -165,6 +165,10 @@ func (s *Scene) CreateImage(initial Image) (Image, error) {
 		}
 	}
 
+	if initial.Name != "" {
+		displayName = s.EnsureUniqueObjectName(SelectionImage, displayName, newID)
+	}
+
 	img := Image{
 		ID:                  newID,
 		Name:                displayName,

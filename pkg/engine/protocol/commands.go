@@ -1279,6 +1279,20 @@ type WidgetGetEligiblePropertiesRequest struct {
 	TargetType string `json:"targetType,omitempty"`
 }
 
+// WidgetGenerateParamNameRequest is the payload for "Widget.GenerateParamName".
+type WidgetGenerateParamNameRequest struct {
+	ObjectName string `json:"objectName"`
+	Property   string `json:"property"`
+	TargetType string `json:"targetType,omitempty"`
+}
+
+// WidgetGenerateParamNameResponse is returned by "Widget.GenerateParamName".
+type WidgetGenerateParamNameResponse struct {
+	Success bool   `json:"success"`
+	Name    string `json:"name"`
+	Error   string `json:"error,omitempty"`
+}
+
 // WidgetEligiblePropertiesResponse is returned by "Widget.GetEligibleProperties".
 type WidgetEligiblePropertiesResponse struct {
 	Success    bool                                `json:"success"`
@@ -2813,12 +2827,11 @@ func Dispatch(command string, payloadJSON []byte) ([]byte, error) {
 		}
 		ok, err := activeScene.RenameObject(scene.SelectionType(req.Type), req.ID, req.Name)
 		if err != nil || !ok {
-			return json.Marshal(ObjectRenameResponse{
-				Type:    req.Type,
-				ID:      req.ID,
-				Name:    req.Name,
-				Success: false,
-			})
+			errMsg := "failed to rename object"
+			if err != nil {
+				errMsg = err.Error()
+			}
+			return nil, fmt.Errorf("renaming %s: %s", req.Type, errMsg)
 		}
 		return json.Marshal(ObjectRenameResponse{
 			Type:    req.Type,
@@ -3546,6 +3559,24 @@ func Dispatch(command string, payloadJSON []byte) ([]byte, error) {
 			Success:    true,
 			Properties: props,
 			Catalog:    scene.ObjectPropertyCatalog,
+		})
+
+	case "Widget.GenerateParamName":
+		var req WidgetGenerateParamNameRequest
+		if err := json.Unmarshal(payloadJSON, &req); err != nil {
+			return json.Marshal(WidgetGenerateParamNameResponse{
+				Success: false,
+				Error:   fmt.Sprintf("decoding WidgetGenerateParamNameRequest: %v", err),
+			})
+		}
+		var tt []string
+		if req.TargetType != "" {
+			tt = append(tt, req.TargetType)
+		}
+		name := scene.GenerateParameterName(req.ObjectName, req.Property, tt...)
+		return json.Marshal(WidgetGenerateParamNameResponse{
+			Success: true,
+			Name:    name,
 		})
 
 	case "Widget.RenameParameter":

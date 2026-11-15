@@ -313,58 +313,218 @@ func scopeCSSRules(css string, rootID string, idMap map[string]string) string {
 
 // EligibleProperty describes a supported controllable property for an object type.
 type EligibleProperty struct {
-	Property    string   `json:"property"`
-	Type        string   `json:"type"`
-	Label       string   `json:"label"`
-	Description string   `json:"description"`
-	Min         *float64 `json:"min,omitempty"`
-	Max         *float64 `json:"max,omitempty"`
-	Options     []string `json:"options,omitempty"`
-	Default     any      `json:"default"`
+	Property             string   `json:"property"`
+	Type                 string   `json:"type"`
+	Label                string   `json:"label"`
+	Description          string   `json:"description"`
+	Min                  *float64 `json:"min,omitempty"`
+	Max                  *float64 `json:"max,omitempty"`
+	Options              []string `json:"options,omitempty"`
+	Default              any      `json:"default"`
+	ParamSuffix          string   `json:"paramSuffix"`
+	ExportRepresentation string   `json:"exportRepresentation,omitempty"`
+	RuntimeSemantics     string   `json:"runtimeSemantics,omitempty"`
+	DefaultSource        string   `json:"defaultSource,omitempty"`
 }
 
 func floatPtr(v float64) *float64 {
 	return &v
 }
 
+// GenerateParameterName derives an automatic parameter name from an object name and property.
+// Example: flow-border + speed -> flow-border-speed
+// Example: flow-border + color -> flow-border-color
+// Example: glow-status + color -> glow-status-color
+// Example: node-server + fill  -> node-server-fill
+// Example: root + playbackRate -> root-speed
+func GenerateParameterName(objectName, property string, targetType ...string) string {
+	cleanObj := strings.TrimSpace(strings.ToLower(objectName))
+	tType := ""
+	if len(targetType) > 0 {
+		tType = strings.TrimSpace(strings.ToLower(targetType[0]))
+	}
+
+	if cleanObj == "" || cleanObj == "root" || cleanObj == "global" || cleanObj == "stage" || cleanObj == "widget" {
+		cleanObj = "root"
+	} else if tType != "" && tType != "root" {
+		prefix := tType + "-"
+		if !strings.HasPrefix(cleanObj, prefix) {
+			cleanObj = prefix + cleanObj
+		}
+	}
+
+	cleanObj = regexp.MustCompile(`[^a-z0-9_-]`).ReplaceAllString(cleanObj, "-")
+	cleanObj = regexp.MustCompile(`-+`).ReplaceAllString(cleanObj, "-")
+	cleanObj = strings.Trim(cleanObj, "-")
+
+	suffix := strings.ToLower(strings.TrimSpace(property))
+	switch suffix {
+	case "playbackrate":
+		suffix = "speed"
+	case "operatingstate":
+		suffix = "state"
+	case "textcontent":
+		suffix = "text"
+	case "stroke":
+		if strings.HasPrefix(cleanObj, "flow-") {
+			suffix = "color"
+		} else {
+			suffix = "stroke"
+		}
+	}
+
+	return cleanObj + "-" + suffix
+}
+
 // ObjectPropertyCatalog maps each object category to its genuinely supported properties.
 var ObjectPropertyCatalog = map[string][]EligibleProperty{
 	"node": {
-		{Property: "fill", Type: "color", Label: "Fill Colour", Description: "Primary interior fill color of node shape", Default: "#3b82f6"},
-		{Property: "stroke", Type: "color", Label: "Border Stroke", Description: "Outline and border stroke color", Default: "#1d4ed8"},
-		{Property: "opacity", Type: "number", Label: "Opacity", Description: "Transparency of the node (0.0 to 1.0)", Min: floatPtr(0), Max: floatPtr(1), Default: 1.0},
-		{Property: "visibility", Type: "boolean", Label: "Visibility", Description: "Toggle visibility of the node", Default: true},
-		{Property: "text", Type: "text", Label: "Label Text", Description: "Primary text label displayed inside the node", Default: "Node"},
+		{Property: "fill", Type: "color", Label: "Fill Colour", ParamSuffix: "fill", Description: "Primary interior fill color of node shape", Default: "#3b82f6", DefaultSource: "node.fillColor", RuntimeSemantics: "recolours node shape fill"},
+		{Property: "stroke", Type: "color", Label: "Border Stroke", ParamSuffix: "stroke", Description: "Outline and border stroke color", Default: "#1d4ed8", DefaultSource: "node.strokeColor", RuntimeSemantics: "recolours node border stroke"},
+		{Property: "opacity", Type: "number", Label: "Opacity", ParamSuffix: "opacity", Description: "Transparency of the node (0.0 to 1.0)", Min: floatPtr(0), Max: floatPtr(1), Default: 1.0, DefaultSource: "node.fillOpacity", RuntimeSemantics: "sets node overall opacity"},
+		{Property: "visibility", Type: "boolean", Label: "Visibility", ParamSuffix: "visibility", Description: "Toggle visibility of the node", Default: true, DefaultSource: "true", RuntimeSemantics: "toggles node visibility"},
+		{Property: "text", Type: "text", Label: "Label Text", ParamSuffix: "text", Description: "Primary text label displayed inside the node", Default: "Node", DefaultSource: "node.text", RuntimeSemantics: "updates node text label"},
 	},
 	"flow": {
-		{Property: "stroke", Type: "color", Label: "Line Colour", Description: "Connector line and particle stroke color", Default: "#38bdf8"},
-		{Property: "speed", Type: "speed", Label: "Flow Speed", Description: "Animation speed multiplier for this flow connector (0.1 to 10.0)", Min: floatPtr(0.1), Max: floatPtr(10.0), Default: 1.0},
-		{Property: "opacity", Type: "number", Label: "Opacity", Description: "Transparency of the connector (0.0 to 1.0)", Min: floatPtr(0), Max: floatPtr(1), Default: 1.0},
-		{Property: "visibility", Type: "boolean", Label: "Visibility", Description: "Toggle visibility of this flow connector", Default: true},
+		{Property: "color", Type: "color", Label: "Flow Colour", ParamSuffix: "color", Description: "Colour of moving flow payload; motion guide remains stroke=none", Default: "#38bdf8", DefaultSource: "flow.color", RuntimeSemantics: "recolours moving payload only; guide path remains stroke=none"},
+		{Property: "stroke", Type: "color", Label: "Line Colour", ParamSuffix: "color", Description: "Connector line and moving particle colour", Default: "#38bdf8", DefaultSource: "flow.color", RuntimeSemantics: "recolours moving payload; preserves guide path"},
+		{Property: "speed", Type: "speed", Label: "Flow Speed", ParamSuffix: "speed", Description: "Animation speed multiplier for this flow connector (0.1 to 10.0)", Min: floatPtr(0.1), Max: floatPtr(10.0), Default: 1.0, DefaultSource: "flow.animSpeed", RuntimeSemantics: "multiplies with master playback rate"},
+		{Property: "opacity", Type: "number", Label: "Opacity", ParamSuffix: "opacity", Description: "Transparency of the connector (0.0 to 1.0)", Min: floatPtr(0), Max: floatPtr(1), Default: 1.0, DefaultSource: "1.0", RuntimeSemantics: "sets flow overall opacity"},
+		{Property: "visibility", Type: "boolean", Label: "Visibility", ParamSuffix: "visibility", Description: "Toggle visibility of this flow connector", Default: true, DefaultSource: "true", RuntimeSemantics: "toggles flow visibility"},
 	},
 	"glow": {
-		{Property: "color", Type: "color", Label: "Glow Colour", Description: "Accent color of the glow and beacon pulse", Default: "#f59e0b"},
-		{Property: "opacity", Type: "number", Label: "Glow Intensity", Description: "Transparency / intensity of the glow element (0.0 to 1.0)", Min: floatPtr(0), Max: floatPtr(1), Default: 1.0},
-		{Property: "visibility", Type: "boolean", Label: "Visibility", Description: "Toggle visibility of this glow hotspot", Default: true},
+		{Property: "color", Type: "color", Label: "Glow Colour", ParamSuffix: "color", Description: "Accent color of the illuminated glow effect", Default: "#f59e0b", DefaultSource: "glow.color", RuntimeSemantics: "recolours radial gradient / core; hit-target remains transparent"},
+		{Property: "opacity", Type: "number", Label: "Glow Intensity", ParamSuffix: "opacity", Description: "Transparency / intensity of the glow element (0.0 to 1.0)", Min: floatPtr(0), Max: floatPtr(1), Default: 1.0, DefaultSource: "1.0", RuntimeSemantics: "modifies illuminated glow opacity"},
+		{Property: "visibility", Type: "boolean", Label: "Visibility", ParamSuffix: "visibility", Description: "Toggle visibility of this glow hotspot", Default: true, DefaultSource: "true", RuntimeSemantics: "toggles glow visibility"},
 	},
 	"ripple": {
-		{Property: "color", Type: "color", Label: "Wave Colour", Description: "Stroke color of the propagating ripple rings", Default: "#06b6d4"},
-		{Property: "opacity", Type: "number", Label: "Wave Opacity", Description: "Transparency of the ripple effect (0.0 to 1.0)", Min: floatPtr(0), Max: floatPtr(1), Default: 1.0},
-		{Property: "visibility", Type: "boolean", Label: "Visibility", Description: "Toggle visibility of this ripple effect", Default: true},
+		{Property: "color", Type: "color", Label: "Wave Colour", ParamSuffix: "color", Description: "Stroke color of the propagating ripple rings", Default: "#06b6d4", DefaultSource: "ripple.color", RuntimeSemantics: "recolours visible ripple waves only; hit-target and shadows unchanged"},
+		{Property: "opacity", Type: "number", Label: "Wave Opacity", ParamSuffix: "opacity", Description: "Transparency of the ripple effect (0.0 to 1.0)", Min: floatPtr(0), Max: floatPtr(1), Default: 1.0, DefaultSource: "1.0", RuntimeSemantics: "sets wave crest opacity"},
+		{Property: "visibility", Type: "boolean", Label: "Visibility", ParamSuffix: "visibility", Description: "Toggle visibility of this ripple effect", Default: true, DefaultSource: "true", RuntimeSemantics: "toggles ripple visibility"},
 	},
 	"image": {
-		{Property: "opacity", Type: "number", Label: "Image Opacity", Description: "Transparency of the image layer (0.0 to 1.0)", Min: floatPtr(0), Max: floatPtr(1), Default: 1.0},
-		{Property: "visibility", Type: "boolean", Label: "Visibility", Description: "Toggle visibility of the image layer", Default: true},
+		{Property: "opacity", Type: "number", Label: "Image Opacity", ParamSuffix: "opacity", Description: "Transparency of the image layer (0.0 to 1.0)", Min: floatPtr(0), Max: floatPtr(1), Default: 1.0, DefaultSource: "image.opacity", RuntimeSemantics: "sets image opacity"},
+		{Property: "visibility", Type: "boolean", Label: "Visibility", ParamSuffix: "visibility", Description: "Toggle visibility of the image layer", Default: true, DefaultSource: "image.visible", RuntimeSemantics: "toggles image visibility"},
 	},
 	"group": {
-		{Property: "opacity", Type: "number", Label: "Group Opacity", Description: "Transparency of the group (0.0 to 1.0)", Min: floatPtr(0), Max: floatPtr(1), Default: 1.0},
-		{Property: "visibility", Type: "boolean", Label: "Visibility", Description: "Toggle visibility of the group", Default: true},
+		{Property: "opacity", Type: "number", Label: "Group Opacity", ParamSuffix: "opacity", Description: "Transparency of the group (0.0 to 1.0)", Min: floatPtr(0), Max: floatPtr(1), Default: 1.0, DefaultSource: "1.0", RuntimeSemantics: "sets group opacity"},
+		{Property: "visibility", Type: "boolean", Label: "Visibility", ParamSuffix: "visibility", Description: "Toggle visibility of the group", Default: true, DefaultSource: "true", RuntimeSemantics: "toggles group visibility"},
 	},
 	"root": {
-		{Property: "playbackRate", Type: "speed", Label: "Master Speed", Description: "Overall playback speed rate multiplier for the widget (0.1 to 5.0)", Min: floatPtr(0.1), Max: floatPtr(5.0), Default: 1.0},
-		{Property: "visibility", Type: "boolean", Label: "Visibility", Description: "Master visibility toggle for the entire widget", Default: true},
-		{Property: "operatingState", Type: "enum", Label: "Operating State", Description: "Lifecycle operating state of the widget (running, paused, stopped)", Options: []string{"running", "paused", "stopped"}, Default: "running"},
+		{Property: "playbackRate", Type: "speed", Label: "Master Speed", ParamSuffix: "speed", Description: "Overall playback speed rate multiplier for the widget (0.1 to 5.0)", Min: floatPtr(0.1), Max: floatPtr(5.0), Default: 1.0, DefaultSource: "1.0", RuntimeSemantics: "widget-wide master playback rate"},
+		{Property: "visibility", Type: "boolean", Label: "Visibility", ParamSuffix: "visibility", Description: "Master visibility toggle for the entire widget", Default: true, DefaultSource: "true", RuntimeSemantics: "toggles root widget visibility"},
+		{Property: "operatingState", Type: "enum", Label: "Operating State", ParamSuffix: "state", Description: "Lifecycle operating state of the widget (running, paused, stopped)", Options: []string{"running", "paused", "stopped"}, Default: "running", DefaultSource: "running", RuntimeSemantics: "sets unit lifecycle state"},
 	},
+}
+
+// SyncParameterNamesWithObjectNames ensures every parameter name matches the object-name/property convention:
+// <objectName>-<paramSuffix>.
+func (s *Scene) SyncParameterNamesWithObjectNames() {
+	s.mu.Lock()
+	defer s.mu.Unlock()
+
+	for i := range s.parameters {
+		p := &s.parameters[i]
+		target := p.Target
+		objName, tType := s.getObjectNameForTargetLocked(target)
+		if objName != "" {
+			p.Name = GenerateParameterName(objName, p.Property, tType)
+		}
+	}
+}
+
+func (s *Scene) getObjectNameForTargetLocked(target string) (string, string) {
+	t := strings.TrimSpace(target)
+	if t == "" || t == "root" || t == "global" || t == "stage" || t == "widget" {
+		return "root", "root"
+	}
+	cleanID := strings.TrimPrefix(t, "node-")
+	if n, ok := s.nodes[StringID(cleanID)]; ok {
+		name := n.Name
+		if name == "" {
+			name = n.Text
+		}
+		if name == "" {
+			name = "node-" + string(n.ID)
+		}
+		return name, "node"
+	}
+	if n, ok := s.nodes[StringID(t)]; ok {
+		name := n.Name
+		if name == "" {
+			name = n.Text
+		}
+		if name == "" {
+			name = "node-" + string(n.ID)
+		}
+		return name, "node"
+	}
+
+	cleanID = strings.TrimPrefix(t, "flow-")
+	if f, ok := s.flows[StringID(cleanID)]; ok {
+		name := f.Name
+		if name == "" {
+			name = "flow-" + string(f.ID)
+		}
+		return name, "flow"
+	}
+	if f, ok := s.flows[StringID(t)]; ok {
+		name := f.Name
+		if name == "" {
+			name = "flow-" + string(f.ID)
+		}
+		return name, "flow"
+	}
+
+	cleanID = strings.TrimPrefix(t, "glow-")
+	if g, ok := s.glows[StringID(cleanID)]; ok {
+		name := g.Name
+		if name == "" {
+			name = "glow-" + string(g.ID)
+		}
+		return name, "glow"
+	}
+	if g, ok := s.glows[StringID(t)]; ok {
+		name := g.Name
+		if name == "" {
+			name = "glow-" + string(g.ID)
+		}
+		return name, "glow"
+	}
+
+	cleanID = strings.TrimPrefix(t, "ripple-")
+	if r, ok := s.ripples[StringID(cleanID)]; ok {
+		name := r.Name
+		if name == "" {
+			name = "ripple-" + string(r.ID)
+		}
+		return name, "ripple"
+	}
+	if r, ok := s.ripples[StringID(t)]; ok {
+		name := r.Name
+		if name == "" {
+			name = "ripple-" + string(r.ID)
+		}
+		return name, "ripple"
+	}
+
+	cleanID = strings.TrimPrefix(t, "image-")
+	if img, ok := s.images[StringID(cleanID)]; ok {
+		name := img.Name
+		if name == "" {
+			name = "image-" + string(img.ID)
+		}
+		return name, "image"
+	}
+	if img, ok := s.images[StringID(t)]; ok {
+		name := img.Name
+		if name == "" {
+			name = "image-" + string(img.ID)
+		}
+		return name, "image"
+	}
+
+	return t, InferTargetType(t)
 }
 
 // InferTargetType deduces the object category from a target identifier.
@@ -473,7 +633,10 @@ func ValidateWidgetParameter(p WidgetParameter) error {
 		if len(allowed) > 0 {
 			var found *EligibleProperty
 			for _, ep := range allowed {
-				if ep.Property == prop || (targetType == "flow" && prop == "playbackRate" && ep.Property == "speed") {
+				if ep.Property == prop ||
+					(targetType == "flow" && prop == "playbackRate" && ep.Property == "speed") ||
+					(targetType == "flow" && prop == "stroke" && ep.Property == "color") ||
+					(targetType == "flow" && prop == "color" && ep.Property == "stroke") {
 					found = &ep
 					break
 				}

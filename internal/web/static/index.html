@@ -2122,67 +2122,11 @@
             <span style="font-size: 0.76rem; font-weight: 600; color: #58a6ff; display: flex; align-items: center; gap: 4px;">
               <span>🌐</span> Widget / External Controls
             </span>
-            <label class="toggle-switch" style="font-size: 0.72rem; margin: 0; display: flex; align-items: center; gap: 4px; cursor: pointer;">
-              <input type="checkbox" id="fctx-widgetExposeToggle">
-              <span>Expose</span>
-            </label>
+            <span id="fctx-widgetCountBadge" style="font-size: 0.68rem; background: #21262d; color: #8b949e; padding: 1px 5px; border-radius: 3px;">0 exposed</span>
           </div>
 
-          <div id="fctx-widgetConfigDeck" style="display: none; background: rgba(0, 0, 0, 0.25); border: 1px solid var(--border, #30363d); border-radius: 6px; padding: 0.5rem; margin-top: 0.35rem;">
-            <div class="floating-prop-row">
-              <label for="fctx-widgetParamName" title="Public parameter identifier (e.g. tankLevel, statusColor)">Name</label>
-              <input type="text" id="fctx-widgetParamName" class="text-field-input" placeholder="e.g. statusColor">
-            </div>
-
-            <div class="floating-prop-row">
-              <label for="fctx-widgetPropSelect" title="Target object attribute to expose">Property</label>
-              <select id="fctx-widgetPropSelect"></select>
-            </div>
-
-            <div class="floating-prop-row">
-              <label for="fctx-widgetTypeSelect" title="Parameter data type">Type</label>
-              <select id="fctx-widgetTypeSelect">
-                <option value="color">color (Hex / RGB)</option>
-                <option value="number">number (Float / Int)</option>
-                <option value="boolean">boolean (True / False)</option>
-                <option value="text">text (String)</option>
-                <option value="speed">speed (Playback Rate)</option>
-                <option value="enum">enum (State List)</option>
-              </select>
-            </div>
-
-            <div class="floating-prop-row" id="fctx-widgetDefaultRow">
-              <label for="fctx-widgetDefaultInput" title="Initial / authored default value">Default</label>
-              <input type="text" id="fctx-widgetDefaultInput" class="text-field-input" placeholder="Default value">
-            </div>
-
-            <!-- Numeric Min / Max Limits -->
-            <div class="floating-prop-row" id="fctx-widgetNumericLimitsRow" style="display: none;">
-              <label title="Numeric min and max value limits">Limits</label>
-              <div style="display: flex; gap: 6px; width: 100%;">
-                <input type="number" id="fctx-widgetMinInput" placeholder="Min" class="num-input" style="flex: 1;">
-                <input type="number" id="fctx-widgetMaxInput" placeholder="Max" class="num-input" style="flex: 1;">
-              </div>
-            </div>
-
-            <!-- Enum Options -->
-            <div class="floating-prop-row" id="fctx-widgetOptionsRow" style="display: none;">
-              <label for="fctx-widgetOptionsInput" title="Comma-separated permitted enum states">Options</label>
-              <input type="text" id="fctx-widgetOptionsInput" class="text-field-input" placeholder="e.g. running, paused, stopped, alarm">
-            </div>
-
-            <div class="floating-prop-row">
-              <label for="fctx-widgetDescInput" title="Optional documentation description">Description</label>
-              <input type="text" id="fctx-widgetDescInput" class="text-field-input" placeholder="Optional description">
-            </div>
-
-            <div style="display: flex; justify-content: space-between; align-items: center; margin-top: 0.5rem; gap: 6px;">
-              <button type="button" class="btn-floating-action" id="fctx-btnSaveWidgetParam" style="background: #238636; color: #fff; flex: 1; padding: 0.25rem 0.5rem;" title="Save parameter binding to scene">💾 Save Binding</button>
-              <button type="button" class="btn-floating-action btn-del" id="fctx-btnRemoveWidgetParam" style="padding: 0.25rem 0.5rem;" title="Remove this parameter binding">&times; Remove</button>
-            </div>
-
-            <div id="fctx-widgetStatusMsg" style="font-size: 0.72rem; margin-top: 0.35rem; color: #8b949e; min-height: 1.2em;"></div>
-          </div>
+          <div id="fctx-widgetPropertiesList" style="display: flex; flex-direction: column; gap: 4px;"></div>
+          <div id="fctx-widgetStatusMsg" style="font-size: 0.71rem; margin-top: 0.35rem; color: #8b949e; min-height: 1.2em;"></div>
         </div>
       </div>
     </div>
@@ -2454,81 +2398,21 @@
 
             <div id="drawerWidgetAuthoringDeck" style="display: none; background: #161b22; border: 1px solid #388bfd; border-radius: 6px; padding: 10px; margin-bottom: 0.65rem; box-shadow: 0 2px 8px rgba(0,0,0,0.3);">
               <div style="display: flex; justify-content: space-between; align-items: center; margin-bottom: 8px; border-bottom: 1px solid #30363d; padding-bottom: 6px;">
-                <span id="drawerWidgetObjBadge" style="font-size: 0.75rem; font-weight: 600; color: #58a6ff;">Selected Object</span>
+                <div style="display: flex; align-items: center; gap: 6px; flex: 1; min-width: 0;">
+                  <span id="drawerWidgetObjBadge" style="font-size: 0.75rem; font-weight: 600; color: #58a6ff; white-space: nowrap; overflow: hidden; text-overflow: ellipsis;">Selected Object</span>
+                  <input type="text" id="drawerWidgetObjRenameInput" placeholder="Object name" style="font-size: 0.72rem; padding: 2px 5px; background: #0d1117; border: 1px solid #30363d; border-radius: 3px; color: #e6edf3; width: 130px;" title="Edit object name (must be unique within type)">
+                </div>
                 <span id="drawerWidgetObjTypeBadge" style="font-size: 0.68rem; background: #21262d; color: #7ee787; padding: 1px 6px; border-radius: 4px; text-transform: uppercase;">NODE</span>
               </div>
 
-              <div style="margin-bottom: 8px;">
-                <label style="display: flex; align-items: center; gap: 8px; font-size: 0.76rem; font-weight: 600; color: #e6edf3; cursor: pointer;">
-                  <input type="checkbox" id="chkDrawerExposeWidget" style="accent-color: #388bfd; width: 14px; height: 14px;">
-                  <span>Expose as Widget Parameter</span>
-                </label>
+              <div style="font-size: 0.70rem; color: #8b949e; margin-bottom: 8px;">
+                Expose controllable host properties for this object. Public parameter identifiers are derived automatically.
               </div>
 
-              <!-- Existing Bindings Strip for Active Object -->
-              <div id="drawerWidgetExistingBindings" style="display: none; flex-direction: column; gap: 4px; margin-bottom: 8px; padding: 6px; background: #0d1117; border: 1px solid #30363d; border-radius: 4px;">
-                <div style="font-size: 0.68rem; color: #8b949e; font-weight: 600; text-transform: uppercase;">Existing Bindings on this Object:</div>
-                <div id="drawerWidgetExistingBadges" style="display: flex; flex-wrap: wrap; gap: 4px;"></div>
-              </div>
+              <!-- Compact list of supported properties with checkboxes -->
+              <div id="drawerWidgetPropertiesList" style="display: flex; flex-direction: column; gap: 6px;"></div>
 
-              <div id="drawerWidgetFields" style="display: none; flex-direction: column; gap: 6px;">
-                <div>
-                  <label for="drawerWidgetPropSelect" style="display: block; font-size: 0.71rem; color: #8b949e; margin-bottom: 2px;">Target Property:</label>
-                  <select id="drawerWidgetPropSelect" style="width: 100%; font-size: 0.75rem; padding: 3px 6px; background: #0d1117; border: 1px solid #30363d; border-radius: 4px; color: #e6edf3;"></select>
-                  <div id="drawerWidgetPropHelp" style="font-size: 0.71rem; color: #8b949e; line-height: 1.35; margin-top: 3px; font-style: italic;">Select a property to view what changing it does.</div>
-                </div>
-
-                <div style="display: flex; gap: 6px;">
-                  <div style="flex: 3;">
-                    <label for="drawerWidgetParamName" style="display: block; font-size: 0.71rem; color: #8b949e; margin-bottom: 2px;">Public Name (camelCase/snake):</label>
-                    <input type="text" id="drawerWidgetParamName" placeholder="e.g. gateway_status" style="width: 100%; font-size: 0.75rem; padding: 3px 6px; background: #0d1117; border: 1px solid #30363d; border-radius: 4px; color: #e6edf3;">
-                  </div>
-                  <div style="flex: 2;">
-                    <label for="drawerWidgetTypeSelect" style="display: block; font-size: 0.71rem; color: #8b949e; margin-bottom: 2px;">Type:</label>
-                    <select id="drawerWidgetTypeSelect" style="width: 100%; font-size: 0.75rem; padding: 3px 6px; background: #0d1117; border: 1px solid #30363d; border-radius: 4px; color: #e6edf3;">
-                      <option value="color">Color</option>
-                      <option value="number">Number</option>
-                      <option value="speed">Speed Rate</option>
-                      <option value="boolean">Boolean</option>
-                      <option value="text">Text</option>
-                      <option value="enum">Enum Options</option>
-                    </select>
-                  </div>
-                </div>
-
-                <div>
-                  <label for="drawerWidgetDefaultInput" style="display: block; font-size: 0.71rem; color: #8b949e; margin-bottom: 2px;">Default Value:</label>
-                  <input type="text" id="drawerWidgetDefaultInput" style="width: 100%; font-size: 0.75rem; padding: 3px 6px; background: #0d1117; border: 1px solid #30363d; border-radius: 4px; color: #e6edf3;">
-                </div>
-
-                <div id="drawerWidgetLimitsRow" style="display: none; gap: 6px;">
-                  <div style="flex: 1;">
-                    <label for="drawerWidgetMinInput" style="display: block; font-size: 0.71rem; color: #8b949e; margin-bottom: 2px;">Min:</label>
-                    <input type="number" id="drawerWidgetMinInput" step="any" style="width: 100%; font-size: 0.75rem; padding: 3px 6px; background: #0d1117; border: 1px solid #30363d; border-radius: 4px; color: #e6edf3;">
-                  </div>
-                  <div style="flex: 1;">
-                    <label for="drawerWidgetMaxInput" style="display: block; font-size: 0.71rem; color: #8b949e; margin-bottom: 2px;">Max:</label>
-                    <input type="number" id="drawerWidgetMaxInput" step="any" style="width: 100%; font-size: 0.75rem; padding: 3px 6px; background: #0d1117; border: 1px solid #30363d; border-radius: 4px; color: #e6edf3;">
-                  </div>
-                </div>
-
-                <div id="drawerWidgetOptionsRow" style="display: none;">
-                  <label for="drawerWidgetOptionsInput" style="display: block; font-size: 0.71rem; color: #8b949e; margin-bottom: 2px;">Enum Options (comma separated):</label>
-                  <input type="text" id="drawerWidgetOptionsInput" placeholder="low, medium, high" style="width: 100%; font-size: 0.75rem; padding: 3px 6px; background: #0d1117; border: 1px solid #30363d; border-radius: 4px; color: #e6edf3;">
-                </div>
-
-                <div>
-                  <label for="drawerWidgetDescInput" style="display: block; font-size: 0.71rem; color: #8b949e; margin-bottom: 2px;">Description / Documentation:</label>
-                  <input type="text" id="drawerWidgetDescInput" placeholder="Brief note explaining external usage" style="width: 100%; font-size: 0.75rem; padding: 3px 6px; background: #0d1117; border: 1px solid #30363d; border-radius: 4px; color: #e6edf3;">
-                </div>
-
-                <div style="display: flex; gap: 6px; margin-top: 4px;">
-                  <button type="button" class="primary" id="btnDrawerSaveWidgetParam" style="flex: 2; background: #238636; font-size: 0.75rem; padding: 4px 8px;">➕ Expose Property</button>
-                  <button type="button" id="btnDrawerRenameWidgetParam" style="display: none; background: #21262d; border: 1px solid #30363d; color: #58a6ff; font-size: 0.75rem; padding: 4px 8px;">✏️ Rename</button>
-                  <button type="button" class="secondary" id="btnDrawerRemoveWidgetParam" style="background: #21262d; border: 1px solid #da3633; color: #f85149; font-size: 0.75rem; padding: 4px 8px;">✕ Remove</button>
-                </div>
-                <div id="drawerWidgetStatusMsg" style="font-size: 0.71rem; min-height: 16px; margin-top: 2px;"></div>
-              </div>
+              <div id="drawerWidgetStatusMsg" style="font-size: 0.71rem; min-height: 16px; margin-top: 6px;"></div>
             </div>
 
             <!-- SECTION 2: WHOLE WIDGET CONTROLS (GLOBAL INSTANCE LEVEL) -->

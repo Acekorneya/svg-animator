@@ -105,6 +105,9 @@ func (s *Scene) CreateFlow(initial Flow) Flow {
 			s.layers = append(s.layers, LayerEntry{Type: SelectionFlow, ID: initial.ID})
 		}
 	}
+	if initial.Name != "" {
+		initial.Name = s.EnsureUniqueObjectName(SelectionFlow, initial.Name, initial.ID)
+	}
 	s.flows[initial.ID] = initial
 	s.revision++
 

@@ -417,61 +417,143 @@
    * Applies validated property to the resolved DOM element.
    */
   function applyPropertyToElement(el, property, value, paramDef, instance) {
+    const svgEl = instance ? (instance.svgElement || (instance.wrapper && instance.wrapper.querySelector('svg'))) : null;
+
+    // Detect specialized entity types
+    const isFlow = el && (Boolean(el.classList?.contains('diagram-flow-instance')) ||
+                   Boolean(typeof el.hasAttribute === 'function' && el.hasAttribute('data-flow-id')) ||
+                   Boolean(el.querySelector?.('.flow-track-path')));
+    const isGlow = el && (Boolean(el.classList?.contains('diagram-glow-instance')) ||
+                   Boolean(typeof el.hasAttribute === 'function' && el.hasAttribute('data-glow-id')) ||
+                   Boolean(el.querySelector?.('.glow-hit-target')));
+    const isRipple = el && (Boolean(el.classList?.contains('diagram-ripple-instance')) ||
+                     Boolean(typeof el.hasAttribute === 'function' && el.hasAttribute('data-ripple-id')) ||
+                     Boolean(el.querySelector?.('.ripple-hit-target')));
+
     switch (property) {
-      case 'fill':
-        if (el) {
-          el.setAttribute('fill', value);
-          el.style.fill = value;
-          if (el.tagName && el.tagName.toLowerCase() === 'g') {
-            el.querySelectorAll('rect, circle, path, polygon, ellipse').forEach(c => {
-              c.setAttribute('fill', value);
-              c.style.fill = value;
-            });
-          }
-        }
-        break;
       case 'stroke':
-        if (el) {
-          el.setAttribute('stroke', value);
-          el.style.stroke = value;
-          if (el.tagName && el.tagName.toLowerCase() === 'g') {
-            el.querySelectorAll('rect, circle, path, polygon, ellipse, line').forEach(c => {
-              c.setAttribute('stroke', value);
-              c.style.stroke = value;
+      case 'color':
+      case 'fill': {
+        if (!el) break;
+
+        if (isFlow) {
+          // Flow: color changes the moving payload only.
+          // The invisible guide path remains stroke="none".
+          // Do not recolour unrelated path geometry.
+          const payloadGroup = el.querySelector('.flow-payload-group') || el.querySelector('.flow-payload-wrapper');
+          if (payloadGroup) {
+            payloadGroup.querySelectorAll('circle, path, rect, ellipse, line, polygon').forEach(c => {
+              const curStroke = c.getAttribute('stroke');
+              const curFill = c.getAttribute('fill');
+              if (curStroke && curStroke !== 'none') {
+                c.setAttribute('stroke', value);
+                c.style.stroke = value;
+              }
+              if (curFill && curFill !== 'none') {
+                c.setAttribute('fill', value);
+                c.style.fill = value;
+              }
+              if (!curStroke && !curFill) {
+                c.setAttribute('fill', value);
+                c.style.fill = value;
+              }
             });
           }
-        }
-        break;
-      case 'color':
-        if (el) {
-          el.style.color = value;
-          // Specialized styling based on element type
-          if (el.classList?.contains('diagram-flow-instance') || el.hasAttribute('data-flow-id') || el.querySelector?.('.flow-track-path')) {
-            el.querySelectorAll('path.flow-track-path, .flow-track-path').forEach(p => {
+          // Check motion guide track paths: if stroke="none", NEVER paint it!
+          el.querySelectorAll('path.flow-track-path, .flow-track-path').forEach(p => {
+            const trackStroke = p.getAttribute('stroke');
+            if (trackStroke === 'none' || p.style.stroke === 'none') {
+              p.setAttribute('stroke', 'none');
+              p.style.stroke = 'none';
+            } else if (property === 'stroke') {
+              // Only recolour if it was authored as a visible track line and property is explicitly stroke
               p.setAttribute('stroke', value);
               p.style.stroke = value;
+            }
+          });
+        } else if (isGlow) {
+          // Glow: color changes the illuminated effect only.
+          // NEVER recolour transparent hit-test elements (.glow-hit-target) or elements with fill="transparent".
+          const elId = el.getAttribute('id') || (el.id && el.id.baseVal) || String(el.id || '');
+          const glowId = el.getAttribute('data-glow-id') || elId.replace(/^.*__glow-/, '').replace(/^.*glow-/, '');
+          if (svgEl) {
+            const radGrads = [];
+            if (glowId) {
+              svgEl.querySelectorAll(`radialGradient[id*="glowGrad-${glowId}"], radialGradient[id*="glow-grad-${glowId}"], radialGradient[id*="glowGrad"], radialGradient[id*="glow"]`).forEach(rg => {
+                if (!radGrads.includes(rg)) radGrads.push(rg);
+              });
+            }
+            // Inspect child elements of the glow for referenced gradient URLs
+            el.querySelectorAll('circle, path, rect, ellipse').forEach(c => {
+              const fill = c.getAttribute('fill') || (c.style && c.style.fill) || '';
+              const urlMatch = fill.match(/url\(['"]?#([^'")]+)['"]?\)/);
+              if (urlMatch) {
+                const gradEl = svgEl.querySelector(`#${urlMatch[1]}`);
+                if (gradEl && !radGrads.includes(gradEl)) radGrads.push(gradEl);
+              }
             });
-            el.querySelectorAll('.flow-payload-group circle, .flow-payload-group path').forEach(c => {
-              c.setAttribute('fill', value);
-              c.style.fill = value;
+            radGrads.forEach(rg => {
+              rg.querySelectorAll('stop').forEach(st => {
+                st.setAttribute('stop-color', value);
+                st.style.stopColor = value;
+              });
             });
-          } else if (el.classList?.contains('diagram-ripple-instance') || el.hasAttribute('data-ripple-id')) {
-            el.querySelectorAll('circle, path').forEach(c => {
+            const filters = svgEl.querySelectorAll(`filter[id*="glowBlur-${glowId}"] feFlood, filter[id*="glowBlur-${glowId}"] feDropShadow, filter[id*="glow"] feFlood`);
+            filters.forEach(f => {
+              if (f && typeof f.hasAttribute === 'function' && f.hasAttribute('flood-color')) f.setAttribute('flood-color', value);
+            });
+          }
+          el.querySelectorAll('circle, path, rect, ellipse').forEach(c => {
+            if (c.classList?.contains('glow-hit-target') || c.getAttribute('fill') === 'transparent' || c.getAttribute('pointer-events') === 'all') {
+              return; // NEVER touch transparent hit-test elements
+            }
+            const curStroke = c.getAttribute('stroke');
+            const curFill = c.getAttribute('fill');
+            if (curStroke && curStroke !== 'none' && curStroke !== 'transparent') {
               c.setAttribute('stroke', value);
               c.style.stroke = value;
-            });
-          } else {
+            }
+            if (curFill && curFill !== 'none' && curFill !== 'transparent' && !curFill.startsWith('url(')) {
+              c.setAttribute('fill', value);
+              c.style.fill = value;
+            }
+          });
+        } else if (isRipple) {
+          // Ripple: Colour must target the actual visible ripple output only.
+          // Hit-test elements (.ripple-hit-target), shadow rings (black), and image/mask helpers remain untouched.
+          el.querySelectorAll('circle, path').forEach(c => {
+            if (c.classList?.contains('ripple-hit-target') || c.getAttribute('fill') === 'transparent' || c.getAttribute('pointer-events') === 'all') {
+              return; // NEVER touch hit-test element
+            }
+            const curStroke = c.getAttribute('stroke');
+            if (curStroke === 'black' || curStroke === '#000' || curStroke === '#000000' || c.closest?.('g[transform*="scale(0.92)"]')) {
+              return; // Keep shadow rings original black semantics
+            }
+            if (c.closest?.('mask') || c.tagName?.toLowerCase() === 'image') {
+              return; // Do not touch mask or raster image elements
+            }
+            c.setAttribute('stroke', value);
+            c.style.stroke = value;
+          });
+        } else {
+          // Generic Node or Element
+          if (property === 'fill') {
             el.setAttribute('fill', value);
             el.style.fill = value;
             if (el.tagName && el.tagName.toLowerCase() === 'g') {
               el.querySelectorAll('rect, circle, path, polygon, ellipse').forEach(c => {
-                const curFill = c.getAttribute('fill');
-                if (curFill && curFill !== 'none') {
+                if (!c.classList?.contains('glow-hit-target') && !c.classList?.contains('ripple-hit-target') && c.getAttribute('fill') !== 'transparent') {
                   c.setAttribute('fill', value);
                   c.style.fill = value;
                 }
-                const curStroke = c.getAttribute('stroke');
-                if (curStroke && curStroke !== 'none') {
+              });
+            }
+          } else {
+            el.setAttribute('stroke', value);
+            el.style.stroke = value;
+            if (el.tagName && el.tagName.toLowerCase() === 'g') {
+              el.querySelectorAll('rect, circle, path, polygon, ellipse, line').forEach(c => {
+                if (!c.classList?.contains('glow-hit-target') && !c.classList?.contains('ripple-hit-target') && !c.classList?.contains('flow-track-path')) {
                   c.setAttribute('stroke', value);
                   c.style.stroke = value;
                 }
@@ -480,8 +562,9 @@
           }
         }
         break;
+      }
       case 'visibility': {
-        const isVisible = value !== false && value !== 'hidden' && value !== 0;
+        const isVisible = value !== false && value !== 'hidden' && value !== 0 && value !== '0';
         const visStr = isVisible ? 'visible' : 'hidden';
         if (el) {
           el.style.visibility = visStr;
@@ -489,18 +572,34 @@
         }
         break;
       }
-      case 'opacity':
-        if (el) {
-          const num = Math.max(0, Math.min(1, parseFloat(value) || 0));
+      case 'opacity': {
+        if (!el) break;
+        const num = Math.max(0, Math.min(1, parseFloat(value) || 0));
+        if (isRipple) {
+          // Ripple opacity: target only visible wave crests, never hit-target or background
+          el.querySelectorAll('circle, path').forEach(c => {
+            if (c.classList?.contains('ripple-hit-target') || c.getAttribute('fill') === 'transparent') return;
+            if (c.closest?.('mask') || c.tagName?.toLowerCase() === 'image') return;
+            c.style.opacity = String(num);
+          });
+        } else if (isGlow) {
+          // Glow intensity: apply opacity to graphic container
+          const gfx = el.querySelector('g[pointer-events="none"]') || el;
+          gfx.style.opacity = String(num);
+          gfx.setAttribute('opacity', String(num));
+        } else {
           el.setAttribute('opacity', String(num));
           el.style.opacity = String(num);
           if (el.tagName && el.tagName.toLowerCase() === 'g') {
             el.querySelectorAll('rect, circle, path, polygon, ellipse, image').forEach(c => {
-              c.style.opacity = String(num);
+              if (!c.classList?.contains('glow-hit-target') && !c.classList?.contains('ripple-hit-target')) {
+                c.style.opacity = String(num);
+              }
             });
           }
         }
         break;
+      }
       case 'text':
       case 'textContent':
         if (el) {

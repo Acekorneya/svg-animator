@@ -362,6 +362,9 @@ func (s *Scene) CreateNode(initial Node, preset *PresetConfig, snapToGrid bool) 
 			s.layers = append(s.layers, LayerEntry{Type: SelectionNode, ID: initial.ID})
 		}
 	}
+	if initial.Name != "" {
+		initial.Name = s.EnsureUniqueObjectName(SelectionNode, initial.Name, initial.ID)
+	}
 	s.nodes[initial.ID] = initial
 	s.revision++
 
@@ -625,6 +628,8 @@ func (s *Scene) RemoveFlow(id StringID) bool {
 }
 
 // RenameObject updates the human-readable display name of a Node, Flow, Glow, Ripple, Image, or Group.
+// For objects with fixed type prefixes (node-, flow-, glow-, ripple-, image-), it enforces unique names
+// within their category and automatically regenerates associated widget parameter names.
 func (s *Scene) RenameObject(selType SelectionType, id StringID, name string) (bool, error) {
 	s.mu.Lock()
 	defer s.mu.Unlock()
@@ -633,74 +638,97 @@ func (s *Scene) RenameObject(selType SelectionType, id StringID, name string) (b
 		return false, fmt.Errorf("cannot rename locked %s: %s", selType, id)
 	}
 
+	var oldName string
+	normalized := strings.TrimSpace(name)
+	if normalized != "" {
+		if err := s.ValidateObjectName(selType, normalized, id); err != nil {
+			return false, err
+		}
+	}
+
 	switch selType {
 	case SelectionNode:
 		node, ok := s.nodes[id]
 		if !ok {
 			return false, errors.New("node not found: " + string(id))
 		}
-		node.Name = name
+		oldName = node.Name
+		node.Name = normalized
 		s.nodes[id] = node
-		s.revision++
-		return true, nil
 
 	case SelectionFlow:
 		flow, ok := s.flows[id]
 		if !ok {
 			return false, errors.New("flow not found: " + string(id))
 		}
-		flow.Name = name
+		oldName = flow.Name
+		flow.Name = normalized
 		s.flows[id] = flow
-		s.revision++
-		return true, nil
 
 	case SelectionGlow:
 		glow, ok := s.glows[id]
 		if !ok {
 			return false, errors.New("glow not found: " + string(id))
 		}
-		glow.Name = name
+		oldName = glow.Name
+		glow.Name = normalized
 		s.glows[id] = glow
-		s.revision++
-		return true, nil
 
 	case SelectionRipple:
 		ripple, ok := s.ripples[id]
 		if !ok {
 			return false, errors.New("ripple not found: " + string(id))
 		}
-		ripple.Name = name
+		oldName = ripple.Name
+		ripple.Name = normalized
 		s.ripples[id] = ripple
-		s.revision++
-		return true, nil
 
 	case SelectionImage:
 		img, ok := s.images[id]
 		if !ok {
 			return false, errors.New("image not found: " + string(id))
 		}
-		img.Name = name
+		oldName = img.Name
+		img.Name = normalized
 		s.images[id] = img
-		s.revision++
-		return true, nil
 
 	case SelectionGroup:
 		grp, ok := s.groups[id]
 		if !ok {
 			return false, errors.New("group not found: " + string(id))
 		}
-		displayName := name
+		displayName := normalized
 		if displayName == "" {
 			displayName = "Group " + string(id)
 		}
+		normalized = displayName
 		grp.Name = displayName
 		s.groups[id] = grp
-		s.revision++
-		return true, nil
 
 	default:
 		return false, errors.New("unsupported object type for rename: " + string(selType))
 	}
+
+	// Requirement C: If an object is renamed, regenerate the relevant public parameter names
+	// and show the changed names in the UI / manifest.
+	targetID := string(id)
+	prefix, _ := FixedPrefixes[selType]
+	if prefix != "" && !strings.HasPrefix(targetID, prefix) {
+		targetID = prefix + targetID
+	}
+	targetName := normalized
+	if targetName == "" {
+		targetName = targetID
+	}
+	for i := range s.parameters {
+		p := &s.parameters[i]
+		if p.Target == string(id) || p.Target == targetID || (oldName != "" && p.Target == oldName) {
+			p.Name = GenerateParameterName(targetName, p.Property, string(selType))
+		}
+	}
+
+	s.revision++
+	return true, nil
 }
 
 // History returns the scene's history manager.

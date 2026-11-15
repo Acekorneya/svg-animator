@@ -87,6 +87,9 @@ func (s *Scene) CreateRipple(initial Ripple) Ripple {
 			s.layers = append(s.layers, LayerEntry{Type: SelectionRipple, ID: initial.ID})
 		}
 	}
+	if initial.Name != "" {
+		initial.Name = s.EnsureUniqueObjectName(SelectionRipple, initial.Name, initial.ID)
+	}
 	s.ripples[initial.ID] = initial
 	s.revision++
 

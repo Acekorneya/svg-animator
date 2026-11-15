@@ -2729,342 +2729,312 @@ function getObjectPropValue(type, id, prop) {
   return '';
 }
 
+window.renderWidgetPropertyCards = function(containerEl, sel, statusMsgEl) {
+  if (!containerEl || !sel || !sel.type || sel.id === null) return;
+  containerEl.innerHTML = '';
+
+  let objName = sel.name || '';
+  let objDisplayName = sel.name || `${sel.type} #${sel.id}`;
+  if (sel.type === 'node' && window.DiagramNodes) {
+    const n = window.DiagramNodes.getNode(sel.id);
+    if (n) {
+      if (!objName) objName = n.name || n.text || '';
+      objDisplayName = n.name ? `${n.name} (#${sel.id})` : (n.text ? `${n.text} (#${sel.id})` : `Node #${sel.id}`);
+    }
+  } else if (sel.type === 'flow' && window.DataFlows) {
+    const f = window.DataFlows.getFlow(sel.id);
+    if (f) {
+      if (!objName) objName = f.name || '';
+      objDisplayName = f.name ? `${f.name} (#${sel.id})` : `Flow #${sel.id}`;
+    }
+  } else if (sel.type === 'glow' && window.Glows) {
+    const g = window.Glows.getGlow(sel.id);
+    if (g) {
+      if (!objName) objName = g.name || '';
+      objDisplayName = g.name ? `${g.name} (#${sel.id})` : `Glow #${sel.id}`;
+    }
+  } else if (sel.type === 'ripple' && window.Ripples) {
+    const r = window.Ripples.getRipple(sel.id);
+    if (r) {
+      if (!objName) objName = r.name || '';
+      objDisplayName = r.name ? `${r.name} (#${sel.id})` : `Ripple #${sel.id}`;
+    }
+  } else if (sel.type === 'image' && window.ImageObjects) {
+    const img = window.ImageObjects.getImage(sel.id);
+    if (img) {
+      if (!objName) objName = img.name || '';
+      objDisplayName = img.name ? `${img.name} (#${sel.id})` : `Image #${sel.id}`;
+    }
+  }
+
+  let allParams = [];
+  if (window.EngineBridge && typeof window.EngineBridge.getWidgetParameters === 'function') {
+    allParams = window.EngineBridge.getWidgetParameters() || [];
+  }
+  const targetId = `${sel.type}-${sel.id}`;
+  const propDefs = getDrawerWidgetPropDefs(sel.type);
+
+  propDefs.forEach((p) => {
+    const bound = allParams.find((item) => {
+      const t = item.Target || item.target;
+      const pr = item.Property || item.property;
+      return (t === targetId || t === String(sel.id)) && (pr === p.prop || (p.prop === 'color' && pr === 'stroke'));
+    });
+
+    const derivedName = (window.EngineBridge && typeof window.EngineBridge.generateParameterName === 'function')
+      ? window.EngineBridge.generateParameterName(objName || targetId, p.prop, sel.type)
+      : `${sel.type}-${sel.id}-${p.prop}`;
+
+    const currentVal = getObjectPropValue(sel.type, sel.id, p.prop);
+    const displayDef = bound ? (bound.Default !== undefined ? bound.Default : bound.default) : currentVal;
+
+    const card = document.createElement('div');
+    card.className = 'widget-prop-card' + (bound ? ' is-exposed' : '');
+    card.dataset.prop = p.prop;
+
+    // Header row
+    const header = document.createElement('div');
+    header.className = 'widget-prop-header';
+
+    const labelWrap = document.createElement('label');
+    labelWrap.className = 'widget-prop-label';
+
+    const chk = document.createElement('input');
+    chk.type = 'checkbox';
+    chk.checked = !!bound;
+    chk.style.cssText = 'accent-color: #388bfd; width: 14px; height: 14px; cursor: pointer;';
+
+    const titleSpan = document.createElement('span');
+    titleSpan.innerHTML = `<strong>${p.label}</strong> <span style="font-size:0.68rem; color:#8b949e; font-weight:normal;">(${p.type})</span>`;
+
+    labelWrap.appendChild(chk);
+    labelWrap.appendChild(titleSpan);
+
+    const badge = document.createElement('span');
+    badge.className = 'widget-prop-badge';
+    badge.textContent = bound ? (bound.Name || bound.name) : derivedName;
+    badge.title = bound ? `Bound parameter: ${bound.Name || bound.name}` : `Derived parameter: ${derivedName}`;
+
+    header.appendChild(labelWrap);
+    header.appendChild(badge);
+    card.appendChild(header);
+
+    // Meta row
+    const meta = document.createElement('div');
+    meta.className = 'widget-prop-meta';
+
+    const descSpan = document.createElement('span');
+    descSpan.style.cssText = 'font-style: italic; white-space: nowrap; overflow: hidden; text-overflow: ellipsis; max-width: 60%;';
+    descSpan.textContent = p.desc || '';
+    descSpan.title = p.desc || '';
+
+    const defSpan = document.createElement('span');
+    const formattedDef = typeof displayDef === 'object' ? JSON.stringify(displayDef) : String(displayDef);
+    defSpan.innerHTML = `<span style="color:#8b949e;">Default:</span> <strong style="color:#e6edf3;">${formattedDef}</strong>`;
+
+    meta.appendChild(descSpan);
+    meta.appendChild(defSpan);
+    card.appendChild(meta);
+
+    // Controls when bound
+    if (bound) {
+      const controls = document.createElement('div');
+      controls.className = 'widget-prop-controls';
+
+      const editDefWrap = document.createElement('div');
+      editDefWrap.style.cssText = 'display: flex; align-items: center; gap: 4px; font-size: 0.68rem; color: #8b949e;';
+      editDefWrap.innerHTML = '<span>Authored:</span>';
+
+      let defInput;
+      if (p.type === 'color') {
+        defInput = document.createElement('input');
+        defInput.type = 'color';
+        defInput.style.cssText = 'width: 24px; height: 18px; padding: 0; border: none; background: none; cursor: pointer;';
+        defInput.value = displayDef || '#38bdf8';
+      } else if (p.type === 'boolean') {
+        defInput = document.createElement('input');
+        defInput.type = 'checkbox';
+        defInput.style.cssText = 'accent-color: #388bfd; cursor: pointer;';
+        defInput.checked = !!displayDef;
+      } else {
+        defInput = document.createElement('input');
+        defInput.type = (p.type === 'number' || p.type === 'speed') ? 'number' : 'text';
+        if (p.min !== undefined) defInput.min = p.min;
+        if (p.max !== undefined) defInput.max = p.max;
+        if (p.type === 'speed') defInput.step = '0.1';
+        defInput.style.cssText = 'width: 65px; font-size: 0.70rem; padding: 1px 4px; background: #161b22; border: 1px solid #30363d; border-radius: 3px; color: #e6edf3;';
+        defInput.value = displayDef !== undefined ? displayDef : '';
+      }
+
+      const saveDefChange = () => {
+        let newVal = defInput.value;
+        if (p.type === 'boolean') newVal = defInput.checked;
+        else if (p.type === 'number' || p.type === 'speed') newVal = parseFloat(newVal) || 0;
+        const updated = Object.assign({}, bound, { Default: newVal, default: newVal });
+        window.EngineBridge.addWidgetParameter(updated);
+        if (window.AppCoordinator) window.AppCoordinator.recordHistoryDebounced();
+        if (statusMsgEl) {
+          statusMsgEl.style.color = '#3fb950';
+          statusMsgEl.textContent = `✓ Updated default for "${bound.Name || bound.name}" to ${newVal}`;
+        }
+      };
+      defInput.addEventListener('change', saveDefChange);
+      editDefWrap.appendChild(defInput);
+
+      const disableBtn = document.createElement('button');
+      disableBtn.type = 'button';
+      disableBtn.style.cssText = 'background: #21262d; border: 1px solid #da3633; color: #f85149; font-size: 0.68rem; padding: 2px 6px; border-radius: 3px; cursor: pointer;';
+      disableBtn.textContent = '✕ Disable';
+      disableBtn.title = `Remove external binding "${bound.Name || bound.name}"`;
+      disableBtn.addEventListener('click', (e) => {
+        e.stopPropagation();
+        const paramName = bound.Name || bound.name;
+        if (window.EngineBridge && typeof window.EngineBridge.removeWidgetParameter === 'function') {
+          window.EngineBridge.removeWidgetParameter(paramName);
+          if (window.AppCoordinator) {
+            window.AppCoordinator.recordHistoryImmediate();
+            window.AppCoordinator.showNotification(`Removed parameter '${paramName}'`, 'info');
+          }
+          if (typeof window.renderWidgetParametersOverview === 'function') window.renderWidgetParametersOverview();
+          if (window.FloatingPropertiesEditor && typeof window.FloatingPropertiesEditor.syncSelection === 'function') {
+            window.FloatingPropertiesEditor.syncSelection();
+          }
+        }
+      });
+
+      controls.appendChild(editDefWrap);
+      controls.appendChild(disableBtn);
+      card.appendChild(controls);
+    }
+
+    // Checkbox toggle
+    chk.addEventListener('change', () => {
+      if (chk.checked) {
+        let authoredDef = currentVal;
+        if (p.type === 'number' || p.type === 'speed') {
+          authoredDef = typeof currentVal === 'number' ? currentVal : parseFloat(currentVal);
+          if (isNaN(authoredDef)) authoredDef = (p.type === 'speed' ? 1.0 : 0);
+        } else if (p.type === 'boolean') {
+          authoredDef = (currentVal === true || currentVal === 'true' || currentVal === 1);
+        }
+        const newParam = {
+          name: derivedName,
+          type: p.type,
+          target: targetId,
+          property: p.prop,
+          default: authoredDef,
+          description: p.desc || `Controls ${p.prop} on ${objDisplayName}`
+        };
+        if (p.min !== undefined) newParam.min = p.min;
+        if (p.max !== undefined) newParam.max = p.max;
+        if (p.options) newParam.options = p.options;
+
+        if (window.EngineBridge && typeof window.EngineBridge.addWidgetParameter === 'function') {
+          const res = window.EngineBridge.addWidgetParameter(newParam);
+          if (res && (!res.error || res.success !== false)) {
+            if (statusMsgEl) {
+              statusMsgEl.style.color = '#3fb950';
+              statusMsgEl.textContent = `✓ Exposed: "${derivedName}" (${p.type})`;
+            }
+            if (window.AppCoordinator) {
+              window.AppCoordinator.recordHistoryImmediate();
+              window.AppCoordinator.showNotification(`Exposed '${derivedName}'`, 'success');
+            }
+            if (typeof window.renderWidgetParametersOverview === 'function') window.renderWidgetParametersOverview();
+            if (window.FloatingPropertiesEditor && typeof window.FloatingPropertiesEditor.syncSelection === 'function') {
+              window.FloatingPropertiesEditor.syncSelection();
+            }
+          } else {
+            const err = (res && res.error) || 'Failed to expose parameter';
+            if (statusMsgEl) {
+              statusMsgEl.style.color = '#f85149';
+              statusMsgEl.textContent = err;
+            }
+            alert(`Could not expose parameter: ${err}`);
+            chk.checked = false;
+          }
+        }
+      } else {
+        if (bound) {
+          const paramName = bound.Name || bound.name;
+          if (window.EngineBridge && typeof window.EngineBridge.removeWidgetParameter === 'function') {
+            window.EngineBridge.removeWidgetParameter(paramName);
+            if (window.AppCoordinator) {
+              window.AppCoordinator.recordHistoryImmediate();
+              window.AppCoordinator.showNotification(`Removed parameter '${paramName}'`, 'info');
+            }
+            if (typeof window.renderWidgetParametersOverview === 'function') window.renderWidgetParametersOverview();
+            if (window.FloatingPropertiesEditor && typeof window.FloatingPropertiesEditor.syncSelection === 'function') {
+              window.FloatingPropertiesEditor.syncSelection();
+            }
+          }
+        }
+      }
+    });
+
+    containerEl.appendChild(card);
+  });
+};
+
 window.initDrawerWidgetEvents = function() {
   if (window._drawerWidgetEventsBound) return;
   window._drawerWidgetEventsBound = true;
 
-  const btnDrawerSave = document.getElementById('btnDrawerSaveWidgetParam');
-  if (btnDrawerSave) {
-    btnDrawerSave.addEventListener('click', () => {
-      const sel = (window.AppCoordinator && typeof window.AppCoordinator.getActiveSelection === 'function')
-        ? window.AppCoordinator.getActiveSelection()
-        : null;
-      if (!sel || !sel.type || sel.id === null) {
-        alert('Please select an object first.');
-        return;
-      }
-      const name = (document.getElementById('drawerWidgetParamName')?.value || '').trim();
-      const prop = document.getElementById('drawerWidgetPropSelect')?.value;
-      const type = document.getElementById('drawerWidgetTypeSelect')?.value;
-      const rawDef = document.getElementById('drawerWidgetDefaultInput')?.value || '';
-      const minValStr = document.getElementById('drawerWidgetMinInput')?.value;
-      const maxValStr = document.getElementById('drawerWidgetMaxInput')?.value;
-      const optionsStr = document.getElementById('drawerWidgetOptionsInput')?.value || '';
-      const desc = (document.getElementById('drawerWidgetDescInput')?.value || '').trim();
-      const statusMsg = document.getElementById('drawerWidgetStatusMsg');
-
-      if (!name) {
-        if (statusMsg) {
-          statusMsg.style.color = '#f85149';
-          statusMsg.textContent = 'Parameter name is required.';
-        }
-        return;
-      }
-      if (!/^[a-zA-Z][a-zA-Z0-9_-]*$/.test(name)) {
-        if (statusMsg) {
-          statusMsg.style.color = '#f85149';
-          statusMsg.textContent = 'Name must start with a letter (alphanumeric, _, -).';
-        }
-        return;
-      }
-
-      // Validate target/property compatibility
-      const allowedDefs = getDrawerWidgetPropDefs(sel.type) || [];
-      const matchedDef = allowedDefs.find(p => p.prop === prop);
-      if (!matchedDef) {
-        const allowedList = allowedDefs.map(p => `${p.label} (${p.prop})`).join(', ');
-        const errText = `Property "${prop}" is not externally controllable on ${sel.type}. Supported: ${allowedList}`;
-        if (statusMsg) {
-          statusMsg.style.color = '#f85149';
-          statusMsg.textContent = errText;
-        }
-        alert(errText);
-        return;
-      }
-
-      let defaultVal = rawDef;
-      if (type === 'number' || type === 'speed') {
-        defaultVal = parseFloat(rawDef);
-        if (isNaN(defaultVal)) defaultVal = (type === 'speed' ? 1.0 : 0);
-      } else if (type === 'boolean') {
-        defaultVal = (rawDef === 'true' || rawDef === '1' || rawDef === true);
-      }
-
-      const param = {
-        name: name,
-        type: type,
-        target: `${sel.type}-${sel.id}`,
-        property: prop,
-        default: defaultVal,
-        description: desc || matchedDef.desc || `Controls ${prop} on ${sel.type} #${sel.id}`
-      };
-
-      if (type === 'number' || type === 'speed') {
-        let minNum = (minValStr !== '' && minValStr !== undefined && !isNaN(parseFloat(minValStr))) ? parseFloat(minValStr) : null;
-        let maxNum = (maxValStr !== '' && maxValStr !== undefined && !isNaN(parseFloat(maxValStr))) ? parseFloat(maxValStr) : null;
-
-        if (prop === 'opacity') {
-          if (minNum === null || minNum < 0) minNum = 0;
-          if (maxNum === null || maxNum > 1) maxNum = 1;
-          if (minNum > 1) minNum = 1;
-          if (maxNum < 0) maxNum = 0;
-        }
-
-        if (minNum !== null && maxNum !== null && minNum > maxNum) {
-          const errText = `Minimum value (${minNum}) cannot be greater than maximum (${maxNum}).`;
-          if (statusMsg) {
-            statusMsg.style.color = '#f85149';
-            statusMsg.textContent = errText;
-          }
-          alert(errText);
-          return;
-        }
-
-        if (minNum !== null && defaultVal < minNum) {
-          const errText = `Default value (${defaultVal}) cannot be less than minimum (${minNum}).`;
-          if (statusMsg) {
-            statusMsg.style.color = '#f85149';
-            statusMsg.textContent = errText;
-          }
-          alert(errText);
-          return;
-        }
-
-        if (maxNum !== null && defaultVal > maxNum) {
-          const errText = `Default value (${defaultVal}) cannot be greater than maximum (${maxNum}).`;
-          if (statusMsg) {
-            statusMsg.style.color = '#f85149';
-            statusMsg.textContent = errText;
-          }
-          alert(errText);
-          return;
-        }
-
-        if (minNum !== null) param.min = minNum;
-        if (maxNum !== null) param.max = maxNum;
-      }
-
-      if (type === 'enum' && optionsStr) {
-        param.options = optionsStr.split(',').map(s => s.trim()).filter(Boolean);
-      }
-
-      if (window.EngineBridge && typeof window.EngineBridge.addWidgetParameter === 'function') {
-        const res = window.EngineBridge.addWidgetParameter(param);
-        if (res && (!res.error || res.success !== false)) {
-          if (statusMsg) {
-            statusMsg.style.color = '#3fb950';
-            statusMsg.textContent = `✓ Parameter "${name}" saved to scene.`;
-          }
-          if (window.AppCoordinator) {
-            window.AppCoordinator.recordHistoryImmediate();
-            window.AppCoordinator.showNotification(`Saved widget parameter '${name}'`, 'success');
-          }
-          window.renderWidgetParametersOverview();
-          if (window.FloatingPropertiesEditor && typeof window.FloatingPropertiesEditor.syncSelection === 'function') {
-            window.FloatingPropertiesEditor.syncSelection();
-          }
-        } else {
-          const errText = (res && res.error) || (window.EngineBridge && window.EngineBridge.getLastError()) || 'Failed to save parameter';
-          if (statusMsg) {
-            statusMsg.style.color = '#f85149';
-            statusMsg.textContent = errText;
-          }
-          alert('Error saving parameter: ' + errText);
-        }
-      }
-    });
-  }
-
-  const btnDrawerRename = document.getElementById('btnDrawerRenameWidgetParam');
-  if (btnDrawerRename) {
-    btnDrawerRename.addEventListener('click', () => {
-      const oldName = (document.getElementById('drawerWidgetParamName')?.value || '').trim();
-      if (!oldName) return;
-      const newName = prompt(`Enter new unique identifier for parameter "${oldName}":`, oldName);
-      if (!newName || newName.trim() === '' || newName.trim() === oldName) return;
-      const cleanNew = newName.trim();
-      if (!/^[a-zA-Z][a-zA-Z0-9_-]*$/.test(cleanNew)) {
-        alert('Invalid parameter name. Must start with a letter and contain only alphanumeric characters, underscores, or hyphens.');
-        return;
-      }
-      if (window.EngineBridge && typeof window.EngineBridge.renameWidgetParameter === 'function') {
-        const res = window.EngineBridge.renameWidgetParameter(oldName, cleanNew);
-        if (res && res.success) {
-          if (window.AppCoordinator) {
-            window.AppCoordinator.recordHistoryImmediate();
-            window.AppCoordinator.showNotification(`Renamed parameter to "${cleanNew}"`, 'success');
-          }
-          window.renderWidgetParametersOverview();
-          if (window.FloatingPropertiesEditor && typeof window.FloatingPropertiesEditor.syncSelection === 'function') {
-            window.FloatingPropertiesEditor.syncSelection();
-          }
-        } else {
-          alert('Failed to rename parameter: ' + ((res && res.error) || 'Name already in use or invalid.'));
-        }
-      }
-    });
-  }
-
-  const btnDrawerRemove = document.getElementById('btnDrawerRemoveWidgetParam');
-  if (btnDrawerRemove) {
-    btnDrawerRemove.addEventListener('click', () => {
-      const name = (document.getElementById('drawerWidgetParamName')?.value || '').trim();
-      if (!name) return;
-      if (confirm(`Remove exposed parameter "${name}"?`)) {
-        if (window.EngineBridge && typeof window.EngineBridge.removeWidgetParameter === 'function') {
-          window.EngineBridge.removeWidgetParameter(name);
-          if (window.AppCoordinator) {
-            window.AppCoordinator.recordHistoryImmediate();
-            window.AppCoordinator.showNotification(`Removed parameter '${name}'`, 'info');
-          }
-          window.renderWidgetParametersOverview();
-          if (window.FloatingPropertiesEditor && typeof window.FloatingPropertiesEditor.syncSelection === 'function') {
-            window.FloatingPropertiesEditor.syncSelection();
-          }
-        }
-      }
-    });
-  }
-
-  const chkDrawerExpose = document.getElementById('chkDrawerExposeWidget');
-  if (chkDrawerExpose) {
-    chkDrawerExpose.addEventListener('change', () => {
-      const fields = document.getElementById('drawerWidgetFields');
-      if (chkDrawerExpose.checked) {
-        if (fields) fields.style.display = 'flex';
-        const nameInput = document.getElementById('drawerWidgetParamName');
-        if (nameInput && nameInput.value) {
-          document.getElementById('btnDrawerSaveWidgetParam')?.click();
-        } else if (nameInput) {
-          nameInput.focus();
-        }
-      } else {
-        if (fields) fields.style.display = 'none';
-        document.getElementById('btnDrawerRemoveWidgetParam')?.click();
-      }
-    });
-  }
-
-  const drawerPropSelect = document.getElementById('drawerWidgetPropSelect');
-  if (drawerPropSelect) {
-    drawerPropSelect.addEventListener('change', () => {
+  const renameIn = document.getElementById('drawerWidgetObjRenameInput');
+  if (renameIn) {
+    const handleRename = () => {
       const sel = (window.AppCoordinator && typeof window.AppCoordinator.getActiveSelection === 'function')
         ? window.AppCoordinator.getActiveSelection()
         : null;
       if (!sel || !sel.type || sel.id === null) return;
-      const targetId = `${sel.type}-${sel.id}`;
-      const selectedProp = drawerPropSelect.value;
-      const selectedOpt = (drawerPropSelect.selectedOptions && drawerPropSelect.selectedOptions[0])
-        || (drawerPropSelect.options && drawerPropSelect.options[drawerPropSelect.selectedIndex || 0])
-        || null;
-      const nameInput = document.getElementById('drawerWidgetParamName');
-      const typeSelect = document.getElementById('drawerWidgetTypeSelect');
-      const minInput = document.getElementById('drawerWidgetMinInput');
-      const maxInput = document.getElementById('drawerWidgetMaxInput');
-      const optionsInput = document.getElementById('drawerWidgetOptionsInput');
-      const descInput = document.getElementById('drawerWidgetDescInput');
-      const limitsRow = document.getElementById('drawerWidgetLimitsRow');
-      const optRow = document.getElementById('drawerWidgetOptionsRow');
-      const propHelp = document.getElementById('drawerWidgetPropHelp');
-      const defInput = document.getElementById('drawerWidgetDefaultInput');
+      const newName = renameIn.value.trim();
       const statusMsg = document.getElementById('drawerWidgetStatusMsg');
-      const btnSave = document.getElementById('btnDrawerSaveWidgetParam');
-      const btnRename = document.getElementById('btnDrawerRenameWidgetParam');
-      const btnRemove = document.getElementById('btnDrawerRemoveWidgetParam');
-
-      if (propHelp) {
-        propHelp.textContent = selectedOpt?.dataset?.desc || 'Select a property to view what changing it does.';
-      }
-
-      // Check if this object already has a parameter bound to THIS property
-      let existing = null;
-      if (window.EngineBridge && typeof window.EngineBridge.getWidgetParameters === 'function') {
-        const allParams = window.EngineBridge.getWidgetParameters() || [];
-        existing = allParams.find(p => (p.Target || p.target) === targetId && (p.Property || p.property) === selectedProp);
-      }
-
-      if (existing) {
-        const exName = existing.Name || existing.name;
-        const exType = existing.Type || existing.type;
-        const exDef = existing.Default !== undefined ? existing.Default : existing.default;
-        const exMin = existing.Min !== undefined ? existing.Min : existing.min;
-        const exMax = existing.Max !== undefined ? existing.Max : existing.max;
-        const exOpts = existing.Options || existing.options;
-        const exDesc = existing.Description || existing.description;
-
-        if (nameInput) nameInput.value = exName || '';
-        if (typeSelect) typeSelect.value = exType || selectedOpt?.dataset?.defaultType || 'color';
-        if (defInput) defInput.value = exDef !== undefined ? (typeof exDef === 'object' ? JSON.stringify(exDef) : String(exDef)) : '';
-        if (minInput) minInput.value = (exMin !== undefined && exMin !== null) ? exMin : '';
-        if (maxInput) maxInput.value = (exMax !== undefined && exMax !== null) ? exMax : '';
-        if (optionsInput) optionsInput.value = Array.isArray(exOpts) ? exOpts.join(', ') : '';
-        if (descInput) descInput.value = exDesc || '';
-        if (limitsRow) limitsRow.style.display = (typeSelect.value === 'number' || typeSelect.value === 'speed') ? 'flex' : 'none';
-        if (optRow) optRow.style.display = (typeSelect.value === 'enum') ? 'flex' : 'none';
-        if (statusMsg) {
-          statusMsg.style.color = '#3fb950';
-          statusMsg.textContent = `✓ Bound: "${exName}" (${typeSelect.value} ──► ${selectedProp}). Click Update to change settings, or Rename to change parameter name.`;
-        }
-        if (btnSave) btnSave.textContent = '💾 Update Binding';
-        if (btnRename) btnRename.style.display = 'inline-block';
-        if (btnRemove) btnRemove.style.display = 'inline-block';
-      } else {
-        const defaultType = selectedOpt?.dataset?.defaultType || 'color';
-        if (typeSelect) typeSelect.value = defaultType;
-        if (defInput) defInput.value = getObjectPropValue(sel.type, sel.id, selectedProp);
-
-        let baseName = `${sel.type}${sel.id}`;
-        if (sel.type === 'node' && window.DiagramNodes) {
-          const n = window.DiagramNodes.getNode(sel.id);
-          if (n && (n.name || n.text)) {
-            const raw = (n.name || n.text).replace(/[^a-zA-Z0-9]/g, '');
-            if (raw) baseName = raw.charAt(0).toLowerCase() + raw.slice(1);
+      if (window.EngineBridge && typeof window.EngineBridge.renameObject === 'function') {
+        const res = window.EngineBridge.renameObject(sel.type, sel.id, newName);
+        if (res && res.success) {
+          if (sel.type === 'node' && window.DiagramNodes) {
+            const n = window.DiagramNodes.getNode(sel.id);
+            if (n) n.name = newName;
+          } else if (sel.type === 'flow' && window.DataFlows) {
+            const f = window.DataFlows.getFlow(sel.id);
+            if (f) f.name = newName;
+          } else if (sel.type === 'glow' && window.Glows) {
+            const g = window.Glows.getGlow(sel.id);
+            if (g) g.name = newName;
+          } else if (sel.type === 'ripple' && window.Ripples) {
+            const r = window.Ripples.getRipple(sel.id);
+            if (r) r.name = newName;
+          } else if (sel.type === 'image' && window.ImageObjects) {
+            const img = window.ImageObjects.getImage(sel.id);
+            if (img) img.name = newName;
           }
-        }
-        if (nameInput) nameInput.value = `${baseName}_${selectedProp.replace(/[^a-zA-Z0-9]/g, '')}`;
-
-        if (defaultType === 'number' || defaultType === 'speed') {
-          if (limitsRow) limitsRow.style.display = 'flex';
-          if (selectedProp === 'opacity') {
-            if (minInput) minInput.value = '0';
-            if (maxInput) maxInput.value = '1';
-          } else if (selectedProp === 'speed') {
-            if (minInput) minInput.value = '0.1';
-            if (maxInput) maxInput.value = '10';
-          } else {
-            if (minInput) minInput.value = selectedOpt?.dataset?.min !== undefined ? selectedOpt.dataset.min : '0';
-            if (maxInput) maxInput.value = selectedOpt?.dataset?.max !== undefined ? selectedOpt.dataset.max : '100';
+          if (statusMsg) {
+            statusMsg.style.color = '#3fb950';
+            statusMsg.textContent = newName ? `✓ Object renamed to "${newName}". External parameters updated.` : '✓ Object name cleared.';
+          }
+          if (window.AppCoordinator) {
+            window.AppCoordinator.recordHistoryImmediate();
+            window.AppCoordinator.showNotification(newName ? `Renamed to '${newName}'` : 'Name cleared', 'success');
+          }
+          window.renderWidgetParametersOverview();
+          if (window.FloatingPropertiesEditor && typeof window.FloatingPropertiesEditor.syncSelection === 'function') {
+            window.FloatingPropertiesEditor.syncSelection();
           }
         } else {
-          if (limitsRow) limitsRow.style.display = 'none';
-          if (minInput) minInput.value = '';
-          if (maxInput) maxInput.value = '';
+          const err = (res && res.error) || 'Name conflict or invalid name';
+          if (statusMsg) {
+            statusMsg.style.color = '#f85149';
+            statusMsg.textContent = `Error: ${err}`;
+          }
+          alert(`Could not rename: ${err}`);
         }
-        if (optRow) optRow.style.display = (defaultType === 'enum') ? 'flex' : 'none';
-        if (descInput) descInput.value = selectedOpt?.dataset?.desc || `Controls ${selectedProp} on ${sel.type} #${sel.id}`;
-        if (statusMsg) {
-          statusMsg.style.color = '#8b949e';
-          statusMsg.textContent = `Property "${selectedProp}" is not yet exposed. Click "➕ Expose Property" to bind.`;
-        }
-        if (btnSave) btnSave.textContent = '➕ Expose Property';
-        if (btnRename) btnRename.style.display = 'none';
-        if (btnRemove) btnRemove.style.display = 'none';
       }
-    });
-  }
-
-  const drawerTypeSelect = document.getElementById('drawerWidgetTypeSelect');
-  if (drawerTypeSelect) {
-    drawerTypeSelect.addEventListener('change', () => {
-      const limitsRow = document.getElementById('drawerWidgetLimitsRow');
-      const optRow = document.getElementById('drawerWidgetOptionsRow');
-      const minInput = document.getElementById('drawerWidgetMinInput');
-      const maxInput = document.getElementById('drawerWidgetMaxInput');
-      if (limitsRow) limitsRow.style.display = (drawerTypeSelect.value === 'number' || drawerTypeSelect.value === 'speed') ? 'flex' : 'none';
-      if (optRow) optRow.style.display = (drawerTypeSelect.value === 'enum') ? 'flex' : 'none';
-      if (drawerTypeSelect.value !== 'number' && drawerTypeSelect.value !== 'speed') {
-        if (minInput) minInput.value = '';
-        if (maxInput) maxInput.value = '';
+    };
+    renameIn.addEventListener('change', handleRename);
+    renameIn.addEventListener('keydown', (e) => {
+      if (e.key === 'Enter') {
+        e.preventDefault();
+        renameIn.blur();
       }
     });
   }
@@ -3225,19 +3195,9 @@ window.renderWidgetParametersOverview = function(selectionPayload) {
   const drawerDeck = document.getElementById('drawerWidgetAuthoringDeck');
   const drawerObjBadge = document.getElementById('drawerWidgetObjBadge');
   const drawerObjTypeBadge = document.getElementById('drawerWidgetObjTypeBadge');
-  const chkDrawerExpose = document.getElementById('chkDrawerExposeWidget');
-  const drawerFields = document.getElementById('drawerWidgetFields');
-  const drawerPropSelect = document.getElementById('drawerWidgetPropSelect');
-  const drawerParamName = document.getElementById('drawerWidgetParamName');
-  const drawerTypeSelect = document.getElementById('drawerWidgetTypeSelect');
-  const drawerDefaultInput = document.getElementById('drawerWidgetDefaultInput');
-  const drawerMinInput = document.getElementById('drawerWidgetMinInput');
-  const drawerMaxInput = document.getElementById('drawerWidgetMaxInput');
-  const drawerOptionsInput = document.getElementById('drawerWidgetOptionsInput');
-  const drawerDescInput = document.getElementById('drawerWidgetDescInput');
+  const drawerRenameIn = document.getElementById('drawerWidgetObjRenameInput');
+  const drawerPropsList = document.getElementById('drawerWidgetPropertiesList');
   const drawerStatusMsg = document.getElementById('drawerWidgetStatusMsg');
-  const drawerLimitsRow = document.getElementById('drawerWidgetLimitsRow');
-  const drawerOptionsRow = document.getElementById('drawerWidgetOptionsRow');
 
   if (drawerDeck && drawerNoSel) {
     if (sel && ['node', 'flow', 'glow', 'ripple', 'image'].includes(sel.type) && sel.id !== null) {
@@ -3245,153 +3205,48 @@ window.renderWidgetParametersOverview = function(selectionPayload) {
       drawerDeck.style.display = 'block';
       if (drawerObjTypeBadge) drawerObjTypeBadge.textContent = sel.type.toUpperCase();
 
-      let objName = `${sel.type.charAt(0).toUpperCase() + sel.type.slice(1)} #${sel.id}`;
-      let defaultParamBase = `${sel.type}${sel.id}`;
+      let currentName = '';
+      let objDisplayName = `${sel.type} #${sel.id}`;
       if (sel.type === 'node' && window.DiagramNodes) {
         const n = window.DiagramNodes.getNode(sel.id);
-        if (n && (n.name || n.text)) {
-          objName = `${n.name || n.text} (#${sel.id})`;
-          const raw = (n.name || n.text).replace(/[^a-zA-Z0-9]/g, '');
-          if (raw) defaultParamBase = raw.charAt(0).toLowerCase() + raw.slice(1);
+        if (n) {
+          currentName = n.name || n.text || '';
+          objDisplayName = n.name ? `${n.name} (#${sel.id})` : (n.text ? `${n.text} (#${sel.id})` : `Node #${sel.id}`);
         }
       } else if (sel.type === 'flow' && window.DataFlows) {
         const f = window.DataFlows.getFlow(sel.id);
-        if (f && f.name) objName = `${f.name} (#${sel.id})`;
+        if (f) {
+          currentName = f.name || '';
+          objDisplayName = f.name ? `${f.name} (#${sel.id})` : `Flow #${sel.id}`;
+        }
       } else if (sel.type === 'glow' && window.Glows) {
         const g = window.Glows.getGlow(sel.id);
-        if (g && g.name) objName = `${g.name} (#${sel.id})`;
+        if (g) {
+          currentName = g.name || '';
+          objDisplayName = g.name ? `${g.name} (#${sel.id})` : `Glow #${sel.id}`;
+        }
       } else if (sel.type === 'ripple' && window.Ripples) {
         const r = window.Ripples.getRipple(sel.id);
-        if (r && r.name) objName = `${r.name} (#${sel.id})`;
-      }
-      if (drawerObjBadge) drawerObjBadge.textContent = objName;
-
-      // Check for existing bindings on this object
-      const targetId = `${sel.type}-${sel.id}`;
-      const existingForObj = params.filter(p => {
-        const t = p.Target || p.target;
-        return t === targetId || t === String(sel.id);
-      });
-
-      // Synchronize existing bindings badges
-      const existingWrap = document.getElementById('drawerWidgetExistingBindings');
-      const badgesContainer = document.getElementById('drawerWidgetExistingBadges');
-      if (existingWrap && badgesContainer) {
-        if (existingForObj.length > 0) {
-          existingWrap.style.display = 'flex';
-          badgesContainer.innerHTML = '';
-          existingForObj.forEach(ep => {
-            const badge = document.createElement('button');
-            badge.type = 'button';
-            badge.style.cssText = 'background: #21262d; border: 1px solid #388bfd; color: #58a6ff; font-size: 0.70rem; padding: 2px 6px; border-radius: 4px; cursor: pointer; display: flex; align-items: center; gap: 4px;';
-            badge.title = `Click to configure property "${ep.property || ep.Property}" (${ep.name || ep.Name})`;
-            badge.innerHTML = `<span>🏷️ <strong>${ep.name || ep.Name}</strong></span><span style="color: #8b949e;">(${ep.property || ep.Property})</span>`;
-            badge.addEventListener('click', () => {
-              if (drawerPropSelect) {
-                drawerPropSelect.value = ep.property || ep.Property;
-                drawerPropSelect.dispatchEvent(new Event('change'));
-              }
-            });
-            badgesContainer.appendChild(badge);
-          });
-        } else {
-          existingWrap.style.display = 'none';
+        if (r) {
+          currentName = r.name || '';
+          objDisplayName = r.name ? `${r.name} (#${sel.id})` : `Ripple #${sel.id}`;
+        }
+      } else if (sel.type === 'image' && window.ImageObjects) {
+        const img = window.ImageObjects.getImage(sel.id);
+        if (img) {
+          currentName = img.name || '';
+          objDisplayName = img.name ? `${img.name} (#${sel.id})` : `Image #${sel.id}`;
         }
       }
 
-      const availableProps = getDrawerWidgetPropDefs(sel.type) || [];
-      if (drawerPropSelect) {
-        const curPropVal = drawerPropSelect.value;
-        drawerPropSelect.innerHTML = '';
-        availableProps.forEach(p => {
-          const opt = document.createElement('option');
-          opt.value = p.prop;
-          const boundForProp = existingForObj.find(b => (b.Property || b.property) === p.prop);
-          if (boundForProp) {
-            opt.textContent = `${p.label} (${p.prop}) — [Bound: ${boundForProp.name || boundForProp.Name}]`;
-            opt.style.color = '#3fb950';
-          } else {
-            opt.textContent = `${p.label} (${p.prop})`;
-          }
-          opt.dataset.defaultType = p.type;
-          opt.dataset.desc = p.desc || '';
-          if (p.min !== undefined) opt.dataset.min = p.min;
-          if (p.max !== undefined) opt.dataset.max = p.max;
-          drawerPropSelect.appendChild(opt);
-        });
-        if (availableProps.some(p => p.prop === curPropVal)) {
-          drawerPropSelect.value = curPropVal;
-        } else if (existingForObj.length > 0) {
-          drawerPropSelect.value = existingForObj[0].property || existingForObj[0].Property;
-        }
-        const activeOpt = (drawerPropSelect.selectedOptions && drawerPropSelect.selectedOptions[0])
-          || (drawerPropSelect.options && drawerPropSelect.options[drawerPropSelect.selectedIndex || 0])
-          || null;
-        const propHelp = document.getElementById('drawerWidgetPropHelp');
-        if (propHelp) {
-          propHelp.textContent = activeOpt?.dataset?.desc || 'Select a property to view what changing it does.';
-        }
+      if (drawerObjBadge) drawerObjBadge.textContent = objDisplayName;
+      if (drawerRenameIn && document.activeElement !== drawerRenameIn) {
+        drawerRenameIn.value = currentName;
+        drawerRenameIn.placeholder = `${sel.type}-${sel.id}`;
       }
 
-      // Check if the currently selected property is bound
-      const selectedProp = drawerPropSelect ? drawerPropSelect.value : (availableProps[0]?.prop || 'fill');
-      const bound = existingForObj.find(p => {
-        const propName = p.Property || p.property;
-        return propName === selectedProp;
-      });
-
-      const btnSave = document.getElementById('btnDrawerSaveWidgetParam');
-      const btnRename = document.getElementById('btnDrawerRenameWidgetParam');
-      const btnRemove = document.getElementById('btnDrawerRemoveWidgetParam');
-
-      if (bound) {
-        if (chkDrawerExpose) chkDrawerExpose.checked = true;
-        if (drawerFields) drawerFields.style.display = 'flex';
-        const bName = bound.Name || bound.name;
-        const bProp = bound.Property || bound.property;
-        const bType = bound.Type || bound.type;
-        const bDef = bound.Default !== undefined ? bound.Default : bound.default;
-        const bMin = bound.Min !== undefined ? bound.Min : bound.min;
-        const bMax = bound.Max !== undefined ? bound.Max : bound.max;
-        const bOpts = bound.Options || bound.options;
-        const bDesc = bound.Description || bound.description;
-
-        if (drawerParamName) drawerParamName.value = bName || '';
-        if (drawerTypeSelect) drawerTypeSelect.value = bType || 'color';
-        if (drawerDefaultInput) drawerDefaultInput.value = bDef !== undefined ? (typeof bDef === 'object' ? JSON.stringify(bDef) : String(bDef)) : '';
-        if (drawerMinInput) drawerMinInput.value = (bMin !== undefined && bMin !== null) ? bMin : '';
-        if (drawerMaxInput) drawerMaxInput.value = (bMax !== undefined && bMax !== null) ? bMax : '';
-        if (drawerOptionsInput) drawerOptionsInput.value = Array.isArray(bOpts) ? bOpts.join(', ') : '';
-        if (drawerDescInput) drawerDescInput.value = bDesc || '';
-        if (drawerLimitsRow) drawerLimitsRow.style.display = (bType === 'number' || bType === 'speed') ? 'flex' : 'none';
-        if (drawerOptionsRow) drawerOptionsRow.style.display = (bType === 'enum') ? 'flex' : 'none';
-        if (btnSave) btnSave.textContent = '💾 Update Binding';
-        if (btnRename) btnRename.style.display = 'inline-block';
-        if (btnRemove) btnRemove.style.display = 'inline-block';
-        if (drawerStatusMsg) {
-          drawerStatusMsg.style.color = '#3fb950';
-          drawerStatusMsg.textContent = `✓ Bound: "${bName}" (${bType} ──► ${bProp})`;
-        }
-      } else {
-        if (chkDrawerExpose) chkDrawerExpose.checked = false;
-        if (drawerFields) drawerFields.style.display = 'none';
-        const curOpt = availableProps.find(p => p.prop === selectedProp) || availableProps[0] || { prop: 'fill', type: 'color' };
-        if (drawerParamName) drawerParamName.value = `${defaultParamBase}_${selectedProp.replace(/[^a-zA-Z0-9]/g, '')}`;
-        if (drawerTypeSelect) drawerTypeSelect.value = curOpt.type;
-        if (drawerDefaultInput) drawerDefaultInput.value = getObjectPropValue(sel.type, sel.id, curOpt.prop);
-        if (drawerMinInput) drawerMinInput.value = (curOpt.min !== undefined) ? curOpt.min : '';
-        if (drawerMaxInput) drawerMaxInput.value = (curOpt.max !== undefined) ? curOpt.max : '';
-        if (drawerOptionsInput) drawerOptionsInput.value = '';
-        if (drawerDescInput) drawerDescInput.value = `Controls ${curOpt.prop} on ${objName}`;
-        if (drawerLimitsRow) drawerLimitsRow.style.display = (curOpt.type === 'number' || curOpt.type === 'speed') ? 'flex' : 'none';
-        if (drawerOptionsRow) drawerOptionsRow.style.display = 'none';
-        if (btnSave) btnSave.textContent = '➕ Expose Property';
-        if (btnRename) btnRename.style.display = 'none';
-        if (btnRemove) btnRemove.style.display = 'none';
-        if (drawerStatusMsg) {
-          drawerStatusMsg.style.color = '#8b949e';
-          drawerStatusMsg.textContent = `Property "${selectedProp}" is not yet exposed on this object. Check the box above to expose.`;
-        }
+      if (drawerPropsList && typeof window.renderWidgetPropertyCards === 'function') {
+        window.renderWidgetPropertyCards(drawerPropsList, sel, drawerStatusMsg);
       }
     } else {
       drawerNoSel.style.display = 'block';

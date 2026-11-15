@@ -182,3 +182,45 @@ Legacy projects loaded from database or `.sva` files that contain ambiguous dupl
    `Keep "[paramName]"`
 4. **Export Safety Blocking:** Exporting a widget package via `BuildWidgetPackageZip` is strictly blocked if unresolved conflicts exist, reporting:
    `cannot export widget package with conflicting parameter bindings: target.property (paramA, paramB). Please resolve duplicate bindings before exporting.`
+
+---
+
+## 9. Final Property Contract, Auto-Derived Naming & Effect Targeting Isolation
+
+### A. Stable Internal Object Identity vs Unique Prefixed Object Names
+1. **Stable Internal IDs:** Every object retains an immutable Go-owned ID (`StringID`) used for scene graph references, selection state, undo/redo history, and persistence.
+2. **Unique User-Editable Object Names:** Objects enforce unique names within their type category, using fixed type prefixes:
+   - `node-` (e.g. `node-gateway`, `node-database`)
+   - `flow-` (e.g. `flow-border`, `flow-telemetry`)
+   - `glow-` (e.g. `glow-status`, `glow-alarm`)
+   - `ripple-` (e.g. `ripple-sensor`, `ripple-pulse`)
+   - `image-` (e.g. `image-backdrop`, `image-overlay`)
+   Uniqueness is validated by the authoritative Go engine via `ValidateObjectName(type, name, excludeID)` across object creation, duplication, import, and inline renaming. Empty strings `""` are permitted to clear explicit names and revert to default IDs.
+
+### B. Automatic Parameter Name Generation
+Parameter names are generated deterministically by `GenerateParameterName(objectName, property, targetType)`:
+- Form: `<objectName>-<suffix>` (e.g. `node-gateway-fill`, `flow-border-color`, `flow-border-speed`, `glow-status-color`, `ripple-sensor-color`).
+- Users never have to manually invent arbitrary parameter identifiers or pick variable types; types, limits, and defaults are derived authoritatively.
+- Renaming an object automatically updates all bound public parameter names across the scene and synchronizes the UI and manifest.
+
+### C. Effect Targeting Isolation in Runtime (`svg-widget.js`)
+To ensure that parameter changes never degrade the visual structure of exported SVG graphics:
+1. **Flow Targeting:**
+   - Recolouring `color` or `stroke` changes only the moving payload (`.flow-payload-group` particles or dashes).
+   - Motion guide track paths (`.flow-track-path` authored with `stroke="none"`) are strictly preserved as `stroke="none"` and never painted.
+   - Individual flow speed controls scale connector animation duration without affecting master transport.
+2. **Glow Targeting:**
+   - Recolouring `color` targets radial gradient stops (`<radialGradient>`) and illuminated core geometry.
+   - Transparent hit-test rectangles (`.glow-hit-target` with `fill="transparent"`) remain untouched and strictly transparent.
+3. **Ripple Targeting:**
+   - Recolouring `color` and `opacity` targets visible wave crests (`.ripple-wave`).
+   - Transparent hit-test rectangles (`.ripple-hit-target`) and structural shadow rings (`.ripple-shadow-ring` with `stroke="#000000"`) are strictly preserved.
+4. **Node & Image Targeting:**
+   - Targets only attributes that can be faithfully altered at runtime (`fill`, `stroke`, `opacity`, `visibility`, `text`).
+
+### D. Simplified Compact Cards Authoring UI
+When an object is selected in SVG Animator Studio, the Widget drawer presents a compact card for each eligible property:
+- **Checkbox:** `[ ] Expose` toggles the parameter binding immediately.
+- **Badge:** Displays the auto-derived public parameter name (e.g. `node-gateway-fill`).
+- **Default Value Editor:** Allows fine-tuning the initial authored default.
+- **Duplicate Prevention:** If a property is already bound, the card offers an edit input and `✕ Disable` button, ensuring zero duplicate bindings.

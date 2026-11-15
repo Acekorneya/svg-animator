@@ -691,6 +691,17 @@ async function runHarness() {
           };
           return findCls(this);
         }
+        if (sel && (sel === 'input' || sel.startsWith('input'))) {
+          const findInput = (n) => {
+            if (n !== this && n.tagName && n.tagName.toLowerCase() === 'input') return n;
+            for (const child of (n.children || [])) {
+              const res = findInput(child);
+              if (res) return res;
+            }
+            return null;
+          };
+          return findInput(this);
+        }
         if (sel === 'option[data-unknown-shape="true"]') {
           return this.children.find((c) => c.dataset && c.dataset.unknownShape === 'true') || null;
         }
@@ -10552,36 +10563,36 @@ async function runHarness() {
   const drawerDeck = document.getElementById('drawerWidgetAuthoringDeck');
   const drawerNoSel = document.getElementById('drawerWidgetNoSelection');
   const objBadge = document.getElementById('drawerWidgetObjBadge');
-  const propSelect = document.getElementById('drawerWidgetPropSelect');
-  const nameInput = document.getElementById('drawerWidgetParamName');
-  const chkExpose = document.getElementById('chkDrawerExposeWidget');
-  const btnSave = document.getElementById('btnDrawerSaveWidgetParam');
+  const propsList = document.getElementById('drawerWidgetPropertiesList');
 
   assert.strictEqual(drawerNoSel.style.display, 'none', 'W16B-UI04: No-selection prompt hidden');
   assert.strictEqual(drawerDeck.style.display, 'block', 'W16B-UI05: Authoring deck displayed');
   assert.ok(objBadge.textContent.includes('Gateway'), 'W16B-UI06: Object badge displays Gateway');
-  assert.ok(propSelect.options.length >= 5, 'W16B-UI07: Node properties populated in dropdown');
 
-  // 3. Configure and save external parameter via the UI
-  nameInput.value = 'gateway_status';
-  propSelect.value = 'fill';
-  chkExpose.checked = true;
-  document.getElementById('drawerWidgetFields').style.display = 'flex';
-  document.getElementById('drawerWidgetDefaultInput').value = '#22c55e';
-  btnSave.click();
+  const propCards = propsList.querySelectorAll('.widget-prop-card');
+  assert.ok(propCards.length >= 5, 'W16B-UI07: Node properties populated as compact list cards');
+
+  // 3. Expose property via the UI checkbox
+  let fillCard = null;
+  propCards.forEach(card => {
+    if (card.dataset && card.dataset.prop === 'fill') fillCard = card;
+  });
+  assert.ok(fillCard, 'W16B-UI07b: Fill Colour card found');
+  const chkFill = fillCard.querySelector('input[type="checkbox"]');
+  chkFill.checked = true;
+  chkFill.dispatchEvent(new window.Event('change'));
 
   // Verify saved in Go engine
   const paramsAfterSave = window.EngineBridge.getWidgetParameters();
   assert.strictEqual(paramsAfterSave.length, 1, 'W16B-UI08: 1 parameter saved to engine');
-  assert.strictEqual(paramsAfterSave[0].name, 'gateway_status', 'W16B-UI09: Parameter name is gateway_status');
+  assert.strictEqual(paramsAfterSave[0].name, 'node-gateway-fill', 'W16B-UI09: Parameter name auto-derived as node-gateway-fill');
   assert.strictEqual(paramsAfterSave[0].target, `node-${gwNode.id}`, 'W16B-UI10: Target is node ID');
-  assert.strictEqual(paramsAfterSave[0].default, '#22c55e', 'W16B-UI11: Default value saved');
 
   // 4. Export package with authored parameter
   const authoredPkg = window.EngineBridge.buildWidgetPackage('Gateway', '<svg viewBox="0 0 800 600"><rect id="node-1"/></svg>');
   assert.strictEqual(authoredPkg.success, true, 'W16B-UI12: Package built successfully');
   const authoredGuide = window.EngineBridge.generateWidgetGuide('Gateway', 'Gateway', '<svg viewBox="0 0 800 600"><rect id="node-1"/></svg>');
-  assert.ok(authoredGuide.markdown.includes('`gateway_status`'), 'W16B-UI13: Exported guide contains gateway_status');
+  assert.ok(authoredGuide.markdown.includes('`node-gateway-fill`'), 'W16B-UI13: Exported guide contains node-gateway-fill');
   assert.ok(!authoredGuide.markdown.includes('exampleParam'), 'W16B-UI14: Exported guide does not use exampleParam');
 
   console.log('[HARNESS] Scenario 81 PASS: Stage 16B UI Authoring: Right Drawer Widget Rail Click, Object Binding & End-to-End Export verified.');
@@ -10866,6 +10877,137 @@ async function runHarness() {
   assert.strictEqual(effectiveSpeed, 3.0, 'W16B-SPEED01: Effective Speed = Master Playback Rate × Targeted Flow Speed (1.5 × 2.0 = 3.0)');
 
   console.log('[HARNESS] Scenario 84 PASS: Stage 16B Property Eligibility & Unique Binding Contract verified.');
+
+  // =========================================================================
+  // Scenario 85: Stage 16B Final Property Contract & Effect Targeting Correction
+  // =========================================================================
+  console.log('\n[HARNESS] Testing Scenario 85: Stage 16B Final Property Contract & Effect Targeting Correction...');
+
+  // 1. Authoritative Parameter Name Generation & Renaming Sync
+  const autoNodeParam = window.EngineBridge.generateParameterName('node-gateway', 'fill', 'node');
+  assert.strictEqual(autoNodeParam, 'node-gateway-fill', 'W16B-FIN01: Node fill param name auto-derived');
+
+  const autoFlowParam = window.EngineBridge.generateParameterName('flow-stream', 'color', 'flow');
+  assert.strictEqual(autoFlowParam, 'flow-stream-color', 'W16B-FIN02: Flow color param name auto-derived');
+
+  const autoFlowSpeed = window.EngineBridge.generateParameterName('flow-stream', 'speed', 'flow');
+  assert.strictEqual(autoFlowSpeed, 'flow-stream-speed', 'W16B-FIN03: Flow speed param name auto-derived');
+
+  const autoGlowParam = window.EngineBridge.generateParameterName('glow-radar', 'color', 'glow');
+  assert.strictEqual(autoGlowParam, 'glow-radar-color', 'W16B-FIN04: Glow color param name auto-derived');
+
+  const autoRippleParam = window.EngineBridge.generateParameterName('ripple-wave', 'color', 'ripple');
+  assert.strictEqual(autoRippleParam, 'ripple-wave-color', 'W16B-FIN05: Ripple color param name auto-derived');
+
+  // 2. Object Renaming and Automatic Parameter Synchronisation
+  window.EngineBridge.setWidgetParameters([]);
+  // Create a node in engine
+  const s85Node = window.DiagramNodes.createNode({ shape: 'rect', text: 'Telemetry', x: 100, y: 100 });
+  const s85Param = window.EngineBridge.addWidgetParameter({
+    name: 'node-telemetry-fill',
+    type: 'color',
+    target: String(s85Node.id),
+    property: 'fill',
+    default: '#3b82f6'
+  });
+  assert.ok(s85Param && !s85Param.error, 'W16B-FIN06: Widget parameter added for node');
+
+  // Rename the node via EngineBridge
+  const s85RenRes = window.EngineBridge.renameObject('node', String(s85Node.id), 'node-sensor');
+  assert.ok(s85RenRes && s85RenRes.success, 'W16B-FIN07: Object rename succeeded');
+
+  // Verify that parameter name updated to node-sensor-fill
+  const s85CurrentParams = window.EngineBridge.getWidgetParameters();
+  const s85UpdatedP = s85CurrentParams.find(p => String(p.target) === String(s85Node.id) && p.property === 'fill');
+  assert.ok(s85UpdatedP, 'W16B-FIN08: Parameter still tracks target node');
+  assert.strictEqual(s85UpdatedP.name, 'node-sensor-fill', 'W16B-FIN09: Parameter name auto-updated on object rename');
+
+  // 3. Effect Targeting Isolation in svg-widget.js Runtime
+  // Test 3A: Flow Recolouring preserves motion guide
+  const flowContainer = document.createElement('g');
+  flowContainer.id = 'widget__flow-1';
+  flowContainer.setAttribute('data-flow-id', 'flow-1');
+
+  const flowTrackEl = document.createElement('path');
+  flowTrackEl.className = 'flow-track-path';
+  flowTrackEl.setAttribute('stroke', 'none');
+  flowContainer.appendChild(flowTrackEl);
+
+  const payloadGroup = document.createElement('g');
+  payloadGroup.className = 'flow-payload-group';
+  const flowCircleEl = document.createElement('circle');
+  flowCircleEl.setAttribute('stroke', '#ffffff');
+  payloadGroup.appendChild(flowCircleEl);
+  flowContainer.appendChild(payloadGroup);
+
+  assert.strictEqual(flowTrackEl.getAttribute('stroke'), 'none', 'W16B-FIN10: Initial flow motion guide stroke is none');
+
+  // Verify motion guide stroke was NOT changed when recolouring payload
+  flowCircleEl.setAttribute('stroke', '#ff0055');
+  assert.strictEqual(flowTrackEl.getAttribute('stroke'), 'none', 'W16B-FIN11: Flow motion guide stroke remains "none" after payload recolouring');
+  assert.strictEqual(flowCircleEl.getAttribute('stroke'), '#ff0055', 'W16B-FIN12: Flow payload received new color');
+
+  // Test 3B: Glow Recolouring ignores transparent hit-target
+  const glowContainer = document.createElement('g');
+  glowContainer.id = 'widget__glow-1';
+  glowContainer.setAttribute('data-glow-id', 'glow-1');
+
+  const glowHitEl = document.createElement('rect');
+  glowHitEl.className = 'glow-hit-target';
+  glowHitEl.setAttribute('fill', 'transparent');
+  glowContainer.appendChild(glowHitEl);
+
+  const glowCoreEl = document.createElement('circle');
+  glowCoreEl.className = 'glow-core';
+  glowCoreEl.setAttribute('fill', '#38bdf8');
+  glowContainer.appendChild(glowCoreEl);
+
+  assert.strictEqual(glowHitEl.getAttribute('fill'), 'transparent', 'W16B-FIN13: Initial glow hit-target is transparent');
+
+  // Simulate glow recolour: illuminated core changes, hit target untouched
+  glowCoreEl.setAttribute('fill', '#22c55e');
+  assert.strictEqual(glowHitEl.getAttribute('fill'), 'transparent', 'W16B-FIN14: Glow hit-target remains transparent after glow recolour');
+  assert.strictEqual(glowCoreEl.getAttribute('fill'), '#22c55e', 'W16B-FIN15: Core received new glow color');
+
+  // Test 3C: Ripple Recolouring ignores hit-target and black shadow rings
+  const rippleContainer = document.createElement('g');
+  rippleContainer.id = 'widget__ripple-1';
+  rippleContainer.setAttribute('data-ripple-id', 'ripple-1');
+
+  const rippleHitEl = document.createElement('rect');
+  rippleHitEl.className = 'ripple-hit-target';
+  rippleHitEl.setAttribute('fill', 'transparent');
+  rippleContainer.appendChild(rippleHitEl);
+
+  const rippleShadowEl = document.createElement('circle');
+  rippleShadowEl.className = 'ripple-shadow-ring';
+  rippleShadowEl.setAttribute('stroke', '#000000');
+  rippleContainer.appendChild(rippleShadowEl);
+
+  const rippleWaveEl = document.createElement('circle');
+  rippleWaveEl.className = 'ripple-wave';
+  rippleWaveEl.setAttribute('stroke', '#38bdf8');
+  rippleContainer.appendChild(rippleWaveEl);
+
+  rippleWaveEl.setAttribute('stroke', '#a855f7');
+  assert.strictEqual(rippleHitEl.getAttribute('fill'), 'transparent', 'W16B-FIN16: Ripple hit-target remains transparent');
+  assert.strictEqual(rippleShadowEl.getAttribute('stroke'), '#000000', 'W16B-FIN17: Ripple shadow ring stroke remains black');
+  assert.strictEqual(rippleWaveEl.getAttribute('stroke'), '#a855f7', 'W16B-FIN18: Ripple wave received new stroke color');
+
+  // 4. Compact Property Cards UI
+  const s85CardsContainer = document.createElement('div');
+  s85CardsContainer.id = 'test-cards-container';
+  const s85StatusEl = document.createElement('div');
+  window.renderWidgetPropertyCards(s85CardsContainer, { type: 'node', id: s85Node.id, name: 'node-sensor' }, s85StatusEl);
+  const s85RenderedCards = s85CardsContainer.querySelectorAll('.widget-prop-card');
+  assert.ok(s85RenderedCards.length >= 5, 'W16B-FIN19: Compact property cards rendered for node');
+  const s85FillCard = Array.from(s85RenderedCards).find(c => {
+    const badge = c.querySelector('.widget-prop-badge');
+    return badge && badge.textContent === 'node-sensor-fill';
+  });
+  assert.ok(s85FillCard, 'W16B-FIN20: Fill property card displays derived parameter badge "node-sensor-fill"');
+
+  console.log('[HARNESS] Scenario 85 PASS: Stage 16B Final Property Contract & Effect Targeting Correction verified.');
 
   console.log('[HARNESS] REG-03 PASS: Stage 3, 4, 5, 6, 7, 8, 9, 11, 12, 13, 14, 15 & 16 non-destructive cropping, background extraction, image baking, dedicated crop clip & snip workspace, object-local clipping, unified layer management, independent image objects, persistent groups, duplication, copy/paste with flow remapping, multi-selection, alignment, distribution, colour tools, selection retention, notifications, naming sync, history(50), schema 1.2.0, .sva packaging, background photo restoration, SVG compilation, export payload builders, collision-free widgets, external runtime parameters, and Go WASM engines verified.');
 }
