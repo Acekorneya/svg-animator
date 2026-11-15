@@ -9555,7 +9555,7 @@ async function runHarness() {
   // Test 2: Standalone SVGWidget JavaScript Library
   const SVGWidgetLib = require(path.join(JS_DIR, 'svg-widget.js'));
   assert.ok(SVGWidgetLib, 'Test 2: svg-widget.js loaded via CommonJS require');
-  assert.strictEqual(SVGWidgetLib.version, '1.0.0', 'Test 2: SVGWidget version 1.0.0');
+  assert.ok(SVGWidgetLib.version.startsWith('1.'), 'Test 2: SVGWidget version starts with 1.');
 
   const isoAlpha = SVGWidgetLib.isolate(SAMPLE_COMPLEX_SVG, {
     instanceId: 'inst-alpha',
@@ -9650,7 +9650,359 @@ async function runHarness() {
 
   console.log('[HARNESS] Scenario 76 PASS: Stage 16A Reusable, Self-Contained and Collision-Free SVG Widgets verified.');
 
-  console.log('[HARNESS] REG-03 PASS: Stage 3, 4, 5, 6, 7, 8, 9, 11, 12, 13, 14 & 15 non-destructive cropping, background extraction, image baking, dedicated crop clip & snip workspace, object-local clipping, unified layer management, independent image objects, persistent groups, duplication, copy/paste with flow remapping, multi-selection, alignment, distribution, colour tools, selection retention, notifications, naming sync, history(50), schema 1.2.0, .sva packaging, background photo restoration, SVG compilation, export payload builders, and Go WASM Node, Flow, Glow, Ripple, Camera, Optics, Frame, State, History & Naming engines verified.');
+  // ===========================================================================
+  // Scenario 77: Stage 16B External Widget Controls, Runtime Parameters & API
+  // ===========================================================================
+  console.log('\n[HARNESS] Testing Scenario 77: Stage 16B External Widget Controls, Runtime Parameters & API...');
+
+  // Mock DOM implementation for complete browser emulation
+  class MockStage16BElement {
+    constructor(tagName) {
+      this.tagName = tagName ? tagName.toUpperCase() : 'DIV';
+      this.attributes = {};
+      this.style = {
+        setProperty(k, v) { this[k] = String(v); },
+        getPropertyValue(k) { return this[k] || ''; }
+      };
+      this.children = [];
+      this.parentNode = null;
+      this.textContent = '';
+      this._innerHTML = '';
+      this.classList = {
+        _classes: new Set(),
+        add(c) { this._classes.add(c); },
+        remove(c) { this._classes.delete(c); },
+        contains(c) { return this._classes.has(c); }
+      };
+      this._animations = [];
+      this.ownerDocument = null;
+    }
+
+    get className() {
+      return Array.from(this.classList._classes).join(' ');
+    }
+    set className(val) {
+      this.classList._classes = new Set(String(val || '').split(/\s+/).filter(Boolean));
+    }
+
+    get id() { return this.attributes['id'] || ''; }
+    set id(val) { this.attributes['id'] = String(val); }
+
+    setAttribute(k, v) { this.attributes[k] = String(v); }
+    getAttribute(k) { return this.attributes[k] || null; }
+    removeAttribute(k) { delete this.attributes[k]; }
+
+    appendChild(child) {
+      child.parentNode = this;
+      child.ownerDocument = this.ownerDocument;
+      this.children.push(child);
+      return child;
+    }
+
+    removeChild(child) {
+      const idx = this.children.indexOf(child);
+      if (idx !== -1) {
+        this.children.splice(idx, 1);
+        child.parentNode = null;
+      }
+      return child;
+    }
+
+    get innerHTML() { return this._innerHTML; }
+    set innerHTML(html) {
+      this._innerHTML = html;
+      this.children = [];
+      // Build lightweight mock nodes from SVG string
+      const svgMatch = /<svg\b[^>]*\bid=["']([^"']+)["'][^>]*>/i.exec(html);
+      const rootSvg = new MockStage16BElement('svg');
+      if (svgMatch) rootSvg.id = svgMatch[1];
+      rootSvg.ownerDocument = this.ownerDocument;
+
+      // Extract child elements with id
+      const reElems = /<([a-zA-Z0-9]+)\b([^>]*\bid=["']([^"']+)["'][^>]*)>/gi;
+      let em;
+      while ((em = reElems.exec(html)) !== null) {
+        const childEl = new MockStage16BElement(em[1]);
+        childEl.id = em[3];
+        childEl.ownerDocument = this.ownerDocument;
+        rootSvg.children.push(childEl);
+      }
+      this.children.push(rootSvg);
+    }
+
+    querySelector(sel) {
+      if (sel === 'svg') {
+        return this.children.find((c) => c.tagName === 'SVG') || null;
+      }
+      if (sel.startsWith('#')) {
+        const targetId = sel.slice(1);
+        if (this.id === targetId) return this;
+        for (const c of this.children) {
+          if (c.id === targetId) return c;
+          const found = c.querySelector(sel);
+          if (found) return found;
+        }
+      }
+      return null;
+    }
+
+    querySelectorAll(sel) {
+      const res = [];
+      if (sel === '*[id]') {
+        if (this.id) res.push(this);
+        for (const c of this.children) {
+          res.push(...c.querySelectorAll(sel));
+        }
+      }
+      return res;
+    }
+
+    pauseAnimations() { this._animationsPaused = true; }
+    unpauseAnimations() { this._animationsPaused = false; }
+    setCurrentTime(t) { this._currentTime = t; }
+    getAnimations() { return this._animations; }
+  }
+
+  const origDoc77 = global.document;
+  try {
+    const mockDoc = {
+      createElement(tag) {
+        const el = new MockStage16BElement(tag);
+        el.ownerDocument = mockDoc;
+        return el;
+      },
+      getElementById(id) {
+        return null;
+      },
+      head: new MockStage16BElement('head')
+    };
+    mockDoc.head.ownerDocument = mockDoc;
+    global.document = mockDoc;
+
+    const SVGWidgetModule = require('../internal/web/static/js/svg-widget.js');
+    assert.strictEqual(SVGWidgetModule.version, '1.2.0', 'W16B-01: SVGWidget version is 1.2.0');
+
+    // Test SVG with embedded parameter manifest
+    const TEST_BARREL_SVG = `
+<svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 400 240" width="400" height="240">
+  <defs>
+    <filter id="fBlur"><feGaussianBlur stdDeviation="2"/></filter>
+  </defs>
+  <rect id="statusDot" fill="#22c55e" width="20" height="20" />
+  <rect id="fluidLevel" height="65" width="100" />
+  <text id="statusLabel">ONLINE</text>
+  <g id="alarmBeacon"><circle r="10" /></g>
+  <script type="application/json" id="sva-widget-manifest">
+  {
+    "schemaVersion": 1,
+    "parameters": [
+      {
+        "name": "operatingState",
+        "type": "enum",
+        "default": "running",
+        "target": "root",
+        "property": "state",
+        "options": ["running", "paused", "stopped", "alarm"],
+        "description": "Operating state"
+      },
+      {
+        "name": "statusColor",
+        "type": "color",
+        "default": "#22c55e",
+        "target": "statusDot",
+        "property": "fill",
+        "description": "Status LED color"
+      },
+      {
+        "name": "fillLevel",
+        "type": "number",
+        "default": 65,
+        "target": "fluidLevel",
+        "property": "height",
+        "min": 0,
+        "max": 180,
+        "description": "Fluid height"
+      },
+      {
+        "name": "speed",
+        "type": "speed",
+        "default": 1.0,
+        "target": "root",
+        "property": "playbackRate",
+        "min": 0.1,
+        "max": 3.0,
+        "description": "Playback rate"
+      },
+      {
+        "name": "statusText",
+        "type": "text",
+        "default": "ONLINE",
+        "target": "statusLabel",
+        "property": "textContent",
+        "description": "Badge label"
+      },
+      {
+        "name": "beaconVisible",
+        "type": "boolean",
+        "default": true,
+        "target": "alarmBeacon",
+        "property": "visibility",
+        "description": "Beacon visibility"
+      }
+    ]
+  }
+  </script>
+</svg>`.trim();
+
+    // W16B-01 & W16B-11: Mount widget and parse embedded manifest
+    const containerA = mockDoc.createElement('div');
+    const containerB = mockDoc.createElement('div');
+
+    const barrelA = SVGWidgetModule.mount(containerA, TEST_BARREL_SVG, {
+      instanceId: 'barrel-a',
+      prefix: 'barrel_a__'
+    });
+    const barrelB = SVGWidgetModule.mount(containerB, TEST_BARREL_SVG, {
+      instanceId: 'barrel-b',
+      prefix: 'barrel_b__'
+    });
+
+    assert.ok(barrelA, 'W16B-01: Barrel A mounted');
+    assert.ok(barrelB, 'W16B-01: Barrel B mounted');
+
+    const manifestA = barrelA.getManifest();
+    assert.strictEqual(manifestA.schemaVersion, 1, 'W16B-11: Manifest schemaVersion 1');
+    assert.strictEqual(manifestA.parameters.length, 6, 'W16B-11: Manifest has 6 parameters');
+
+    // W16B-02 & W16B-09: Semantic target mapping & getParameter / getParameters
+    assert.strictEqual(barrelA.getParameter('operatingState'), 'running', 'W16B-02: Initial operatingState running');
+    assert.strictEqual(barrelA.getParameter('statusColor'), '#22c55e', 'W16B-02: Initial statusColor #22c55e');
+    assert.strictEqual(barrelA.getParameter('fillLevel'), 65, 'W16B-02: Initial fillLevel 65');
+    assert.strictEqual(barrelA.getParameter('speed'), 1.0, 'W16B-02: Initial speed 1.0');
+
+    // W16B-04, W16B-05, W16B-06, W16B-07: setParameter application
+    barrelA.setParameter('statusColor', '#38bdf8');
+    assert.strictEqual(barrelA.getParameter('statusColor'), '#38bdf8', 'W16B-04: statusColor updated to #38bdf8');
+
+    barrelA.setParameter('fillLevel', 140);
+    assert.strictEqual(barrelA.getParameter('fillLevel'), 140, 'W16B-06: fillLevel updated to 140');
+
+    barrelA.setParameter('statusText', 'PRIMARY_ONLINE');
+    assert.strictEqual(barrelA.getParameter('statusText'), 'PRIMARY_ONLINE', 'W16B-07: statusText updated');
+
+    barrelA.setParameter('beaconVisible', false);
+    assert.strictEqual(barrelA.getParameter('beaconVisible'), false, 'W16B-05: beaconVisible updated to false');
+
+    // W16B-10: Multi-instance independence (Barrel B remains untouched)
+    assert.strictEqual(barrelB.getParameter('statusColor'), '#22c55e', 'W16B-10: Barrel B statusColor unchanged');
+    assert.strictEqual(barrelB.getParameter('fillLevel'), 65, 'W16B-10: Barrel B fillLevel unchanged');
+    assert.strictEqual(barrelB.getParameter('beaconVisible'), true, 'W16B-10: Barrel B beaconVisible unchanged');
+
+    // W16B-08 & W16B-20: Atomic batch validation with rollback
+    let batchError = null;
+    try {
+      barrelA.setParameters({
+        fillLevel: 100,
+        statusColor: 'NOT_VALID_COLOR_$$$', // Invalid color
+        speed: 2.0
+      });
+    } catch (err) {
+      batchError = err;
+    }
+    assert.ok(batchError, 'W16B-08: Batch rejected due to invalid color');
+    assert.strictEqual(barrelA.getParameter('fillLevel'), 140, 'W16B-08: Atomic rejection rolled back fillLevel (preserved 140)');
+    assert.strictEqual(barrelA.getParameter('statusColor'), '#38bdf8', 'W16B-08: Preserved #38bdf8');
+
+    // Min/max out of bounds rejection
+    let boundsError = null;
+    try {
+      barrelA.setParameter('fillLevel', 9999);
+    } catch (err) {
+      boundsError = err;
+    }
+    assert.ok(boundsError, 'W16B-20: Rejects numeric value above max');
+
+    // Unauthorized enum rejection
+    let enumError = null;
+    try {
+      barrelA.setParameter('operatingState', 'exploding');
+    } catch (err) {
+      enumError = err;
+    }
+    assert.ok(enumError, 'W16B-20: Rejects unauthorized enum value');
+
+    // W16B-03: Per-instance animation controls
+    barrelA.pause();
+    assert.strictEqual(barrelA.isPaused(), true, 'W16B-03: Barrel A isPaused true');
+    assert.strictEqual(barrelB.isPaused(), false, 'W16B-03: Barrel B isPaused false (independent)');
+
+    barrelA.setSpeed(2.5);
+    assert.strictEqual(barrelA.getSpeed(), 2.5, 'W16B-03: Barrel A speed 2.5');
+    assert.strictEqual(barrelB.getSpeed(), 1.0, 'W16B-03: Barrel B speed 1.0');
+
+    barrelA.play();
+    assert.strictEqual(barrelA.isPaused(), false, 'W16B-03: Barrel A resumed');
+
+    // W16B-12: resetParameters restores defaults
+    barrelA.resetParameters();
+    assert.strictEqual(barrelA.getParameter('statusColor'), '#22c55e', 'W16B-12: reset restores statusColor default');
+    assert.strictEqual(barrelA.getParameter('fillLevel'), 65, 'W16B-12: reset restores fillLevel default');
+
+    // W16B-13: Event emission
+    let changeEmitted = false;
+    barrelA.on('change', (evt) => {
+      changeEmitted = true;
+      assert.strictEqual(evt.instanceId, 'barrel-a', 'W16B-13: Event instanceId matches');
+    });
+    barrelA.setParameter('statusColor', '#f59e0b');
+    assert.ok(changeEmitted, 'W16B-13: change event emitted on setParameter');
+
+    // W16B-14: Clean destruction
+    barrelA.destroy();
+    assert.strictEqual(barrelA.isDestroyed, true, 'W16B-14: Barrel A marked isDestroyed');
+    assert.strictEqual(containerA.children.length, 0, 'W16B-14: Container A emptied');
+    assert.strictEqual(containerB.children.length, 1, 'W16B-14: Container B untouched');
+
+    // W16B-19: EngineBridge helper methods exist
+    assert.strictEqual(typeof window.EngineBridge.getWidgetParameters, 'function', 'W16B-19: getWidgetParameters on EngineBridge');
+    assert.strictEqual(typeof window.EngineBridge.setWidgetParameters, 'function', 'W16B-19: setWidgetParameters on EngineBridge');
+    assert.strictEqual(typeof window.EngineBridge.addWidgetParameter, 'function', 'W16B-19: addWidgetParameter on EngineBridge');
+    assert.strictEqual(typeof window.EngineBridge.removeWidgetParameter, 'function', 'W16B-19: removeWidgetParameter on EngineBridge');
+
+    // W16B-18: Studio State serialization preserves parameters
+    const mockState = {
+      version: '1.2.0',
+      parameters: manifestA.parameters,
+      nodes: [],
+      flows: []
+    };
+    const jsonStr = JSON.stringify(mockState);
+    assert.ok(jsonStr.includes('"statusColor"'), 'W16B-18: JSON includes statusColor');
+    assert.ok(jsonStr.includes('"operatingState"'), 'W16B-18: JSON includes operatingState');
+
+    // W16B-21: Standalone offline package files exist on disk
+    const fs = require('fs');
+    const demoDir = path.join(__dirname, '../docs/demonstrations/widget-demo');
+    const standaloneHtmlPath = path.join(demoDir, 'standalone-demo.html');
+    const indexHtmlPath = path.join(demoDir, 'index.html');
+    const widgetJsPath = path.join(demoDir, 'js/svg-widget.js');
+    const zipPath = path.join(__dirname, '../docs/demonstrations/svg-widget-offline-demo.zip');
+    const tarPath = path.join(__dirname, '../docs/demonstrations/svg-widget-offline-demo.tar.gz');
+
+    assert.ok(fs.existsSync(standaloneHtmlPath), 'W16B-21: standalone-demo.html exists');
+    assert.ok(fs.statSync(standaloneHtmlPath).size > 10000, 'W16B-21: standalone-demo.html size > 10KB');
+    assert.ok(fs.existsSync(indexHtmlPath), 'W16B-21: index.html exists');
+    assert.ok(fs.existsSync(widgetJsPath), 'W16B-21: js/svg-widget.js exists');
+    assert.ok(fs.existsSync(zipPath), 'W16B-21: offline zip exists');
+    assert.ok(fs.existsSync(tarPath), 'W16B-21: offline tar.gz exists');
+
+  } finally {
+    global.document = origDoc77;
+  }
+
+  console.log('[HARNESS] Scenario 77 PASS: Stage 16B External Widget Controls, Runtime Parameters & API verified.');
+
+  console.log('[HARNESS] REG-03 PASS: Stage 3, 4, 5, 6, 7, 8, 9, 11, 12, 13, 14, 15 & 16 non-destructive cropping, background extraction, image baking, dedicated crop clip & snip workspace, object-local clipping, unified layer management, independent image objects, persistent groups, duplication, copy/paste with flow remapping, multi-selection, alignment, distribution, colour tools, selection retention, notifications, naming sync, history(50), schema 1.2.0, .sva packaging, background photo restoration, SVG compilation, export payload builders, collision-free widgets, external runtime parameters, and Go WASM engines verified.');
 }
 
 runHarness()

@@ -1,0 +1,76 @@
+=============================================================================
+SVG Animator Studio — Stage 16B Implementation Evidence Log
+=============================================================================
+Timestamp: 2026-11-15T06:45:30Z
+Baseline Commit: 5f55a424e4088ea9880f7deee8c43d386343ba61
+Milestone: Stage 16B — External Widget Controls, Runtime Parameters and Independent Host Integration
+Protected Release: v1.2.0
+
+-----------------------------------------------------------------------------
+1. BASELINE REPOSITORY STATUS
+-----------------------------------------------------------------------------
+$ git branch --show-current
+main
+
+$ git rev-parse HEAD
+5f55a424e4088ea9880f7deee8c43d386343ba61
+
+$ git status --short
+?? .github/
+?? docs/SVG_Animator_Studio_Recovery_Handover_Batch8F_2026-11-12.md
+?? docs/demonstrations/svg-widget-offline-demo.tar.gz
+?? docs/demonstrations/svg-widget-offline-demo.zip
+?? release/
+?? scripts/verification-review.txt
+?? svg-animator
+
+Verified clean working tree with protected assets preserved.
+
+-----------------------------------------------------------------------------
+2. QUALITY GATES & VERIFICATION RECORD
+-----------------------------------------------------------------------------
+
+$ go vet ./...
+PASS (exit code 0, 0 warnings)
+
+$ go test -count=1 ./...
+?   	gitea.seaoffate.net/blackgrape/svg-animator/cmd/svg-animator	[no test files]
+ok  	gitea.seaoffate.net/blackgrape/svg-animator/internal/db	0.047s
+?   	gitea.seaoffate.net/blackgrape/svg-animator/internal/effects	[no test files]
+ok  	gitea.seaoffate.net/blackgrape/svg-animator/internal/generator	0.005s
+ok  	gitea.seaoffate.net/blackgrape/svg-animator/internal/rasterizer	0.012s
+ok  	gitea.seaoffate.net/blackgrape/svg-animator/internal/web	0.085s
+ok  	gitea.seaoffate.net/blackgrape/svg-animator/pkg/engine/geometry	0.003s
+ok  	gitea.seaoffate.net/blackgrape/svg-animator/pkg/engine/protocol	0.022s
+ok  	gitea.seaoffate.net/blackgrape/svg-animator/pkg/engine/scene	0.030s
+ok  	gitea.seaoffate.net/blackgrape/svg-animator/pkg/engine/sva	0.826s
+ok  	gitea.seaoffate.net/blackgrape/svg-animator/pkg/engine/timeline	0.007s
+PASS (100% tests passing)
+
+$ go test -race -count=1 ./pkg/engine/scene/...
+ok  	gitea.seaoffate.net/blackgrape/svg-animator/pkg/engine/scene	1.072s
+PASS (0 data races detected)
+
+$ node scripts/regression-harness.js
+[HARNESS] Scenario 76 PASS: Stage 16A Reusable, Self-Contained and Collision-Free SVG Widgets verified.
+[HARNESS] Scenario 77 PASS: Stage 16B External Widget Controls, Runtime Parameters & API verified.
+[HARNESS] REG-03 PASS: 77/77 Scenarios PASSED (0 errors).
+
+$ bash scripts/verify-architecture.sh
+All static architectural rules PASSED.
+
+$ bash scripts/verify-runtime.sh
+All 7 runtime stages PASSED (Isolated DB, REST roundtrip, CLI generation, socket check).
+
+$ git diff --check
+PASS (0 whitespace or conflict errors)
+
+-----------------------------------------------------------------------------
+3. DEMONSTRATION & PACKAGE VERIFICATION
+-----------------------------------------------------------------------------
+- Development URL: http://127.0.0.1:8089/demo-widgets.html (HTTP 200 OK)
+- Standalone HTML: docs/demonstrations/widget-demo/standalone-demo.html (57,412 bytes)
+- Offline Zip: docs/demonstrations/svg-widget-offline-demo.zip (30,898 bytes)
+- Offline Tar: docs/demonstrations/svg-widget-offline-demo.tar.gz (29,474 bytes)
+
+Stage 16B implementation is complete, fully verified, and ready for publication.

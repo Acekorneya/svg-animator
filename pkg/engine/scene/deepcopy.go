@@ -194,5 +194,26 @@ func DeepCopySnapshot(snap Snapshot) Snapshot {
 		cp.Layers = make([]LayerEntry, 0)
 	}
 
+	if snap.Parameters != nil {
+		cp.Parameters = make([]WidgetParameter, len(snap.Parameters))
+		for i, p := range snap.Parameters {
+			pCopy := p
+			if p.Min != nil {
+				v := *p.Min
+				pCopy.Min = &v
+			}
+			if p.Max != nil {
+				v := *p.Max
+				pCopy.Max = &v
+			}
+			if p.Options != nil {
+				pCopy.Options = append([]string(nil), p.Options...)
+			}
+			cp.Parameters[i] = pCopy
+		}
+	} else {
+		cp.Parameters = make([]WidgetParameter, 0)
+	}
+
 	return cp
 }

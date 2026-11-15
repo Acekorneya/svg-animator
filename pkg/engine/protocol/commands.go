@@ -1197,10 +1197,11 @@ type ValidateSVAResponse struct {
 
 // IsolateSVGWidgetRequest is the payload for "Widget.IsolateSVG".
 type IsolateSVGWidgetRequest struct {
-	SVG        string `json:"svg"`
-	InstanceID string `json:"instanceId,omitempty"`
-	Prefix     string `json:"prefix,omitempty"`
-	ScopeCSS   *bool  `json:"scopeCss,omitempty"`
+	SVG        string                `json:"svg"`
+	InstanceID string                `json:"instanceId,omitempty"`
+	Prefix     string                `json:"prefix,omitempty"`
+	ScopeCSS   *bool                 `json:"scopeCss,omitempty"`
+	Manifest   *scene.WidgetManifest `json:"manifest,omitempty"`
 }
 
 // IsolateSVGWidgetResponse is returned by "Widget.IsolateSVG".
@@ -1211,6 +1212,31 @@ type IsolateSVGWidgetResponse struct {
 	Prefix      string            `json:"prefix,omitempty"`
 	IDMap       map[string]string `json:"idMap,omitempty"`
 	Error       string            `json:"error,omitempty"`
+}
+
+// WidgetGetParametersRequest is the payload for "Widget.GetParameters".
+type WidgetGetParametersRequest struct{}
+
+// WidgetSetParametersRequest is the payload for "Widget.SetParameters".
+type WidgetSetParametersRequest struct {
+	Parameters []scene.WidgetParameter `json:"parameters"`
+}
+
+// WidgetAddParameterRequest is the payload for "Widget.AddParameter".
+type WidgetAddParameterRequest struct {
+	Parameter scene.WidgetParameter `json:"parameter"`
+}
+
+// WidgetRemoveParameterRequest is the payload for "Widget.RemoveParameter".
+type WidgetRemoveParameterRequest struct {
+	Name string `json:"name"`
+}
+
+// WidgetParametersResponse is returned by "Widget.GetParameters", "Widget.SetParameters", etc.
+type WidgetParametersResponse struct {
+	Success    bool                    `json:"success"`
+	Parameters []scene.WidgetParameter `json:"parameters,omitempty"`
+	Error      string                  `json:"error,omitempty"`
 }
 
 // Dispatch processes incoming commands and returns JSON-encoded responses.
@@ -3334,10 +3360,21 @@ func Dispatch(command string, payloadJSON []byte) ([]byte, error) {
 		if req.ScopeCSS != nil {
 			scopeCSS = *req.ScopeCSS
 		}
+		manifest := req.Manifest
+		if manifest == nil {
+			sceneParams := activeScene.GetParameters()
+			if len(sceneParams) > 0 {
+				manifest = &scene.WidgetManifest{
+					SchemaVersion: 1,
+					Parameters:    sceneParams,
+				}
+			}
+		}
 		isolated, idMap, err := scene.IsolateSVGWidget(req.SVG, scene.WidgetIsolationOptions{
 			InstanceID: req.InstanceID,
 			Prefix:     req.Prefix,
 			ScopeCSS:   scopeCSS,
+			Manifest:   manifest,
 		})
 		if err != nil {
 			return json.Marshal(IsolateSVGWidgetResponse{
@@ -3364,6 +3401,55 @@ func Dispatch(command string, payloadJSON []byte) ([]byte, error) {
 			InstanceID:  instID,
 			Prefix:      prefix,
 			IDMap:       idMap,
+		})
+
+	case "Widget.GetParameters":
+		params := activeScene.GetParameters()
+		return json.Marshal(WidgetParametersResponse{
+			Success:    true,
+			Parameters: params,
+		})
+
+	case "Widget.SetParameters":
+		var req WidgetSetParametersRequest
+		if err := json.Unmarshal(payloadJSON, &req); err != nil {
+			return json.Marshal(WidgetParametersResponse{
+				Success: false,
+				Error:   fmt.Sprintf("decoding WidgetSetParametersRequest: %v", err),
+			})
+		}
+		activeScene.SetParameters(req.Parameters)
+		return json.Marshal(WidgetParametersResponse{
+			Success:    true,
+			Parameters: activeScene.GetParameters(),
+		})
+
+	case "Widget.AddParameter":
+		var req WidgetAddParameterRequest
+		if err := json.Unmarshal(payloadJSON, &req); err != nil {
+			return json.Marshal(WidgetParametersResponse{
+				Success: false,
+				Error:   fmt.Sprintf("decoding WidgetAddParameterRequest: %v", err),
+			})
+		}
+		activeScene.AddParameter(req.Parameter)
+		return json.Marshal(WidgetParametersResponse{
+			Success:    true,
+			Parameters: activeScene.GetParameters(),
+		})
+
+	case "Widget.RemoveParameter":
+		var req WidgetRemoveParameterRequest
+		if err := json.Unmarshal(payloadJSON, &req); err != nil {
+			return json.Marshal(WidgetParametersResponse{
+				Success: false,
+				Error:   fmt.Sprintf("decoding WidgetRemoveParameterRequest: %v", err),
+			})
+		}
+		ok := activeScene.RemoveParameter(req.Name)
+		return json.Marshal(WidgetParametersResponse{
+			Success:    ok,
+			Parameters: activeScene.GetParameters(),
 		})
 
 	default:

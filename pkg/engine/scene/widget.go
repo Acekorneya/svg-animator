@@ -1,6 +1,7 @@
 package scene
 
 import (
+	"encoding/json"
 	"fmt"
 	"regexp"
 	"strings"
@@ -18,9 +19,10 @@ func NextWidgetInstanceID() string {
 
 // WidgetIsolationOptions configures SVG widget isolation.
 type WidgetIsolationOptions struct {
-	InstanceID string `json:"instanceId,omitempty"`
-	Prefix     string `json:"prefix,omitempty"`
-	ScopeCSS   bool   `json:"scopeCss"`
+	InstanceID string          `json:"instanceId,omitempty"`
+	Prefix     string          `json:"prefix,omitempty"`
+	ScopeCSS   bool            `json:"scopeCss"`
+	Manifest   *WidgetManifest `json:"manifest,omitempty"`
 }
 
 // IsolateSVGWidget rewrites an SVG document so that all element IDs, internal
@@ -233,6 +235,22 @@ func IsolateSVGWidget(rawSVG string, opts WidgetIsolationOptions) (string, map[s
 
 		return "<" + tagName + tagAttrs + ">"
 	})
+
+	// Inject manifest if provided and not already present
+	if opts.Manifest != nil && len(opts.Manifest.Parameters) > 0 {
+		reExistingManifest := regexp.MustCompile(`(?i)<script\b[^>]*\bid=["']sva-widget-manifest["']`)
+		if !reExistingManifest.MatchString(transformed) {
+			manifestBytes, err := json.Marshal(opts.Manifest)
+			if err == nil {
+				manifestTag := fmt.Sprintf("\n  <script type=\"application/json\" id=\"sva-widget-manifest\">%s</script>\n", string(manifestBytes))
+				if idx := strings.LastIndex(transformed, "</svg>"); idx != -1 {
+					transformed = transformed[:idx] + manifestTag + transformed[idx:]
+				} else {
+					transformed += manifestTag
+				}
+			}
+		}
+	}
 
 	return transformed, idMap, nil
 }

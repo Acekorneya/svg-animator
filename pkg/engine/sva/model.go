@@ -74,6 +74,7 @@ type SceneData struct {
 	Images          []scene.Image          `json:"images,omitempty"`
 	ImagesCounter   int                    `json:"imagesCounter,omitempty"`
 	Layers          []scene.LayerEntry     `json:"layers,omitempty"`
+	Parameters      []scene.WidgetParameter `json:"parameters,omitempty"`
 	Metadata        map[string]any         `json:"metadata,omitempty"`
 }
 
@@ -115,6 +116,7 @@ func (s *SceneData) ToSnapshot() scene.Snapshot {
 		Images:        s.Images,
 		ImagesCounter: int64(s.ImagesCounter),
 		Layers:        s.Layers,
+		Parameters:    s.Parameters,
 	}
 
 	if s.Background != nil {

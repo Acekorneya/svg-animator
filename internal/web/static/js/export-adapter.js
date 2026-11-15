@@ -50,10 +50,11 @@
       if (!rawSvg) throw new Error('Cannot isolate empty SVG.');
       const prefix = options.prefix || '';
       const scopeCss = options.scopeCss !== false;
+      const manifest = options.manifest || null;
 
       // 1. Prefer authoritative Go/WASM engine
       if (typeof window !== 'undefined' && window.EngineBridge && typeof window.EngineBridge.isolateSVGWidget === 'function' && window.EngineBridge.isReady()) {
-        const res = window.EngineBridge.isolateSVGWidget(rawSvg, instanceId, prefix, scopeCss);
+        const res = window.EngineBridge.isolateSVGWidget(rawSvg, instanceId, prefix, scopeCss, manifest);
         if (res && res.success && res.isolatedSvg) {
           return options.rawDetails ? res : res.isolatedSvg;
         }
@@ -61,7 +62,7 @@
 
       // 2. Standalone widget library fallback
       if (typeof window !== 'undefined' && window.SVGWidget && typeof window.SVGWidget.isolate === 'function') {
-        return window.SVGWidget.isolate(rawSvg, { instanceId, prefix, scopeCss, rawDetails: options.rawDetails });
+        return window.SVGWidget.isolate(rawSvg, { instanceId, prefix, scopeCss, manifest, rawDetails: options.rawDetails });
       }
 
       // 3. Fallback parser if SVGWidget is not yet mounted

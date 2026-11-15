@@ -181,6 +181,11 @@ window.ProjectManager = {
       }
     }
 
+    let parameterState = [];
+    if (window.EngineBridge && typeof window.EngineBridge.isReady === 'function' && window.EngineBridge.isReady() && typeof window.EngineBridge.getWidgetParameters === 'function') {
+      parameterState = window.EngineBridge.getWidgetParameters() || [];
+    }
+
     const payload = {
       version: '1.2.0',
       controls: controls,
@@ -202,6 +207,7 @@ window.ProjectManager = {
       imagesCounter: imageState.imagesCounter,
       layers: layerState
     };
+    if (parameterState && parameterState.length > 0) payload.parameters = parameterState;
     if (engineCanvas) payload.canvas = engineCanvas;
     if (engineCamera) payload.camera = engineCamera;
     if (engineOptical) payload.optical = engineOptical;
@@ -352,9 +358,13 @@ window.ProjectManager = {
         images: Array.isArray(data.images) ? data.images : [],
         imagesCounter: Number(data.imagesCounter) || 0,
         layers: Array.isArray(data.layers) ? data.layers : [],
+        parameters: Array.isArray(data.parameters) ? data.parameters : [],
         background: data.loadedPhoto || null
       };
       window.EngineBridge.syncScene(projectSnapshot);
+      if (Array.isArray(data.parameters) && typeof window.EngineBridge.setWidgetParameters === 'function') {
+        window.EngineBridge.setWidgetParameters(data.parameters);
+      }
     }
 
     if (window.HistoryManager) {

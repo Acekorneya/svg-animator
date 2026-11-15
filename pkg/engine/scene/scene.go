@@ -49,6 +49,8 @@ type Scene struct {
 
 	layers []LayerEntry
 
+	parameters []WidgetParameter
+
 	selection SelectionState
 	history   *HistoryManager
 }
@@ -870,6 +872,13 @@ func (s *Scene) setFromSnapshotLocked(snap Snapshot) {
 		s.ensureLayersInitializedLocked()
 	}
 
+	if snap.Parameters != nil {
+		s.parameters = make([]WidgetParameter, len(snap.Parameters))
+		copy(s.parameters, snap.Parameters)
+	} else {
+		s.parameters = nil
+	}
+
 	if snap.Revision > 0 {
 		s.revision = snap.Revision
 	} else {
@@ -946,10 +955,77 @@ func (s *Scene) Reset() {
 	s.imagesCounter = 0
 
 	s.layers = make([]LayerEntry, 0)
+	s.parameters = nil
 	s.selection = SelectionState{Type: SelectionNone, ID: ""}
 
 	s.history.Clear()
 	s.history.Record(s.getSnapshotLocked(), s.selection)
+}
+
+// GetParameters returns a copy of the scene's external widget parameter definitions.
+func (s *Scene) GetParameters() []WidgetParameter {
+	s.mu.RLock()
+	defer s.mu.RUnlock()
+	if s.parameters == nil {
+		return []WidgetParameter{}
+	}
+	out := make([]WidgetParameter, len(s.parameters))
+	copy(out, s.parameters)
+	return out
+}
+
+// SetParameters replaces the external widget parameter definitions.
+func (s *Scene) SetParameters(params []WidgetParameter) {
+	s.mu.Lock()
+	defer s.mu.Unlock()
+	if params == nil {
+		s.parameters = nil
+	} else {
+		s.parameters = make([]WidgetParameter, len(params))
+		copy(s.parameters, params)
+	}
+	s.revision++
+	if s.history != nil {
+		s.history.Record(s.getSnapshotLocked(), s.selection)
+	}
+}
+
+// AddParameter appends or replaces a widget parameter by name.
+func (s *Scene) AddParameter(p WidgetParameter) {
+	s.mu.Lock()
+	defer s.mu.Unlock()
+	for i, existing := range s.parameters {
+		if existing.Name == p.Name {
+			s.parameters[i] = p
+			s.revision++
+			if s.history != nil {
+				s.history.Record(s.getSnapshotLocked(), s.selection)
+			}
+			return
+		}
+	}
+	s.parameters = append(s.parameters, p)
+	s.revision++
+	if s.history != nil {
+		s.history.Record(s.getSnapshotLocked(), s.selection)
+	}
+}
+
+// RemoveParameter deletes a widget parameter by name.
+func (s *Scene) RemoveParameter(name string) bool {
+	s.mu.Lock()
+	defer s.mu.Unlock()
+	for i, p := range s.parameters {
+		if p.Name == name {
+			s.parameters = append(s.parameters[:i], s.parameters[i+1:]...)
+			s.revision++
+			if s.history != nil {
+				s.history.Record(s.getSnapshotLocked(), s.selection)
+			}
+			return true
+		}
+	}
+	return false
 }
 
 func (s *Scene) getSnapshotLocked() Snapshot {
@@ -985,6 +1061,12 @@ func (s *Scene) getSnapshotLocked() Snapshot {
 
 	layers := s.getLayersSnapshotLocked()
 
+	var params []WidgetParameter
+	if s.parameters != nil {
+		params = make([]WidgetParameter, len(s.parameters))
+		copy(params, s.parameters)
+	}
+
 	return Snapshot{
 		Revision:      s.revision,
 		Canvas:        s.canvas,
@@ -1002,6 +1084,7 @@ func (s *Scene) getSnapshotLocked() Snapshot {
 		Images:        images,
 		ImagesCounter: s.imagesCounter,
 		Layers:        layers,
+		Parameters:    params,
 	}
 }
 

@@ -1,7 +1,7 @@
 /**
  * SVG Animator Studio — Reusable SVG Widget Runtime & Mounting Library (`svg-widget.js`)
  *
- * Stage 16A: Reusable, Self-Contained and Collision-Free SVG Widgets.
+ * Stage 16B: External Widget Controls, Runtime Parameters and Independent Host Integration.
  *
  * Responsibilities:
  *   - Parse and namespace SVG documents for safe multi-instance embedding on host pages.
@@ -10,9 +10,10 @@
  *   - Scope embedded <style> selectors to widget root element.
  *   - Prefix @keyframes and remap animation/animation-name properties to prevent stylesheet collisions.
  *   - Safely preserve data URLs (data:image/...) and text content containing '#'.
- *   - Lightweight DOM mount / unmount lifecycle helper with optional Shadow DOM isolation.
- *
- * Universal UMD module: Browser window global, CommonJS (Node.js), and ES module environments.
+ *   - Manifest parsing and runtime parameter binding with atomic validation.
+ *   - Semantic target resolution (semantic target name -> scoped element in instance DOM).
+ *   - Per-instance independent animation control (play, pause, resume, stop, speed).
+ *   - Universal UMD module: Browser window global, CommonJS (Node.js), and ES module environments.
  */
 
 (function(root, factory) {
@@ -38,6 +39,8 @@
   function escapeRegex(str) {
     return str.replace(/[.*+?^${}()|[\]\\]/g, '\\$&');
   }
+
+  const COLOR_REGEX = /^(?:#[0-9a-fA-F]{3,8}|(?:rgb|hsl)a?\([^)]+\)|[a-zA-Z]+|transparent|currentColor)$/;
 
   /**
    * Scopes CSS rules to the widget root ID and prefixes keyframes.
@@ -208,6 +211,21 @@
       return `<${tagName}${tagAttrs}>`;
     });
 
+    // 5. Inject manifest if provided and not already present
+    if (options.manifest && Array.isArray(options.manifest.parameters) && options.manifest.parameters.length > 0) {
+      const reExistingManifest = /<script\b[^>]*\bid=["']sva-widget-manifest["']/i;
+      if (!reExistingManifest.test(transformed)) {
+        const manifestJson = JSON.stringify(options.manifest);
+        const manifestTag = `\n  <script type="application/json" id="sva-widget-manifest">${manifestJson}</script>\n`;
+        const lastSvgIdx = transformed.lastIndexOf('</svg>');
+        if (lastSvgIdx !== -1) {
+          transformed = transformed.slice(0, lastSvgIdx) + manifestTag + transformed.slice(lastSvgIdx);
+        } else {
+          transformed += manifestTag;
+        }
+      }
+    }
+
     if (options.rawDetails) {
       return {
         success: true,
@@ -222,8 +240,195 @@
     return transformed;
   }
 
+  /**
+   * Extracts embedded widget manifest from raw SVG string.
+   */
+  function extractManifestFromSVG(rawSvg) {
+    if (!rawSvg || typeof rawSvg !== 'string') return null;
+    const re = /<script\b[^>]*\bid=["'](?:[^"']*__)?sva-widget-manifest["'][^>]*>([\s\S]*?)<\/script>/i;
+    const match = re.exec(rawSvg);
+    if (match && match[1]) {
+      try {
+        const parsed = JSON.parse(match[1]);
+        if (parsed && Array.isArray(parsed.parameters)) {
+          return parsed;
+        }
+      } catch (e) {
+        console.warn('[SVGWidget] Failed to parse embedded manifest JSON:', e);
+      }
+    }
+    return null;
+  }
+
+  /**
+   * Validates a candidate value against a parameter definition.
+   */
+  function validateParameterValue(paramDef, value) {
+    if (value === undefined || value === null) {
+      return { valid: false, error: `Value for parameter '${paramDef.name}' cannot be null or undefined.` };
+    }
+    switch (paramDef.type) {
+      case 'color': {
+        const str = String(value).trim();
+        if (!COLOR_REGEX.test(str)) {
+          return { valid: false, error: `Invalid color value '${value}' for parameter '${paramDef.name}'. Must be a valid hex, rgb, hsl, or named color.` };
+        }
+        return { valid: true, value: str };
+      }
+      case 'number':
+      case 'speed': {
+        const num = Number(value);
+        if (isNaN(num) || !isFinite(num)) {
+          return { valid: false, error: `Value '${value}' for parameter '${paramDef.name}' must be a finite number.` };
+        }
+        if (paramDef.min !== undefined && paramDef.min !== null && num < paramDef.min) {
+          return { valid: false, error: `Value ${num} is below minimum allowed (${paramDef.min}) for parameter '${paramDef.name}'.` };
+        }
+        if (paramDef.max !== undefined && paramDef.max !== null && num > paramDef.max) {
+          return { valid: false, error: `Value ${num} is above maximum allowed (${paramDef.max}) for parameter '${paramDef.name}'.` };
+        }
+        return { valid: true, value: num };
+      }
+      case 'boolean': {
+        return { valid: true, value: Boolean(value) };
+      }
+      case 'enum': {
+        const strVal = String(value);
+        if (Array.isArray(paramDef.options) && paramDef.options.length > 0) {
+          if (!paramDef.options.includes(strVal)) {
+            return {
+              valid: false,
+              error: `Value '${strVal}' is not a permitted option for enum parameter '${paramDef.name}'. Permitted options: [${paramDef.options.join(', ')}]`
+            };
+          }
+        }
+        return { valid: true, value: strVal };
+      }
+      case 'text': {
+        return { valid: true, value: String(value) };
+      }
+      default:
+        return { valid: true, value };
+    }
+  }
+
+  /**
+   * Resolves semantic target name to a DOM element inside the mounted SVG.
+   */
+  function resolveTargetElement(svgEl, idMap, targetName) {
+    if (!svgEl) return null;
+    if (!targetName || targetName === 'root' || targetName === 'svg') {
+      return svgEl;
+    }
+
+    // 1. data-semantic-target
+    let el = svgEl.querySelector(`[data-semantic-target="${targetName}"]`);
+    if (el) return el;
+
+    // 2. idMap lookup (authored ID -> isolated ID)
+    const mappedId = idMap && idMap[targetName];
+    if (mappedId) {
+      el = svgEl.querySelector(`#${mappedId}`) || (svgEl.ownerDocument && svgEl.ownerDocument.getElementById(mappedId));
+      if (el) return el;
+    }
+
+    // 3. data-node-id, data-flow-id, data-image-id, data-glow-id
+    el = svgEl.querySelector(`[data-node-id="${targetName}"], [data-flow-id="${targetName}"], [data-image-id="${targetName}"], [data-glow-id="${targetName}"]`);
+    if (el) return el;
+
+    // 4. Scoped direct ID query
+    try {
+      el = svgEl.querySelector(`#${targetName}`);
+      if (el) return el;
+    } catch (e) {}
+
+    // 5. CSS selector fallback
+    try {
+      el = svgEl.querySelector(targetName);
+      if (el) return el;
+    } catch (e) {}
+
+    return null;
+  }
+
+  /**
+   * Applies validated property to the resolved DOM element.
+   */
+  function applyPropertyToElement(el, property, value, paramDef, instance) {
+    switch (property) {
+      case 'fill':
+        if (el) {
+          el.setAttribute('fill', value);
+          el.style.fill = value;
+        }
+        break;
+      case 'stroke':
+        if (el) {
+          el.setAttribute('stroke', value);
+          el.style.stroke = value;
+        }
+        break;
+      case 'color':
+        if (el) {
+          el.style.color = value;
+          el.setAttribute('fill', value);
+          el.style.fill = value;
+        }
+        break;
+      case 'visibility': {
+        const isVisible = value !== false && value !== 'hidden' && value !== 0;
+        const visStr = isVisible ? 'visible' : 'hidden';
+        if (el) {
+          el.style.visibility = visStr;
+          el.setAttribute('visibility', visStr);
+        }
+        break;
+      }
+      case 'opacity':
+        if (el) {
+          el.setAttribute('opacity', String(value));
+          el.style.opacity = String(value);
+        }
+        break;
+      case 'text':
+      case 'textContent':
+        if (el) {
+          el.textContent = String(value);
+        }
+        break;
+      case 'playbackRate':
+      case 'speed':
+        if (instance && typeof instance.setSpeed === 'function') {
+          instance.setSpeed(value);
+        }
+        break;
+      case 'state':
+      case 'operatingState': {
+        const stateStr = String(value);
+        if (el) el.setAttribute('data-state', stateStr);
+        if (instance && instance.wrapper) instance.wrapper.setAttribute('data-state', stateStr);
+
+        // State enum actions
+        if (stateStr === 'paused') {
+          if (instance) instance.pause();
+        } else if (stateStr === 'stopped') {
+          if (instance) instance.stop();
+        } else if (stateStr === 'running') {
+          if (instance) instance.resume();
+        }
+        break;
+      }
+      default:
+        if (el) {
+          try { el.setAttribute(property, String(value)); } catch (e) {}
+          try { el.style[property] = String(value); } catch (e) {}
+        }
+        break;
+    }
+  }
+
   const SVGWidget = {
-    version: '1.0.0',
+    version: '1.2.0',
 
     generateInstanceId,
 
@@ -255,6 +460,7 @@
     /**
      * Mounts an SVG widget instance into a DOM container element.
      * Supports optional Shadow DOM isolation for total encapsulation.
+     * Returns an authoritative, fully interactive widget instance handle.
      */
     mount(target, rawSvg, options = {}) {
       if (typeof document === 'undefined') {
@@ -269,14 +475,26 @@
         throw new Error(`SVGWidget.mount target container not found: ${target}`);
       }
 
+      // 1. Resolve manifest (options.manifest or embedded script in rawSvg)
+      let manifest = options.manifest;
+      if (!manifest) {
+        manifest = extractManifestFromSVG(rawSvg);
+      }
+      if (!manifest || !Array.isArray(manifest.parameters)) {
+        manifest = { schemaVersion: 1, parameters: [] };
+      }
+
+      // 2. Isolate SVG markup
       const instanceId = options.instanceId || generateInstanceId();
       const details = isolateSVGString(rawSvg, {
         instanceId,
         prefix: options.prefix,
         scopeCss: options.scopeCss !== false,
+        manifest: manifest,
         rawDetails: true
       });
 
+      // 3. Mount in container (Light DOM or Shadow DOM)
       let mountRoot = container;
       let shadowRoot = null;
 
@@ -305,6 +523,39 @@
 
       const svgEl = wrapper.querySelector('svg');
 
+      // 4. Parameter state mapping
+      const paramMap = {};
+      const currentValues = {};
+      for (const p of manifest.parameters) {
+        if (p && p.name) {
+          paramMap[p.name] = p;
+          if (p.default !== undefined) {
+            currentValues[p.name] = p.default;
+          }
+        }
+      }
+
+      // 5. Event system
+      const eventListeners = {};
+
+      // 6. Animation state
+      let isPaused = false;
+      let currentSpeed = 1.0;
+
+      // Ensure global paused CSS helper exists once in document
+      if (typeof document.getElementById === 'function' && !document.getElementById('sva-widget-global-style')) {
+        const styleEl = document.createElement('style');
+        styleEl.id = 'sva-widget-global-style';
+        styleEl.textContent = `
+          .sva-widget-wrapper.sva-paused *,
+          .sva-widget-wrapper.sva-paused {
+            animation-play-state: paused !important;
+          }
+        `;
+        document.head.appendChild(styleEl);
+      }
+
+      // 7. Construct instance handle
       const handle = {
         instanceId: details.instanceId,
         prefix: details.prefix,
@@ -314,14 +565,213 @@
         wrapper: wrapper,
         svgElement: svgEl,
         shadowRoot: shadowRoot,
+        isDestroyed: false,
+
+        // Parameter schema
+        getManifest() {
+          return JSON.parse(JSON.stringify(manifest));
+        },
+
+        getParameter(name) {
+          if (currentValues.hasOwnProperty(name)) {
+            return currentValues[name];
+          }
+          return undefined;
+        },
+
+        getParameters() {
+          return Object.assign({}, currentValues);
+        },
+
+        setParameter(name, value) {
+          const batch = {};
+          batch[name] = value;
+          return handle.setParameters(batch);
+        },
+
+        setParameters(batch) {
+          if (handle.isDestroyed) {
+            throw new Error(`Cannot setParameters on destroyed widget instance '${handle.instanceId}'.`);
+          }
+          if (!batch || typeof batch !== 'object') {
+            throw new Error('setParameters expects a key-value object of parameter names and values.');
+          }
+
+          // Phase 1: Full validation check (atomic)
+          const validatedUpdates = [];
+          for (const [key, val] of Object.entries(batch)) {
+            const paramDef = paramMap[key];
+            if (!paramDef) {
+              throw new Error(`Unknown widget parameter: '${key}'`);
+            }
+            const valRes = validateParameterValue(paramDef, val);
+            if (!valRes.valid) {
+              throw new Error(valRes.error);
+            }
+            const targetEl = resolveTargetElement(svgEl, details.idMap, paramDef.target);
+            if (!targetEl && paramDef.property !== 'speed' && paramDef.property !== 'playbackRate') {
+              throw new Error(`Target element '${paramDef.target}' not found in widget for parameter '${key}'.`);
+            }
+            validatedUpdates.push({ paramDef, targetEl, cleanVal: valRes.value });
+          }
+
+          // Phase 2: Atomic DOM and state application
+          const changed = {};
+          for (const { paramDef, targetEl, cleanVal } of validatedUpdates) {
+            currentValues[paramDef.name] = cleanVal;
+            changed[paramDef.name] = cleanVal;
+            applyPropertyToElement(targetEl, paramDef.property, cleanVal, paramDef, handle);
+          }
+
+          handle._emit('change', { instanceId: handle.instanceId, parameters: changed });
+          handle._emit('parametersChanged', { instanceId: handle.instanceId, parameters: handle.getParameters() });
+          return handle;
+        },
+
+        resetParameters() {
+          const defaults = {};
+          for (const p of manifest.parameters) {
+            if (p.default !== undefined) {
+              defaults[p.name] = p.default;
+            }
+          }
+          return handle.setParameters(defaults);
+        },
+
+        // Animation playback controls
+        play() {
+          if (handle.isDestroyed) return handle;
+          isPaused = false;
+          if (wrapper) wrapper.classList.remove('sva-paused');
+          if (svgEl && typeof svgEl.unpauseAnimations === 'function') {
+            try { svgEl.unpauseAnimations(); } catch (e) {}
+          }
+          if (svgEl && typeof svgEl.getAnimations === 'function') {
+            try {
+              const anims = svgEl.getAnimations({ subtree: true });
+              anims.forEach((a) => { try { a.play(); } catch (err) {} });
+            } catch (e) {}
+          }
+          handle._emit('play', { instanceId: handle.instanceId });
+          return handle;
+        },
+
+        pause() {
+          if (handle.isDestroyed) return handle;
+          isPaused = true;
+          if (wrapper) wrapper.classList.add('sva-paused');
+          if (svgEl && typeof svgEl.pauseAnimations === 'function') {
+            try { svgEl.pauseAnimations(); } catch (e) {}
+          }
+          if (svgEl && typeof svgEl.getAnimations === 'function') {
+            try {
+              const anims = svgEl.getAnimations({ subtree: true });
+              anims.forEach((a) => { try { a.pause(); } catch (err) {} });
+            } catch (e) {}
+          }
+          handle._emit('pause', { instanceId: handle.instanceId });
+          return handle;
+        },
+
+        resume() {
+          return handle.play();
+        },
+
+        stop() {
+          handle.pause();
+          if (svgEl && typeof svgEl.setCurrentTime === 'function') {
+            try { svgEl.setCurrentTime(0); } catch (e) {}
+          }
+          handle._emit('stop', { instanceId: handle.instanceId });
+          return handle;
+        },
+
+        isPaused() {
+          return isPaused;
+        },
+
+        setSpeed(speed) {
+          const rate = Number(speed);
+          if (isNaN(rate) || rate < 0) {
+            throw new Error(`Invalid speed value: ${speed}. Must be a non-negative number.`);
+          }
+          currentSpeed = rate;
+          if (wrapper && wrapper.style && typeof wrapper.style.setProperty === 'function') {
+            wrapper.style.setProperty('--sva-speed', String(rate));
+          }
+          if (svgEl && typeof svgEl.getAnimations === 'function') {
+            try {
+              const anims = svgEl.getAnimations({ subtree: true });
+              anims.forEach((a) => { try { a.playbackRate = rate; } catch (err) {} });
+            } catch (e) {}
+          }
+          handle._emit('speedChange', { instanceId: handle.instanceId, speed: rate });
+          return handle;
+        },
+
+        getSpeed() {
+          return currentSpeed;
+        },
+
+        // Events
+        on(event, callback) {
+          if (typeof callback !== 'function') return handle;
+          if (!eventListeners[event]) eventListeners[event] = [];
+          eventListeners[event].push(callback);
+          return handle;
+        },
+
+        off(event, callback) {
+          if (!eventListeners[event]) return handle;
+          if (!callback) {
+            delete eventListeners[event];
+          } else {
+            eventListeners[event] = eventListeners[event].filter((cb) => cb !== callback);
+          }
+          return handle;
+        },
+
+        _emit(event, data) {
+          if (eventListeners[event]) {
+            eventListeners[event].forEach((cb) => {
+              try { cb(data); } catch (e) { console.error('[SVGWidget listener error]', e); }
+            });
+          }
+        },
+
+        // Unmount & destruction
         unmount() {
           if (wrapper && wrapper.parentNode) {
             wrapper.parentNode.removeChild(wrapper);
           }
+          handle.isDestroyed = true;
+          return handle;
+        },
+
+        destroy() {
+          handle.stop();
+          handle.unmount();
+          handle._emit('destroy', { instanceId: handle.instanceId });
+          for (const k in eventListeners) delete eventListeners[k];
+          return handle;
         }
       };
 
+      // 8. Apply initial parameters if provided in options or manifest defaults
+      const initialParams = Object.assign({}, currentValues, options.parameters || options.initialParameters || {});
+      if (Object.keys(initialParams).length > 0) {
+        try {
+          handle.setParameters(initialParams);
+        } catch (err) {
+          console.warn('[SVGWidget] Failed applying initial parameters on mount:', err);
+        }
+      }
+
       return handle;
+    },
+
+    createInstance(target, rawSvg, options = {}) {
+      return SVGWidget.mount(target, rawSvg, options);
     }
   };
 

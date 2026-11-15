@@ -202,6 +202,7 @@ func BuildProjectFromStudioState(projectName string, projectDesc string, schemaJ
 		Images          []scene.Image           `json:"images"`
 		ImagesCounter   int                     `json:"imagesCounter"`
 		Layers          []scene.LayerEntry      `json:"layers"`
+		Parameters      []scene.WidgetParameter `json:"parameters"`
 		Metadata        map[string]any          `json:"metadata"`
 	}
 
@@ -437,6 +438,7 @@ func BuildProjectFromStudioState(projectName string, projectDesc string, schemaJ
 			Images:          raw.Images,
 			ImagesCounter:   raw.ImagesCounter,
 			Layers:          raw.Layers,
+			Parameters:      raw.Parameters,
 			Metadata:        raw.Metadata,
 		},
 		Assets: assets,

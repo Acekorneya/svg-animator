@@ -179,3 +179,63 @@ func TestIsolateSVGWidgetValidation(t *testing.T) {
 		t.Errorf("expected auto generated data-sva-widget-instance attribute")
 	}
 }
+
+func TestIsolateSVGWidgetWithManifest(t *testing.T) {
+	raw := `<svg xmlns="http://www.w3.org/2000/svg" width="400" height="300">
+  <rect id="statusBox" fill="#22c55e" width="100" height="50"/>
+</svg>`
+
+	minVal := 0.0
+	maxVal := 100.0
+	opts := WidgetIsolationOptions{
+		InstanceID: "barrel-a",
+		Prefix:     "barrel_a__",
+		Manifest: &WidgetManifest{
+			SchemaVersion: 1,
+			Parameters: []WidgetParameter{
+				{
+					Name:        "statusColor",
+					Type:        "color",
+					Default:     "#22c55e",
+					Target:      "statusBox",
+					Property:    "fill",
+					Description: "Status box fill color",
+				},
+				{
+					Name:        "level",
+					Type:        "number",
+					Default:     75.0,
+					Target:      "statusBox",
+					Property:    "width",
+					Min:         &minVal,
+					Max:         &maxVal,
+					Description: "Fill level percentage",
+				},
+			},
+		},
+	}
+
+	isolated, idMap, err := IsolateSVGWidget(raw, opts)
+	if err != nil {
+		t.Fatalf("unexpected error: %v", err)
+	}
+
+	// Verify manifest script tag injected
+	if !strings.Contains(isolated, `<script type="application/json" id="sva-widget-manifest">`) {
+		t.Errorf("expected sva-widget-manifest script tag in isolated svg")
+	}
+	if !strings.Contains(isolated, `"name":"statusColor"`) {
+		t.Errorf("expected statusColor in injected manifest")
+	}
+	if !strings.Contains(isolated, `"name":"level"`) {
+		t.Errorf("expected level in injected manifest")
+	}
+
+	// Verify ID remapping
+	if idMap["statusBox"] != "barrel_a__statusBox" {
+		t.Errorf("expected statusBox mapped to barrel_a__statusBox, got %s", idMap["statusBox"])
+	}
+	if !strings.Contains(isolated, `id="barrel_a__statusBox"`) {
+		t.Errorf("expected isolated SVG to contain id=\"barrel_a__statusBox\"")
+	}
+}

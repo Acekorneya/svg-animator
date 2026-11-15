@@ -3,7 +3,7 @@
 <head>
   <meta charset="UTF-8">
   <meta name="viewport" content="width=device-width, initial-scale=1.0">
-  <title>SVG Animator Studio — Stage 16A Multi-Widget Demonstration</title>
+  <title>SVG Animator Studio — Stage 16B External Widget Controls & Runtime Parameters</title>
   <style>
     :root {
       --bg: #0d1117;
@@ -14,50 +14,52 @@
       --accent: #58a6ff;
       --success: #3fb950;
       --warning: #d29922;
+      --danger: #f85149;
     }
     * { box-sizing: border-box; margin: 0; padding: 0; }
     body {
       background: var(--bg);
       color: var(--text);
       font-family: -apple-system, BlinkMacSystemFont, 'Segoe UI', Roboto, sans-serif;
-      padding: 2rem;
+      padding: 1.5rem;
       min-height: 100vh;
     }
     header {
       max-width: 1400px;
-      margin: 0 auto 2rem auto;
+      margin: 0 auto 1.5rem auto;
       border-bottom: 1px solid var(--border);
-      padding-bottom: 1.5rem;
+      padding-bottom: 1rem;
     }
     h1 {
-      font-size: 1.8rem;
+      font-size: 1.7rem;
       color: #f0f6fc;
       display: flex;
       align-items: center;
       gap: 0.75rem;
     }
     .badge {
-      font-size: 0.75rem;
+      font-size: 0.72rem;
       background: #238636;
       color: #ffffff;
-      padding: 0.2rem 0.6rem;
+      padding: 0.2rem 0.55rem;
       border-radius: 12px;
       font-weight: 600;
       text-transform: uppercase;
+      letter-spacing: 0.5px;
     }
     p.lead {
       color: var(--text-muted);
-      margin-top: 0.5rem;
-      font-size: 1rem;
+      margin-top: 0.4rem;
+      font-size: 0.95rem;
       line-height: 1.5;
     }
     .status-panel {
       max-width: 1400px;
-      margin: 0 auto 2rem auto;
+      margin: 0 auto 1.5rem auto;
       background: var(--card-bg);
       border: 1px solid var(--border);
       border-radius: 8px;
-      padding: 1.25rem 1.5rem;
+      padding: 1rem 1.25rem;
       display: flex;
       flex-wrap: wrap;
       align-items: center;
@@ -67,39 +69,45 @@
     .status-indicator {
       display: flex;
       align-items: center;
-      gap: 0.75rem;
+      gap: 0.6rem;
       font-weight: 600;
       color: var(--success);
+      font-size: 0.9rem;
     }
     .status-dot {
-      width: 12px;
-      height: 12px;
+      width: 10px;
+      height: 10px;
       border-radius: 50%;
       background: var(--success);
-      box-shadow: 0 0 10px var(--success);
+      box-shadow: 0 0 8px var(--success);
     }
     .stats-group {
       display: flex;
-      gap: 1.5rem;
-      font-size: 0.9rem;
+      gap: 1.25rem;
+      font-size: 0.85rem;
       color: var(--text-muted);
     }
     .stats-group strong {
       color: #f0f6fc;
     }
-    .controls {
+    .global-controls {
       display: flex;
-      gap: 0.75rem;
+      flex-wrap: wrap;
+      gap: 0.5rem;
+      align-items: center;
     }
     button.btn {
       background: #21262d;
       border: 1px solid var(--border);
       color: #c9d1d9;
-      padding: 0.45rem 0.9rem;
+      padding: 0.35rem 0.75rem;
       border-radius: 6px;
-      font-size: 0.85rem;
+      font-size: 0.82rem;
       cursor: pointer;
       transition: all 0.15s ease;
+      display: inline-flex;
+      align-items: center;
+      gap: 0.35rem;
     }
     button.btn:hover {
       background: #30363d;
@@ -114,9 +122,17 @@
     button.btn-primary:hover {
       background: #2ea043;
     }
+    button.btn-danger {
+      background: #b62324;
+      border-color: #d73a49;
+      color: #fff;
+    }
+    button.btn-danger:hover {
+      background: #cb2431;
+    }
     .widgets-grid {
       max-width: 1400px;
-      margin: 0 auto;
+      margin: 0 auto 1.5rem auto;
       display: grid;
       grid-template-columns: repeat(auto-fit, minmax(420px, 1fr));
       gap: 1.5rem;
@@ -128,10 +144,11 @@
       overflow: hidden;
       display: flex;
       flex-direction: column;
+      box-shadow: 0 4px 16px rgba(0, 0, 0, 0.25);
     }
     .widget-header {
       padding: 0.75rem 1rem;
-      background: rgba(0, 0, 0, 0.2);
+      background: rgba(0, 0, 0, 0.25);
       border-bottom: 1px solid var(--border);
       display: flex;
       align-items: center;
@@ -147,7 +164,7 @@
     }
     .widget-prefix-badge {
       font-family: monospace;
-      font-size: 0.75rem;
+      font-size: 0.72rem;
       background: #1f6feb22;
       color: #58a6ff;
       border: 1px solid #1f6feb44;
@@ -160,43 +177,129 @@
       display: flex;
       align-items: center;
       justify-content: center;
-      min-height: 280px;
+      min-height: 240px;
+      border-bottom: 1px solid var(--border);
+      position: relative;
     }
     .widget-stage svg {
       width: 100%;
       height: 100%;
-      max-height: 260px;
+      max-height: 220px;
       display: block;
     }
-    .widget-meta {
-      padding: 0.75rem 1rem;
-      border-top: 1px solid var(--border);
-      font-size: 0.8rem;
-      color: var(--text-muted);
-      background: rgba(0, 0, 0, 0.15);
+    .control-deck {
+      padding: 1rem;
+      display: grid;
+      grid-template-columns: 1fr 1fr;
+      gap: 0.75rem;
+      background: rgba(0, 0, 0, 0.1);
+      border-bottom: 1px solid var(--border);
     }
-    .id-tag-list {
+    .control-row {
       display: flex;
-      flex-wrap: wrap;
+      flex-direction: column;
+      gap: 0.25rem;
+    }
+    .control-row.full-width {
+      grid-column: 1 / -1;
+    }
+    .control-label {
+      font-size: 0.75rem;
+      color: var(--text-muted);
+      text-transform: uppercase;
+      font-weight: 600;
+      letter-spacing: 0.5px;
+      display: flex;
+      justify-content: space-between;
+    }
+    .control-input {
+      background: #0d1117;
+      border: 1px solid var(--border);
+      color: #f0f6fc;
+      padding: 0.35rem 0.5rem;
+      border-radius: 5px;
+      font-size: 0.85rem;
+      outline: none;
+      width: 100%;
+    }
+    .control-input:focus {
+      border-color: var(--accent);
+    }
+    .control-input-color-row {
+      display: flex;
+      gap: 0.5rem;
+      align-items: center;
+    }
+    .color-picker {
+      width: 38px;
+      height: 32px;
+      padding: 2px;
+      background: #0d1117;
+      border: 1px solid var(--border);
+      border-radius: 5px;
+      cursor: pointer;
+    }
+    .btn-group {
+      display: flex;
       gap: 0.35rem;
-      margin-top: 0.4rem;
+      flex-wrap: wrap;
     }
-    .id-tag {
+    .btn-group .btn {
+      flex: 1;
+      justify-content: center;
+      padding: 0.3rem 0.5rem;
+      font-size: 0.75rem;
+    }
+    .widget-footer {
+      padding: 0.6rem 1rem;
+      background: rgba(0, 0, 0, 0.2);
+      display: flex;
+      align-items: center;
+      justify-content: space-between;
+      font-size: 0.78rem;
+      color: var(--text-muted);
+    }
+    .log-panel {
+      max-width: 1400px;
+      margin: 0 auto;
+      background: var(--card-bg);
+      border: 1px solid var(--border);
+      border-radius: 8px;
+      overflow: hidden;
+    }
+    .log-header {
+      padding: 0.6rem 1rem;
+      background: rgba(0, 0, 0, 0.2);
+      border-bottom: 1px solid var(--border);
+      display: flex;
+      justify-content: space-between;
+      align-items: center;
+      font-size: 0.85rem;
+      font-weight: 600;
+    }
+    .log-stream {
+      padding: 0.75rem 1rem;
       font-family: monospace;
-      font-size: 0.72rem;
-      background: #161b22;
-      border: 1px solid #30363d;
-      padding: 0.1rem 0.35rem;
-      border-radius: 3px;
+      font-size: 0.78rem;
+      height: 120px;
+      overflow-y: auto;
       color: #8b949e;
+      display: flex;
+      flex-direction: column;
+      gap: 0.25rem;
     }
+    .log-entry {
+      line-height: 1.4;
+    }
+    .log-entry .ts { color: #58a6ff; }
+    .log-entry .inst { color: #d29922; font-weight: 600; }
+    .log-entry .param { color: #3fb950; }
   </style>
   <script>
-/* SVG Animator Studio — Inlined Reusable SVG Widget Runtime (Stage 16A) */
 /**
  * SVG Animator Studio — Reusable SVG Widget Runtime & Mounting Library (`svg-widget.js`)
  *
- * Stage 16A: Reusable, Self-Contained and Collision-Free SVG Widgets.
+ * Stage 16B: External Widget Controls, Runtime Parameters and Independent Host Integration.
  *
  * Responsibilities:
  *   - Parse and namespace SVG documents for safe multi-instance embedding on host pages.
@@ -205,9 +308,10 @@
  *   - Scope embedded <style> selectors to widget root element.
  *   - Prefix @keyframes and remap animation/animation-name properties to prevent stylesheet collisions.
  *   - Safely preserve data URLs (data:image/...) and text content containing '#'.
- *   - Lightweight DOM mount / unmount lifecycle helper with optional Shadow DOM isolation.
- *
- * Universal UMD module: Browser window global, CommonJS (Node.js), and ES module environments.
+ *   - Manifest parsing and runtime parameter binding with atomic validation.
+ *   - Semantic target resolution (semantic target name -> scoped element in instance DOM).
+ *   - Per-instance independent animation control (play, pause, resume, stop, speed).
+ *   - Universal UMD module: Browser window global, CommonJS (Node.js), and ES module environments.
  */
 
 (function(root, factory) {
@@ -233,6 +337,8 @@
   function escapeRegex(str) {
     return str.replace(/[.*+?^${}()|[\]\\]/g, '\\$&');
   }
+
+  const COLOR_REGEX = /^(?:#[0-9a-fA-F]{3,8}|(?:rgb|hsl)a?\([^)]+\)|[a-zA-Z]+|transparent|currentColor)$/;
 
   /**
    * Scopes CSS rules to the widget root ID and prefixes keyframes.
@@ -403,6 +509,21 @@
       return `<${tagName}${tagAttrs}>`;
     });
 
+    // 5. Inject manifest if provided and not already present
+    if (options.manifest && Array.isArray(options.manifest.parameters) && options.manifest.parameters.length > 0) {
+      const reExistingManifest = /<script\b[^>]*\bid=["']sva-widget-manifest["']/i;
+      if (!reExistingManifest.test(transformed)) {
+        const manifestJson = JSON.stringify(options.manifest);
+        const manifestTag = `\n  <script type="application/json" id="sva-widget-manifest">${manifestJson}</script>\n`;
+        const lastSvgIdx = transformed.lastIndexOf('</svg>');
+        if (lastSvgIdx !== -1) {
+          transformed = transformed.slice(0, lastSvgIdx) + manifestTag + transformed.slice(lastSvgIdx);
+        } else {
+          transformed += manifestTag;
+        }
+      }
+    }
+
     if (options.rawDetails) {
       return {
         success: true,
@@ -417,8 +538,195 @@
     return transformed;
   }
 
+  /**
+   * Extracts embedded widget manifest from raw SVG string.
+   */
+  function extractManifestFromSVG(rawSvg) {
+    if (!rawSvg || typeof rawSvg !== 'string') return null;
+    const re = /<script\b[^>]*\bid=["'](?:[^"']*__)?sva-widget-manifest["'][^>]*>([\s\S]*?)<\/script>/i;
+    const match = re.exec(rawSvg);
+    if (match && match[1]) {
+      try {
+        const parsed = JSON.parse(match[1]);
+        if (parsed && Array.isArray(parsed.parameters)) {
+          return parsed;
+        }
+      } catch (e) {
+        console.warn('[SVGWidget] Failed to parse embedded manifest JSON:', e);
+      }
+    }
+    return null;
+  }
+
+  /**
+   * Validates a candidate value against a parameter definition.
+   */
+  function validateParameterValue(paramDef, value) {
+    if (value === undefined || value === null) {
+      return { valid: false, error: `Value for parameter '${paramDef.name}' cannot be null or undefined.` };
+    }
+    switch (paramDef.type) {
+      case 'color': {
+        const str = String(value).trim();
+        if (!COLOR_REGEX.test(str)) {
+          return { valid: false, error: `Invalid color value '${value}' for parameter '${paramDef.name}'. Must be a valid hex, rgb, hsl, or named color.` };
+        }
+        return { valid: true, value: str };
+      }
+      case 'number':
+      case 'speed': {
+        const num = Number(value);
+        if (isNaN(num) || !isFinite(num)) {
+          return { valid: false, error: `Value '${value}' for parameter '${paramDef.name}' must be a finite number.` };
+        }
+        if (paramDef.min !== undefined && paramDef.min !== null && num < paramDef.min) {
+          return { valid: false, error: `Value ${num} is below minimum allowed (${paramDef.min}) for parameter '${paramDef.name}'.` };
+        }
+        if (paramDef.max !== undefined && paramDef.max !== null && num > paramDef.max) {
+          return { valid: false, error: `Value ${num} is above maximum allowed (${paramDef.max}) for parameter '${paramDef.name}'.` };
+        }
+        return { valid: true, value: num };
+      }
+      case 'boolean': {
+        return { valid: true, value: Boolean(value) };
+      }
+      case 'enum': {
+        const strVal = String(value);
+        if (Array.isArray(paramDef.options) && paramDef.options.length > 0) {
+          if (!paramDef.options.includes(strVal)) {
+            return {
+              valid: false,
+              error: `Value '${strVal}' is not a permitted option for enum parameter '${paramDef.name}'. Permitted options: [${paramDef.options.join(', ')}]`
+            };
+          }
+        }
+        return { valid: true, value: strVal };
+      }
+      case 'text': {
+        return { valid: true, value: String(value) };
+      }
+      default:
+        return { valid: true, value };
+    }
+  }
+
+  /**
+   * Resolves semantic target name to a DOM element inside the mounted SVG.
+   */
+  function resolveTargetElement(svgEl, idMap, targetName) {
+    if (!svgEl) return null;
+    if (!targetName || targetName === 'root' || targetName === 'svg') {
+      return svgEl;
+    }
+
+    // 1. data-semantic-target
+    let el = svgEl.querySelector(`[data-semantic-target="${targetName}"]`);
+    if (el) return el;
+
+    // 2. idMap lookup (authored ID -> isolated ID)
+    const mappedId = idMap && idMap[targetName];
+    if (mappedId) {
+      el = svgEl.querySelector(`#${mappedId}`) || (svgEl.ownerDocument && svgEl.ownerDocument.getElementById(mappedId));
+      if (el) return el;
+    }
+
+    // 3. data-node-id, data-flow-id, data-image-id, data-glow-id
+    el = svgEl.querySelector(`[data-node-id="${targetName}"], [data-flow-id="${targetName}"], [data-image-id="${targetName}"], [data-glow-id="${targetName}"]`);
+    if (el) return el;
+
+    // 4. Scoped direct ID query
+    try {
+      el = svgEl.querySelector(`#${targetName}`);
+      if (el) return el;
+    } catch (e) {}
+
+    // 5. CSS selector fallback
+    try {
+      el = svgEl.querySelector(targetName);
+      if (el) return el;
+    } catch (e) {}
+
+    return null;
+  }
+
+  /**
+   * Applies validated property to the resolved DOM element.
+   */
+  function applyPropertyToElement(el, property, value, paramDef, instance) {
+    switch (property) {
+      case 'fill':
+        if (el) {
+          el.setAttribute('fill', value);
+          el.style.fill = value;
+        }
+        break;
+      case 'stroke':
+        if (el) {
+          el.setAttribute('stroke', value);
+          el.style.stroke = value;
+        }
+        break;
+      case 'color':
+        if (el) {
+          el.style.color = value;
+          el.setAttribute('fill', value);
+          el.style.fill = value;
+        }
+        break;
+      case 'visibility': {
+        const isVisible = value !== false && value !== 'hidden' && value !== 0;
+        const visStr = isVisible ? 'visible' : 'hidden';
+        if (el) {
+          el.style.visibility = visStr;
+          el.setAttribute('visibility', visStr);
+        }
+        break;
+      }
+      case 'opacity':
+        if (el) {
+          el.setAttribute('opacity', String(value));
+          el.style.opacity = String(value);
+        }
+        break;
+      case 'text':
+      case 'textContent':
+        if (el) {
+          el.textContent = String(value);
+        }
+        break;
+      case 'playbackRate':
+      case 'speed':
+        if (instance && typeof instance.setSpeed === 'function') {
+          instance.setSpeed(value);
+        }
+        break;
+      case 'state':
+      case 'operatingState': {
+        const stateStr = String(value);
+        if (el) el.setAttribute('data-state', stateStr);
+        if (instance && instance.wrapper) instance.wrapper.setAttribute('data-state', stateStr);
+
+        // State enum actions
+        if (stateStr === 'paused') {
+          if (instance) instance.pause();
+        } else if (stateStr === 'stopped') {
+          if (instance) instance.stop();
+        } else if (stateStr === 'running') {
+          if (instance) instance.resume();
+        }
+        break;
+      }
+      default:
+        if (el) {
+          try { el.setAttribute(property, String(value)); } catch (e) {}
+          try { el.style[property] = String(value); } catch (e) {}
+        }
+        break;
+    }
+  }
+
   const SVGWidget = {
-    version: '1.0.0',
+    version: '1.2.0',
 
     generateInstanceId,
 
@@ -450,6 +758,7 @@
     /**
      * Mounts an SVG widget instance into a DOM container element.
      * Supports optional Shadow DOM isolation for total encapsulation.
+     * Returns an authoritative, fully interactive widget instance handle.
      */
     mount(target, rawSvg, options = {}) {
       if (typeof document === 'undefined') {
@@ -464,14 +773,26 @@
         throw new Error(`SVGWidget.mount target container not found: ${target}`);
       }
 
+      // 1. Resolve manifest (options.manifest or embedded script in rawSvg)
+      let manifest = options.manifest;
+      if (!manifest) {
+        manifest = extractManifestFromSVG(rawSvg);
+      }
+      if (!manifest || !Array.isArray(manifest.parameters)) {
+        manifest = { schemaVersion: 1, parameters: [] };
+      }
+
+      // 2. Isolate SVG markup
       const instanceId = options.instanceId || generateInstanceId();
       const details = isolateSVGString(rawSvg, {
         instanceId,
         prefix: options.prefix,
         scopeCss: options.scopeCss !== false,
+        manifest: manifest,
         rawDetails: true
       });
 
+      // 3. Mount in container (Light DOM or Shadow DOM)
       let mountRoot = container;
       let shadowRoot = null;
 
@@ -500,6 +821,39 @@
 
       const svgEl = wrapper.querySelector('svg');
 
+      // 4. Parameter state mapping
+      const paramMap = {};
+      const currentValues = {};
+      for (const p of manifest.parameters) {
+        if (p && p.name) {
+          paramMap[p.name] = p;
+          if (p.default !== undefined) {
+            currentValues[p.name] = p.default;
+          }
+        }
+      }
+
+      // 5. Event system
+      const eventListeners = {};
+
+      // 6. Animation state
+      let isPaused = false;
+      let currentSpeed = 1.0;
+
+      // Ensure global paused CSS helper exists once in document
+      if (typeof document.getElementById === 'function' && !document.getElementById('sva-widget-global-style')) {
+        const styleEl = document.createElement('style');
+        styleEl.id = 'sva-widget-global-style';
+        styleEl.textContent = `
+          .sva-widget-wrapper.sva-paused *,
+          .sva-widget-wrapper.sva-paused {
+            animation-play-state: paused !important;
+          }
+        `;
+        document.head.appendChild(styleEl);
+      }
+
+      // 7. Construct instance handle
       const handle = {
         instanceId: details.instanceId,
         prefix: details.prefix,
@@ -509,14 +863,213 @@
         wrapper: wrapper,
         svgElement: svgEl,
         shadowRoot: shadowRoot,
+        isDestroyed: false,
+
+        // Parameter schema
+        getManifest() {
+          return JSON.parse(JSON.stringify(manifest));
+        },
+
+        getParameter(name) {
+          if (currentValues.hasOwnProperty(name)) {
+            return currentValues[name];
+          }
+          return undefined;
+        },
+
+        getParameters() {
+          return Object.assign({}, currentValues);
+        },
+
+        setParameter(name, value) {
+          const batch = {};
+          batch[name] = value;
+          return handle.setParameters(batch);
+        },
+
+        setParameters(batch) {
+          if (handle.isDestroyed) {
+            throw new Error(`Cannot setParameters on destroyed widget instance '${handle.instanceId}'.`);
+          }
+          if (!batch || typeof batch !== 'object') {
+            throw new Error('setParameters expects a key-value object of parameter names and values.');
+          }
+
+          // Phase 1: Full validation check (atomic)
+          const validatedUpdates = [];
+          for (const [key, val] of Object.entries(batch)) {
+            const paramDef = paramMap[key];
+            if (!paramDef) {
+              throw new Error(`Unknown widget parameter: '${key}'`);
+            }
+            const valRes = validateParameterValue(paramDef, val);
+            if (!valRes.valid) {
+              throw new Error(valRes.error);
+            }
+            const targetEl = resolveTargetElement(svgEl, details.idMap, paramDef.target);
+            if (!targetEl && paramDef.property !== 'speed' && paramDef.property !== 'playbackRate') {
+              throw new Error(`Target element '${paramDef.target}' not found in widget for parameter '${key}'.`);
+            }
+            validatedUpdates.push({ paramDef, targetEl, cleanVal: valRes.value });
+          }
+
+          // Phase 2: Atomic DOM and state application
+          const changed = {};
+          for (const { paramDef, targetEl, cleanVal } of validatedUpdates) {
+            currentValues[paramDef.name] = cleanVal;
+            changed[paramDef.name] = cleanVal;
+            applyPropertyToElement(targetEl, paramDef.property, cleanVal, paramDef, handle);
+          }
+
+          handle._emit('change', { instanceId: handle.instanceId, parameters: changed });
+          handle._emit('parametersChanged', { instanceId: handle.instanceId, parameters: handle.getParameters() });
+          return handle;
+        },
+
+        resetParameters() {
+          const defaults = {};
+          for (const p of manifest.parameters) {
+            if (p.default !== undefined) {
+              defaults[p.name] = p.default;
+            }
+          }
+          return handle.setParameters(defaults);
+        },
+
+        // Animation playback controls
+        play() {
+          if (handle.isDestroyed) return handle;
+          isPaused = false;
+          if (wrapper) wrapper.classList.remove('sva-paused');
+          if (svgEl && typeof svgEl.unpauseAnimations === 'function') {
+            try { svgEl.unpauseAnimations(); } catch (e) {}
+          }
+          if (svgEl && typeof svgEl.getAnimations === 'function') {
+            try {
+              const anims = svgEl.getAnimations({ subtree: true });
+              anims.forEach((a) => { try { a.play(); } catch (err) {} });
+            } catch (e) {}
+          }
+          handle._emit('play', { instanceId: handle.instanceId });
+          return handle;
+        },
+
+        pause() {
+          if (handle.isDestroyed) return handle;
+          isPaused = true;
+          if (wrapper) wrapper.classList.add('sva-paused');
+          if (svgEl && typeof svgEl.pauseAnimations === 'function') {
+            try { svgEl.pauseAnimations(); } catch (e) {}
+          }
+          if (svgEl && typeof svgEl.getAnimations === 'function') {
+            try {
+              const anims = svgEl.getAnimations({ subtree: true });
+              anims.forEach((a) => { try { a.pause(); } catch (err) {} });
+            } catch (e) {}
+          }
+          handle._emit('pause', { instanceId: handle.instanceId });
+          return handle;
+        },
+
+        resume() {
+          return handle.play();
+        },
+
+        stop() {
+          handle.pause();
+          if (svgEl && typeof svgEl.setCurrentTime === 'function') {
+            try { svgEl.setCurrentTime(0); } catch (e) {}
+          }
+          handle._emit('stop', { instanceId: handle.instanceId });
+          return handle;
+        },
+
+        isPaused() {
+          return isPaused;
+        },
+
+        setSpeed(speed) {
+          const rate = Number(speed);
+          if (isNaN(rate) || rate < 0) {
+            throw new Error(`Invalid speed value: ${speed}. Must be a non-negative number.`);
+          }
+          currentSpeed = rate;
+          if (wrapper && wrapper.style && typeof wrapper.style.setProperty === 'function') {
+            wrapper.style.setProperty('--sva-speed', String(rate));
+          }
+          if (svgEl && typeof svgEl.getAnimations === 'function') {
+            try {
+              const anims = svgEl.getAnimations({ subtree: true });
+              anims.forEach((a) => { try { a.playbackRate = rate; } catch (err) {} });
+            } catch (e) {}
+          }
+          handle._emit('speedChange', { instanceId: handle.instanceId, speed: rate });
+          return handle;
+        },
+
+        getSpeed() {
+          return currentSpeed;
+        },
+
+        // Events
+        on(event, callback) {
+          if (typeof callback !== 'function') return handle;
+          if (!eventListeners[event]) eventListeners[event] = [];
+          eventListeners[event].push(callback);
+          return handle;
+        },
+
+        off(event, callback) {
+          if (!eventListeners[event]) return handle;
+          if (!callback) {
+            delete eventListeners[event];
+          } else {
+            eventListeners[event] = eventListeners[event].filter((cb) => cb !== callback);
+          }
+          return handle;
+        },
+
+        _emit(event, data) {
+          if (eventListeners[event]) {
+            eventListeners[event].forEach((cb) => {
+              try { cb(data); } catch (e) { console.error('[SVGWidget listener error]', e); }
+            });
+          }
+        },
+
+        // Unmount & destruction
         unmount() {
           if (wrapper && wrapper.parentNode) {
             wrapper.parentNode.removeChild(wrapper);
           }
+          handle.isDestroyed = true;
+          return handle;
+        },
+
+        destroy() {
+          handle.stop();
+          handle.unmount();
+          handle._emit('destroy', { instanceId: handle.instanceId });
+          for (const k in eventListeners) delete eventListeners[k];
+          return handle;
         }
       };
 
+      // 8. Apply initial parameters if provided in options or manifest defaults
+      const initialParams = Object.assign({}, currentValues, options.parameters || options.initialParameters || {});
+      if (Object.keys(initialParams).length > 0) {
+        try {
+          handle.setParameters(initialParams);
+        } catch (err) {
+          console.warn('[SVGWidget] Failed applying initial parameters on mount:', err);
+        }
+      }
+
       return handle;
+    },
+
+    createInstance(target, rawSvg, options = {}) {
+      return SVGWidget.mount(target, rawSvg, options);
     }
   };
 
@@ -531,150 +1084,422 @@
     <a href="/" style="color: #58a6ff; text-decoration: none; font-weight: 600; font-size: 0.95rem; display: flex; align-items: center; gap: 0.5rem;">
       <span>← Return to SVG Animator Studio Editor</span>
     </a>
-    <span style="color: var(--text-muted); font-size: 0.85rem; font-family: monospace;">Stage 16A Independent Widget Testbench</span>
+    <span style="color: var(--text-muted); font-size: 0.85rem; font-family: monospace;">Stage 16B Runtime Parameters & Control Testbench</span>
   </nav>
 
   <header>
     <h1>
-      <span>📦 Reusable SVG Widgets — Live Multi-Instance Demo</span>
-      <span class="badge">Stage 16A Verified</span>
+      <span>🎛️ Reusable SVG Widgets — External Control API Demo</span>
+      <span class="badge">Stage 16B Active</span>
     </h1>
     <p class="lead">
-      This page demonstrates multiple instances of the same animated SVG diagram running simultaneously with <strong>zero element ID collisions</strong>. All filters, gradients, markers, flow paths, and CSS keyframe animations are isolated per instance.
+      Host applications can control independent SVG Animator widget instances via a safe, typed public API (<code>instance.setParameter</code>, <code>instance.pause</code>, <code>instance.setSpeed</code>). Target elements, colors, animations, and levels are modified per-instance with <strong>zero mutual interference</strong> and zero ID collisions.
     </p>
   </header>
 
   <div class="status-panel">
     <div class="status-indicator">
       <div class="status-dot" id="statusDot"></div>
-      <span id="statusText">Scanning DOM for ID collisions...</span>
+      <span id="statusText">Scanning DOM...</span>
     </div>
     <div class="stats-group">
-      <div>Active Widgets: <strong id="statWidgets">3</strong></div>
-      <div>Total Document IDs: <strong id="statIDs">0</strong></div>
+      <div>Widgets: <strong id="statWidgets">3</strong></div>
+      <div>DOM IDs: <strong id="statIDs">0</strong></div>
       <div>Collisions: <strong id="statCollisions">0</strong></div>
     </div>
-    <div class="controls">
-      <button type="button" class="btn btn-primary" id="btnAddInstance">+ Mount New Instance</button>
-      <button type="button" class="btn" id="btnVerifyDom">Re-Verify Collisions</button>
+    <div class="global-controls">
+      <button type="button" class="btn btn-primary" id="btnPlayAll">▶ Play All</button>
+      <button type="button" class="btn" id="btnPauseAll">⏸ Pause All</button>
+      <button type="button" class="btn" id="btnResetAll">↺ Reset All</button>
+      <button type="button" class="btn" id="btnSimulateTelemetry">⚡ Auto Telemetry: OFF</button>
+      <button type="button" class="btn" id="btnAddInstance">+ Mount New</button>
     </div>
   </div>
 
   <main class="widgets-grid" id="widgetsContainer">
-    <!-- Instances mounted dynamically via JavaScript -->
+    <!-- Controllable widget cards mounted dynamically -->
   </main>
 
+  <section class="log-panel">
+    <div class="log-header">
+      <span>📡 Host Runtime Parameter Event Log</span>
+      <button type="button" class="btn" id="btnClearLog" style="padding: 0.2rem 0.5rem; font-size: 0.72rem;">Clear Log</button>
+    </div>
+    <div class="log-stream" id="logStream"></div>
+  </section>
+
   <script>
-    // Master template SVG scene representing an SVG Animator Studio export
-    const MASTER_SCENE_SVG = `
-<svg xmlns="http://www.w3.org/2000/svg" xmlns:xlink="http://www.w3.org/1999/xlink" viewBox="0 0 800 450" width="800" height="450">
+    // Industrial Barrel / Tank Process SVG with embedded parameter manifest
+    const BARREL_SCENE_SVG = `
+<svg xmlns="http://www.w3.org/2000/svg" xmlns:xlink="http://www.w3.org/1999/xlink" viewBox="0 0 400 240" width="400" height="240">
   <defs>
-    <clipPath id="viewportClip"><rect x="0" y="0" width="800" height="450" /></clipPath>
-    <radialGradient id="glowGrad-1" cx="50%" cy="50%" r="50%">
-      <stop offset="0%" stop-color="#38bdf8" stop-opacity="0.9" />
-      <stop offset="100%" stop-color="#38bdf8" stop-opacity="0" />
+    <radialGradient id="statusGlow" cx="50%" cy="50%" r="50%">
+      <stop offset="0%" stop-color="#22c55e" stop-opacity="0.8" />
+      <stop offset="100%" stop-color="#22c55e" stop-opacity="0" />
     </radialGradient>
-    <filter id="nodeDropShadow" x="-20%" y="-20%" width="140%" height="140%">
-      <feDropShadow dx="0" dy="3" stdDeviation="4" flood-color="#000000" flood-opacity="0.6" />
+    <linearGradient id="tankGrad" x1="0%" y1="0%" x2="100%" y2="0%">
+      <stop offset="0%" stop-color="#1e293b" />
+      <stop offset="50%" stop-color="#334155" />
+      <stop offset="100%" stop-color="#0f172a" />
+    </linearGradient>
+    <linearGradient id="fluidGrad" x1="0%" y1="0%" x2="0%" y2="100%">
+      <stop offset="0%" stop-color="#38bdf8" stop-opacity="0.9" />
+      <stop offset="100%" stop-color="#0284c7" stop-opacity="0.95" />
+    </linearGradient>
+    <filter id="shadowFilter" x="-10%" y="-10%" width="120%" height="120%">
+      <feDropShadow dx="0" dy="4" stdDeviation="4" flood-color="#000000" flood-opacity="0.5"/>
     </filter>
-    <filter id="flowBlur-1" filterUnits="userSpaceOnUse" x="-20%" y="-20%" width="140%" height="140%">
-      <feGaussianBlur stdDeviation="1.5" />
-    </filter>
-    <marker id="flowArrow-1" viewBox="0 0 10 10" refX="7" refY="5" markerWidth="6" markerHeight="6" orient="auto-start-reverse">
-      <path d="M 0 1.5 L 9 5 L 0 8.5 z" fill="#38bdf8" />
-    </marker>
-    <pattern id="bgGrid" width="30" height="30" patternUnits="userSpaceOnUse">
-      <path d="M 30 0 L 0 0 0 30" fill="none" stroke="#1f2937" stroke-width="0.75" />
-    </pattern>
+    <clipPath id="barrelClip">
+      <rect x="60" y="30" width="160" height="180" rx="14" />
+    </clipPath>
   </defs>
   <style>
-    .camera-rig {
-      transform-origin: 0px 0px;
-      animation: camKenBurns 6s cubic-bezier(0.42, 0, 0.58, 1) infinite alternate;
+    .fluid-wave {
+      animation: waveFlow 4s ease-in-out infinite alternate;
     }
-    @keyframes camKenBurns {
-      0%   { transform: translate3d(0px, 0px, 0px) scale(1.0); }
-      100% { transform: translate3d(-15px, -10px, 0px) scale(1.04); }
+    @keyframes waveFlow {
+      0%   { transform: translateY(0px) skewX(0deg); }
+      100% { transform: translateY(6px) skewX(2deg); }
+    }
+    .impeller {
+      transform-origin: 320px 120px;
+      animation: spinImpeller 2s linear infinite;
+    }
+    @keyframes spinImpeller {
+      from { transform: rotate(0deg); }
+      to   { transform: rotate(360deg); }
+    }
+    .beacon-pulse {
+      animation: beaconAnim 1.5s ease-in-out infinite alternate;
+    }
+    @keyframes beaconAnim {
+      0%   { opacity: 0.3; transform: scale(0.9); }
+      100% { opacity: 1.0; transform: scale(1.1); }
     }
   </style>
-  <rect width="800" height="450" fill="url(#bgGrid)" clip-path="url(#viewportClip)" />
-  <circle cx="400" cy="225" r="160" fill="url(#glowGrad-1)" />
-  <g class="camera-rig">
-    <g id="scene-layers">
-      <path id="flowPath-1" d="M 160 225 C 280 120 520 330 640 225" fill="none" stroke="#38bdf8" stroke-width="3" stroke-dasharray="6,4" marker-end="url(#flowArrow-1)" opacity="0.85">
-        <animate attributeName="stroke-dashoffset" from="40" to="0" dur="1.2s" repeatCount="indefinite" />
-      </path>
-      <g class="flow-payload">
-        <circle r="6" fill="#f43f5e" filter="url(#flowBlur-1)">
-          <animateMotion dur="2.4s" repeatCount="indefinite" rotate="auto">
-            <mpath href="#flowPath-1" xlink:href="#flowPath-1" />
-          </animateMotion>
-        </circle>
-      </g>
-      <g data-node-id="1" transform="translate(160, 225)" filter="url(#nodeDropShadow)">
-        <rect x="-60" y="-30" width="120" height="60" rx="8" fill="#1e293b" stroke="#38bdf8" stroke-width="2" />
-        <text y="4" fill="#ffffff" font-family="sans-serif" font-size="12" font-weight="bold" text-anchor="middle">Source #Node 1</text>
-      </g>
-      <g data-node-id="2" transform="translate(640, 225)" filter="url(#nodeDropShadow)">
-        <rect x="-60" y="-30" width="120" height="60" rx="8" fill="#1e293b" stroke="#10b981" stroke-width="2" />
-        <text y="4" fill="#ffffff" font-family="sans-serif" font-size="12" font-weight="bold" text-anchor="middle">Target #Node 2</text>
-      </g>
-      <image id="img-logo" href="data:image/png;base64,iVBORw0KGgoAAAANSUhEUgAAAAEAAAABCAYAAAAfFcSJAAAADUlEQVR42mP8z8BQDwAEhQGAhKmMIQAAAABJRU5ErkJggg==" x="390" y="215" width="20" height="20" />
+
+  <!-- Background grid pattern -->
+  <rect width="400" height="240" fill="#090d13" />
+
+  <!-- Tank Vessel -->
+  <g id="tankVessel" filter="url(#shadowFilter)">
+    <rect x="60" y="30" width="160" height="180" rx="14" fill="url(#tankGrad)" stroke="#475569" stroke-width="2" />
+    <!-- Tank Fluid Layer (clipped) -->
+    <g clip-path="url(#barrelClip)">
+      <rect id="fluidLevel" x="60" y="90" width="160" height="120" fill="url(#fluidGrad)" class="fluid-wave" />
     </g>
+    <!-- Measurement Ribs -->
+    <line x1="60" y1="75" x2="80" y2="75" stroke="#94a3b8" stroke-width="1.5" opacity="0.6"/>
+    <line x1="60" y1="120" x2="85" y2="120" stroke="#94a3b8" stroke-width="2" opacity="0.8"/>
+    <line x1="60" y1="165" x2="80" y2="165" stroke="#94a3b8" stroke-width="1.5" opacity="0.6"/>
   </g>
+
+  <!-- Agitator / Impeller (Rotating) -->
+  <g id="impellerRig" class="impeller">
+    <circle cx="320" cy="120" r="32" fill="#1e293b" stroke="#64748b" stroke-width="2" />
+    <path d="M 320 90 L 320 150 M 290 120 L 350 120" stroke="#38bdf8" stroke-width="4" stroke-linecap="round"/>
+    <circle cx="320" cy="120" r="8" fill="#38bdf8" />
+  </g>
+
+  <!-- Connective Pipe -->
+  <path d="M 220 120 L 288 120" stroke="#475569" stroke-width="8" stroke-linecap="round" fill="none" />
+  <path d="M 220 120 L 288 120" stroke="#38bdf8" stroke-width="2" stroke-dasharray="4,4" fill="none" opacity="0.7"/>
+
+  <!-- Status Beacon & Indicator -->
+  <g id="alarmBeacon" transform="translate(140, 30)">
+    <circle cx="0" cy="0" r="22" fill="url(#statusGlow)" class="beacon-pulse" />
+    <circle id="statusDot" cx="0" cy="0" r="7" fill="#22c55e" stroke="#ffffff" stroke-width="1.5" />
+  </g>
+
+  <!-- Target Badge & Text Elements -->
+  <rect id="statusBadge" x="250" y="170" width="130" height="34" rx="6" fill="#1e293b" stroke="#22c55e" stroke-width="2" />
+  <text id="statusLabel" x="315" y="191" fill="#f0f6fc" font-family="sans-serif" font-size="10" font-weight="bold" text-anchor="middle">ONLINE</text>
+
+  <!-- Embedded Stage 16B Parameter Manifest -->
+  <script type="application/json" id="sva-widget-manifest">
+  {
+    "schemaVersion": 1,
+    "parameters": [
+      {
+        "name": "operatingState",
+        "type": "enum",
+        "default": "running",
+        "target": "root",
+        "property": "state",
+        "options": ["running", "paused", "stopped", "alarm"],
+        "description": "Operating lifecycle state of the tank unit"
+      },
+      {
+        "name": "statusColor",
+        "type": "color",
+        "default": "#22c55e",
+        "target": "statusDot",
+        "property": "fill",
+        "description": "LED beacon and indicator accent color"
+      },
+      {
+        "name": "fillLevel",
+        "type": "number",
+        "default": 65,
+        "target": "fluidLevel",
+        "property": "height",
+        "min": 0,
+        "max": 180,
+        "description": "Tank fluid volume height in pixels"
+      },
+      {
+        "name": "speed",
+        "type": "speed",
+        "default": 1.0,
+        "target": "root",
+        "property": "playbackRate",
+        "min": 0.1,
+        "max": 4.0,
+        "description": "Animation playback speed rate"
+      },
+      {
+        "name": "statusText",
+        "type": "text",
+        "default": "RUNNING",
+        "target": "statusLabel",
+        "property": "textContent",
+        "description": "Status text displayed on the front panel badge"
+      },
+      {
+        "name": "beaconVisible",
+        "type": "boolean",
+        "default": true,
+        "target": "alarmBeacon",
+        "property": "visibility",
+        "description": "Top warning beacon visibility toggle"
+      }
+    ]
+  }
+  </script>
 </svg>`.trim();
 
-    const instances = [];
+    const widgetInstances = [];
+    let telemetryTimer = null;
 
-    function mountWidgetCard(instanceName, prefix) {
+    function logEvent(instId, param, val) {
+      const stream = document.getElementById('logStream');
+      const row = document.createElement('div');
+      row.className = 'log-entry';
+      const timeStr = new Date().toISOString().substring(11, 19);
+      row.innerHTML = `<span class="ts">[${timeStr}]</span> <span class="inst">${instId}</span> ──► <span class="param">${param}</span>: <code>${JSON.stringify(val)}</code>`;
+      stream.appendChild(row);
+      stream.scrollTop = stream.scrollHeight;
+    }
+
+    function mountControllableWidget(config) {
       const container = document.getElementById('widgetsContainer');
       const card = document.createElement('div');
       card.className = 'widget-card';
-      card.id = 'card-' + instanceName;
+      card.id = 'card-' + config.instanceId;
 
-      card.innerHTML = \`
+      card.innerHTML = `
         <div class="widget-header">
           <span class="widget-title">
-            <span>📦 \${instanceName}</span>
-            <span class="widget-prefix-badge">\${prefix}</span>
+            <span>⚙️ ${config.name}</span>
+            <span class="widget-prefix-badge">${config.prefix}</span>
           </span>
-          <button type="button" class="btn btn-unmount" data-inst="\${instanceName}">✕ Unmount</button>
+          <button type="button" class="btn btn-danger btn-unmount" style="padding: 0.2rem 0.5rem; font-size: 0.72rem;">✕ Destroy</button>
         </div>
-        <div class="widget-stage" id="mount-\${instanceName}"></div>
-        <div class="widget-meta">
-          <div>Scoped Element IDs:</div>
-          <div class="id-tag-list" id="tags-\${instanceName}"></div>
+        <div class="widget-stage" id="mount-${config.instanceId}"></div>
+        <div class="control-deck">
+          <div class="control-row">
+            <label class="control-label">State</label>
+            <select class="control-input ctrl-state">
+              <option value="running">running</option>
+              <option value="paused">paused</option>
+              <option value="stopped">stopped</option>
+              <option value="alarm">alarm</option>
+            </select>
+          </div>
+          <div class="control-row">
+            <label class="control-label">Status Color</label>
+            <div class="control-input-color-row">
+              <input type="color" class="color-picker ctrl-color" value="${config.initialColor || '#22c55e'}">
+              <input type="text" class="control-input ctrl-color-text" value="${config.initialColor || '#22c55e'}" style="font-family: monospace;">
+            </div>
+          </div>
+          <div class="control-row">
+            <label class="control-label">Speed: <span class="speed-val">1.0x</span></label>
+            <input type="range" class="ctrl-speed" min="0.1" max="3.0" step="0.1" value="${config.initialSpeed || 1.0}">
+          </div>
+          <div class="control-row">
+            <label class="control-label">Fill Height: <span class="fill-val">65px</span></label>
+            <input type="range" class="ctrl-fill" min="0" max="180" step="1" value="${config.initialFill || 65}">
+          </div>
+          <div class="control-row full-width">
+            <label class="control-label">Panel Badge Label</label>
+            <input type="text" class="control-input ctrl-text" value="${config.initialText || 'ONLINE'}">
+          </div>
+          <div class="control-row full-width">
+            <div class="btn-group">
+              <button type="button" class="btn btn-play">▶ Play</button>
+              <button type="button" class="btn btn-pause">⏸ Pause</button>
+              <button type="button" class="btn btn-reset">↺ Reset</button>
+              <button type="button" class="btn btn-beacon">💡 Beacon</button>
+            </div>
+          </div>
         </div>
-      \`;
+        <div class="widget-footer">
+          <span>Active Parameters: <strong class="param-count">6</strong></span>
+          <span class="status-summary" style="font-family: monospace; font-size: 0.72rem;">Ready</span>
+        </div>
+      `;
       container.appendChild(card);
 
-      // Mount widget using SVGWidget library
-      const mountTarget = card.querySelector('#mount-' + instanceName);
-      const widgetHandle = window.SVGWidget.mount(mountTarget, MASTER_SCENE_SVG, {
-        instanceId: instanceName,
-        prefix: prefix,
+      // Mount widget with SVGWidget library
+      const mountEl = card.querySelector('#mount-' + config.instanceId);
+      const widget = window.SVGWidget.mount(mountEl, BARREL_SCENE_SVG, {
+        instanceId: config.instanceId,
+        prefix: config.prefix,
         scopeCss: true
       });
 
-      // Display mapped IDs
-      const tagList = card.querySelector('#tags-' + instanceName);
-      for (const [oldId, newId] of Object.entries(widgetHandle.idMap)) {
-        const tag = document.createElement('span');
-        tag.className = 'id-tag';
-        tag.textContent = newId;
-        tagList.appendChild(tag);
+      // Hook up UI inputs
+      const stateSelect = card.querySelector('.ctrl-state');
+      const colorPicker = card.querySelector('.ctrl-color');
+      const colorText = card.querySelector('.ctrl-color-text');
+      const speedSlider = card.querySelector('.ctrl-speed');
+      const speedVal = card.querySelector('.speed-val');
+      const fillSlider = card.querySelector('.ctrl-fill');
+      const fillVal = card.querySelector('.fill-val');
+      const labelInput = card.querySelector('.ctrl-text');
+      const summaryText = card.querySelector('.status-summary');
+
+      // Set initial values on widget
+      if (config.initialState) {
+        stateSelect.value = config.initialState;
+        widget.setParameter('operatingState', config.initialState);
+      }
+      if (config.initialColor) {
+        widget.setParameter('statusColor', config.initialColor);
+      }
+      if (config.initialSpeed != null) {
+        speedSlider.value = config.initialSpeed;
+        speedVal.textContent = config.initialSpeed.toFixed(1) + 'x';
+        widget.setParameter('speed', config.initialSpeed);
+      }
+      if (config.initialFill != null) {
+        fillSlider.value = config.initialFill;
+        fillVal.textContent = config.initialFill + 'px';
+        widget.setParameter('fillLevel', config.initialFill);
+      }
+      if (config.initialText) {
+        widget.setParameter('statusText', config.initialText);
       }
 
-      card.querySelector('.btn-unmount').addEventListener('click', () => {
-        widgetHandle.unmount();
-        card.remove();
-        const idx = instances.indexOf(widgetHandle);
-        if (idx !== -1) instances.splice(idx, 1);
-        verifyDOMCollisions();
+      // Event listeners for card controls
+      stateSelect.addEventListener('change', () => {
+        const val = stateSelect.value;
+        widget.setParameter('operatingState', val);
+        if (val === 'alarm') {
+          colorPicker.value = '#ef4444';
+          colorText.value = '#ef4444';
+          widget.setParameter('statusColor', '#ef4444');
+        } else if (val === 'paused' || val === 'stopped') {
+          colorPicker.value = '#f59e0b';
+          colorText.value = '#f59e0b';
+          widget.setParameter('statusColor', '#f59e0b');
+        } else if (val === 'running') {
+          colorPicker.value = '#22c55e';
+          colorText.value = '#22c55e';
+          widget.setParameter('statusColor', '#22c55e');
+        }
+        logEvent(config.instanceId, 'operatingState', val);
       });
 
-      instances.push(widgetHandle);
+      colorPicker.addEventListener('input', () => {
+        colorText.value = colorPicker.value;
+        widget.setParameter('statusColor', colorPicker.value);
+        logEvent(config.instanceId, 'statusColor', colorPicker.value);
+      });
+
+      colorText.addEventListener('change', () => {
+        try {
+          widget.setParameter('statusColor', colorText.value);
+          colorPicker.value = colorText.value;
+          logEvent(config.instanceId, 'statusColor', colorText.value);
+        } catch (e) {
+          alert(e.message);
+          colorText.value = colorPicker.value;
+        }
+      });
+
+      speedSlider.addEventListener('input', () => {
+        const rate = parseFloat(speedSlider.value);
+        speedVal.textContent = rate.toFixed(1) + 'x';
+        widget.setParameter('speed', rate);
+        logEvent(config.instanceId, 'speed', rate);
+      });
+
+      fillSlider.addEventListener('input', () => {
+        const val = parseInt(fillSlider.value, 10);
+        fillVal.textContent = val + 'px';
+        widget.setParameter('fillLevel', val);
+        logEvent(config.instanceId, 'fillLevel', val);
+      });
+
+      labelInput.addEventListener('input', () => {
+        widget.setParameter('statusText', labelInput.value);
+        logEvent(config.instanceId, 'statusText', labelInput.value);
+      });
+
+      card.querySelector('.btn-play').addEventListener('click', () => {
+        widget.play();
+        stateSelect.value = 'running';
+        widget.setParameter('operatingState', 'running');
+        logEvent(config.instanceId, 'action', 'play');
+      });
+
+      card.querySelector('.btn-pause').addEventListener('click', () => {
+        widget.pause();
+        stateSelect.value = 'paused';
+        widget.setParameter('operatingState', 'paused');
+        logEvent(config.instanceId, 'action', 'pause');
+      });
+
+      card.querySelector('.btn-reset').addEventListener('click', () => {
+        widget.resetParameters();
+        const p = widget.getParameters();
+        stateSelect.value = p.operatingState || 'running';
+        colorPicker.value = p.statusColor || '#22c55e';
+        colorText.value = colorPicker.value;
+        speedSlider.value = p.speed || 1.0;
+        speedVal.textContent = speedSlider.value + 'x';
+        fillSlider.value = p.fillLevel || 65;
+        fillVal.textContent = fillSlider.value + 'px';
+        labelInput.value = p.statusText || 'RUNNING';
+        logEvent(config.instanceId, 'action', 'resetParameters');
+      });
+
+      let beaconOn = true;
+      card.querySelector('.btn-beacon').addEventListener('click', () => {
+        beaconOn = !beaconOn;
+        widget.setParameter('beaconVisible', beaconOn);
+        logEvent(config.instanceId, 'beaconVisible', beaconOn);
+      });
+
+      card.querySelector('.btn-unmount').addEventListener('click', () => {
+        widget.destroy();
+        card.remove();
+        const idx = widgetInstances.indexOf(widget);
+        if (idx !== -1) widgetInstances.splice(idx, 1);
+        verifyDOMCollisions();
+        logEvent(config.instanceId, 'lifecycle', 'destroyed');
+      });
+
+      // Listen for parameter change events emitted by widget handle
+      widget.on('change', (evt) => {
+        summaryText.textContent = `Updated: ${Object.keys(evt.parameters).join(', ')}`;
+      });
+
+      widgetInstances.push(widget);
       verifyDOMCollisions();
+      return widget;
     }
 
     function verifyDOMCollisions() {
@@ -690,7 +1515,7 @@
         if (c === 1) collisions += 1;
       });
 
-      document.getElementById('statWidgets').textContent = instances.length;
+      document.getElementById('statWidgets').textContent = widgetInstances.length;
       document.getElementById('statIDs').textContent = allElementsWithId.length;
       document.getElementById('statCollisions').textContent = collisions;
 
@@ -701,29 +1526,115 @@
         dot.style.background = 'var(--success)';
         dot.style.boxShadow = '0 0 10px var(--success)';
         text.style.color = 'var(--success)';
-        text.textContent = \`✓ Zero ID Collisions (\${allElementsWithId.length} unique DOM elements across \${instances.length} active instances)\`;
+        text.textContent = `✓ 0 ID Collisions (${allElementsWithId.length} DOM elements across ${widgetInstances.length} widgets)`;
       } else {
-        dot.style.background = '#f85149';
-        dot.style.boxShadow = '0 0 10px #f85149';
-        text.style.color = '#f85149';
-        text.textContent = \`⚠ Collision Alert: \${collisions} duplicate IDs found in document!\`;
+        dot.style.background = 'var(--danger)';
+        dot.style.boxShadow = '0 0 10px var(--danger)';
+        text.style.color = 'var(--danger)';
+        text.textContent = `⚠ Collision Alert: ${collisions} duplicate IDs found!`;
       }
     }
 
     document.addEventListener('DOMContentLoaded', () => {
-      // Mount 3 initial instances
-      mountWidgetCard('Widget-Alpha', 'inst_alpha__');
-      mountWidgetCard('Widget-Beta', 'inst_beta__');
-      mountWidgetCard('Widget-Gamma', 'inst_gamma__');
-
-      document.getElementById('btnAddInstance').addEventListener('click', () => {
-        const num = instances.length + 1;
-        const name = 'Widget-Instance-' + num;
-        mountWidgetCard(name, \`inst_\${num}__\`);
+      // 1. Mount 3 distinct instances matching user's canonical multi-state scenario
+      mountControllableWidget({
+        name: 'Barrel A (Primary Process)',
+        instanceId: 'barrel-a',
+        prefix: 'barrel_a__',
+        initialState: 'running',
+        initialColor: '#22c55e',
+        initialSpeed: 1.0,
+        initialFill: 120,
+        initialText: 'P-1: RUNNING'
       });
 
-      document.getElementById('btnVerifyDom').addEventListener('click', () => {
-        verifyDOMCollisions();
+      mountControllableWidget({
+        name: 'Barrel B (Maintenance Standby)',
+        instanceId: 'barrel-b',
+        prefix: 'barrel_b__',
+        initialState: 'paused',
+        initialColor: '#f59e0b',
+        initialSpeed: 0.5,
+        initialFill: 45,
+        initialText: 'P-2: STANDBY'
+      });
+
+      mountControllableWidget({
+        name: 'Barrel C (Emergency Surge)',
+        instanceId: 'barrel-c',
+        prefix: 'barrel_c__',
+        initialState: 'alarm',
+        initialColor: '#ef4444',
+        initialSpeed: 2.0,
+        initialFill: 165,
+        initialText: 'P-3: ALARM'
+      });
+
+      // 2. Global controls
+      document.getElementById('btnPlayAll').addEventListener('click', () => {
+        widgetInstances.forEach((w) => w.play());
+        logEvent('HOST_ALL', 'action', 'playAll');
+      });
+
+      document.getElementById('btnPauseAll').addEventListener('click', () => {
+        widgetInstances.forEach((w) => w.pause());
+        logEvent('HOST_ALL', 'action', 'pauseAll');
+      });
+
+      document.getElementById('btnResetAll').addEventListener('click', () => {
+        widgetInstances.forEach((w) => w.resetParameters());
+        logEvent('HOST_ALL', 'action', 'resetAll');
+      });
+
+      // 3. Telemetry Simulation Toggle
+      let telemetryActive = false;
+      const teleBtn = document.getElementById('btnSimulateTelemetry');
+      teleBtn.addEventListener('click', () => {
+        telemetryActive = !telemetryActive;
+        if (telemetryActive) {
+          teleBtn.textContent = '⚡ Auto Telemetry: ON';
+          teleBtn.classList.add('btn-primary');
+          telemetryTimer = setInterval(() => {
+            widgetInstances.forEach((w, idx) => {
+              const currentFill = w.getParameter('fillLevel') || 60;
+              const delta = (Math.random() * 20 - 10);
+              const newFill = Math.max(10, Math.min(170, Math.round(currentFill + delta)));
+              w.setParameter('fillLevel', newFill);
+              // Update slider if present
+              const card = document.getElementById('card-' + w.instanceId);
+              if (card) {
+                const s = card.querySelector('.ctrl-fill');
+                const v = card.querySelector('.fill-val');
+                if (s) s.value = newFill;
+                if (v) v.textContent = newFill + 'px';
+              }
+              logEvent(w.instanceId, 'fillLevel (telemetry)', newFill);
+            });
+          }, 1500);
+        } else {
+          teleBtn.textContent = '⚡ Auto Telemetry: OFF';
+          teleBtn.classList.remove('btn-primary');
+          if (telemetryTimer) clearInterval(telemetryTimer);
+          telemetryTimer = null;
+        }
+      });
+
+      document.getElementById('btnAddInstance').addEventListener('click', () => {
+        const id = 'barrel-' + (widgetInstances.length + 1);
+        mountControllableWidget({
+          name: `Barrel ${String.fromCharCode(65 + widgetInstances.length)} (Unit #${widgetInstances.length + 1})`,
+          instanceId: id,
+          prefix: id.replace('-', '_') + '__',
+          initialState: 'running',
+          initialColor: '#38bdf8',
+          initialSpeed: 1.0,
+          initialFill: Math.floor(Math.random() * 120 + 30),
+          initialText: 'NEW UNIT'
+        });
+      });
+
+      document.getElementById('btnClearLog').addEventListener('click', () => {
+        document.getElementById('logStream').innerHTML = '';
       });
     });
   </script>

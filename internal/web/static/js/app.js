@@ -3612,10 +3612,17 @@ document.addEventListener('DOMContentLoaded', () => {
       if (!currentImage || !window.currentRenderState) return;
       const rawSvg = getExportSVG();
       const instanceId = 'widget-' + (Date.now() % 1000000);
+      let manifest = null;
+      if (window.EngineBridge && typeof window.EngineBridge.getWidgetParameters === 'function') {
+        const params = window.EngineBridge.getWidgetParameters();
+        if (Array.isArray(params) && params.length > 0) {
+          manifest = { schemaVersion: 1, parameters: params };
+        }
+      }
       const isolatedSvg = (window.SVGExportAdapter && typeof window.SVGExportAdapter.isolateWidget === 'function')
-        ? window.SVGExportAdapter.isolateWidget(rawSvg, instanceId, { scopeCss: true })
+        ? window.SVGExportAdapter.isolateWidget(rawSvg, instanceId, { scopeCss: true, manifest })
         : (window.SVGWidget && typeof window.SVGWidget.isolate === 'function')
-          ? window.SVGWidget.isolate(rawSvg, { instanceId, scopeCss: true })
+          ? window.SVGWidget.isolate(rawSvg, { instanceId, scopeCss: true, manifest })
           : rawSvg;
 
       const blob = new Blob([isolatedSvg], { type: 'image/svg+xml;charset=utf-8' });

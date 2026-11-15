@@ -413,6 +413,25 @@ type BackgroundConfig struct {
 	ActiveCropVersionID string                  `json:"activeCropVersionId,omitempty"`
 }
 
+// WidgetParameter defines an externally controllable runtime parameter for a widget.
+type WidgetParameter struct {
+	Name        string   `json:"name"`
+	Type        string   `json:"type"` // "color", "number", "boolean", "text", "enum", "speed"
+	Default     any      `json:"default"`
+	Target      string   `json:"target"`   // Semantic target ID (e.g. "node-1", "flow-1", "status-indicator")
+	Property    string   `json:"property"` // "fill", "stroke", "visibility", "opacity", "text", "playbackRate", "state"
+	Min         *float64 `json:"min,omitempty"`
+	Max         *float64 `json:"max,omitempty"`
+	Options     []string `json:"options,omitempty"` // Permitted enum values
+	Description string   `json:"description,omitempty"`
+}
+
+// WidgetManifest describes the external parameter schema of an exported widget.
+type WidgetManifest struct {
+	SchemaVersion int               `json:"schemaVersion"`
+	Parameters    []WidgetParameter `json:"parameters"`
+}
+
 // Snapshot is a serialized snapshot of the scene for import/export across boundaries.
 type Snapshot struct {
 	Revision      int64             `json:"revision"`
@@ -431,4 +450,5 @@ type Snapshot struct {
 	Images        []Image           `json:"images"`
 	ImagesCounter int64             `json:"imagesCounter,omitempty"`
 	Layers        []LayerEntry      `json:"layers,omitempty"`
+	Parameters    []WidgetParameter `json:"parameters,omitempty"`
 }

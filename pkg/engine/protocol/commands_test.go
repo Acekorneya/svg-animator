@@ -3287,3 +3287,105 @@ func TestDispatchWidgetIsolateSVG(t *testing.T) {
 		t.Errorf("expected @keyframes to be renamed")
 	}
 }
+
+func TestDispatchWidgetParameters(t *testing.T) {
+	// 1. Initially empty
+	getBytes, err := Dispatch("Widget.GetParameters", nil)
+	if err != nil {
+		t.Fatalf("Widget.GetParameters dispatch failed: %v", err)
+	}
+	var getRes WidgetParametersResponse
+	if err := json.Unmarshal(getBytes, &getRes); err != nil || !getRes.Success {
+		t.Fatalf("Widget.GetParameters response failed: %+v", getRes)
+	}
+
+	// 2. SetParameters
+	minVal := 0.0
+	maxVal := 100.0
+	params := []scene.WidgetParameter{
+		{
+			Name:     "statusColor",
+			Type:     "color",
+			Default:  "#22c55e",
+			Target:   "node-1",
+			Property: "fill",
+		},
+		{
+			Name:     "operatingState",
+			Type:     "enum",
+			Default:  "running",
+			Target:   "node-1",
+			Property: "state",
+			Options:  []string{"running", "paused", "stopped", "alarm"},
+		},
+		{
+			Name:     "fillLevel",
+			Type:     "number",
+			Default:  50.0,
+			Target:   "node-1",
+			Property: "opacity",
+			Min:      &minVal,
+			Max:      &maxVal,
+		},
+	}
+	setReq, _ := json.Marshal(WidgetSetParametersRequest{Parameters: params})
+	setBytes, err := Dispatch("Widget.SetParameters", setReq)
+	if err != nil {
+		t.Fatalf("Widget.SetParameters dispatch failed: %v", err)
+	}
+	var setRes WidgetParametersResponse
+	if err := json.Unmarshal(setBytes, &setRes); err != nil || !setRes.Success || len(setRes.Parameters) != 3 {
+		t.Fatalf("Widget.SetParameters response mismatch: %+v", setRes)
+	}
+
+	// 3. AddParameter
+	addReq, _ := json.Marshal(WidgetAddParameterRequest{
+		Parameter: scene.WidgetParameter{
+			Name:     "speed",
+			Type:     "speed",
+			Default:  1.0,
+			Target:   "root",
+			Property: "playbackRate",
+		},
+	})
+	addBytes, err := Dispatch("Widget.AddParameter", addReq)
+	if err != nil {
+		t.Fatalf("Widget.AddParameter failed: %v", err)
+	}
+	var addRes WidgetParametersResponse
+	if err := json.Unmarshal(addBytes, &addRes); err != nil || !addRes.Success || len(addRes.Parameters) != 4 {
+		t.Fatalf("Widget.AddParameter response mismatch: %+v", addRes)
+	}
+
+	// 4. RemoveParameter
+	remReq, _ := json.Marshal(WidgetRemoveParameterRequest{Name: "fillLevel"})
+	remBytes, err := Dispatch("Widget.RemoveParameter", remReq)
+	if err != nil {
+		t.Fatalf("Widget.RemoveParameter failed: %v", err)
+	}
+	var remRes WidgetParametersResponse
+	if err := json.Unmarshal(remBytes, &remRes); err != nil || !remRes.Success || len(remRes.Parameters) != 3 {
+		t.Fatalf("Widget.RemoveParameter response mismatch: %+v", remRes)
+	}
+
+	// 5. Widget.IsolateSVG automatically injects active scene manifest
+	rawSVG := `<svg width="200" height="200"><rect id="node-1" fill="#00ff00"/></svg>`
+	isoReq, _ := json.Marshal(IsolateSVGWidgetRequest{
+		SVG:        rawSVG,
+		InstanceID: "w-auto-test",
+	})
+	isoBytes, err := Dispatch("Widget.IsolateSVG", isoReq)
+	if err != nil {
+		t.Fatalf("Widget.IsolateSVG failed: %v", err)
+	}
+	var isoRes IsolateSVGWidgetResponse
+	if err := json.Unmarshal(isoBytes, &isoRes); err != nil || !isoRes.Success {
+		t.Fatalf("Widget.IsolateSVG response mismatch: %+v", isoRes)
+	}
+	if !strings.Contains(isoRes.IsolatedSVG, `<script type="application/json" id="sva-widget-manifest">`) {
+		t.Errorf("expected auto manifest injection into isolated SVG")
+	}
+	if !strings.Contains(isoRes.IsolatedSVG, `"statusColor"`) {
+		t.Errorf("expected statusColor in isolated SVG manifest")
+	}
+}

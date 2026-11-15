@@ -2143,17 +2143,53 @@
       return null;
     },
 
-    isolateSVGWidget(rawSvg, instanceId = '', prefix = '', scopeCss = true) {
+    isolateSVGWidget(rawSvg, instanceId = '', prefix = '', scopeCss = true, manifest = null) {
       if (this.isReady() && rawSvg) {
-        const res = this.dispatch('Widget.IsolateSVG', {
+        const payload = {
           svg: String(rawSvg),
           instanceId: String(instanceId || ''),
           prefix: String(prefix || ''),
           scopeCss: Boolean(scopeCss)
-        });
+        };
+        if (manifest && typeof manifest === 'object') {
+          payload.manifest = manifest;
+        }
+        const res = this.dispatch('Widget.IsolateSVG', payload);
         if (res && res.success) return res;
       }
       return null;
+    },
+
+    getWidgetParameters() {
+      if (this.isReady()) {
+        const res = this.dispatch('Widget.GetParameters', {});
+        if (res && res.success) return res.parameters || [];
+      }
+      return [];
+    },
+
+    setWidgetParameters(parameters = []) {
+      if (this.isReady()) {
+        const res = this.dispatch('Widget.SetParameters', { parameters: Array.isArray(parameters) ? parameters : [] });
+        if (res && res.success) return res.parameters || [];
+      }
+      return [];
+    },
+
+    addWidgetParameter(parameter) {
+      if (this.isReady() && parameter) {
+        const res = this.dispatch('Widget.AddParameter', { parameter });
+        if (res && res.success) return res.parameters || [];
+      }
+      return [];
+    },
+
+    removeWidgetParameter(name) {
+      if (this.isReady() && name) {
+        const res = this.dispatch('Widget.RemoveParameter', { name: String(name) });
+        if (res && res.success) return true;
+      }
+      return false;
     },
 
     getActiveEngineName() {
@@ -2478,6 +2514,22 @@
         id: String(l.id || '')
       }));
 
+      const rawParams = Array.isArray(raw.parameters) ? raw.parameters : [];
+      const parameters = rawParams.map((p) => {
+        const item = {
+          name: String(p.name || ''),
+          type: String(p.type || 'text'),
+          default: p.default,
+          target: String(p.target || ''),
+          property: String(p.property || '')
+        };
+        if (typeof p.min === 'number') item.min = p.min;
+        if (typeof p.max === 'number') item.max = p.max;
+        if (Array.isArray(p.options)) item.options = p.options.map(String);
+        if (p.description != null) item.description = String(p.description);
+        return item;
+      });
+
       return {
         revision: Number(raw.revision) || Date.now(),
         canvas: {
@@ -2519,7 +2571,8 @@
         groupsCounter: groupsCounter,
         images: images,
         imagesCounter: imagesCounter,
-        layers: layers
+        layers: layers,
+        parameters: parameters
       };
     },
 
@@ -2570,6 +2623,11 @@
         ? window.LayerManager.list
         : [];
 
+      let parameters = [];
+      if (this.isReady()) {
+        parameters = this.getWidgetParameters() || [];
+      }
+
       return this.normalizeSceneSnapshot({
         revision: Date.now(),
         canvas: {
@@ -2591,7 +2649,8 @@
         groupsCounter: groupsCounter,
         images: images,
         imagesCounter: imagesCounter,
-        layers: layers
+        layers: layers,
+        parameters: parameters
       });
     },
 

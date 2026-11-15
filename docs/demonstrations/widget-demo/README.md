@@ -1,29 +1,17 @@
-# SVG Animator Studio — Stage 16A Offline Widget Demo Package
+# SVG Animator Studio — Stage 16B Interactive Widget Demonstration
 
-This package contains everything needed to run and inspect the **Stage 16A Reusable, Collision-Free SVG Widgets** offline in any browser without needing a running web server, build tools, or an active internet connection.
+This offline package demonstrates **Stage 16B: External Widget Controls, Runtime Parameters and Independent Host Integration**.
 
----
+## Contents
 
-## Files Included
+- `standalone-demo.html`: Single-file zero-dependency self-contained runner with inlined `SVGWidget` library and 3 interactive process barrels. Open directly in Chrome, Firefox, Safari, or Edge (`file://` or HTTP).
+- `index.html`: Multi-file demonstration linking to `./js/svg-widget.js`.
+- `js/svg-widget.js`: Standalone universal UMD library (`SVGWidget.mount`, `isolate`, `setParameter`, `setSpeed`, etc.).
 
-1. **`standalone-demo.html`** *(Recommended)*
-   - **100% Single-File & Self-Contained.**
-   - Inlines the full `svg-widget.js` runtime library.
-   - Simply double-click to open in Chrome, Firefox, Safari, Edge, or any modern browser via `file://`.
-   - No local web server required.
+## Key Capabilities Demonstrated
 
-2. **`index.html`**
-   - The modular HTML page loading `js/svg-widget.js`.
-   - Ideal for inspecting standard script-tag embedding patterns.
-
-3. **`js/svg-widget.js`**
-   - Universal UMD client library (Browser Global, CommonJS, ES Module).
-   - Provides `window.SVGWidget.isolate()` and `window.SVGWidget.mount()`.
-
----
-
-## What the Demo Proves
-- **Multi-Instance Coexistence:** Mounts 3 simultaneous identical animated topology diagrams on a single page.
-- **Zero Collision:** Real-time on-page DOM collision scanner confirms **0 duplicate IDs**.
-- **Independent Animations:** All SMIL paths, markers, gradients, and CSS `@keyframes` run independently per widget without interference.
-- **Dynamic Lifecycle:** Click **"+ Mount New Instance"** or **"✕ Unmount"** to test dynamic DOM addition and removal.
+1. **Independent Instance Control:** Three Barrel instances (A, B, C) operate concurrently with individual states (`running`, `paused`, `alarm`), distinct fill levels, custom status colors, and individual speed playback rates.
+2. **Zero DOM ID Collisions:** Automatic ID namespacing (`barrel_a__*`, `barrel_b__*`, `barrel_c__*`) ensures zero mutual interference in gradients, filters, or SMIL animations.
+3. **Atomic Parameter Validation:** Strict runtime validation against the declared manifest schema, preventing invalid types, out-of-range numbers, or malicious injection.
+4. **Independent Playback Control:** Pausing or changing the playback speed of Barrel B has zero effect on Barrel A or Barrel C.
+5. **Real-time Host Telemetry:** Click '⚡ Auto Telemetry: ON' to simulate live host-driven process updates across all mounted widgets.
