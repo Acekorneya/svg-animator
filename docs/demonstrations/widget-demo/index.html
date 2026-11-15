@@ -747,6 +747,7 @@
     function verifyDOMCollisions() {
       const allElementsWithId = document.querySelectorAll('*[id]');
       const idCounts = new Map();
+      const duplicateIds = [];
       let collisions = 0;
 
       allElementsWithId.forEach((el) => {
@@ -754,7 +755,10 @@
         if (!id) return;
         const c = idCounts.get(id) || 0;
         idCounts.set(id, c + 1);
-        if (c === 1) collisions += 1;
+        if (c === 1) {
+          collisions += 1;
+          duplicateIds.push(id);
+        }
       });
 
       document.getElementById('statWidgets').textContent = widgetInstances.length;
@@ -773,7 +777,8 @@
         dot.style.background = 'var(--danger)';
         dot.style.boxShadow = '0 0 10px var(--danger)';
         text.style.color = 'var(--danger)';
-        text.textContent = `⚠ Collision Alert: ${collisions} duplicate IDs found!`;
+        text.textContent = `⚠ Collision Alert: ${collisions} duplicate IDs found (${duplicateIds.join(', ')})!`;
+        console.warn('DOM ID collisions detected:', duplicateIds);
       }
     }
 

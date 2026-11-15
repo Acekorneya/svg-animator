@@ -220,8 +220,8 @@ func TestIsolateSVGWidgetWithManifest(t *testing.T) {
 		t.Fatalf("unexpected error: %v", err)
 	}
 
-	// Verify manifest script tag injected
-	if !strings.Contains(isolated, `<script type="application/json" id="sva-widget-manifest">`) {
+	// Verify manifest script tag injected with namespaced ID
+	if !strings.Contains(isolated, `<script type="application/json" id="barrel_a__sva-widget-manifest">`) {
 		t.Errorf("expected sva-widget-manifest script tag in isolated svg")
 	}
 	if !strings.Contains(isolated, `"name":"statusColor"`) {

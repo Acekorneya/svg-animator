@@ -238,11 +238,11 @@ func IsolateSVGWidget(rawSVG string, opts WidgetIsolationOptions) (string, map[s
 
 	// Inject manifest if provided and not already present
 	if opts.Manifest != nil && len(opts.Manifest.Parameters) > 0 {
-		reExistingManifest := regexp.MustCompile(`(?i)<script\b[^>]*\bid=["']sva-widget-manifest["']`)
+		reExistingManifest := regexp.MustCompile(`(?i)<script\b[^>]*\bid=["'](?:[^"']*__)?sva-widget-manifest["']`)
 		if !reExistingManifest.MatchString(transformed) {
 			manifestBytes, err := json.Marshal(opts.Manifest)
 			if err == nil {
-				manifestTag := fmt.Sprintf("\n  <script type=\"application/json\" id=\"sva-widget-manifest\">%s</script>\n", string(manifestBytes))
+				manifestTag := fmt.Sprintf("\n  <script type=\"application/json\" id=\"%ssva-widget-manifest\">%s</script>\n", prefix, string(manifestBytes))
 				if idx := strings.LastIndex(transformed, "</svg>"); idx != -1 {
 					transformed = transformed[:idx] + manifestTag + transformed[idx:]
 				} else {

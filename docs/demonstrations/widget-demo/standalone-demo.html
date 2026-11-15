@@ -595,10 +595,10 @@
 
     // 5. Inject manifest if provided and not already present
     if (options.manifest && Array.isArray(options.manifest.parameters) && options.manifest.parameters.length > 0) {
-      const reExistingManifest = /<script\b[^>]*\bid=["']sva-widget-manifest["']/i;
+      const reExistingManifest = new RegExp(/<script\b[^>]*\bid=["'](?:[^"']*__)?sva-widget-manifest["']/i.source, 'i');
       if (!reExistingManifest.test(transformed)) {
         const manifestJson = JSON.stringify(options.manifest);
-        const manifestTag = '\n  <script type="application/json" id="sva-widget-manifest">' + manifestJson + '<' + '/script>\n';
+        const manifestTag = '\n  <script type="application/json" id="' + prefix + 'sva-widget-manifest">' + manifestJson + '<' + '/script>\n';
         const lastSvgIdx = transformed.lastIndexOf('</svg>');
         if (lastSvgIdx !== -1) {
           transformed = transformed.slice(0, lastSvgIdx) + manifestTag + transformed.slice(lastSvgIdx);
@@ -1528,6 +1528,7 @@
     function verifyDOMCollisions() {
       const allElementsWithId = document.querySelectorAll('*[id]');
       const idCounts = new Map();
+      const duplicateIds = [];
       let collisions = 0;
 
       allElementsWithId.forEach((el) => {
@@ -1535,7 +1536,10 @@
         if (!id) return;
         const c = idCounts.get(id) || 0;
         idCounts.set(id, c + 1);
-        if (c === 1) collisions += 1;
+        if (c === 1) {
+          collisions += 1;
+          duplicateIds.push(id);
+        }
       });
 
       document.getElementById('statWidgets').textContent = widgetInstances.length;
@@ -1554,7 +1558,8 @@
         dot.style.background = 'var(--danger)';
         dot.style.boxShadow = '0 0 10px var(--danger)';
         text.style.color = 'var(--danger)';
-        text.textContent = `⚠ Collision Alert: ${collisions} duplicate IDs found!`;
+        text.textContent = `⚠ Collision Alert: ${collisions} duplicate IDs found (${duplicateIds.join(', ')})!`;
+        console.warn('DOM ID collisions detected:', duplicateIds);
       }
     }
 

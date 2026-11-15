@@ -213,10 +213,10 @@
 
     // 5. Inject manifest if provided and not already present
     if (options.manifest && Array.isArray(options.manifest.parameters) && options.manifest.parameters.length > 0) {
-      const reExistingManifest = /<script\b[^>]*\bid=["']sva-widget-manifest["']/i;
+      const reExistingManifest = new RegExp(/<script\b[^>]*\bid=["'](?:[^"']*__)?sva-widget-manifest["']/i.source, 'i');
       if (!reExistingManifest.test(transformed)) {
         const manifestJson = JSON.stringify(options.manifest);
-        const manifestTag = '\n  <script type="application/json" id="sva-widget-manifest">' + manifestJson + '<' + '/script>\n';
+        const manifestTag = '\n  <script type="application/json" id="' + prefix + 'sva-widget-manifest">' + manifestJson + '<' + '/script>\n';
         const lastSvgIdx = transformed.lastIndexOf('</svg>');
         if (lastSvgIdx !== -1) {
           transformed = transformed.slice(0, lastSvgIdx) + manifestTag + transformed.slice(lastSvgIdx);

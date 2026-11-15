@@ -3382,8 +3382,8 @@ func TestDispatchWidgetParameters(t *testing.T) {
 	if err := json.Unmarshal(isoBytes, &isoRes); err != nil || !isoRes.Success {
 		t.Fatalf("Widget.IsolateSVG response mismatch: %+v", isoRes)
 	}
-	if !strings.Contains(isoRes.IsolatedSVG, `<script type="application/json" id="sva-widget-manifest">`) {
-		t.Errorf("expected auto manifest injection into isolated SVG")
+	if !strings.Contains(isoRes.IsolatedSVG, `<script type="application/json" id="w-auto-test__sva-widget-manifest">`) {
+		t.Errorf("expected auto manifest injection into isolated SVG with namespaced ID")
 	}
 	if !strings.Contains(isoRes.IsolatedSVG, `"statusColor"`) {
 		t.Errorf("expected statusColor in isolated SVG manifest")
