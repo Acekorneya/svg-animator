@@ -3492,6 +3492,20 @@ async function runHarness() {
   assert.strictEqual(updatedRipple.color, '#a78bfa', 'Updated ripple color must match');
   assert.strictEqual(updatedRipple.outerR, 180, 'Updated ripple outerR must match');
 
+  // 8b. Ripple Radius Consistency & Slider Boundary Protection
+  window.Ripples.selectRipple(stage6Ripple.id);
+  // Expanding innerR beyond current outerR (180) must automatically expand outerR without Go error
+  window.Ripples.updateActive('innerR', 220);
+  const ripExp = window.Ripples.getRipple(stage6Ripple.id);
+  assert.strictEqual(ripExp.innerR, 220, 'Ripple innerR expanded to 220');
+  assert.strictEqual(ripExp.outerR, 220, 'Ripple outerR automatically adjusted to 220');
+
+  // Shrinking outerR below current innerR (220) must automatically pull innerR down without Go error
+  window.Ripples.updateActive('outerR', 80);
+  const ripShrink = window.Ripples.getRipple(stage6Ripple.id);
+  assert.strictEqual(ripShrink.outerR, 80, 'Ripple outerR reduced to 80');
+  assert.strictEqual(ripShrink.innerR, 80, 'Ripple innerR automatically adjusted to 80');
+
   const s6InjectedSvg = window.Ripples.injectIntoSVG('<!-- INJECT_CAMERA_RIG_ELEMENTS -->', s5SvgState);
   assert.ok(s6InjectedSvg.includes('class="ripple-hit-target"'), 'Ripple SVG injection must include ripple-hit-target');
   assert.ok(s6InjectedSvg.includes('data-ripple-id="' + stage6Ripple.id + '"'), 'Ripple SVG injection must include data-ripple-id');

@@ -60,6 +60,13 @@ window.Ripples = {
   },
 
   createRipple(initialProps = {}) {
+    if (initialProps && typeof initialProps === 'object') {
+      if (initialProps.innerR !== undefined && initialProps.outerR !== undefined) {
+        if (Number(initialProps.outerR) < Number(initialProps.innerR)) {
+          initialProps.outerR = initialProps.innerR;
+        }
+      }
+    }
     // 1. Go/WASM Engine integration with seamless JS fallback
     if (typeof window !== 'undefined' && window.EngineBridge && typeof window.EngineBridge.isReady === 'function' && window.EngineBridge.isReady()) {
       const wasmRipple = window.EngineBridge.createRipple(initialProps);
@@ -95,6 +102,19 @@ window.Ripples = {
   updateRipple(id, patch) {
     const rp = this.getRipple(id);
     if (!rp || !patch || typeof patch !== 'object') return null;
+
+    // Guard radius consistency so outerR is never smaller than innerR
+    if (patch.innerR !== undefined || patch.outerR !== undefined) {
+      const nextInner = patch.innerR !== undefined ? Number(patch.innerR) : (rp.innerR !== undefined ? Number(rp.innerR) : 0);
+      const nextOuter = patch.outerR !== undefined ? Number(patch.outerR) : (rp.outerR !== undefined ? Number(rp.outerR) : 150);
+      if (!isNaN(nextInner) && !isNaN(nextOuter) && nextOuter < nextInner) {
+        if (patch.innerR !== undefined && patch.outerR === undefined) {
+          patch.outerR = nextInner;
+        } else {
+          patch.innerR = nextOuter;
+        }
+      }
+    }
 
     // Go/WASM Engine synchronization
     if (patch.name !== undefined && typeof window !== 'undefined' && window.EngineBridge && typeof window.EngineBridge.renameObject === 'function' && window.EngineBridge.isReady()) {
@@ -523,10 +543,23 @@ window.Ripples = {
 
   updateActive(key, value) {
     if (this.activeId === null) return;
-    const rp = this.updateRipple(this.activeId, { [key]: value });
+    const patch = { [key]: value };
+    const curr = this.getRipple(this.activeId);
+    if (curr) {
+      if (key === 'innerR' && curr.outerR !== undefined && value > curr.outerR) {
+        patch.outerR = value;
+      } else if (key === 'outerR' && curr.innerR !== undefined && value < curr.innerR) {
+        patch.innerR = value;
+      }
+    }
+    const rp = this.updateRipple(this.activeId, patch);
     if (rp) {
       const lbl = document.getElementById('editingRippleLabel');
       if (lbl) lbl.innerText = 'Editing Ripple ' + rp.id + (rp.name ? ' (' + rp.name + ')' : '');
+      this.syncEditorUI(rp);
+      if (window.FloatingContextEditor && typeof window.FloatingContextEditor.isOpen === 'boolean' && window.FloatingContextEditor.isOpen && window.FloatingContextEditor.activeType === 'ripple' && window.FloatingContextEditor.activeId === rp.id) {
+        window.FloatingContextEditor.open('ripple', rp.id);
+      }
       this.renderList();
       this.triggerAppRender();
       if (key === 'color') this.updateUIOverlay(rp);

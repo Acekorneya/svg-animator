@@ -1122,11 +1122,22 @@ window.FloatingPropertiesEditor = {
       const handleInput = (val) => {
         if (this._isSyncing || this.activeType !== 'ripple') return;
         const parsed = parseFloat(val);
+        if (isNaN(parsed)) return;
         if (slider) slider.value = val;
         if (num) num.value = val;
         if (window.Ripples && typeof window.Ripples.updateActive === 'function') {
           window.Ripples.updateActive(key, parsed);
           this._syncSidebar('ripple', key, parsed);
+          const rp = window.Ripples.getRipple(this.activeId);
+          if (rp) {
+            if (key === 'innerR' && rp.outerR !== undefined) {
+              this._setPair('fctx-rippleOuterR', rp.outerR);
+              this._syncSidebar('ripple', 'outerR', rp.outerR);
+            } else if (key === 'outerR' && rp.innerR !== undefined) {
+              this._setPair('fctx-rippleInnerR', rp.innerR);
+              this._syncSidebar('ripple', 'innerR', rp.innerR);
+            }
+          }
         }
         if (window.AppCoordinator) window.AppCoordinator.recordHistoryDebounced();
       };
