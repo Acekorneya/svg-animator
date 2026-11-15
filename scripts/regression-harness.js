@@ -1605,6 +1605,8 @@ async function runHarness() {
   rightDrawerEl.appendChild(settingsPanelEl);
   settingsPanelEl.appendChild(accCameraEl);
   settingsPanelEl.appendChild(accOpticsEl);
+  const accWidgetParamsMock = document.getElementById('acc-widget-params');
+  if (accWidgetParamsMock) settingsPanelEl.appendChild(accWidgetParamsMock);
   settingsPanelEl.appendChild(accExportEl);
   accOpticsEl.appendChild(subpanelOpticsEl);
   accOpticsEl.appendChild(subpanelFrameEl);
@@ -10557,6 +10559,55 @@ async function runHarness() {
   assert.ok(!authoredGuide.markdown.includes('exampleParam'), 'W16B-UI14: Exported guide does not use exampleParam');
 
   console.log('[HARNESS] Scenario 81 PASS: Stage 16B UI Authoring: Right Drawer Widget Rail Click, Object Binding & End-to-End Export verified.');
+
+  // =========================================================================
+  // SCENARIO 82: Export & Production Render Accordion Containment Integrity
+  // =========================================================================
+  console.log('\n[HARNESS] Testing Scenario 82: Export & Production Render Accordion Containment Integrity...');
+
+  const elRightDrawer = document.getElementById('rightDrawer');
+  const elSettingsPanel = document.getElementById('settingsPanel');
+  const elAccExport = document.getElementById('acc-export');
+  const elAccWidget = document.getElementById('acc-widget-params');
+
+  assert.ok(elRightDrawer, 'W16B-LAY01: rightDrawer exists in DOM');
+  assert.ok(elSettingsPanel, 'W16B-LAY02: settingsPanel exists in DOM');
+  assert.ok(elAccExport, 'W16B-LAY03: acc-export exists in DOM');
+  assert.ok(elAccWidget, 'W16B-LAY04: acc-widget-params exists in DOM');
+
+  // Verify containment
+  assert.strictEqual(elRightDrawer.contains(elAccExport), true, 'W16B-LAY05: acc-export is inside rightDrawer');
+  assert.strictEqual(elSettingsPanel.contains(elAccExport), true, 'W16B-LAY06: acc-export is inside settingsPanel');
+  assert.strictEqual(elSettingsPanel.contains(elAccWidget), true, 'W16B-LAY07: acc-widget-params is inside settingsPanel');
+
+  // Verify parent relationship
+  assert.strictEqual(elAccExport.parentElement, elSettingsPanel, 'W16B-LAY08: acc-export parent is settingsPanel');
+  assert.strictEqual(elAccWidget.parentElement, elSettingsPanel, 'W16B-LAY09: acc-widget-params parent is settingsPanel');
+
+  // Verify required action buttons inside acc-export via HTML structural inspection
+  const htmlContent = fs.readFileSync(INDEX_HTML_PATH, 'utf8');
+  const exportSectionIdx = htmlContent.indexOf('id="acc-export"');
+  const rightDrawerEndIdx = htmlContent.indexOf('</aside> <!-- end #rightDrawer -->');
+  assert.ok(exportSectionIdx > 0, 'W16B-LAY10: acc-export found in index.html');
+  assert.ok(rightDrawerEndIdx > exportSectionIdx, 'W16B-LAY11: acc-export is inside rightDrawer before closing tag in index.html');
+
+  const exportBlock = htmlContent.slice(exportSectionIdx, rightDrawerEndIdx);
+  const exportBtnIds = [
+    'btnDownloadSVG',
+    'btnDownloadHTML',
+    'btnDownloadWidgetSVG',
+    'btnDownloadWidgetGuide',
+    'btnDownloadWidgetPackage',
+    'btnOpenStillModal',
+    'btnOpenBitmapModal'
+  ];
+  for (const bId of exportBtnIds) {
+    const btn = document.getElementById(bId);
+    assert.ok(btn, `W16B-LAY12: Button ${bId} exists in DOM`);
+    assert.ok(exportBlock.includes(`id="${bId}"`), `W16B-LAY13: Button ${bId} is defined inside acc-export block in HTML`);
+  }
+
+  console.log('[HARNESS] Scenario 82 PASS: Export & Production Render Accordion Containment Integrity verified.');
 
   console.log('[HARNESS] REG-03 PASS: Stage 3, 4, 5, 6, 7, 8, 9, 11, 12, 13, 14, 15 & 16 non-destructive cropping, background extraction, image baking, dedicated crop clip & snip workspace, object-local clipping, unified layer management, independent image objects, persistent groups, duplication, copy/paste with flow remapping, multi-selection, alignment, distribution, colour tools, selection retention, notifications, naming sync, history(50), schema 1.2.0, .sva packaging, background photo restoration, SVG compilation, export payload builders, collision-free widgets, external runtime parameters, and Go WASM engines verified.');
 }
