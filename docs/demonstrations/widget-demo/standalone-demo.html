@@ -1,0 +1,731 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+  <meta charset="UTF-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1.0">
+  <title>SVG Animator Studio — Stage 16A Multi-Widget Demonstration</title>
+  <style>
+    :root {
+      --bg: #0d1117;
+      --card-bg: #161b22;
+      --border: #30363d;
+      --text: #c9d1d9;
+      --text-muted: #8b949e;
+      --accent: #58a6ff;
+      --success: #3fb950;
+      --warning: #d29922;
+    }
+    * { box-sizing: border-box; margin: 0; padding: 0; }
+    body {
+      background: var(--bg);
+      color: var(--text);
+      font-family: -apple-system, BlinkMacSystemFont, 'Segoe UI', Roboto, sans-serif;
+      padding: 2rem;
+      min-height: 100vh;
+    }
+    header {
+      max-width: 1400px;
+      margin: 0 auto 2rem auto;
+      border-bottom: 1px solid var(--border);
+      padding-bottom: 1.5rem;
+    }
+    h1 {
+      font-size: 1.8rem;
+      color: #f0f6fc;
+      display: flex;
+      align-items: center;
+      gap: 0.75rem;
+    }
+    .badge {
+      font-size: 0.75rem;
+      background: #238636;
+      color: #ffffff;
+      padding: 0.2rem 0.6rem;
+      border-radius: 12px;
+      font-weight: 600;
+      text-transform: uppercase;
+    }
+    p.lead {
+      color: var(--text-muted);
+      margin-top: 0.5rem;
+      font-size: 1rem;
+      line-height: 1.5;
+    }
+    .status-panel {
+      max-width: 1400px;
+      margin: 0 auto 2rem auto;
+      background: var(--card-bg);
+      border: 1px solid var(--border);
+      border-radius: 8px;
+      padding: 1.25rem 1.5rem;
+      display: flex;
+      flex-wrap: wrap;
+      align-items: center;
+      justify-content: space-between;
+      gap: 1rem;
+    }
+    .status-indicator {
+      display: flex;
+      align-items: center;
+      gap: 0.75rem;
+      font-weight: 600;
+      color: var(--success);
+    }
+    .status-dot {
+      width: 12px;
+      height: 12px;
+      border-radius: 50%;
+      background: var(--success);
+      box-shadow: 0 0 10px var(--success);
+    }
+    .stats-group {
+      display: flex;
+      gap: 1.5rem;
+      font-size: 0.9rem;
+      color: var(--text-muted);
+    }
+    .stats-group strong {
+      color: #f0f6fc;
+    }
+    .controls {
+      display: flex;
+      gap: 0.75rem;
+    }
+    button.btn {
+      background: #21262d;
+      border: 1px solid var(--border);
+      color: #c9d1d9;
+      padding: 0.45rem 0.9rem;
+      border-radius: 6px;
+      font-size: 0.85rem;
+      cursor: pointer;
+      transition: all 0.15s ease;
+    }
+    button.btn:hover {
+      background: #30363d;
+      color: #f0f6fc;
+      border-color: #8b949e;
+    }
+    button.btn-primary {
+      background: #238636;
+      border-color: #2ea043;
+      color: #fff;
+    }
+    button.btn-primary:hover {
+      background: #2ea043;
+    }
+    .widgets-grid {
+      max-width: 1400px;
+      margin: 0 auto;
+      display: grid;
+      grid-template-columns: repeat(auto-fit, minmax(420px, 1fr));
+      gap: 1.5rem;
+    }
+    .widget-card {
+      background: var(--card-bg);
+      border: 1px solid var(--border);
+      border-radius: 8px;
+      overflow: hidden;
+      display: flex;
+      flex-direction: column;
+    }
+    .widget-header {
+      padding: 0.75rem 1rem;
+      background: rgba(0, 0, 0, 0.2);
+      border-bottom: 1px solid var(--border);
+      display: flex;
+      align-items: center;
+      justify-content: space-between;
+    }
+    .widget-title {
+      font-weight: 600;
+      font-size: 0.95rem;
+      color: #f0f6fc;
+      display: flex;
+      align-items: center;
+      gap: 0.5rem;
+    }
+    .widget-prefix-badge {
+      font-family: monospace;
+      font-size: 0.75rem;
+      background: #1f6feb22;
+      color: #58a6ff;
+      border: 1px solid #1f6feb44;
+      padding: 0.15rem 0.4rem;
+      border-radius: 4px;
+    }
+    .widget-stage {
+      padding: 1rem;
+      background: #090d13;
+      display: flex;
+      align-items: center;
+      justify-content: center;
+      min-height: 280px;
+    }
+    .widget-stage svg {
+      width: 100%;
+      height: 100%;
+      max-height: 260px;
+      display: block;
+    }
+    .widget-meta {
+      padding: 0.75rem 1rem;
+      border-top: 1px solid var(--border);
+      font-size: 0.8rem;
+      color: var(--text-muted);
+      background: rgba(0, 0, 0, 0.15);
+    }
+    .id-tag-list {
+      display: flex;
+      flex-wrap: wrap;
+      gap: 0.35rem;
+      margin-top: 0.4rem;
+    }
+    .id-tag {
+      font-family: monospace;
+      font-size: 0.72rem;
+      background: #161b22;
+      border: 1px solid #30363d;
+      padding: 0.1rem 0.35rem;
+      border-radius: 3px;
+      color: #8b949e;
+    }
+  </style>
+  <script>
+/* SVG Animator Studio — Inlined Reusable SVG Widget Runtime (Stage 16A) */
+/**
+ * SVG Animator Studio — Reusable SVG Widget Runtime & Mounting Library (`svg-widget.js`)
+ *
+ * Stage 16A: Reusable, Self-Contained and Collision-Free SVG Widgets.
+ *
+ * Responsibilities:
+ *   - Parse and namespace SVG documents for safe multi-instance embedding on host pages.
+ *   - Scope all element IDs, internal references (url(#...), href="#...", xlink:href="#...").
+ *   - Remap SMIL animation targets (<mpath>, event timing begin/end).
+ *   - Scope embedded <style> selectors to widget root element.
+ *   - Prefix @keyframes and remap animation/animation-name properties to prevent stylesheet collisions.
+ *   - Safely preserve data URLs (data:image/...) and text content containing '#'.
+ *   - Lightweight DOM mount / unmount lifecycle helper with optional Shadow DOM isolation.
+ *
+ * Universal UMD module: Browser window global, CommonJS (Node.js), and ES module environments.
+ */
+
+(function(root, factory) {
+  if (typeof define === 'function' && define.amd) {
+    define([], factory);
+  } else if (typeof module === 'object' && module.exports) {
+    module.exports = factory();
+  } else {
+    root.SVGWidget = factory();
+  }
+})(typeof self !== 'undefined' ? self : this, function() {
+  'use strict';
+
+  let widgetCounter = 0;
+
+  function generateInstanceId() {
+    widgetCounter += 1;
+    const rnd = Math.random().toString(36).slice(2, 7);
+    const ts = (Date.now() % 1000000).toString(36);
+    return `sva-w-${ts}-${rnd}-${widgetCounter}`;
+  }
+
+  function escapeRegex(str) {
+    return str.replace(/[.*+?^${}()|[\]\\]/g, '\\$&');
+  }
+
+  /**
+   * Scopes CSS rules to the widget root ID and prefixes keyframes.
+   */
+  function scopeCSSRules(css, rootId, idMap, keyframeMap) {
+    let transformedCSS = css;
+
+    // 1. Rename @keyframes definitions and usages
+    for (const [oldKF, newKF] of Object.entries(keyframeMap)) {
+      const reKF = new RegExp(`@keyframes\\s+${escapeRegex(oldKF)}\\b`, 'g');
+      transformedCSS = transformedCSS.replace(reKF, `@keyframes ${newKF}`);
+
+      const reAnim = new RegExp(`\\b(animation(?:-name)?\\s*:\\s*[^;}]*?)\\b${escapeRegex(oldKF)}\\b`, 'g');
+      transformedCSS = transformedCSS.replace(reAnim, `$1${newKF}`);
+    }
+
+    // 2. Rewrite url(#oldId) inside CSS rules
+    for (const [oldId, newId] of Object.entries(idMap)) {
+      const reUrl = new RegExp(`url\\(\\s*["']?#${escapeRegex(oldId)}["']?\\s*\\)`, 'g');
+      transformedCSS = transformedCSS.replace(reUrl, `url(#${newId})`);
+    }
+
+    // 3. Temporarily stash @keyframes blocks so their nested rules are not mangled
+    const kfBlocks = [];
+    const reKFBlock = /@keyframes\s+[^{]+\{(?:[^{}]*\{[^{}]*\}[^{}]*)*\}/g;
+    const cssWithoutKF = transformedCSS.replace(reKFBlock, (m) => {
+      kfBlocks.push(m);
+      return `/*__SVA_KF_BLOCK_${kfBlocks.length - 1}__*/`;
+    });
+
+    // 4. Scope remaining rule selectors to #rootId
+    const reRule = /([^{}/]+)\{([^{}]+)\}/g;
+    let scoped = cssWithoutKF.replace(reRule, (match, rawSel, body) => {
+      const sel = rawSel.trim();
+      if (sel.startsWith('@') || sel.startsWith('/*')) return match;
+
+      const parts = sel.split(',');
+      const scopedParts = [];
+      for (let s of parts) {
+        let clean = s.trim();
+        if (!clean) continue;
+
+        // Replace any #oldId in selector
+        for (const [oldId, newId] of Object.entries(idMap)) {
+          clean = clean.replace(new RegExp(`#${escapeRegex(oldId)}\\b`, 'g'), `#${newId}`);
+        }
+        scopedParts.push(`#${rootId} ${clean}`);
+      }
+
+      if (scopedParts.length === 0) return match;
+      return `\n    ${scopedParts.join(', ')} {${body}}`;
+    });
+
+    // 5. Restore @keyframes blocks
+    kfBlocks.forEach((kf, idx) => {
+      scoped = scoped.replace(`/*__SVA_KF_BLOCK_${idx}__*/`, kf);
+    });
+
+    return scoped;
+  }
+
+  /**
+   * Core string/regex-based SVG widget isolator.
+   * Works identically in browser DOM and Node.js headless environments.
+   */
+  function isolateSVGString(rawSvg, options = {}) {
+    if (!rawSvg || typeof rawSvg !== 'string') {
+      throw new Error('SVGWidget.isolate requires a non-empty SVG string.');
+    }
+
+    let instanceId = (options.instanceId && String(options.instanceId).trim()) || generateInstanceId();
+    instanceId = instanceId.replace(/[^a-zA-Z0-9_-]/g, '-');
+    const prefix = (options.prefix && String(options.prefix).trim()) || `${instanceId}__`;
+    const rootId = `sva-widget-${instanceId}`;
+    const scopeCss = options.scopeCss !== false;
+
+    // 1. Scan and collect declared IDs: id="VALUE" or id='VALUE'
+    const idMap = {};
+    const reIDDecl = /\bid\s*=\s*(["'])([^"']+)\1/g;
+    let m;
+    while ((m = reIDDecl.exec(rawSvg)) !== null) {
+      const oldId = m[2];
+      if (oldId && !idMap[oldId]) {
+        idMap[oldId] = `${prefix}${oldId}`;
+      }
+    }
+
+    // 2. Scan and collect @keyframes in <style>
+    const keyframeMap = {};
+    const reKF = /@keyframes\s+([a-zA-Z0-9_-]+)/g;
+    while ((m = reKF.exec(rawSvg)) !== null) {
+      const oldKF = m[1];
+      if (oldKF && !keyframeMap[oldKF]) {
+        keyframeMap[oldKF] = `${prefix}${oldKF}`;
+      }
+    }
+
+    // 3. Transform CSS in <style> blocks
+    let transformed = rawSvg.replace(/<style\b([^>]*)>([\s\S]*?)<\/style>/gi, (match, attrs, css) => {
+      let scopedCSS = css;
+      if (scopeCss) {
+        scopedCSS = scopeCSSRules(css, rootId, idMap, keyframeMap);
+      }
+      return `<style${attrs}>${scopedCSS}</style>`;
+    });
+
+    // 4. Transform tag attributes
+    let isFirstSVG = true;
+    const reTag = /<([a-zA-Z0-9:_-]+)((?:\s+[^>]+)?)>/g;
+
+    transformed = transformed.replace(reTag, (tagMatch, tagName, tagAttrs) => {
+      if (tagName.startsWith('/')) return tagMatch;
+
+      if (tagName.toLowerCase() === 'svg' && isFirstSVG) {
+        isFirstSVG = false;
+        // Set root ID and instance attribute
+        if (/\bid\s*=\s*["'][^"']*["']/i.test(tagAttrs)) {
+          tagAttrs = tagAttrs.replace(/\bid\s*=\s*["'][^"']*["']/i, `id="${rootId}"`);
+        } else {
+          tagAttrs = ` id="${rootId}"` + tagAttrs;
+        }
+
+        if (!/data-sva-widget-instance/i.test(tagAttrs)) {
+          tagAttrs += ` data-sva-widget-instance="${instanceId}"`;
+        }
+      } else {
+        // Remap declared id attributes on non-root elements
+        tagAttrs = tagAttrs.replace(/\bid\s*=\s*(["'])([^"']+)\1/g, (match, q, oldId) => {
+          if (idMap[oldId]) {
+            return `id=${q}${idMap[oldId]}${q}`;
+          }
+          return match;
+        });
+      }
+
+      // Remap href and xlink:href if starting with # (fragment reference only)
+      tagAttrs = tagAttrs.replace(/\b(xlink:href|href)\s*=\s*(["'])(#)([^"']+)\2/g, (match, attr, q, hash, targetId) => {
+        if (idMap[targetId]) {
+          return `${attr}=${q}#${idMap[targetId]}${q}`;
+        }
+        return match;
+      });
+
+      // Remap url(#oldId) in attributes (fill, stroke, filter, clip-path, mask, marker-*, style)
+      tagAttrs = tagAttrs.replace(/url\(\s*["']?#([a-zA-Z0-9:_-]+)["']?\s*\)/g, (match, targetId) => {
+        if (idMap[targetId]) {
+          return `url(#${idMap[targetId]})`;
+        }
+        return match;
+      });
+
+      // Remap aria-labelledby and aria-describedby
+      tagAttrs = tagAttrs.replace(/\b(aria-labelledby|aria-describedby)\s*=\s*(["'])([^"']+)\2/g, (match, attr, q, rawTokens) => {
+        const tokens = rawTokens.split(/\s+/).filter(Boolean);
+        const mapped = tokens.map((t) => idMap[t] || t);
+        return `${attr}=${q}${mapped.join(' ')}${q}`;
+      });
+
+      // Remap SMIL begin/end event targets: begin="anim1.begin" / end="anim1.end+2s"
+      tagAttrs = tagAttrs.replace(/\b(begin|end)\s*=\s*(["'])([^"']+)\2/g, (match, attr, q, val) => {
+        let timing = val;
+        for (const [oldId, newId] of Object.entries(idMap)) {
+          timing = timing.replace(new RegExp(`\\b${escapeRegex(oldId)}\\.`, 'g'), `${newId}.`);
+        }
+        return `${attr}=${q}${timing}${q}`;
+      });
+
+      return `<${tagName}${tagAttrs}>`;
+    });
+
+    if (options.rawDetails) {
+      return {
+        success: true,
+        isolatedSvg: transformed,
+        instanceId,
+        prefix,
+        rootId,
+        idMap
+      };
+    }
+
+    return transformed;
+  }
+
+  const SVGWidget = {
+    version: '1.0.0',
+
+    generateInstanceId,
+
+    /**
+     * Isolates an SVG string so all IDs, references, CSS, and animations
+     * are strictly scoped to the given instanceId.
+     */
+    isolate(rawSvg, options = {}) {
+      return isolateSVGString(rawSvg, options);
+    },
+
+    /**
+     * Parses an isolated SVG string into a live SVGElement.
+     */
+    create(rawSvg, options = {}) {
+      const isolatedSvg = isolateSVGString(rawSvg, options);
+      if (typeof DOMParser !== 'undefined') {
+        const parser = new DOMParser();
+        const doc = parser.parseFromString(isolatedSvg, 'image/svg+xml');
+        const err = doc.querySelector('parsererror');
+        if (err) {
+          throw new Error('SVGWidget.create XML parser error: ' + err.textContent);
+        }
+        return doc.documentElement;
+      }
+      throw new Error('SVGWidget.create requires a browser DOM environment with DOMParser.');
+    },
+
+    /**
+     * Mounts an SVG widget instance into a DOM container element.
+     * Supports optional Shadow DOM isolation for total encapsulation.
+     */
+    mount(target, rawSvg, options = {}) {
+      if (typeof document === 'undefined') {
+        throw new Error('SVGWidget.mount requires a browser document environment.');
+      }
+
+      let container = target;
+      if (typeof target === 'string') {
+        container = document.querySelector(target);
+      }
+      if (!container || !container.appendChild) {
+        throw new Error(`SVGWidget.mount target container not found: ${target}`);
+      }
+
+      const instanceId = options.instanceId || generateInstanceId();
+      const details = isolateSVGString(rawSvg, {
+        instanceId,
+        prefix: options.prefix,
+        scopeCss: options.scopeCss !== false,
+        rawDetails: true
+      });
+
+      let mountRoot = container;
+      let shadowRoot = null;
+
+      if (options.shadowDOM) {
+        try {
+          shadowRoot = container.attachShadow({ mode: 'open' });
+          mountRoot = shadowRoot;
+        } catch (err) {
+          console.warn('[SVGWidget] Failed to attach shadow root, mounting in light DOM:', err);
+          mountRoot = container;
+        }
+      }
+
+      // Create a wrapper div to contain the SVG
+      const wrapper = document.createElement('div');
+      wrapper.className = 'sva-widget-wrapper';
+      wrapper.setAttribute('data-sva-widget-instance', instanceId);
+      wrapper.style.display = 'block';
+      wrapper.style.width = options.width ? (typeof options.width === 'number' ? `${options.width}px` : options.width) : '100%';
+      wrapper.style.height = options.height ? (typeof options.height === 'number' ? `${options.height}px` : options.height) : '100%';
+      wrapper.style.position = 'relative';
+      wrapper.style.overflow = 'hidden';
+
+      wrapper.innerHTML = details.isolatedSvg;
+      mountRoot.appendChild(wrapper);
+
+      const svgEl = wrapper.querySelector('svg');
+
+      const handle = {
+        instanceId: details.instanceId,
+        prefix: details.prefix,
+        rootId: details.rootId,
+        idMap: details.idMap,
+        container: container,
+        wrapper: wrapper,
+        svgElement: svgEl,
+        shadowRoot: shadowRoot,
+        unmount() {
+          if (wrapper && wrapper.parentNode) {
+            wrapper.parentNode.removeChild(wrapper);
+          }
+        }
+      };
+
+      return handle;
+    }
+  };
+
+  return SVGWidget;
+});
+
+</script>
+</head>
+<body>
+
+  <nav style="max-width: 1400px; margin: 0 auto 1.5rem auto; display: flex; justify-content: space-between; align-items: center; padding: 0.75rem 1.25rem; background: var(--card-bg); border: 1px solid var(--border); border-radius: 8px;">
+    <a href="/" style="color: #58a6ff; text-decoration: none; font-weight: 600; font-size: 0.95rem; display: flex; align-items: center; gap: 0.5rem;">
+      <span>← Return to SVG Animator Studio Editor</span>
+    </a>
+    <span style="color: var(--text-muted); font-size: 0.85rem; font-family: monospace;">Stage 16A Independent Widget Testbench</span>
+  </nav>
+
+  <header>
+    <h1>
+      <span>📦 Reusable SVG Widgets — Live Multi-Instance Demo</span>
+      <span class="badge">Stage 16A Verified</span>
+    </h1>
+    <p class="lead">
+      This page demonstrates multiple instances of the same animated SVG diagram running simultaneously with <strong>zero element ID collisions</strong>. All filters, gradients, markers, flow paths, and CSS keyframe animations are isolated per instance.
+    </p>
+  </header>
+
+  <div class="status-panel">
+    <div class="status-indicator">
+      <div class="status-dot" id="statusDot"></div>
+      <span id="statusText">Scanning DOM for ID collisions...</span>
+    </div>
+    <div class="stats-group">
+      <div>Active Widgets: <strong id="statWidgets">3</strong></div>
+      <div>Total Document IDs: <strong id="statIDs">0</strong></div>
+      <div>Collisions: <strong id="statCollisions">0</strong></div>
+    </div>
+    <div class="controls">
+      <button type="button" class="btn btn-primary" id="btnAddInstance">+ Mount New Instance</button>
+      <button type="button" class="btn" id="btnVerifyDom">Re-Verify Collisions</button>
+    </div>
+  </div>
+
+  <main class="widgets-grid" id="widgetsContainer">
+    <!-- Instances mounted dynamically via JavaScript -->
+  </main>
+
+  <script>
+    // Master template SVG scene representing an SVG Animator Studio export
+    const MASTER_SCENE_SVG = `
+<svg xmlns="http://www.w3.org/2000/svg" xmlns:xlink="http://www.w3.org/1999/xlink" viewBox="0 0 800 450" width="800" height="450">
+  <defs>
+    <clipPath id="viewportClip"><rect x="0" y="0" width="800" height="450" /></clipPath>
+    <radialGradient id="glowGrad-1" cx="50%" cy="50%" r="50%">
+      <stop offset="0%" stop-color="#38bdf8" stop-opacity="0.9" />
+      <stop offset="100%" stop-color="#38bdf8" stop-opacity="0" />
+    </radialGradient>
+    <filter id="nodeDropShadow" x="-20%" y="-20%" width="140%" height="140%">
+      <feDropShadow dx="0" dy="3" stdDeviation="4" flood-color="#000000" flood-opacity="0.6" />
+    </filter>
+    <filter id="flowBlur-1" filterUnits="userSpaceOnUse" x="-20%" y="-20%" width="140%" height="140%">
+      <feGaussianBlur stdDeviation="1.5" />
+    </filter>
+    <marker id="flowArrow-1" viewBox="0 0 10 10" refX="7" refY="5" markerWidth="6" markerHeight="6" orient="auto-start-reverse">
+      <path d="M 0 1.5 L 9 5 L 0 8.5 z" fill="#38bdf8" />
+    </marker>
+    <pattern id="bgGrid" width="30" height="30" patternUnits="userSpaceOnUse">
+      <path d="M 30 0 L 0 0 0 30" fill="none" stroke="#1f2937" stroke-width="0.75" />
+    </pattern>
+  </defs>
+  <style>
+    .camera-rig {
+      transform-origin: 0px 0px;
+      animation: camKenBurns 6s cubic-bezier(0.42, 0, 0.58, 1) infinite alternate;
+    }
+    @keyframes camKenBurns {
+      0%   { transform: translate3d(0px, 0px, 0px) scale(1.0); }
+      100% { transform: translate3d(-15px, -10px, 0px) scale(1.04); }
+    }
+  </style>
+  <rect width="800" height="450" fill="url(#bgGrid)" clip-path="url(#viewportClip)" />
+  <circle cx="400" cy="225" r="160" fill="url(#glowGrad-1)" />
+  <g class="camera-rig">
+    <g id="scene-layers">
+      <path id="flowPath-1" d="M 160 225 C 280 120 520 330 640 225" fill="none" stroke="#38bdf8" stroke-width="3" stroke-dasharray="6,4" marker-end="url(#flowArrow-1)" opacity="0.85">
+        <animate attributeName="stroke-dashoffset" from="40" to="0" dur="1.2s" repeatCount="indefinite" />
+      </path>
+      <g class="flow-payload">
+        <circle r="6" fill="#f43f5e" filter="url(#flowBlur-1)">
+          <animateMotion dur="2.4s" repeatCount="indefinite" rotate="auto">
+            <mpath href="#flowPath-1" xlink:href="#flowPath-1" />
+          </animateMotion>
+        </circle>
+      </g>
+      <g data-node-id="1" transform="translate(160, 225)" filter="url(#nodeDropShadow)">
+        <rect x="-60" y="-30" width="120" height="60" rx="8" fill="#1e293b" stroke="#38bdf8" stroke-width="2" />
+        <text y="4" fill="#ffffff" font-family="sans-serif" font-size="12" font-weight="bold" text-anchor="middle">Source #Node 1</text>
+      </g>
+      <g data-node-id="2" transform="translate(640, 225)" filter="url(#nodeDropShadow)">
+        <rect x="-60" y="-30" width="120" height="60" rx="8" fill="#1e293b" stroke="#10b981" stroke-width="2" />
+        <text y="4" fill="#ffffff" font-family="sans-serif" font-size="12" font-weight="bold" text-anchor="middle">Target #Node 2</text>
+      </g>
+      <image id="img-logo" href="data:image/png;base64,iVBORw0KGgoAAAANSUhEUgAAAAEAAAABCAYAAAAfFcSJAAAADUlEQVR42mP8z8BQDwAEhQGAhKmMIQAAAABJRU5ErkJggg==" x="390" y="215" width="20" height="20" />
+    </g>
+  </g>
+</svg>`.trim();
+
+    const instances = [];
+
+    function mountWidgetCard(instanceName, prefix) {
+      const container = document.getElementById('widgetsContainer');
+      const card = document.createElement('div');
+      card.className = 'widget-card';
+      card.id = 'card-' + instanceName;
+
+      card.innerHTML = \`
+        <div class="widget-header">
+          <span class="widget-title">
+            <span>📦 \${instanceName}</span>
+            <span class="widget-prefix-badge">\${prefix}</span>
+          </span>
+          <button type="button" class="btn btn-unmount" data-inst="\${instanceName}">✕ Unmount</button>
+        </div>
+        <div class="widget-stage" id="mount-\${instanceName}"></div>
+        <div class="widget-meta">
+          <div>Scoped Element IDs:</div>
+          <div class="id-tag-list" id="tags-\${instanceName}"></div>
+        </div>
+      \`;
+      container.appendChild(card);
+
+      // Mount widget using SVGWidget library
+      const mountTarget = card.querySelector('#mount-' + instanceName);
+      const widgetHandle = window.SVGWidget.mount(mountTarget, MASTER_SCENE_SVG, {
+        instanceId: instanceName,
+        prefix: prefix,
+        scopeCss: true
+      });
+
+      // Display mapped IDs
+      const tagList = card.querySelector('#tags-' + instanceName);
+      for (const [oldId, newId] of Object.entries(widgetHandle.idMap)) {
+        const tag = document.createElement('span');
+        tag.className = 'id-tag';
+        tag.textContent = newId;
+        tagList.appendChild(tag);
+      }
+
+      card.querySelector('.btn-unmount').addEventListener('click', () => {
+        widgetHandle.unmount();
+        card.remove();
+        const idx = instances.indexOf(widgetHandle);
+        if (idx !== -1) instances.splice(idx, 1);
+        verifyDOMCollisions();
+      });
+
+      instances.push(widgetHandle);
+      verifyDOMCollisions();
+    }
+
+    function verifyDOMCollisions() {
+      const allElementsWithId = document.querySelectorAll('*[id]');
+      const idCounts = new Map();
+      let collisions = 0;
+
+      allElementsWithId.forEach((el) => {
+        const id = el.id;
+        if (!id) return;
+        const c = idCounts.get(id) || 0;
+        idCounts.set(id, c + 1);
+        if (c === 1) collisions += 1;
+      });
+
+      document.getElementById('statWidgets').textContent = instances.length;
+      document.getElementById('statIDs').textContent = allElementsWithId.length;
+      document.getElementById('statCollisions').textContent = collisions;
+
+      const dot = document.getElementById('statusDot');
+      const text = document.getElementById('statusText');
+
+      if (collisions === 0) {
+        dot.style.background = 'var(--success)';
+        dot.style.boxShadow = '0 0 10px var(--success)';
+        text.style.color = 'var(--success)';
+        text.textContent = \`✓ Zero ID Collisions (\${allElementsWithId.length} unique DOM elements across \${instances.length} active instances)\`;
+      } else {
+        dot.style.background = '#f85149';
+        dot.style.boxShadow = '0 0 10px #f85149';
+        text.style.color = '#f85149';
+        text.textContent = \`⚠ Collision Alert: \${collisions} duplicate IDs found in document!\`;
+      }
+    }
+
+    document.addEventListener('DOMContentLoaded', () => {
+      // Mount 3 initial instances
+      mountWidgetCard('Widget-Alpha', 'inst_alpha__');
+      mountWidgetCard('Widget-Beta', 'inst_beta__');
+      mountWidgetCard('Widget-Gamma', 'inst_gamma__');
+
+      document.getElementById('btnAddInstance').addEventListener('click', () => {
+        const num = instances.length + 1;
+        const name = 'Widget-Instance-' + num;
+        mountWidgetCard(name, \`inst_\${num}__\`);
+      });
+
+      document.getElementById('btnVerifyDom').addEventListener('click', () => {
+        verifyDOMCollisions();
+      });
+    });
+  </script>
+</body>
+</html>
