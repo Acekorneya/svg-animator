@@ -216,7 +216,7 @@
       const reExistingManifest = /<script\b[^>]*\bid=["']sva-widget-manifest["']/i;
       if (!reExistingManifest.test(transformed)) {
         const manifestJson = JSON.stringify(options.manifest);
-        const manifestTag = `\n  <script type="application/json" id="sva-widget-manifest">${manifestJson}</script>\n`;
+        const manifestTag = '\n  <script type="application/json" id="sva-widget-manifest">' + manifestJson + '<' + '/script>\n';
         const lastSvgIdx = transformed.lastIndexOf('</svg>');
         if (lastSvgIdx !== -1) {
           transformed = transformed.slice(0, lastSvgIdx) + manifestTag + transformed.slice(lastSvgIdx);
@@ -245,7 +245,7 @@
    */
   function extractManifestFromSVG(rawSvg) {
     if (!rawSvg || typeof rawSvg !== 'string') return null;
-    const re = /<script\b[^>]*\bid=["'](?:[^"']*__)?sva-widget-manifest["'][^>]*>([\s\S]*?)<\/script>/i;
+    const re = new RegExp(/<script\b[^>]*\bid=["'](?:[^"']*__)?sva-widget-manifest["'][^>]*>([\s\S]*?)<\//.source + 'script>', 'i');
     const match = re.exec(rawSvg);
     if (match && match[1]) {
       try {

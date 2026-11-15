@@ -598,7 +598,7 @@
       const reExistingManifest = /<script\b[^>]*\bid=["']sva-widget-manifest["']/i;
       if (!reExistingManifest.test(transformed)) {
         const manifestJson = JSON.stringify(options.manifest);
-        const manifestTag = `\n  <script type="application/json" id="sva-widget-manifest">${manifestJson}</script>\n`;
+        const manifestTag = '\n  <script type="application/json" id="sva-widget-manifest">' + manifestJson + '<' + '/script>\n';
         const lastSvgIdx = transformed.lastIndexOf('</svg>');
         if (lastSvgIdx !== -1) {
           transformed = transformed.slice(0, lastSvgIdx) + manifestTag + transformed.slice(lastSvgIdx);
@@ -627,7 +627,7 @@
    */
   function extractManifestFromSVG(rawSvg) {
     if (!rawSvg || typeof rawSvg !== 'string') return null;
-    const re = /<script\b[^>]*\bid=["'](?:[^"']*__)?sva-widget-manifest["'][^>]*>([\s\S]*?)<\/script>/i;
+    const re = new RegExp(/<script\b[^>]*\bid=["'](?:[^"']*__)?sva-widget-manifest["'][^>]*>([\s\S]*?)<\//.source + 'script>', 'i');
     const match = re.exec(rawSvg);
     if (match && match[1]) {
       try {
@@ -1247,7 +1247,7 @@
     }
 
     function extractManifest(svgText) {
-      const re = /<script\b[^>]*\bid=["'](?:[^"']*__)?sva-widget-manifest["'][^>]*>([\s\S]*?)<\/script>/i;
+      const re = new RegExp(/<script\b[^>]*\bid=["'](?:[^"']*__)?sva-widget-manifest["'][^>]*>([\s\S]*?)<\//.source + 'script>', 'i');
       const match = re.exec(svgText);
       if (match && match[1]) {
         try {
@@ -1756,7 +1756,7 @@
   </g>
   <rect id="statusBadge" x="250" y="180" width="130" height="34" rx="6" fill="#1e293b" stroke="#22c55e" stroke-width="2" />
   <text id="statusLabel" x="315" y="201" fill="#f0f6fc" font-family="sans-serif" font-size="10" font-weight="bold" text-anchor="middle">ONLINE</text>
-  <script type="application/json" id="sva-widget-manifest">
+  \x3cscript type="application/json" id="sva-widget-manifest"\x3e
   {
     "schemaVersion": 1,
     "parameters": [
@@ -1768,7 +1768,7 @@
       { "name": "beaconVisible", "type": "boolean", "default": true, "target": "alarmBeacon", "property": "visibility", "description": "Top warning beacon visibility toggle" }
     ]
   }
-  </script>
+  \x3c/script\x3e
 </svg>`.trim();
 
     const FALLBACK_UNBOUND_SVG = `

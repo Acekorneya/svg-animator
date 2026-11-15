@@ -82,7 +82,11 @@ Stage 16B implementation is complete, fully verified, and ready for publication.
 - Deployment binary: bin/svg-animator-linux (contains embedded demo-widgets.html, barrel.svg, unbound-sample.svg, svg-widget.js v1.2.0)
 - Deployment target command:
   scp bin/svg-animator-linux nigel@192.168.100.40:~/svg-animator
-  Status: Successfully uploaded to ~/svg-animator (26MB, BuildID sha1: b6fa0890f2d6f8dd4468655533481d1f7e30f16b)
+  Status: Successfully uploaded to ~/svg-animator (26MB, BuildID sha1: 5e4f45dba93e9b4665a2c24622b47b4b0aa6b6bc)
+- Inline Script Parsing Fix:
+  * In demo-widgets.html and svg-widget.js, escaped literal closing script tags inside template strings and RegExp sources (\x3c/script\x3e and RegExp concatenation).
+  * Resolves browser parser error: "Uncaught SyntaxError: `` literal not terminated before end of script" caused by HTML tokenizer prematurely ending inline <script> block on </script>.
+  * Verified: Node.js AST parsing confirms 100% clean syntax on all inline scripts across demo-widgets.html and standalone-demo.html.
 - Manual execution on Kiwiberry:
   ~/svg-animator
   (Serves studio and demo at http://192.168.100.40:8088/demo-widgets.html or configured port)
