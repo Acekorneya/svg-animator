@@ -254,11 +254,6 @@ func StartServerWithConfig(cfg ServerConfig) error {
 	mux := http.NewServeMux()
 	mux.Handle("/", http.FileServer(http.FS(subFS)))
 
-	// Direct Demo Page Shortcut
-	mux.HandleFunc("/demo", func(w http.ResponseWriter, r *http.Request) {
-		http.Redirect(w, r, "/demo-widgets.html", http.StatusTemporaryRedirect)
-	})
-
 	// Export, Audio Inspector & Rasterizer Endpoints
 	mux.HandleFunc("/api/export", handleExport)
 	mux.HandleFunc("/api/export/progress", handleExportProgress)
