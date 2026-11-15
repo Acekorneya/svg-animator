@@ -70,3 +70,45 @@ Widget bindings are stored in the project schema JSON (v1.2.0) under `parameters
 - Saving via `/api/export/projects/save` persists all bindings to `studio_library.db`.
 - Reopening via `/api/export/projects/get?id=...` hydrates `parameters` into the Go/WASM engine authoritative state.
 - SVA package export/import preserves parameters in `manifest.json` and `scene.json`.
+
+---
+
+## 5. Automatic Widget Properties Documentation & No-Code Widget Package
+
+### Automatic Properties Guide Generation (`pkg/engine/scene/widget_docs.go`)
+- **Authoritative Data Source:** Directly queries `sc.nodes`, `sc.glows`, `sc.flows`, `sc.ripples`, `sc.images`, `sc.canvas`, and `sc.parameters` from the Go scene model.
+- **Generated File:** `<widgetName>-properties.md`
+- **Contents:**
+  1. Title, versioning (Scene Schema `1.2.0`, Protocol `1.0.0`), and metadata.
+  2. Overview & Architecture (canvas dimensions, viewBox, scoping model).
+  3. Visual Object Inventory Table (target IDs, names, types, coordinates, layers, bound parameters).
+  4. Host-Controllable Parameter Specification (name, type, target, property, default, range, units, description).
+  5. Animation & Transport capabilities.
+  6. Ready-to-Run No-Code Controls instructions.
+  7. Developer Integration & JavaScript API reference with real code examples using the exported parameter names.
+
+### Ready-to-Run No-Code Control Page (`demo.html`)
+- **Generated File:** `demo.html`
+- **Operation:** Completely independent of SVG Animator Studio once unzipped; relies only on bundled `js/svg-widget.js`.
+- **UI Architecture:** Dynamic UI generator reading parameter types to render:
+  - Range sliders with live unit labels for bounded numbers.
+  - Color pickers for hex colors.
+  - Checkboxes for booleans.
+  - Dropdown selectors for enumerations.
+  - Text inputs for labels and textual content.
+- **Multi-Instance Isolation:** Pre-mounts 3 independent instances (`Unit A: Optimal`, `Unit B: Warning`, `Unit C: Critical Alarm`) side-by-side with distinct parameter values and live visual feedback on the actual mounted SVGs.
+- **Transport Controls:** Play, Pause, and Reset to Authored Defaults.
+
+### Portable Widget Package Export (ZIP)
+- **Archive Contents:**
+  ```text
+  <widgetName>/
+  ├── <widgetName>.svg
+  ├── <widgetName>-properties.md
+  ├── widget-manifest.json
+  ├── js/svg-widget.js
+  ├── README.md
+  └── demo.html
+  ```
+- **Integrity:** Standard PKZIP archive structure verified with zero external dependencies.
+

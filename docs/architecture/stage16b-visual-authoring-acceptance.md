@@ -23,7 +23,11 @@
 | **AC-09** | Three-Instance Mounting & Independence | **PASS** | Mounted 3 instances of `studio_tank_widget.svg`; configured Tank A (optimal), Tank B (warning low), Tank C (critical empty); verified 0 crosstalk |
 | **AC-10** | Kiwiberry Acceptance Deployment | **PASS** | Recompiled `bin/svg-animator-linux` (v1.2.0, commit 63b4c91, built 2026-11-10) uploaded to `nigel@192.168.100.40:~/svg-animator` |
 | **AC-11** | Zero Duplicate ID Collisions | **PASS** | Instance prefixes applied to all internal IDs and manifest tag (`vt01__sva-widget-manifest`) |
-| **AC-12** | Regression Test Suite (78 Scenarios) | **PASS** | `node scripts/regression-harness.js` passed 78/78 scenarios; `go test ./...` passed 100% |
+| **AC-12** | Regression Test Suite (79 Scenarios) | **PASS** | `node scripts/regression-harness.js` passed 79/79 scenarios; `go test ./...` passed 100% |
+| **AC-13** | Automatic Widget Properties Guide | **PASS** | `<widgetName>-properties.md` generated from authoritative Go scene data with object inventory, parameter specifications, and code snippets |
+| **AC-14** | Ready-to-Run No-Code Control Page | **PASS** | Bundled `demo.html` renders interactive UI controls (sliders, colors, toggles, dropdowns) for 3 independent instances with zero code |
+| **AC-15** | Portable Widget Package (ZIP) | **PASS** | Standard ZIP package containing SVG, properties guide, manifest JSON, `svg-widget.js`, README, and `demo.html` |
+| **AC-16** | BookStack Guide Published | **PASS** | Published "SVG Widget Authoring and Properties Guide" to BookStack Book ID 353 (Page ID 458) |
 
 ---
 

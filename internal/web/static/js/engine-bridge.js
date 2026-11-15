@@ -2192,6 +2192,37 @@
       return false;
     },
 
+    generateWidgetGuide(widgetName = '', svgFilename = '') {
+      if (this.isReady()) {
+        const res = this.dispatch('Widget.GenerateGuide', {
+          widgetName: String(widgetName || ''),
+          svgFilename: String(svgFilename || '')
+        });
+        if (res && res.success) {
+          res.markdown = res.guideMarkdown || '';
+          res.demoHTML = res.demoHtml || res.demoHTML || '';
+          res.manifestJSON = res.manifestJson || res.manifestJSON || '';
+          return res;
+        }
+      }
+      return null;
+    },
+
+    buildWidgetPackage(widgetName = '', svg = '', svgWidgetJs = '') {
+      if (this.isReady() && svg) {
+        const res = this.dispatch('Widget.BuildPackage', {
+          widgetName: String(widgetName || ''),
+          svg: String(svg),
+          svgWidgetJs: String(svgWidgetJs || '')
+        });
+        if (res && res.success) {
+          res.zipBase64 = res.zipB64 || '';
+          return res;
+        }
+      }
+      return null;
+    },
+
     getActiveEngineName() {
       if (!this.isReady()) return 'JS fallback';
       if (this._lastSyncError) return 'Sync Failed (JS fallback)';

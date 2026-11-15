@@ -10244,6 +10244,64 @@ async function runHarness() {
 
   console.log('[HARNESS] Scenario 78 PASS: Stage 16B Visual Widget Property Bindings Inside Editor verified.');
 
+  // ===========================================================================
+  // Scenario 79: Stage 16B Automatic Widget Properties Guide & Portable Package
+  // ===========================================================================
+  console.log('[HARNESS] Testing Scenario 79: Stage 16B Automatic Widget Properties Guide & Portable Package...');
+
+  // 1. Generate Widget Guide via Go WASM EngineBridge
+  const guideRes = window.EngineBridge.generateWidgetGuide('Storage Tank Widget', 'Storage Tank Widget');
+  assert.strictEqual(guideRes.success, true, 'W16B-DOC01: generateWidgetGuide succeeded');
+  assert.ok(guideRes.markdown, 'W16B-DOC02: Markdown content returned');
+  assert.ok(guideRes.markdown.includes('# Storage Tank Widget — Widget Properties & Integration Guide'), 'W16B-DOC03: Title matches widget name');
+  assert.ok(guideRes.markdown.includes('**Scene Schema Version:** `1.2.0`'), 'W16B-DOC04: Schema version 1.2.0 specified');
+  assert.ok(guideRes.markdown.includes('**Protocol Version:** `1.0.0`'), 'W16B-DOC05: Protocol version 1.0.0 specified');
+  assert.ok(guideRes.markdown.includes('## 1. Overview & Architecture'), 'W16B-DOC06: Overview section present');
+  assert.ok(guideRes.markdown.includes('## 2. Controllable Objects & Scene Inventory'), 'W16B-DOC07: Inventory section present');
+  assert.ok(guideRes.markdown.includes('## 3. Parameter Specification & API Reference'), 'W16B-DOC08: Parameter specification table present');
+  assert.ok(guideRes.markdown.includes('`tankBodyColor`'), 'W16B-DOC09: tankBodyColor documented in table');
+  assert.ok(guideRes.markdown.includes('`liquidLevel`'), 'W16B-DOC10: liquidLevel documented in table');
+  assert.ok(guideRes.markdown.includes('`statusText`'), 'W16B-DOC11: statusText documented in table');
+  assert.ok(guideRes.markdown.includes('## 4. Animation & Transport Capabilities'), 'W16B-DOC12: Transport capabilities section present');
+  assert.ok(guideRes.markdown.includes('## 5. No-Code Usage Guide (For Non-Programmers)'), 'W16B-DOC13: No-code section present');
+  assert.ok(guideRes.markdown.includes('## 6. Developer Integration & JavaScript API Reference'), 'W16B-DOC14: Developer API section present');
+  assert.ok(guideRes.markdown.includes('myWidget.setParameters({'), 'W16B-DOC15: Developer API code snippet present');
+
+  // 2. Build Widget Package (ZIP) via Go WASM EngineBridge
+  const pkgRes = window.EngineBridge.buildWidgetPackage('Storage Tank Widget', mockSceneSvg);
+  assert.strictEqual(pkgRes.success, true, 'W16B-PKG01: buildWidgetPackage succeeded');
+  assert.ok(pkgRes.zipBase64, 'W16B-PKG02: Base64 ZIP payload returned');
+  assert.ok(pkgRes.filename.endsWith('.zip'), 'W16B-PKG03: Package filename ends with .zip');
+
+  // 3. Inspect ZIP archive integrity
+  const zipBuffer = Buffer.from(pkgRes.zipBase64, 'base64');
+  assert.ok(zipBuffer.length > 500, 'W16B-PKG04: ZIP buffer is non-empty');
+  assert.strictEqual(zipBuffer[0], 0x50, 'W16B-PKG05: ZIP magic byte 0 (P)');
+  assert.strictEqual(zipBuffer[1], 0x4B, 'W16B-PKG06: ZIP magic byte 1 (K)');
+  assert.strictEqual(zipBuffer[2], 0x03, 'W16B-PKG07: ZIP magic byte 2 (0x03)');
+  assert.strictEqual(zipBuffer[3], 0x04, 'W16B-PKG08: ZIP magic byte 3 (0x04)');
+
+  // Verify all 6 expected files are in the zip headers
+  const zipStr = zipBuffer.toString('binary');
+  assert.ok(zipStr.includes('storage-tank-widget/storage-tank-widget.svg'), 'W16B-PKG09: Contains widget SVG');
+  assert.ok(zipStr.includes('storage-tank-widget/storage-tank-widget-properties.md'), 'W16B-PKG10: Contains properties markdown guide');
+  assert.ok(zipStr.includes('storage-tank-widget/widget-manifest.json'), 'W16B-PKG11: Contains widget manifest JSON');
+  assert.ok(zipStr.includes('storage-tank-widget/js/svg-widget.js'), 'W16B-PKG12: Contains svg-widget.js');
+  assert.ok(zipStr.includes('storage-tank-widget/README.md'), 'W16B-PKG13: Contains README.md');
+  assert.ok(zipStr.includes('storage-tank-widget/demo.html'), 'W16B-PKG14: Contains demo.html');
+
+  // 4. Verify demo.html contains the 3-instance no-code control interface
+  const demoHtml = guideRes.demoHTML || guideRes.demoHtml;
+  assert.ok(demoHtml, 'W16B-PKG15: demoHTML string returned');
+  assert.ok(demoHtml.includes('id="container-unit-a"'), 'W16B-PKG16: demo.html contains unit-a container');
+  assert.ok(demoHtml.includes('id="container-unit-b"'), 'W16B-PKG17: demo.html contains unit-b container');
+  assert.ok(demoHtml.includes('id="container-unit-c"'), 'W16B-PKG18: demo.html contains unit-c container');
+  assert.ok(demoHtml.includes('tankBodyColor'), 'W16B-PKG19: demo.html binds tankBodyColor');
+  assert.ok(demoHtml.includes('liquidLevel'), 'W16B-PKG20: demo.html binds liquidLevel');
+  assert.ok(demoHtml.includes('statusText'), 'W16B-PKG21: demo.html binds statusText');
+
+  console.log('[HARNESS] Scenario 79 PASS: Stage 16B Automatic Widget Properties Guide & Portable Package verified.');
+
   console.log('[HARNESS] REG-03 PASS: Stage 3, 4, 5, 6, 7, 8, 9, 11, 12, 13, 14, 15 & 16 non-destructive cropping, background extraction, image baking, dedicated crop clip & snip workspace, object-local clipping, unified layer management, independent image objects, persistent groups, duplication, copy/paste with flow remapping, multi-selection, alignment, distribution, colour tools, selection retention, notifications, naming sync, history(50), schema 1.2.0, .sva packaging, background photo restoration, SVG compilation, export payload builders, collision-free widgets, external runtime parameters, and Go WASM engines verified.');
 }
 

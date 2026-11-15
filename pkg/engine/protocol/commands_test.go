@@ -3423,4 +3423,48 @@ func TestDispatchWidgetParameters(t *testing.T) {
 	if !strings.Contains(isoRes.IsolatedSVG, `"statusColor"`) {
 		t.Errorf("expected statusColor in isolated SVG manifest")
 	}
+
+	// 6. Widget.GenerateGuide produces Markdown and Demo HTML
+	guideReq, _ := json.Marshal(WidgetGenerateGuideRequest{
+		WidgetName:  "Test Protocol Widget",
+		SVGFilename: "test-widget.svg",
+	})
+	guideBytes, err := Dispatch("Widget.GenerateGuide", guideReq)
+	if err != nil {
+		t.Fatalf("Widget.GenerateGuide failed: %v", err)
+	}
+	var guideRes WidgetGenerateGuideResponse
+	if err := json.Unmarshal(guideBytes, &guideRes); err != nil || !guideRes.Success {
+		t.Fatalf("Widget.GenerateGuide response mismatch: %+v", guideRes)
+	}
+	if !strings.Contains(guideRes.GuideMarkdown, "Test Protocol Widget — Widget Properties & Integration Guide") {
+		t.Errorf("Widget.GenerateGuide missing expected title")
+	}
+	if !strings.Contains(guideRes.GuideMarkdown, "`statusColor`") {
+		t.Errorf("Widget.GenerateGuide missing parameter name 'statusColor'")
+	}
+	if !strings.Contains(guideRes.DemoHTML, "unit-a") || !strings.Contains(guideRes.DemoHTML, "test-widget.svg") {
+		t.Errorf("Widget.GenerateGuide missing demo HTML content")
+	}
+
+	// 7. Widget.BuildPackage produces complete portable ZIP
+	pkgReq, _ := json.Marshal(WidgetBuildPackageRequest{
+		WidgetName:  "Test Protocol Widget",
+		SVG:         rawSVG,
+		SVGWidgetJS: "// Mock svg-widget.js",
+	})
+	pkgBytes, err := Dispatch("Widget.BuildPackage", pkgReq)
+	if err != nil {
+		t.Fatalf("Widget.BuildPackage failed: %v", err)
+	}
+	var pkgRes WidgetBuildPackageResponse
+	if err := json.Unmarshal(pkgBytes, &pkgRes); err != nil || !pkgRes.Success {
+		t.Fatalf("Widget.BuildPackage response mismatch: %+v", pkgRes)
+	}
+	if pkgRes.Size <= 0 || pkgRes.ZipB64 == "" {
+		t.Fatalf("Widget.BuildPackage produced empty zip data")
+	}
+	if pkgRes.Filename != "test-protocol-widget-package.zip" {
+		t.Errorf("unexpected filename: %s", pkgRes.Filename)
+	}
 }

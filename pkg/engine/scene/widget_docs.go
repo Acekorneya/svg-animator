@@ -1,0 +1,709 @@
+package scene
+
+import (
+	"archive/zip"
+	"bytes"
+	"encoding/json"
+	"fmt"
+	"path"
+	"regexp"
+	"strings"
+	"time"
+)
+
+// GenerateWidgetPropertiesGuide produces an authoritative Markdown guide documenting
+// the specific exported SVG widget, its object inventory, and its exposed parameters.
+func GenerateWidgetPropertiesGuide(sc *Scene, widgetName, svgFilename string, manifest *WidgetManifest) string {
+	if widgetName == "" {
+		widgetName = "SVG Widget"
+	}
+	if svgFilename == "" {
+		svgFilename = "widget.svg"
+	}
+
+	cleanBase := cleanWidgetSlug(widgetName)
+	nowStr := time.Now().UTC().Format("2006-01-02 15:04:02 UTC")
+
+	var sb strings.Builder
+
+	// Title & Metadata
+	sb.WriteString(fmt.Sprintf("# %s — Widget Properties & Integration Guide\n\n", widgetName))
+	sb.WriteString(fmt.Sprintf("**Widget File:** `%s`  \n", svgFilename))
+	sb.WriteString("**Format:** SVG Widget (Stage 16B Isolated Multi-Instance)  \n")
+	sb.WriteString("**Scene Schema Version:** `1.2.0`  \n")
+	sb.WriteString("**Protocol Version:** `1.0.0`  \n")
+	sb.WriteString(fmt.Sprintf("**Generated At:** %s  \n\n", nowStr))
+	sb.WriteString("---\n\n")
+
+	// 1. Executive Summary & Overview
+	sb.WriteString("## 1. Overview & Architecture\n\n")
+	sb.WriteString(fmt.Sprintf("`%s` is a self-contained, collision-free SVG widget exported from **SVG Animator Studio**.\n", widgetName))
+	sb.WriteString("It encapsulates vector graphics, embedded animations, filter definitions, and an external parameter manifest.\n\n")
+
+	if sc != nil {
+		sc.mu.RLock()
+		cw := sc.canvas.Width
+		ch := sc.canvas.Height
+		sc.mu.RUnlock()
+		if cw > 0 && ch > 0 {
+			sb.WriteString(fmt.Sprintf("- **Native Canvas Dimensions:** %.0f × %.0f px (viewBox `0 0 %.0f %.0f`)\n", cw, ch, cw, ch))
+		}
+	}
+	sb.WriteString("- **Isolation Model:** Element IDs, gradients, filters, and animation keyframes are automatically scoped per mounted instance.\n")
+	sb.WriteString("- **Multi-Instance Capability:** Multiple copies of this widget can coexist inside the same HTML document or DOM tree with zero ID collisions or styling crosstalk.\n\n")
+
+	// 2. Object Inventory Table
+	sb.WriteString("## 2. Controllable Objects & Scene Inventory\n\n")
+	sb.WriteString("The following inventory lists the visual objects authored within this widget and their corresponding external parameter bindings:\n\n")
+	sb.WriteString("| Target Identifier | Object Name | Object Type | Geometry / Position | Layer | Bound Parameters |\n")
+	sb.WriteString("|---|---|---|---|---|---|\n")
+
+	// Map of target to list of parameter names
+	targetParamMap := make(map[string][]string)
+	if manifest != nil {
+		for _, p := range manifest.Parameters {
+			targetParamMap[p.Target] = append(targetParamMap[p.Target], "`"+p.Name+"`")
+			// Also map numeric IDs to "node-X"
+			if !strings.HasPrefix(p.Target, "node-") && !strings.HasPrefix(p.Target, "flow-") &&
+				!strings.HasPrefix(p.Target, "glow-") && !strings.HasPrefix(p.Target, "ripple-") &&
+				!strings.HasPrefix(p.Target, "image-") {
+				targetParamMap["node-"+p.Target] = append(targetParamMap["node-"+p.Target], "`"+p.Name+"`")
+			}
+		}
+	}
+
+	if sc != nil {
+		sc.mu.RLock()
+		// Nodes
+		for _, nid := range sc.nodeIDs {
+			n := sc.nodes[nid]
+			targetId := fmt.Sprintf("node-%s", n.ID)
+			name := n.Name
+			if name == "" {
+				name = targetId
+			}
+			params := targetParamMap[targetId]
+			if len(params) == 0 {
+				params = targetParamMap[string(n.ID)]
+			}
+			if len(params) == 0 && n.Name != "" {
+				params = targetParamMap[n.Name]
+			}
+			pStr := "-"
+			if len(params) > 0 {
+				pStr = strings.Join(params, ", ")
+			}
+			sb.WriteString(fmt.Sprintf("| `%s` | %s | Node (%s) | (%.1f, %.1f) %.0f×%.0f | Base | %s |\n",
+				targetId, escapeMD(name), n.Shape, n.X, n.Y, n.Width, n.Height, pStr))
+		}
+		// Glows
+		for _, gid := range sc.glowIDs {
+			g := sc.glows[gid]
+			targetId := fmt.Sprintf("glow-%s", g.ID)
+			name := g.Name
+			if name == "" {
+				name = targetId
+			}
+			params := targetParamMap[targetId]
+			if len(params) == 0 {
+				params = targetParamMap[string(g.ID)]
+			}
+			pStr := "-"
+			if len(params) > 0 {
+				pStr = strings.Join(params, ", ")
+			}
+			sb.WriteString(fmt.Sprintf("| `%s` | %s | Glow Hotspot | (%.1f, %.1f) size=%.0f | Optical | %s |\n",
+				targetId, escapeMD(name), g.X, g.Y, g.Size, pStr))
+		}
+		// Flows
+		for _, fid := range sc.flowIDs {
+			f := sc.flows[fid]
+			targetId := fmt.Sprintf("flow-%s", f.ID)
+			name := f.Name
+			if name == "" {
+				name = targetId
+			}
+			params := targetParamMap[targetId]
+			if len(params) == 0 {
+				params = targetParamMap[string(f.ID)]
+			}
+			pStr := "-"
+			if len(params) > 0 {
+				pStr = strings.Join(params, ", ")
+			}
+			sb.WriteString(fmt.Sprintf("| `%s` | %s | Connector Flow | Nodes: %d | Base | %s |\n",
+				targetId, escapeMD(name), len(f.Nodes), pStr))
+		}
+		// Ripples
+		for _, rid := range sc.rippleIDs {
+			r := sc.ripples[rid]
+			targetId := fmt.Sprintf("ripple-%s", r.ID)
+			name := r.Name
+			if name == "" {
+				name = targetId
+			}
+			params := targetParamMap[targetId]
+			if len(params) == 0 {
+				params = targetParamMap[string(r.ID)]
+			}
+			pStr := "-"
+			if len(params) > 0 {
+				pStr = strings.Join(params, ", ")
+			}
+			sb.WriteString(fmt.Sprintf("| `%s` | %s | Ripple Wave | (%.1f, %.1f) maxR=%.0f | Optical | %s |\n",
+				targetId, escapeMD(name), r.X, r.Y, r.OuterR, pStr))
+		}
+		// Images
+		for _, iid := range sc.imageIDs {
+			img := sc.images[iid]
+			targetId := fmt.Sprintf("image-%s", img.ID)
+			name := img.Name
+			if name == "" {
+				name = targetId
+			}
+			params := targetParamMap[targetId]
+			if len(params) == 0 {
+				params = targetParamMap[string(img.ID)]
+			}
+			pStr := "-"
+			if len(params) > 0 {
+				pStr = strings.Join(params, ", ")
+			}
+			sb.WriteString(fmt.Sprintf("| `%s` | %s | Image Object | (%.1f, %.1f) %.0f×%.0f | Base | %s |\n",
+				targetId, escapeMD(name), img.X, img.Y, img.Width, img.Height, pStr))
+		}
+		sc.mu.RUnlock()
+	}
+
+	// Root / Global
+	if rootParams, ok := targetParamMap["root"]; ok && len(rootParams) > 0 {
+		sb.WriteString(fmt.Sprintf("| `root` | Root SVG / Transport | Global Widget | Entire Viewport | System | %s |\n", strings.Join(rootParams, ", ")))
+	}
+	sb.WriteString("\n---\n\n")
+
+	// 3. Parameter Specification Table
+	sb.WriteString("## 3. Parameter Specification & API Reference\n\n")
+	if manifest == nil || len(manifest.Parameters) == 0 {
+		sb.WriteString("*(No external parameters are exposed for this widget.)*\n\n")
+	} else {
+		sb.WriteString("| Parameter Name | Type | Target | Property | Default | Permitted Limits / Values | Unit | Description |\n")
+		sb.WriteString("|---|---|---|---|---|---|---|---|\n")
+
+		for _, p := range manifest.Parameters {
+			defVal := fmt.Sprintf("%v", p.Default)
+			if p.Type == "color" {
+				defVal = fmt.Sprintf("`%v`", p.Default)
+			}
+			limitsStr := "-"
+			if p.Type == "number" || p.Type == "speed" {
+				if p.Min != nil && p.Max != nil {
+					limitsStr = fmt.Sprintf("%.1f to %.1f", *p.Min, *p.Max)
+				} else if p.Min != nil {
+					limitsStr = fmt.Sprintf(">= %.1f", *p.Min)
+				} else if p.Max != nil {
+					limitsStr = fmt.Sprintf("<= %.1f", *p.Max)
+				}
+			} else if p.Type == "enum" && len(p.Options) > 0 {
+				limitsStr = strings.Join(p.Options, ", ")
+			} else if p.Type == "boolean" {
+				limitsStr = "`true`, `false`"
+			}
+
+			unitStr := p.Unit
+			if unitStr == "" {
+				unitStr = "-"
+			}
+
+			descStr := p.Description
+			if descStr == "" {
+				descStr = fmt.Sprintf("Controls %s property on %s", p.Property, p.Target)
+			}
+
+			sb.WriteString(fmt.Sprintf("| **`%s`** | `%s` | `%s` | `%s` | %s | %s | %s | %s |\n",
+				p.Name, p.Type, p.Target, p.Property, defVal, limitsStr, unitStr, escapeMD(descStr)))
+		}
+		sb.WriteString("\n")
+	}
+	sb.WriteString("---\n\n")
+
+	// 4. Animation & Transport Capabilities
+	sb.WriteString("## 4. Animation & Transport Capabilities\n\n")
+	sb.WriteString("SVG Animator Studio distinguishes between authored animation loops and external host controls:\n\n")
+	sb.WriteString("- **Connector Flows, Optical Glows & Ripples:** Run continuously via browser-native SVG animation engines.\n")
+	sb.WriteString("- **Instance Animation Playback Control:**\n")
+	sb.WriteString("  - `widget.play()`: Resumes/plays all animations within the instance.\n")
+	sb.WriteString("  - `widget.pause()`: Freezes SMIL and CSS animations for the instance only.\n")
+	sb.WriteString("  - `widget.setSpeed(multiplier)`: Scales playback speed (`0.1` to `5.0`) on supported animations.\n")
+	sb.WriteString("  - `widget.resetParameters()`: Restores all bound properties to authored scene defaults.\n")
+	sb.WriteString("  - Individual instance playback does **not** interfere with other instances on the same page.\n\n")
+	sb.WriteString("---\n\n")
+
+	// 5. No-Code Usage Guide
+	sb.WriteString("## 5. No-Code Usage Guide (For Non-Programmers)\n\n")
+	sb.WriteString("This widget package includes a pre-built interactive control studio:\n\n")
+	sb.WriteString("1. Locate `demo.html` in this package directory.\n")
+	sb.WriteString("2. Double-click `demo.html` to open it in any modern browser (Chrome, Edge, Firefox, Safari).\n")
+	sb.WriteString("3. The page automatically mounts **three independent instances** (Unit A, Unit B, Unit C).\n")
+	sb.WriteString("4. Adjust the sliders, color pickers, and toggles in each panel. Each instance responds instantly.\n")
+	sb.WriteString("5. Use the **Reset** button to restore defaults, or **Pause/Play** to freeze/resume animations.\n")
+	sb.WriteString("6. No web server, command line, or code editing is required.\n\n")
+	sb.WriteString("---\n\n")
+
+	// 6. Developer Integration Guide
+	sb.WriteString("## 6. Developer Integration & JavaScript API Reference\n\n")
+	sb.WriteString("### Mounting in a Web Application\n\n")
+	sb.WriteString("```html\n")
+	sb.WriteString("<!-- 1. Include the lightweight Stage 16B widget runtime -->\n")
+	sb.WriteString("<script src=\"js/svg-widget.js\"></script>\n\n")
+	sb.WriteString("<!-- 2. Target container element -->\n")
+	sb.WriteString(fmt.Sprintf("<div id=\"%s-container\" style=\"width: 400px; height: 320px;\"></div>\n\n", cleanBase))
+	sb.WriteString("<script>\n")
+	sb.WriteString(fmt.Sprintf("  // 3. Mount instance\n"))
+	sb.WriteString(fmt.Sprintf("  const myWidget = SVGWidget.mount('#%s-container', '%s', {\n", cleanBase, svgFilename))
+	sb.WriteString(fmt.Sprintf("    instanceId: '%s-1'\n", cleanBase))
+	sb.WriteString("  });\n")
+	sb.WriteString("</script>\n")
+	sb.WriteString("```\n\n")
+
+	sb.WriteString("### Controlling Instance Parameters\n\n")
+	sb.WriteString("```javascript\n")
+	if manifest != nil && len(manifest.Parameters) > 0 {
+		firstP := manifest.Parameters[0]
+		sb.WriteString(fmt.Sprintf("// Single parameter update (using real exported parameter '%s'):\n", firstP.Name))
+		if firstP.Type == "color" {
+			sb.WriteString(fmt.Sprintf("myWidget.setParameter('%s', '#22c55e');\n\n", firstP.Name))
+		} else if firstP.Type == "number" {
+			sb.WriteString(fmt.Sprintf("myWidget.setParameter('%s', %v);\n\n", firstP.Name, firstP.Default))
+		} else if firstP.Type == "boolean" {
+			sb.WriteString(fmt.Sprintf("myWidget.setParameter('%s', false);\n\n", firstP.Name))
+		} else {
+			sb.WriteString(fmt.Sprintf("myWidget.setParameter('%s', '%v');\n\n", firstP.Name, firstP.Default))
+		}
+
+		sb.WriteString("// Atomic batch update:\n")
+		sb.WriteString("myWidget.setParameters({\n")
+		for i, p := range manifest.Parameters {
+			if i >= 4 {
+				break
+			}
+			if p.Type == "color" {
+				sb.WriteString(fmt.Sprintf("  %s: '%v',\n", p.Name, p.Default))
+			} else if p.Type == "number" || p.Type == "speed" {
+				sb.WriteString(fmt.Sprintf("  %s: %v,\n", p.Name, p.Default))
+			} else if p.Type == "boolean" {
+				sb.WriteString(fmt.Sprintf("  %s: %v,\n", p.Name, p.Default))
+			} else {
+				sb.WriteString(fmt.Sprintf("  %s: '%v',\n", p.Name, p.Default))
+			}
+		}
+		sb.WriteString("});\n\n")
+	} else {
+		sb.WriteString("myWidget.setParameter('exampleParam', 100);\n\n")
+	}
+
+	sb.WriteString("// Read current value:\n")
+	if manifest != nil && len(manifest.Parameters) > 0 {
+		sb.WriteString(fmt.Sprintf("const val = myWidget.getParameter('%s');\n\n", manifest.Parameters[0].Name))
+	} else {
+		sb.WriteString("const val = myWidget.getParameter('exampleParam');\n\n")
+	}
+
+	sb.WriteString("// Reset to authored defaults:\n")
+	sb.WriteString("myWidget.resetParameters();\n\n")
+
+	sb.WriteString("// Listen for property changes:\n")
+	sb.WriteString("myWidget.on('change', (evt) => {\n")
+	sb.WriteString("  console.log(`[${evt.instanceId}] ${evt.name} changed to:`, evt.value);\n")
+	sb.WriteString("});\n")
+	sb.WriteString("```\n\n")
+
+	sb.WriteString("### Multi-Instance Independence Example\n\n")
+	sb.WriteString("```javascript\n")
+	sb.WriteString(fmt.Sprintf("const instA = SVGWidget.mount('#unitA', '%s', { instanceId: 'unit-a' });\n", svgFilename))
+	sb.WriteString(fmt.Sprintf("const instB = SVGWidget.mount('#unitB', '%s', { instanceId: 'unit-b' });\n", svgFilename))
+	sb.WriteString(fmt.Sprintf("const instC = SVGWidget.mount('#unitC', '%s', { instanceId: 'unit-c' });\n\n", svgFilename))
+
+	if manifest != nil && len(manifest.Parameters) > 0 {
+		pName := manifest.Parameters[0].Name
+		pType := manifest.Parameters[0].Type
+		if pType == "color" {
+			sb.WriteString(fmt.Sprintf("instA.setParameter('%s', '#22c55e'); // Green (Optimal)\n", pName))
+			sb.WriteString(fmt.Sprintf("instB.setParameter('%s', '#f59e0b'); // Amber (Warning)\n", pName))
+			sb.WriteString(fmt.Sprintf("instC.setParameter('%s', '#ef4444'); // Red (Alarm)\n", pName))
+		} else if pType == "number" {
+			sb.WriteString(fmt.Sprintf("instA.setParameter('%s', 180); // High\n", pName))
+			sb.WriteString(fmt.Sprintf("instB.setParameter('%s', 90);  // Medium\n", pName))
+			sb.WriteString(fmt.Sprintf("instC.setParameter('%s', 20);  // Low\n", pName))
+		} else {
+			sb.WriteString(fmt.Sprintf("instA.setParameter('%s', 'NORMAL');\n", pName))
+			sb.WriteString(fmt.Sprintf("instB.setParameter('%s', 'WARNING');\n", pName))
+			sb.WriteString(fmt.Sprintf("instC.setParameter('%s', 'CRITICAL');\n", pName))
+		}
+	}
+	sb.WriteString("```\n\n")
+
+	sb.WriteString("---\n\n")
+	sb.WriteString("*(End of Guide — Generated automatically by SVG Animator Studio)*\n")
+
+	return sb.String()
+}
+
+// GenerateWidgetReadme creates a README.md file for the portable widget package.
+func GenerateWidgetReadme(widgetName, svgFilename string, manifest *WidgetManifest) string {
+	cleanBase := cleanWidgetSlug(widgetName)
+	var sb strings.Builder
+
+	sb.WriteString(fmt.Sprintf("# %s — Portable SVG Widget Package\n\n", widgetName))
+	sb.WriteString("This directory contains a complete, portable, and ready-to-run SVG widget package exported from **SVG Animator Studio**.\n\n")
+
+	sb.WriteString("## Quick Start\n\n")
+	sb.WriteString("1. **Interactive Demo (No-Code):** Double-click `demo.html` in your browser. You can operate three independent live instances immediately with real-time controls.\n")
+	sb.WriteString(fmt.Sprintf("2. **Standalone Asset:** `%s` is the collision-free SVG file ready to embed in any web application.\n", svgFilename))
+	sb.WriteString(fmt.Sprintf("3. **Properties Guide:** Read `%s-properties.md` for complete parameter specifications, object inventory, and integration code snippets.\n\n", cleanBase))
+
+	sb.WriteString("## Package File Index\n\n")
+	sb.WriteString("| File | Purpose |\n")
+	sb.WriteString("|---|---|\n")
+	sb.WriteString(fmt.Sprintf("| `%s` | Isolated, collision-free SVG widget with embedded JSON parameter manifest |\n", svgFilename))
+	sb.WriteString(fmt.Sprintf("| `%s-properties.md` | Authoritative properties guide, object inventory, and developer reference |\n", cleanBase))
+	sb.WriteString("| `widget-manifest.json` | Inspection copy of the validated parameter manifest schema |\n")
+	sb.WriteString("| `demo.html` | Ready-to-run interactive multi-instance no-code control page |\n")
+	sb.WriteString("| `js/svg-widget.js` | Lightweight, dependency-free JavaScript runtime adapter |\n")
+	sb.WriteString("| `README.md` | This quick start and package index |\n\n")
+
+	paramCount := 0
+	if manifest != nil {
+		paramCount = len(manifest.Parameters)
+	}
+	sb.WriteString(fmt.Sprintf("**Total Exposed Parameters:** %d  \n", paramCount))
+	sb.WriteString("**Format Specification:** Stage 16B Isolated Multi-Instance Widget  \n")
+	sb.WriteString("**Runtime Compatibility:** Universal (Browser Global, ES Modules, CommonJS)  \n")
+
+	return sb.String()
+}
+
+// GenerateWidgetDemoHTML creates a ready-to-run, no-code interactive control page.
+func GenerateWidgetDemoHTML(widgetName, svgFilename string, manifest *WidgetManifest) string {
+	cleanBase := cleanWidgetSlug(widgetName)
+
+	manifestJson := "{}"
+	if manifest != nil {
+		b, _ := json.Marshal(manifest)
+		manifestJson = string(b)
+	}
+
+	var sb strings.Builder
+	sb.WriteString("<!DOCTYPE html>\n")
+	sb.WriteString("<html lang=\"en\">\n<head>\n")
+	sb.WriteString("  <meta charset=\"UTF-8\">\n")
+	sb.WriteString("  <meta name=\"viewport\" content=\"width=device-width, initial-scale=1.0\">\n")
+	sb.WriteString(fmt.Sprintf("  <title>%s — Interactive Widget Control Studio</title>\n", escapeHTML(widgetName)))
+	sb.WriteString("  <style>\n")
+	sb.WriteString("    * { box-sizing: border-box; margin: 0; padding: 0; }\n")
+	sb.WriteString("    body { font-family: -apple-system, BlinkMacSystemFont, 'Segoe UI', Roboto, sans-serif; background: #0d1117; color: #c9d1d9; line-height: 1.5; padding: 20px; }\n")
+	sb.WriteString("    header { max-width: 1380px; margin: 0 auto 20px auto; display: flex; justify-content: space-between; align-items: center; border-bottom: 1px solid #30363d; padding-bottom: 16px; }\n")
+	sb.WriteString("    .header-title h1 { font-size: 1.35rem; color: #f0f6fc; font-weight: 600; display: flex; align-items: center; gap: 8px; }\n")
+	sb.WriteString("    .header-title p { font-size: 0.85rem; color: #8b949e; margin-top: 4px; }\n")
+	sb.WriteString("    .badge { font-size: 0.72rem; padding: 2px 8px; border-radius: 12px; background: rgba(56, 139, 253, 0.15); color: #58a6ff; border: 1px solid rgba(56, 139, 253, 0.4); }\n")
+	sb.WriteString("    .grid-container { max-width: 1380px; margin: 0 auto; display: grid; grid-template-columns: repeat(auto-fit, minmax(380px, 1fr)); gap: 20px; }\n")
+	sb.WriteString("    .instance-card { background: #161b22; border: 1px solid #30363d; border-radius: 8px; overflow: hidden; display: flex; flex-direction: column; }\n")
+	sb.WriteString("    .card-header { padding: 12px 16px; background: #21262d; border-bottom: 1px solid #30363d; display: flex; justify-content: space-between; align-items: center; }\n")
+	sb.WriteString("    .card-header h2 { font-size: 0.95rem; font-weight: 600; color: #f0f6fc; }\n")
+	sb.WriteString("    .stage-wrapper { padding: 16px; background: #0b0f19; min-height: 280px; display: flex; align-items: center; justify-content: center; position: relative; border-bottom: 1px solid #30363d; }\n")
+	sb.WriteString("    .stage-wrapper svg { max-width: 100%; max-height: 280px; height: auto; display: block; }\n")
+	sb.WriteString("    .transport-bar { padding: 8px 16px; background: #161b22; border-bottom: 1px solid #30363d; display: flex; gap: 8px; align-items: center; }\n")
+	sb.WriteString("    .btn { font-size: 0.75rem; padding: 4px 10px; border-radius: 4px; border: 1px solid #30363d; background: #21262d; color: #c9d1d9; cursor: pointer; display: inline-flex; align-items: center; gap: 4px; }\n")
+	sb.WriteString("    .btn:hover { background: #30363d; color: #f0f6fc; }\n")
+	sb.WriteString("    .btn-reset { margin-left: auto; color: #8b949e; }\n")
+	sb.WriteString("    .controls-deck { padding: 16px; display: flex; flex-direction: column; gap: 12px; flex: 1; }\n")
+	sb.WriteString("    .control-item { display: flex; flex-direction: column; gap: 4px; }\n")
+	sb.WriteString("    .control-label-row { display: flex; justify-content: space-between; font-size: 0.78rem; }\n")
+	sb.WriteString("    .param-name { font-weight: 600; color: #e6edf3; }\n")
+	sb.WriteString("    .param-val { color: #58a6ff; font-family: monospace; font-size: 0.75rem; }\n")
+	sb.WriteString("    .control-input-row { display: flex; align-items: center; gap: 8px; }\n")
+	sb.WriteString("    .control-input-row input[type=\"range\"] { flex: 1; height: 6px; cursor: pointer; accent-color: #58a6ff; }\n")
+	sb.WriteString("    .control-input-row input[type=\"color\"] { width: 36px; height: 26px; border: 1px solid #30363d; border-radius: 4px; cursor: pointer; background: transparent; padding: 0; }\n")
+	sb.WriteString("    .control-input-row input[type=\"text\"], .control-input-row select { flex: 1; padding: 5px 8px; background: #0d1117; color: #c9d1d9; border: 1px solid #30363d; border-radius: 4px; font-size: 0.8rem; }\n")
+	sb.WriteString("    .control-input-row input[type=\"checkbox\"] { width: 16px; height: 16px; accent-color: #58a6ff; cursor: pointer; }\n")
+	sb.WriteString("    .param-desc { font-size: 0.72rem; color: #7d8590; }\n")
+	sb.WriteString("    .footer-section { max-width: 1380px; margin: 30px auto 0 auto; padding-top: 20px; border-top: 1px solid #30363d; font-size: 0.8rem; color: #8b949e; display: flex; justify-content: space-between; align-items: center; }\n")
+	sb.WriteString("  </style>\n")
+	sb.WriteString("  <script src=\"js/svg-widget.js\"></script>\n")
+	sb.WriteString("</head>\n<body>\n\n")
+
+	sb.WriteString("  <header>\n")
+	sb.WriteString("    <div class=\"header-title\">\n")
+	sb.WriteString(fmt.Sprintf("      <h1>📦 %s <span class=\"badge\">Stage 16B No-Code Studio</span></h1>\n", escapeHTML(widgetName)))
+	sb.WriteString("      <p>Operate independent instances with real-time controls — zero code required.</p>\n")
+	sb.WriteString("    </div>\n")
+	sb.WriteString("    <div>\n")
+	sb.WriteString(fmt.Sprintf("      <a href=\"%s-properties.md\" class=\"btn\" target=\"_blank\">📋 View Properties Guide</a>\n", cleanBase))
+	sb.WriteString("    </div>\n")
+	sb.WriteString("  </header>\n\n")
+
+	sb.WriteString("  <main class=\"grid-container\">\n")
+
+	// Pre-create 3 instance cards
+	instances := []struct {
+		ID    string
+		Label string
+		Desc  string
+	}{
+		{ID: "unit-a", Label: "Instance 1 (Unit A / Primary)", Desc: "Operating in standard operational mode"},
+		{ID: "unit-b", Label: "Instance 2 (Unit B / Warning)", Desc: "Simulating caution / transitional state"},
+		{ID: "unit-c", Label: "Instance 3 (Unit C / Standby)", Desc: "Simulating maintenance / auxiliary state"},
+	}
+
+	for _, inst := range instances {
+		sb.WriteString("    <div class=\"instance-card\">\n")
+		sb.WriteString("      <div class=\"card-header\">\n")
+		sb.WriteString(fmt.Sprintf("        <h2>%s</h2>\n", inst.Label))
+		sb.WriteString(fmt.Sprintf("        <span class=\"badge\" id=\"badge-%s\">ID: %s</span>\n", inst.ID, inst.ID))
+		sb.WriteString("      </div>\n")
+		sb.WriteString(fmt.Sprintf("      <div class=\"stage-wrapper\" id=\"container-%s\"></div>\n", inst.ID))
+		sb.WriteString("      <div class=\"transport-bar\">\n")
+		sb.WriteString(fmt.Sprintf("        <button class=\"btn\" id=\"btn-play-%s\" title=\"Play animation\">▶ Play</button>\n", inst.ID))
+		sb.WriteString(fmt.Sprintf("        <button class=\"btn\" id=\"btn-pause-%s\" title=\"Pause animation\">⏸ Pause</button>\n", inst.ID))
+		sb.WriteString(fmt.Sprintf("        <button class=\"btn btn-reset\" id=\"btn-reset-%s\" title=\"Reset to defaults\">↺ Reset Defaults</button>\n", inst.ID))
+		sb.WriteString("      </div>\n")
+		sb.WriteString(fmt.Sprintf("      <div class=\"controls-deck\" id=\"controls-%s\"></div>\n", inst.ID))
+		sb.WriteString("    </div>\n")
+	}
+
+	sb.WriteString("  </main>\n\n")
+
+	sb.WriteString("  <div class=\"footer-section\">\n")
+	sb.WriteString(fmt.Sprintf("    <span>Asset: <code>%s</code> (Universal Stage 16B Runtime)</span>\n", svgFilename))
+	sb.WriteString("    <span>SVG Animator Studio v1.2.0 • Standalone No-Code Package</span>\n")
+	sb.WriteString("  </div>\n\n")
+
+	// Embedded runtime wiring script
+	sb.WriteString("  <script>\n")
+	sb.WriteString(fmt.Sprintf("    const SVG_FILE = '%s';\n", svgFilename))
+	sb.WriteString(fmt.Sprintf("    const MANIFEST = %s;\n\n", manifestJson))
+	sb.WriteString("    const instances = {};\n\n")
+
+	sb.WriteString("    async function init() {\n")
+	sb.WriteString("      const resp = await fetch(SVG_FILE);\n")
+	sb.WriteString("      if (!resp.ok) {\n")
+	sb.WriteString("        document.body.innerHTML = '<div style=\"color:#f85149;padding:40px;text-align:center;\"><h2>Failed to load SVG asset</h2><p>' + SVG_FILE + ' (HTTP ' + resp.status + ')</p></div>';\n")
+	sb.WriteString("        return;\n")
+	sb.WriteString("      }\n")
+	sb.WriteString("      const rawSvg = await resp.text();\n\n")
+
+	sb.WriteString("      ['unit-a', 'unit-b', 'unit-c'].forEach((instId, idx) => {\n")
+	sb.WriteString("        const container = document.getElementById('container-' + instId);\n")
+	sb.WriteString("        const controlsDeck = document.getElementById('controls-' + instId);\n\n")
+	sb.WriteString("        const widget = SVGWidget.mount(container, rawSvg, {\n")
+	sb.WriteString("          instanceId: instId,\n")
+	sb.WriteString("          scopeCss: true\n")
+	sb.WriteString("        });\n")
+	sb.WriteString("        instances[instId] = widget;\n\n")
+
+	sb.WriteString("        // Transport Controls\n")
+	sb.WriteString("        document.getElementById('btn-play-' + instId)?.addEventListener('click', () => widget.play());\n")
+	sb.WriteString("        document.getElementById('btn-pause-' + instId)?.addEventListener('click', () => widget.pause());\n")
+	sb.WriteString("        document.getElementById('btn-reset-' + instId)?.addEventListener('click', () => {\n")
+	sb.WriteString("          widget.resetParameters();\n")
+	sb.WriteString("          syncControls(instId);\n")
+	sb.WriteString("        });\n\n")
+
+	sb.WriteString("        // Build Controls from Manifest\n")
+	sb.WriteString("        const params = (widget.manifest && widget.manifest.parameters) || (MANIFEST.parameters) || [];\n")
+	sb.WriteString("        params.forEach((p) => {\n")
+	sb.WriteString("          const item = document.createElement('div');\n")
+	sb.WriteString("          item.className = 'control-item';\n\n")
+	sb.WriteString("          const labelRow = document.createElement('div');\n")
+	sb.WriteString("          labelRow.className = 'control-label-row';\n")
+	sb.WriteString("          labelRow.innerHTML = '<span class=\"param-name\">' + p.name + '</span><span class=\"param-val\" id=\"val-' + instId + '-' + p.name + '\">' + (widget.getParameter(p.name) ?? p.default) + '</span>';\n")
+	sb.WriteString("          item.appendChild(labelRow);\n\n")
+
+	sb.WriteString("          const inputRow = document.createElement('div');\n")
+	sb.WriteString("          inputRow.className = 'control-input-row';\n\n")
+	sb.WriteString("          const curVal = widget.getParameter(p.name) ?? p.default;\n")
+	sb.WriteString("          if (p.type === 'color') {\n")
+	sb.WriteString("            const inp = document.createElement('input');\n")
+	sb.WriteString("            inp.type = 'color';\n")
+	sb.WriteString("            inp.value = curVal;\n")
+	sb.WriteString("            inp.addEventListener('input', (e) => {\n")
+	sb.WriteString("              widget.setParameter(p.name, e.target.value);\n")
+	sb.WriteString("              document.getElementById('val-' + instId + '-' + p.name).textContent = e.target.value;\n")
+	sb.WriteString("            });\n")
+	sb.WriteString("            inputRow.appendChild(inp);\n")
+	sb.WriteString("          } else if (p.type === 'number' || p.type === 'speed') {\n")
+	sb.WriteString("            const inp = document.createElement('input');\n")
+	sb.WriteString("            inp.type = 'range';\n")
+	sb.WriteString("            inp.min = (p.min !== undefined) ? p.min : 0;\n")
+	sb.WriteString("            inp.max = (p.max !== undefined) ? p.max : 100;\n")
+	sb.WriteString("            inp.step = (p.step !== undefined) ? p.step : (p.type === 'speed' ? 0.1 : 1);\n")
+	sb.WriteString("            inp.value = curVal;\n")
+	sb.WriteString("            inp.addEventListener('input', (e) => {\n")
+	sb.WriteString("              const num = parseFloat(e.target.value);\n")
+	sb.WriteString("              widget.setParameter(p.name, num);\n")
+	sb.WriteString("              document.getElementById('val-' + instId + '-' + p.name).textContent = num + (p.unit ? ' ' + p.unit : '');\n")
+	sb.WriteString("            });\n")
+	sb.WriteString("            inputRow.appendChild(inp);\n")
+	sb.WriteString("          } else if (p.type === 'boolean') {\n")
+	sb.WriteString("            const inp = document.createElement('input');\n")
+	sb.WriteString("            inp.type = 'checkbox';\n")
+	sb.WriteString("            inp.checked = Boolean(curVal);\n")
+	sb.WriteString("            inp.addEventListener('change', (e) => {\n")
+	sb.WriteString("              widget.setParameter(p.name, e.target.checked);\n")
+	sb.WriteString("              document.getElementById('val-' + instId + '-' + p.name).textContent = e.target.checked;\n")
+	sb.WriteString("            });\n")
+	sb.WriteString("            inputRow.appendChild(inp);\n")
+	sb.WriteString("          } else if (p.type === 'enum' && Array.isArray(p.options)) {\n")
+	sb.WriteString("            const sel = document.createElement('select');\n")
+	sb.WriteString("            p.options.forEach((opt) => {\n")
+	sb.WriteString("              const o = document.createElement('option');\n")
+	sb.WriteString("              o.value = opt; o.textContent = opt;\n")
+	sb.WriteString("              if (opt === curVal) o.selected = true;\n")
+	sb.WriteString("              sel.appendChild(o);\n")
+	sb.WriteString("            });\n")
+	sb.WriteString("            sel.addEventListener('change', (e) => {\n")
+	sb.WriteString("              widget.setParameter(p.name, e.target.value);\n")
+	sb.WriteString("              document.getElementById('val-' + instId + '-' + p.name).textContent = e.target.value;\n")
+	sb.WriteString("            });\n")
+	sb.WriteString("            inputRow.appendChild(sel);\n")
+	sb.WriteString("          } else {\n")
+	sb.WriteString("            const inp = document.createElement('input');\n")
+	sb.WriteString("            inp.type = 'text';\n")
+	sb.WriteString("            inp.value = curVal;\n")
+	sb.WriteString("            inp.addEventListener('input', (e) => {\n")
+	sb.WriteString("              widget.setParameter(p.name, e.target.value);\n")
+	sb.WriteString("              document.getElementById('val-' + instId + '-' + p.name).textContent = e.target.value;\n")
+	sb.WriteString("            });\n")
+	sb.WriteString("            inputRow.appendChild(inp);\n")
+	sb.WriteString("          }\n\n")
+
+	sb.WriteString("          item.appendChild(inputRow);\n")
+	sb.WriteString("          if (p.description) {\n")
+	sb.WriteString("            const desc = document.createElement('div');\n")
+	sb.WriteString("            desc.className = 'param-desc';\n")
+	sb.WriteString("            desc.textContent = p.description;\n")
+	sb.WriteString("            item.appendChild(desc);\n")
+	sb.WriteString("          }\n")
+	sb.WriteString("          controlsDeck.appendChild(item);\n")
+	sb.WriteString("        });\n")
+	sb.WriteString("      });\n")
+	sb.WriteString("    }\n\n")
+
+	sb.WriteString("    function syncControls(instId) {\n")
+	sb.WriteString("      const widget = instances[instId];\n")
+	sb.WriteString("      if (!widget) return;\n")
+	sb.WriteString("      const params = (widget.manifest && widget.manifest.parameters) || (MANIFEST.parameters) || [];\n")
+	sb.WriteString("      params.forEach((p) => {\n")
+	sb.WriteString("        const val = widget.getParameter(p.name);\n")
+	sb.WriteString("        const el = document.getElementById('val-' + instId + '-' + p.name);\n")
+	sb.WriteString("        if (el) el.textContent = val + (p.unit ? ' ' + p.unit : '');\n")
+	sb.WriteString("      });\n")
+	sb.WriteString("    }\n\n")
+
+	sb.WriteString("    window.addEventListener('DOMContentLoaded', init);\n")
+	sb.WriteString("  </script>\n")
+	sb.WriteString("</body>\n</html>\n")
+
+	return sb.String()
+}
+
+// BuildWidgetPackageZip assembles the complete portable widget package ZIP in memory.
+func BuildWidgetPackageZip(sc *Scene, widgetName, rawSVG, svgWidgetJS string) ([]byte, error) {
+	if widgetName == "" {
+		widgetName = "widget"
+	}
+	cleanBase := cleanWidgetSlug(widgetName)
+	svgFilename := cleanBase + ".svg"
+	guideFilename := cleanBase + "-properties.md"
+
+	// 1. Extract validated manifest from Scene
+	var manifest *WidgetManifest
+	if sc != nil {
+		params := sc.GetParameters()
+		if len(params) > 0 {
+			manifest = &WidgetManifest{
+				SchemaVersion: 1,
+				Parameters:    params,
+			}
+		}
+	}
+
+	// 2. Isolate rawSVG so all internal IDs are namespaced and manifest is embedded
+	isolatedSVG := rawSVG
+	if strings.TrimSpace(rawSVG) != "" {
+		iso, _, err := IsolateSVGWidget(rawSVG, WidgetIsolationOptions{
+			InstanceID: cleanBase,
+			ScopeCSS:   true,
+			Manifest:   manifest,
+		})
+		if err == nil && iso != "" {
+			isolatedSVG = iso
+		}
+	}
+
+	// 3. Generate documentation and inspection copies
+	guideMarkdown := GenerateWidgetPropertiesGuide(sc, widgetName, svgFilename, manifest)
+	readmeMarkdown := GenerateWidgetReadme(widgetName, svgFilename, manifest)
+	demoHTML := GenerateWidgetDemoHTML(widgetName, svgFilename, manifest)
+
+	manifestBytes := []byte("{}\n")
+	if manifest != nil {
+		if mb, err := json.MarshalIndent(manifest, "", "  "); err == nil {
+			manifestBytes = append(mb, '\n')
+		}
+	}
+
+	// 4. Create in-memory ZIP
+	buf := new(bytes.Buffer)
+	zw := zip.NewWriter(buf)
+
+	files := []struct {
+		Path    string
+		Content []byte
+	}{
+		{Path: path.Join(cleanBase, svgFilename), Content: []byte(isolatedSVG)},
+		{Path: path.Join(cleanBase, guideFilename), Content: []byte(guideMarkdown)},
+		{Path: path.Join(cleanBase, "widget-manifest.json"), Content: manifestBytes},
+		{Path: path.Join(cleanBase, "README.md"), Content: []byte(readmeMarkdown)},
+		{Path: path.Join(cleanBase, "demo.html"), Content: []byte(demoHTML)},
+		{Path: path.Join(cleanBase, "js", "svg-widget.js"), Content: []byte(svgWidgetJS)},
+	}
+
+	for _, f := range files {
+		w, err := zw.Create(f.Path)
+		if err != nil {
+			return nil, fmt.Errorf("creating zip entry %s: %w", f.Path, err)
+		}
+		if _, err := w.Write(f.Content); err != nil {
+			return nil, fmt.Errorf("writing zip entry %s: %w", f.Path, err)
+		}
+	}
+
+	if err := zw.Close(); err != nil {
+		return nil, fmt.Errorf("closing zip writer: %w", err)
+	}
+
+	return buf.Bytes(), nil
+}
+
+func cleanWidgetSlug(s string) string {
+	reg := regexp.MustCompile(`[^a-zA-Z0-9_-]+`)
+	slug := strings.ToLower(reg.ReplaceAllString(s, "-"))
+	slug = strings.Trim(slug, "-")
+	if slug == "" {
+		return "widget"
+	}
+	return slug
+}
+
+func escapeMD(s string) string {
+	s = strings.ReplaceAll(s, "|", "\\|")
+	return strings.ReplaceAll(s, "\n", " ")
+}
+
+func escapeHTML(s string) string {
+	s = strings.ReplaceAll(s, "&", "&amp;")
+	s = strings.ReplaceAll(s, "<", "&lt;")
+	s = strings.ReplaceAll(s, ">", "&gt;")
+	s = strings.ReplaceAll(s, "\"", "&quot;")
+	return s
+}

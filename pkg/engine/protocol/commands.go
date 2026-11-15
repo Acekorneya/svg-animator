@@ -5,6 +5,7 @@ import (
 	"encoding/json"
 	"errors"
 	"fmt"
+	"regexp"
 	"runtime"
 	"strings"
 
@@ -1237,6 +1238,39 @@ type WidgetParametersResponse struct {
 	Success    bool                    `json:"success"`
 	Parameters []scene.WidgetParameter `json:"parameters,omitempty"`
 	Error      string                  `json:"error,omitempty"`
+}
+
+// WidgetGenerateGuideRequest is the payload for "Widget.GenerateGuide".
+type WidgetGenerateGuideRequest struct {
+	WidgetName  string `json:"widgetName,omitempty"`
+	SVGFilename string `json:"svgFilename,omitempty"`
+}
+
+// WidgetGenerateGuideResponse is returned by "Widget.GenerateGuide".
+type WidgetGenerateGuideResponse struct {
+	Success       bool   `json:"success"`
+	GuideMarkdown string `json:"guideMarkdown,omitempty"`
+	Readme        string `json:"readme,omitempty"`
+	DemoHTML      string `json:"demoHtml,omitempty"`
+	ManifestJSON  string `json:"manifestJson,omitempty"`
+	Error         string `json:"error,omitempty"`
+}
+
+// WidgetBuildPackageRequest is the payload for "Widget.BuildPackage".
+type WidgetBuildPackageRequest struct {
+	WidgetName  string `json:"widgetName,omitempty"`
+	SVG         string `json:"svg"`
+	SVGWidgetJS string `json:"svgWidgetJs,omitempty"`
+}
+
+// WidgetBuildPackageResponse is returned by "Widget.BuildPackage".
+type WidgetBuildPackageResponse struct {
+	Success       bool   `json:"success"`
+	ZipB64        string `json:"zipB64,omitempty"`
+	Filename      string `json:"filename,omitempty"`
+	GuideMarkdown string `json:"guideMarkdown,omitempty"`
+	Size          int    `json:"size,omitempty"`
+	Error         string `json:"error,omitempty"`
 }
 
 // Dispatch processes incoming commands and returns JSON-encoded responses.
@@ -3460,6 +3494,81 @@ func Dispatch(command string, payloadJSON []byte) ([]byte, error) {
 		return json.Marshal(WidgetParametersResponse{
 			Success:    ok,
 			Parameters: activeScene.GetParameters(),
+		})
+
+	case "Widget.GenerateGuide":
+		var req WidgetGenerateGuideRequest
+		if err := json.Unmarshal(payloadJSON, &req); err != nil {
+			return json.Marshal(WidgetGenerateGuideResponse{
+				Success: false,
+				Error:   fmt.Sprintf("decoding WidgetGenerateGuideRequest: %v", err),
+			})
+		}
+		wName := req.WidgetName
+		if wName == "" {
+			wName = "widget"
+		}
+		svgName := req.SVGFilename
+		if svgName == "" {
+			svgName = wName + ".svg"
+		}
+		manifest := &scene.WidgetManifest{
+			SchemaVersion: 1,
+			Parameters:    activeScene.GetParameters(),
+		}
+		guide := scene.GenerateWidgetPropertiesGuide(activeScene, wName, svgName, manifest)
+		readme := scene.GenerateWidgetReadme(wName, svgName, manifest)
+		demoHTML := scene.GenerateWidgetDemoHTML(wName, svgName, manifest)
+		manifestBytes, _ := json.MarshalIndent(manifest, "", "  ")
+
+		return json.Marshal(WidgetGenerateGuideResponse{
+			Success:       true,
+			GuideMarkdown: guide,
+			Readme:        readme,
+			DemoHTML:      demoHTML,
+			ManifestJSON:  string(manifestBytes),
+		})
+
+	case "Widget.BuildPackage":
+		var req WidgetBuildPackageRequest
+		if err := json.Unmarshal(payloadJSON, &req); err != nil {
+			return json.Marshal(WidgetBuildPackageResponse{
+				Success: false,
+				Error:   fmt.Sprintf("decoding WidgetBuildPackageRequest: %v", err),
+			})
+		}
+		wName := req.WidgetName
+		if wName == "" {
+			wName = "widget"
+		}
+		zipBytes, err := scene.BuildWidgetPackageZip(activeScene, wName, req.SVG, req.SVGWidgetJS)
+		if err != nil {
+			return json.Marshal(WidgetBuildPackageResponse{
+				Success: false,
+				Error:   fmt.Sprintf("building widget package: %v", err),
+			})
+		}
+		b64 := base64.StdEncoding.EncodeToString(zipBytes)
+		reg := regexp.MustCompile(`[^a-zA-Z0-9_-]+`)
+		cleanSlug := strings.ToLower(reg.ReplaceAllString(wName, "-"))
+		cleanSlug = strings.Trim(cleanSlug, "-")
+		if cleanSlug == "" {
+			cleanSlug = "widget"
+		}
+		filename := cleanSlug + "-package.zip"
+
+		manifest := &scene.WidgetManifest{
+			SchemaVersion: 1,
+			Parameters:    activeScene.GetParameters(),
+		}
+		guide := scene.GenerateWidgetPropertiesGuide(activeScene, wName, cleanSlug+".svg", manifest)
+
+		return json.Marshal(WidgetBuildPackageResponse{
+			Success:       true,
+			ZipB64:        b64,
+			Filename:      filename,
+			GuideMarkdown: guide,
+			Size:          len(zipBytes),
 		})
 
 	default:

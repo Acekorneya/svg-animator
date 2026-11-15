@@ -422,6 +422,8 @@ type WidgetParameter struct {
 	Property    string   `json:"property"` // "fill", "stroke", "visibility", "opacity", "text", "playbackRate", "state"
 	Min         *float64 `json:"min,omitempty"`
 	Max         *float64 `json:"max,omitempty"`
+	Step        *float64 `json:"step,omitempty"`
+	Unit        string   `json:"unit,omitempty"`
 	Options     []string `json:"options,omitempty"` // Permitted enum values
 	Description string   `json:"description,omitempty"`
 }

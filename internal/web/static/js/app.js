@@ -3654,6 +3654,102 @@ document.addEventListener('DOMContentLoaded', () => {
     }
   });
 
+  document.getElementById('btnDownloadWidgetGuide')?.addEventListener('click', () => {
+    try {
+      const baseName = getCleanBaseName();
+      const svgFilename = baseName + '.svg';
+      let guideContent = '';
+
+      if (window.EngineBridge && typeof window.EngineBridge.generateWidgetGuide === 'function' && window.EngineBridge.isReady()) {
+        const res = window.EngineBridge.generateWidgetGuide(baseName, svgFilename);
+        if (res && res.success && res.guideMarkdown) {
+          guideContent = res.guideMarkdown;
+        }
+      }
+
+      if (!guideContent) {
+        guideContent = `# ${baseName} — Widget Properties Guide\n\nExported from SVG Animator Studio.\n`;
+      }
+
+      const blob = new Blob([guideContent], { type: 'text/markdown;charset=utf-8' });
+      const url = URL.createObjectURL(blob);
+      const a = document.createElement('a');
+      a.style.display = 'none';
+      a.href = url;
+      a.download = baseName + '-properties.md';
+      document.body.appendChild(a);
+      a.click();
+      setTimeout(() => {
+        document.body.removeChild(a);
+        URL.revokeObjectURL(url);
+      }, 150);
+
+      if (window.AppCoordinator && typeof window.AppCoordinator.showNotification === 'function') {
+        window.AppCoordinator.showNotification('Widget Properties Guide downloaded: ' + baseName + '-properties.md', 'success');
+      }
+    } catch (err) {
+      alert('Guide Export Error: ' + err.message);
+    }
+  });
+
+  document.getElementById('btnDownloadWidgetPackage')?.addEventListener('click', async () => {
+    try {
+      if (!currentImage || !window.currentRenderState) return;
+      const baseName = getCleanBaseName();
+      const rawSvg = getExportSVG();
+
+      if (window.AppCoordinator && typeof window.AppCoordinator.showNotification === 'function') {
+        window.AppCoordinator.showNotification('Packaging widget assets...', 'info');
+      }
+
+      // Fetch client runtime code
+      let widgetJs = '';
+      try {
+        const jsResp = await fetch('js/svg-widget.js');
+        if (jsResp.ok) widgetJs = await jsResp.text();
+      } catch (e) {}
+
+      if (window.EngineBridge && typeof window.EngineBridge.buildWidgetPackage === 'function' && window.EngineBridge.isReady()) {
+        const res = window.EngineBridge.buildWidgetPackage(baseName, rawSvg, widgetJs);
+        if (res && res.success && res.zipB64) {
+          const binaryStr = atob(res.zipB64);
+          const bytes = new Uint8Array(binaryStr.length);
+          for (let i = 0; i < binaryStr.length; i++) {
+            bytes[i] = binaryStr.charCodeAt(i);
+          }
+          const blob = new Blob([bytes], { type: 'application/zip' });
+          const url = URL.createObjectURL(blob);
+          const a = document.createElement('a');
+          a.style.display = 'none';
+          a.href = url;
+          a.download = res.filename || (baseName + '-package.zip');
+          document.body.appendChild(a);
+          a.click();
+          setTimeout(() => {
+            document.body.removeChild(a);
+            URL.revokeObjectURL(url);
+          }, 150);
+
+          const sizeKb = (bytes.length / 1024).toFixed(1);
+          if (window.AppCoordinator && typeof window.AppCoordinator.showNotification === 'function') {
+            window.AppCoordinator.showNotification('Exported complete Widget Package: ' + a.download + ' (' + sizeKb + ' KB)', 'success');
+          }
+          return;
+        } else if (res && res.error) {
+          throw new Error(res.error);
+        }
+      }
+
+      throw new Error('WebAssembly widget package builder is not available.');
+    } catch (err) {
+      if (window.AppCoordinator && typeof window.AppCoordinator.showNotification === 'function') {
+        window.AppCoordinator.showNotification('Widget Package Error: ' + err.message, 'error');
+      } else {
+        alert('Widget Package Error: ' + err.message);
+      }
+    }
+  });
+
   // =========================================================================
   // Accordion Overview: Widget Parameters (External Controls)
   // =========================================================================

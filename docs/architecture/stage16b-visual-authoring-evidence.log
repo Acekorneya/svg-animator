@@ -98,3 +98,49 @@ SVG Animator Studio v1.2.0 (commit: 63b4c91, built: 2026-11-10)
   Project Schema:     1.2.0
 [RESULT] Exit Code: 0
 ================================================================================
+
+--------------------------------------------------------------------------------
+6. Automatic Widget Properties Documentation & No-Code Package Verification
+--------------------------------------------------------------------------------
+$ go test -v -count=1 ./pkg/engine/scene -run TestWidgetDocsGeneration
+=== RUN   TestWidgetDocsGeneration
+--- PASS: TestWidgetDocsGeneration (0.00s)
+PASS
+[RESULT] Exit Code: 0
+
+$ go test -count=1 ./...
+ok      gitea.seaoffate.net/blackgrape/svg-animator/internal/db        0.038s
+ok      gitea.seaoffate.net/blackgrape/svg-animator/internal/generator 0.003s
+ok      gitea.seaoffate.net/blackgrape/svg-animator/internal/rasterizer 0.007s
+ok      gitea.seaoffate.net/blackgrape/svg-animator/internal/web       0.087s
+ok      gitea.seaoffate.net/blackgrape/svg-animator/pkg/engine/geometry 0.002s
+ok      gitea.seaoffate.net/blackgrape/svg-animator/pkg/engine/protocol 0.005s
+ok      gitea.seaoffate.net/blackgrape/svg-animator/pkg/engine/scene   0.015s
+ok      gitea.seaoffate.net/blackgrape/svg-animator/pkg/engine/sva     0.730s
+ok      gitea.seaoffate.net/blackgrape/svg-animator/pkg/engine/timeline 0.006s
+[RESULT] Exit Code: 0
+
+$ node scripts/regression-harness.js
+[HARNESS] Scenario 79 PASS: Stage 16B Automatic Widget Properties Guide & Portable Package verified.
+[HARNESS] REG-03 PASS: Stage 3, 4, 5, 6, 7, 8, 9, 11, 12, 13, 14, 15 & 16 ... verified.
+[RESULT] Exit Code: 0
+
+$ go build -o ./bin/svg-animator-linux ./cmd/svg-animator
+[RESULT] Exit Code: 0
+
+$ scp bin/svg-animator-linux nigel@192.168.100.40:~/svg-animator
+svg-animator-linux                            100%   27MB 102.0MB/s   00:00
+[RESULT] Exit Code: 0
+
+$ ssh nigel@192.168.100.40 "ls -lh ~/svg-animator && ~/svg-animator -version"
+-rwxr-xr-x 1 nigel nigel 27M Nov 15 08:31 /home/nigel/svg-animator
+SVG Animator Studio v1.2.0 (commit: 63b4c91, built: 2026-11-10)
+  Protocol Version:   1.0.0
+  SVA Format Version: 1.0.0
+  Project Schema:     1.2.0
+[RESULT] Exit Code: 0
+
+$ python3 scripts/publish-stage16b-properties-guide-bookstack.py
+Successfully published BookStack page: ID 458, Slug: svg-widget-authoring-and-properties-guide
+[RESULT] Exit Code: 0
+================================================================================

@@ -28,6 +28,7 @@ import (
 	"gitea.seaoffate.net/blackgrape/svg-animator/internal/db"
 	"gitea.seaoffate.net/blackgrape/svg-animator/internal/generator"
 	"gitea.seaoffate.net/blackgrape/svg-animator/internal/rasterizer"
+	"gitea.seaoffate.net/blackgrape/svg-animator/pkg/engine/scene"
 	"gitea.seaoffate.net/blackgrape/svg-animator/pkg/engine/sva"
 )
 
@@ -270,6 +271,7 @@ func StartServerWithConfig(cfg ServerConfig) error {
 	// SVA Native Project Format Endpoints
 	mux.HandleFunc("/api/export/sva", handleExportSVA)
 	mux.HandleFunc("/api/projects/export-sva", handleExportSVA)
+	mux.HandleFunc("/api/export/widget-package", handleExportWidgetPackage)
 	mux.HandleFunc("/api/import/sva", handleImportSVA)
 	mux.HandleFunc("/api/projects/import-sva", handleImportSVA)
 
@@ -639,6 +641,92 @@ func handleExportSVA(w http.ResponseWriter, r *http.Request) {
 	w.Header().Set("Content-Length", strconv.Itoa(len(svaBytes)))
 	w.WriteHeader(http.StatusOK)
 	_, _ = w.Write(svaBytes)
+}
+
+func handleExportWidgetPackage(w http.ResponseWriter, r *http.Request) {
+	if r.Method != http.MethodGet && r.Method != http.MethodPost {
+		http.Error(w, "Method not allowed", http.StatusMethodNotAllowed)
+		return
+	}
+
+	var widgetName string
+	var rawSVG string
+	var sc *scene.Scene
+
+	if r.Method == http.MethodGet {
+		idStr := r.URL.Query().Get("id")
+		id, err := strconv.ParseInt(idStr, 10, 64)
+		if err != nil || id <= 0 {
+			http.Error(w, "Invalid project id for widget package export", http.StatusBadRequest)
+			return
+		}
+		proj, err := db.GetProject(id)
+		if err != nil {
+			http.Error(w, fmt.Sprintf("Failed to load project: %v", err), http.StatusInternalServerError)
+			return
+		}
+		widgetName = proj.Name
+		var snap scene.Snapshot
+		if err := json.Unmarshal([]byte(proj.SchemaJSON), &snap); err == nil {
+			sc = scene.NewScene()
+			sc.SetFromSnapshot(snap)
+		}
+	} else {
+		if !checkSameOrigin(r) {
+			http.Error(w, "Cross-origin request blocked", http.StatusForbidden)
+			return
+		}
+		r.Body = http.MaxBytesReader(w, r.Body, 50*1024*1024)
+		var req struct {
+			Name       string          `json:"name"`
+			SVG        string          `json:"svg"`
+			SchemaJSON json.RawMessage `json:"schemaJson"`
+		}
+		if err := json.NewDecoder(r.Body).Decode(&req); err != nil {
+			http.Error(w, "Invalid request JSON: "+err.Error(), http.StatusBadRequest)
+			return
+		}
+		widgetName = req.Name
+		rawSVG = req.SVG
+		if len(req.SchemaJSON) > 0 {
+			var snap scene.Snapshot
+			if err := json.Unmarshal(req.SchemaJSON, &snap); err == nil {
+				sc = scene.NewScene()
+				sc.SetFromSnapshot(snap)
+			}
+		}
+	}
+
+	if widgetName == "" {
+		widgetName = "widget"
+	}
+
+	var widgetJs string
+	if jsBytes, err := staticFS.ReadFile("static/js/svg-widget.js"); err == nil {
+		widgetJs = string(jsBytes)
+	}
+
+	zipBytes, err := scene.BuildWidgetPackageZip(sc, widgetName, rawSVG, widgetJs)
+	if err != nil {
+		http.Error(w, "Failed to build widget package: "+err.Error(), http.StatusInternalServerError)
+		return
+	}
+
+	safeFilename := strings.Map(func(r rune) rune {
+		if (r >= 'a' && r <= 'z') || (r >= 'A' && r <= 'Z') || (r >= '0' && r <= '9') || r == '_' || r == '-' {
+			return r
+		}
+		return '_'
+	}, widgetName)
+	if safeFilename == "" {
+		safeFilename = "widget"
+	}
+
+	w.Header().Set("Content-Type", "application/zip")
+	w.Header().Set("Content-Disposition", fmt.Sprintf("attachment; filename=\"%s-package.zip\"", safeFilename))
+	w.Header().Set("Content-Length", strconv.Itoa(len(zipBytes)))
+	w.WriteHeader(http.StatusOK)
+	_, _ = w.Write(zipBytes)
 }
 
 func handleImportSVA(w http.ResponseWriter, r *http.Request) {
