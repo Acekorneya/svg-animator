@@ -2227,25 +2227,66 @@
           return res.paramName;
         }
       }
-      let cleanObj = String(objectName || '').trim().toLowerCase();
-      const tType = String(targetType || '').trim().toLowerCase();
-      if (!cleanObj || cleanObj === 'root' || cleanObj === 'global' || cleanObj === 'stage' || cleanObj === 'widget') {
-        cleanObj = 'root';
-      } else if (tType && tType !== 'root') {
-        const prefix = tType + '-';
-        if (!cleanObj.startsWith(prefix)) {
-          cleanObj = prefix + cleanObj;
-        }
-      }
-      cleanObj = cleanObj.replace(/[^a-z0-9_-]/g, '-').replace(/-+/g, '-').replace(/^-|-$/g, '');
+      let rawName = String(objectName || '').trim().toLowerCase();
+      let tType = String(targetType || '').trim().toLowerCase();
 
       let suffix = String(property || '').trim().toLowerCase();
       if (suffix === 'playbackrate') suffix = 'speed';
       else if (suffix === 'operatingstate') suffix = 'state';
       else if (suffix === 'textcontent') suffix = 'text';
-      else if (suffix === 'stroke' && cleanObj.startsWith('flow-')) suffix = 'color';
+      else if (suffix === 'stroke') {
+        if (tType === 'flow' || rawName.startsWith('flow-') || rawName.includes('flow')) {
+          suffix = 'color';
+        } else {
+          suffix = 'stroke';
+        }
+      }
 
-      return `${cleanObj}-${suffix}`;
+      if (!rawName || rawName === 'root' || rawName === 'global' || rawName === 'stage' || rawName === 'widget') {
+        return 'root-' + suffix;
+      }
+
+      let cleanName = rawName.replace(/[^a-z0-9_-]/g, '-').replace(/-+/g, '-').replace(/^-|-$/g, '');
+
+      if (!tType) {
+        if (cleanName.startsWith('node-')) tType = 'node';
+        else if (cleanName.startsWith('flow-')) tType = 'flow';
+        else if (cleanName.startsWith('glow-')) tType = 'glow';
+        else if (cleanName.startsWith('ripple-')) tType = 'ripple';
+        else if (cleanName.startsWith('image-')) tType = 'image';
+      }
+
+      if (!tType || tType === 'root') {
+        return cleanName + '-' + suffix;
+      }
+
+      // Check if default pattern e.g. "flow-1" or "node-1" or "1"
+      let isDefaultPattern = false;
+      if (cleanName === tType || cleanName.startsWith(tType + '-')) {
+        const rem = cleanName.slice(tType.length + 1);
+        if (/^\d+$/.test(rem)) {
+          isDefaultPattern = true;
+          cleanName = tType + '-' + rem;
+        }
+      } else if (/^\d+$/.test(cleanName)) {
+        isDefaultPattern = true;
+        cleanName = tType + '-' + cleanName;
+      }
+
+      if (isDefaultPattern) {
+        return cleanName + '-' + suffix;
+      }
+
+      let pureName = cleanName;
+      if (pureName.startsWith(tType + '-')) {
+        pureName = pureName.slice(tType.length + 1);
+      } else if (pureName.endsWith('-' + tType)) {
+        pureName = pureName.slice(0, -(tType.length + 1));
+      }
+      pureName = pureName.replace(/^-|-$/g, '');
+      if (!pureName) pureName = cleanName;
+
+      return `${pureName}-${tType}-${suffix}`;
     },
 
     getEligibleWidgetProperties(targetType = '') {
@@ -2358,6 +2399,8 @@
         });
         if (res && res.success) {
           res.zipBase64 = res.zipB64 || '';
+          return res;
+        } else if (res) {
           return res;
         }
       }
@@ -4249,15 +4292,17 @@
         const natW = Number(img.naturalWidth) || Number(crop.origWidth) || w;
         const natH = Number(img.naturalHeight) || Number(crop.origHeight) || h;
         const vb = `${crop.sourceX.toFixed(2)} ${crop.sourceY.toFixed(2)} ${crop.sourceWidth.toFixed(2)} ${crop.sourceHeight.toFixed(2)}`;
-        innerSvg = `<svg id="img-${img.id}" data-image-id="${img.id}" x="${x.toFixed(2)}" y="${y.toFixed(2)}" width="${w}" height="${h}" viewBox="${vb}" preserveAspectRatio="${par}" opacity="${parseFloat(op.toFixed(4))}" style="overflow: hidden;"><image href="${href}" xlink:href="${href}" x="0" y="0" width="${natW}" height="${natH}" preserveAspectRatio="none" /></svg>`;
+        const imgNameAttr = img.name ? ` data-semantic-name="${String(img.name).replace(/"/g, '&quot;')}"` : '';
+        innerSvg = `<svg id="img-${img.id}" data-image-id="${img.id}" data-semantic-target="image-${img.id}"${imgNameAttr} x="${x.toFixed(2)}" y="${y.toFixed(2)}" width="${w}" height="${h}" viewBox="${vb}" preserveAspectRatio="${par}" opacity="${parseFloat(op.toFixed(4))}" style="overflow: hidden;"><image href="${href}" xlink:href="${href}" x="0" y="0" width="${natW}" height="${natH}" preserveAspectRatio="none" /></svg>`;
       } else {
-        innerSvg = `<image id="img-${img.id}" data-image-id="${img.id}" x="${x.toFixed(2)}" y="${y.toFixed(2)}" width="${w}" height="${h}" href="${href}" xlink:href="${href}" preserveAspectRatio="${par}" opacity="${parseFloat(op.toFixed(4))}" />`;
+        const imgNameAttr = img.name ? ` data-semantic-name="${String(img.name).replace(/"/g, '&quot;')}"` : '';
+        innerSvg = `<image id="img-${img.id}" data-image-id="${img.id}" data-semantic-target="image-${img.id}"${imgNameAttr} x="${x.toFixed(2)}" y="${y.toFixed(2)}" width="${w}" height="${h}" href="${href}" xlink:href="${href}" preserveAspectRatio="${par}" opacity="${parseFloat(op.toFixed(4))}" />`;
       }
 
       if (img.clip && img.clip.enabled && img.clip.width > 0 && img.clip.height > 0) {
         const clip = img.clip;
         const clipId = `clip-${img.id}`;
-        return `<g id="clip-group-${img.id}" data-image-id="${img.id}"><defs><clipPath id="${clipId}"><rect x="${(x + clip.x).toFixed(2)}" y="${(y + clip.y).toFixed(2)}" width="${clip.width.toFixed(2)}" height="${clip.height.toFixed(2)}" /></clipPath></defs><g clip-path="url(#${clipId})">${innerSvg}</g></g>`;
+        return `<g id="clip-group-${img.id}" data-image-id="${img.id}" data-semantic-target="image-${img.id}"><defs><clipPath id="${clipId}"><rect x="${(x + clip.x).toFixed(2)}" y="${(y + clip.y).toFixed(2)}" width="${clip.width.toFixed(2)}" height="${clip.height.toFixed(2)}" /></clipPath></defs><g clip-path="url(#${clipId})">${innerSvg}</g></g>`;
       }
 
       return innerSvg;

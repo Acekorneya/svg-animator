@@ -355,19 +355,19 @@ async function runHarness() {
 
   // Golden baseline fixtures for all 12 shapes plus unknown shape fallback
   const GOLDEN_SHAPE_FIXTURES = {
-    textbox: '<g id="nodes-layer">\n<g data-node-id="1" transform="translate(640.00, 360.00)" style="cursor: move;"><rect x="-85" y="-40" width="170" height="80" fill="transparent" stroke="none" /><text x="0" y="-5.5" fill="#e6edf3" font-family="-apple-system, BlinkMacSystemFont, \'Segoe UI\', Roboto, sans-serif" font-size="15" font-weight="600" text-anchor="middle">Shape Label</text><text x="0" y="15.7" fill="#e6edf3" fill-opacity="0.75" font-family="monospace" font-size="12" text-anchor="middle">Subtext 1</text></g>\n</g>',
-    rect: '<g id="nodes-layer">\n<g data-node-id="1" transform="translate(640.00, 360.00)" style="cursor: move;"><rect x="-85" y="-40" width="170" height="80" rx="2" fill="#161b22" fill-opacity="0.92" stroke="#58a6ff" stroke-width="2"  filter="url(#nodeDropShadow)" /><text x="0" y="-5.5" fill="#e6edf3" font-family="-apple-system, BlinkMacSystemFont, \'Segoe UI\', Roboto, sans-serif" font-size="15" font-weight="600" text-anchor="middle">Shape Label</text><text x="0" y="15.7" fill="#e6edf3" fill-opacity="0.75" font-family="monospace" font-size="12" text-anchor="middle">Subtext 1</text></g>\n</g>',
-    rounded: '<g id="nodes-layer">\n<g data-node-id="1" transform="translate(640.00, 360.00)" style="cursor: move;"><rect x="-85" y="-40" width="170" height="80" rx="12" fill="#161b22" fill-opacity="0.92" stroke="#58a6ff" stroke-width="2"  filter="url(#nodeDropShadow)" /><text x="0" y="-5.5" fill="#e6edf3" font-family="-apple-system, BlinkMacSystemFont, \'Segoe UI\', Roboto, sans-serif" font-size="15" font-weight="600" text-anchor="middle">Shape Label</text><text x="0" y="15.7" fill="#e6edf3" fill-opacity="0.75" font-family="monospace" font-size="12" text-anchor="middle">Subtext 1</text></g>\n</g>',
-    pill: '<g id="nodes-layer">\n<g data-node-id="1" transform="translate(640.00, 360.00)" style="cursor: move;"><rect x="-85" y="-40" width="170" height="80" rx="40" fill="#161b22" fill-opacity="0.92" stroke="#58a6ff" stroke-width="2"  filter="url(#nodeDropShadow)" /><text x="0" y="-5.5" fill="#e6edf3" font-family="-apple-system, BlinkMacSystemFont, \'Segoe UI\', Roboto, sans-serif" font-size="15" font-weight="600" text-anchor="middle">Shape Label</text><text x="0" y="15.7" fill="#e6edf3" fill-opacity="0.75" font-family="monospace" font-size="12" text-anchor="middle">Subtext 1</text></g>\n</g>',
-    circle: '<g id="nodes-layer">\n<g data-node-id="1" transform="translate(640.00, 360.00)" style="cursor: move;"><circle cx="0" cy="0" r="40" fill="#161b22" fill-opacity="0.92" stroke="#58a6ff" stroke-width="2"  filter="url(#nodeDropShadow)" /><text x="0" y="-5.5" fill="#e6edf3" font-family="-apple-system, BlinkMacSystemFont, \'Segoe UI\', Roboto, sans-serif" font-size="15" font-weight="600" text-anchor="middle">Shape Label</text><text x="0" y="15.7" fill="#e6edf3" fill-opacity="0.75" font-family="monospace" font-size="12" text-anchor="middle">Subtext 1</text></g>\n</g>',
-    diamond: '<g id="nodes-layer">\n<g data-node-id="1" transform="translate(640.00, 360.00)" style="cursor: move;"><polygon points="0,-40 85,0 0,40 -85,0" stroke-linejoin="round" fill="#161b22" fill-opacity="0.92" stroke="#58a6ff" stroke-width="2"  filter="url(#nodeDropShadow)" /><text x="0" y="-5.5" fill="#e6edf3" font-family="-apple-system, BlinkMacSystemFont, \'Segoe UI\', Roboto, sans-serif" font-size="15" font-weight="600" text-anchor="middle">Shape Label</text><text x="0" y="15.7" fill="#e6edf3" fill-opacity="0.75" font-family="monospace" font-size="12" text-anchor="middle">Subtext 1</text></g>\n</g>',
-    hexagon: '<g id="nodes-layer">\n<g data-node-id="1" transform="translate(640.00, 360.00)" style="cursor: move;"><polygon points="-47.6,-40 47.6,-40 85,0 47.6,40 -47.6,40 -85,0" stroke-linejoin="round" fill="#161b22" fill-opacity="0.92" stroke="#58a6ff" stroke-width="2"  filter="url(#nodeDropShadow)" /><text x="0" y="-5.5" fill="#e6edf3" font-family="-apple-system, BlinkMacSystemFont, \'Segoe UI\', Roboto, sans-serif" font-size="15" font-weight="600" text-anchor="middle">Shape Label</text><text x="0" y="15.7" fill="#e6edf3" fill-opacity="0.75" font-family="monospace" font-size="12" text-anchor="middle">Subtext 1</text></g>\n</g>',
-    parallelogram: '<g id="nodes-layer">\n<g data-node-id="1" transform="translate(640.00, 360.00)" style="cursor: move;"><polygon points="-57.8,-40 85,-40 57.8,40 -85,40" stroke-linejoin="round" fill="#161b22" fill-opacity="0.92" stroke="#58a6ff" stroke-width="2"  filter="url(#nodeDropShadow)" /><text x="0" y="-5.5" fill="#e6edf3" font-family="-apple-system, BlinkMacSystemFont, \'Segoe UI\', Roboto, sans-serif" font-size="15" font-weight="600" text-anchor="middle">Shape Label</text><text x="0" y="15.7" fill="#e6edf3" fill-opacity="0.75" font-family="monospace" font-size="12" text-anchor="middle">Subtext 1</text></g>\n</g>',
-    cylinder: '<g id="nodes-layer">\n<g data-node-id="1" transform="translate(640.00, 360.00)" style="cursor: move;"><g filter="url(#nodeDropShadow)"><path d="M -85,-25.6 L -85,25.6 A 85,14.399999999999999 0 0,0 85,25.6 L 85,-25.6 Z" fill="#161b22" fill-opacity="0.92" stroke="#58a6ff" stroke-width="2"  /><ellipse cx="0" cy="-25.6" rx="85" ry="14.399999999999999" fill="#161b22" fill-opacity="0.92" stroke="#58a6ff" stroke-width="2"  /></g><text x="0" y="-5.5" fill="#e6edf3" font-family="-apple-system, BlinkMacSystemFont, \'Segoe UI\', Roboto, sans-serif" font-size="15" font-weight="600" text-anchor="middle">Shape Label</text><text x="0" y="15.7" fill="#e6edf3" fill-opacity="0.75" font-family="monospace" font-size="12" text-anchor="middle">Subtext 1</text></g>\n</g>',
-    cloud: '<g id="nodes-layer">\n<g data-node-id="1" transform="translate(640.00, 360.00)" style="cursor: move;"><path d="M -46.75000000000001,26 C -80.75,26 -85,2 -61.199999999999996,-8 C -63.75,-30 -12.75,-38 6.8,-24 C 38.25,-36 78.2,-20 68,-2 C 89.25,10 72.25,26 42.5,26 Z" stroke-linejoin="round" fill="#161b22" fill-opacity="0.92" stroke="#58a6ff" stroke-width="2"  filter="url(#nodeDropShadow)" /><text x="0" y="-5.5" fill="#e6edf3" font-family="-apple-system, BlinkMacSystemFont, \'Segoe UI\', Roboto, sans-serif" font-size="15" font-weight="600" text-anchor="middle">Shape Label</text><text x="0" y="15.7" fill="#e6edf3" fill-opacity="0.75" font-family="monospace" font-size="12" text-anchor="middle">Subtext 1</text></g>\n</g>',
-    callout: '<g id="nodes-layer">\n<g data-node-id="1" transform="translate(640.00, 360.00)" style="cursor: move;"><g filter="url(#nodeDropShadow)"><polygon points="-85,-40 69,-40 85,-24 85,40 -85,40" stroke-linejoin="round" fill="#161b22" fill-opacity="0.92" stroke="#58a6ff" stroke-width="2"  /><polyline points="69,-40 69,-24 85,-24" fill="none" stroke="#58a6ff" stroke-width="2" /></g><text x="0" y="-5.5" fill="#e6edf3" font-family="-apple-system, BlinkMacSystemFont, \'Segoe UI\', Roboto, sans-serif" font-size="15" font-weight="600" text-anchor="middle">Shape Label</text><text x="0" y="15.7" fill="#e6edf3" fill-opacity="0.75" font-family="monospace" font-size="12" text-anchor="middle">Subtext 1</text></g>\n</g>',
-    axes: '<g id="nodes-layer">\n<g data-node-id="1" transform="translate(640.00, 360.00)" style="cursor: move;"><rect x="-85" y="-40" width="170" height="80" fill="#161b22" fill-opacity="0.92" stroke="none" /><line x1="-42.5" y1="-40" x2="-42.5" y2="40" stroke="#58a6ff" stroke-opacity="0.2" stroke-width="1" stroke-dasharray="4,4" /><line x1="-85" y1="20" x2="85" y2="20" stroke="#58a6ff" stroke-opacity="0.2" stroke-width="1" stroke-dasharray="4,4" /><line x1="0" y1="-40" x2="0" y2="40" stroke="#58a6ff" stroke-opacity="0.2" stroke-width="1" stroke-dasharray="4,4" /><line x1="-85" y1="0" x2="85" y2="0" stroke="#58a6ff" stroke-opacity="0.2" stroke-width="1" stroke-dasharray="4,4" /><line x1="42.5" y1="-40" x2="42.5" y2="40" stroke="#58a6ff" stroke-opacity="0.2" stroke-width="1" stroke-dasharray="4,4" /><line x1="-85" y1="-20" x2="85" y2="-20" stroke="#58a6ff" stroke-opacity="0.2" stroke-width="1" stroke-dasharray="4,4" /><line x1="85" y1="-40" x2="85" y2="40" stroke="#58a6ff" stroke-opacity="0.2" stroke-width="1" stroke-dasharray="4,4" /><line x1="-85" y1="-40" x2="85" y2="-40" stroke="#58a6ff" stroke-opacity="0.2" stroke-width="1" stroke-dasharray="4,4" /><polyline points="-85,-40 -85,40 85,40" fill="none" stroke="#58a6ff" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" /><text x="-85" y="-50" fill="#e6edf3" font-family="-apple-system, BlinkMacSystemFont, \'Segoe UI\', Roboto, sans-serif" font-size="15" font-weight="600" text-anchor="start">Shape Label</text><text x="85" y="60" fill="#e6edf3" fill-opacity="0.75" font-family="monospace" font-size="12" text-anchor="end">Subtext 1</text></g>\n</g>',
-    unknown_test_shape: '<g id="nodes-layer">\n<g data-node-id="1" transform="translate(640.00, 360.00)" style="cursor: move;"><text x="0" y="-5.5" fill="#e6edf3" font-family="-apple-system, BlinkMacSystemFont, \'Segoe UI\', Roboto, sans-serif" font-size="15" font-weight="600" text-anchor="middle">Shape Label</text><text x="0" y="15.7" fill="#e6edf3" fill-opacity="0.75" font-family="monospace" font-size="12" text-anchor="middle">Subtext 1</text></g>\n</g>'
+    textbox: '<g id="nodes-layer">\n<g id="node-1" class="diagram-node-instance" data-node-id="1" data-semantic-target="node-1" transform="translate(640.00, 360.00)" style="cursor: move;"><rect x="-85" y="-40" width="170" height="80" fill="transparent" stroke="none" /><text x="0" y="-5.5" fill="#e6edf3" font-family="-apple-system, BlinkMacSystemFont, \'Segoe UI\', Roboto, sans-serif" font-size="15" font-weight="600" text-anchor="middle">Shape Label</text><text x="0" y="15.7" fill="#e6edf3" fill-opacity="0.75" font-family="monospace" font-size="12" text-anchor="middle">Subtext 1</text></g>\n</g>',
+    rect: '<g id="nodes-layer">\n<g id="node-1" class="diagram-node-instance" data-node-id="1" data-semantic-target="node-1" transform="translate(640.00, 360.00)" style="cursor: move;"><rect x="-85" y="-40" width="170" height="80" rx="2" fill="#161b22" fill-opacity="0.92" stroke="#58a6ff" stroke-width="2"  filter="url(#nodeDropShadow)" /><text x="0" y="-5.5" fill="#e6edf3" font-family="-apple-system, BlinkMacSystemFont, \'Segoe UI\', Roboto, sans-serif" font-size="15" font-weight="600" text-anchor="middle">Shape Label</text><text x="0" y="15.7" fill="#e6edf3" fill-opacity="0.75" font-family="monospace" font-size="12" text-anchor="middle">Subtext 1</text></g>\n</g>',
+    rounded: '<g id="nodes-layer">\n<g id="node-1" class="diagram-node-instance" data-node-id="1" data-semantic-target="node-1" transform="translate(640.00, 360.00)" style="cursor: move;"><rect x="-85" y="-40" width="170" height="80" rx="12" fill="#161b22" fill-opacity="0.92" stroke="#58a6ff" stroke-width="2"  filter="url(#nodeDropShadow)" /><text x="0" y="-5.5" fill="#e6edf3" font-family="-apple-system, BlinkMacSystemFont, \'Segoe UI\', Roboto, sans-serif" font-size="15" font-weight="600" text-anchor="middle">Shape Label</text><text x="0" y="15.7" fill="#e6edf3" fill-opacity="0.75" font-family="monospace" font-size="12" text-anchor="middle">Subtext 1</text></g>\n</g>',
+    pill: '<g id="nodes-layer">\n<g id="node-1" class="diagram-node-instance" data-node-id="1" data-semantic-target="node-1" transform="translate(640.00, 360.00)" style="cursor: move;"><rect x="-85" y="-40" width="170" height="80" rx="40" fill="#161b22" fill-opacity="0.92" stroke="#58a6ff" stroke-width="2"  filter="url(#nodeDropShadow)" /><text x="0" y="-5.5" fill="#e6edf3" font-family="-apple-system, BlinkMacSystemFont, \'Segoe UI\', Roboto, sans-serif" font-size="15" font-weight="600" text-anchor="middle">Shape Label</text><text x="0" y="15.7" fill="#e6edf3" fill-opacity="0.75" font-family="monospace" font-size="12" text-anchor="middle">Subtext 1</text></g>\n</g>',
+    circle: '<g id="nodes-layer">\n<g id="node-1" class="diagram-node-instance" data-node-id="1" data-semantic-target="node-1" transform="translate(640.00, 360.00)" style="cursor: move;"><circle cx="0" cy="0" r="40" fill="#161b22" fill-opacity="0.92" stroke="#58a6ff" stroke-width="2"  filter="url(#nodeDropShadow)" /><text x="0" y="-5.5" fill="#e6edf3" font-family="-apple-system, BlinkMacSystemFont, \'Segoe UI\', Roboto, sans-serif" font-size="15" font-weight="600" text-anchor="middle">Shape Label</text><text x="0" y="15.7" fill="#e6edf3" fill-opacity="0.75" font-family="monospace" font-size="12" text-anchor="middle">Subtext 1</text></g>\n</g>',
+    diamond: '<g id="nodes-layer">\n<g id="node-1" class="diagram-node-instance" data-node-id="1" data-semantic-target="node-1" transform="translate(640.00, 360.00)" style="cursor: move;"><polygon points="0,-40 85,0 0,40 -85,0" stroke-linejoin="round" fill="#161b22" fill-opacity="0.92" stroke="#58a6ff" stroke-width="2"  filter="url(#nodeDropShadow)" /><text x="0" y="-5.5" fill="#e6edf3" font-family="-apple-system, BlinkMacSystemFont, \'Segoe UI\', Roboto, sans-serif" font-size="15" font-weight="600" text-anchor="middle">Shape Label</text><text x="0" y="15.7" fill="#e6edf3" fill-opacity="0.75" font-family="monospace" font-size="12" text-anchor="middle">Subtext 1</text></g>\n</g>',
+    hexagon: '<g id="nodes-layer">\n<g id="node-1" class="diagram-node-instance" data-node-id="1" data-semantic-target="node-1" transform="translate(640.00, 360.00)" style="cursor: move;"><polygon points="-47.6,-40 47.6,-40 85,0 47.6,40 -47.6,40 -85,0" stroke-linejoin="round" fill="#161b22" fill-opacity="0.92" stroke="#58a6ff" stroke-width="2"  filter="url(#nodeDropShadow)" /><text x="0" y="-5.5" fill="#e6edf3" font-family="-apple-system, BlinkMacSystemFont, \'Segoe UI\', Roboto, sans-serif" font-size="15" font-weight="600" text-anchor="middle">Shape Label</text><text x="0" y="15.7" fill="#e6edf3" fill-opacity="0.75" font-family="monospace" font-size="12" text-anchor="middle">Subtext 1</text></g>\n</g>',
+    parallelogram: '<g id="nodes-layer">\n<g id="node-1" class="diagram-node-instance" data-node-id="1" data-semantic-target="node-1" transform="translate(640.00, 360.00)" style="cursor: move;"><polygon points="-57.8,-40 85,-40 57.8,40 -85,40" stroke-linejoin="round" fill="#161b22" fill-opacity="0.92" stroke="#58a6ff" stroke-width="2"  filter="url(#nodeDropShadow)" /><text x="0" y="-5.5" fill="#e6edf3" font-family="-apple-system, BlinkMacSystemFont, \'Segoe UI\', Roboto, sans-serif" font-size="15" font-weight="600" text-anchor="middle">Shape Label</text><text x="0" y="15.7" fill="#e6edf3" fill-opacity="0.75" font-family="monospace" font-size="12" text-anchor="middle">Subtext 1</text></g>\n</g>',
+    cylinder: '<g id="nodes-layer">\n<g id="node-1" class="diagram-node-instance" data-node-id="1" data-semantic-target="node-1" transform="translate(640.00, 360.00)" style="cursor: move;"><g filter="url(#nodeDropShadow)"><path d="M -85,-25.6 L -85,25.6 A 85,14.399999999999999 0 0,0 85,25.6 L 85,-25.6 Z" fill="#161b22" fill-opacity="0.92" stroke="#58a6ff" stroke-width="2"  /><ellipse cx="0" cy="-25.6" rx="85" ry="14.399999999999999" fill="#161b22" fill-opacity="0.92" stroke="#58a6ff" stroke-width="2"  /></g><text x="0" y="-5.5" fill="#e6edf3" font-family="-apple-system, BlinkMacSystemFont, \'Segoe UI\', Roboto, sans-serif" font-size="15" font-weight="600" text-anchor="middle">Shape Label</text><text x="0" y="15.7" fill="#e6edf3" fill-opacity="0.75" font-family="monospace" font-size="12" text-anchor="middle">Subtext 1</text></g>\n</g>',
+    cloud: '<g id="nodes-layer">\n<g id="node-1" class="diagram-node-instance" data-node-id="1" data-semantic-target="node-1" transform="translate(640.00, 360.00)" style="cursor: move;"><path d="M -46.75000000000001,26 C -80.75,26 -85,2 -61.199999999999996,-8 C -63.75,-30 -12.75,-38 6.8,-24 C 38.25,-36 78.2,-20 68,-2 C 89.25,10 72.25,26 42.5,26 Z" stroke-linejoin="round" fill="#161b22" fill-opacity="0.92" stroke="#58a6ff" stroke-width="2"  filter="url(#nodeDropShadow)" /><text x="0" y="-5.5" fill="#e6edf3" font-family="-apple-system, BlinkMacSystemFont, \'Segoe UI\', Roboto, sans-serif" font-size="15" font-weight="600" text-anchor="middle">Shape Label</text><text x="0" y="15.7" fill="#e6edf3" fill-opacity="0.75" font-family="monospace" font-size="12" text-anchor="middle">Subtext 1</text></g>\n</g>',
+    callout: '<g id="nodes-layer">\n<g id="node-1" class="diagram-node-instance" data-node-id="1" data-semantic-target="node-1" transform="translate(640.00, 360.00)" style="cursor: move;"><g filter="url(#nodeDropShadow)"><polygon points="-85,-40 69,-40 85,-24 85,40 -85,40" stroke-linejoin="round" fill="#161b22" fill-opacity="0.92" stroke="#58a6ff" stroke-width="2"  /><polyline points="69,-40 69,-24 85,-24" fill="none" stroke="#58a6ff" stroke-width="2" /></g><text x="0" y="-5.5" fill="#e6edf3" font-family="-apple-system, BlinkMacSystemFont, \'Segoe UI\', Roboto, sans-serif" font-size="15" font-weight="600" text-anchor="middle">Shape Label</text><text x="0" y="15.7" fill="#e6edf3" fill-opacity="0.75" font-family="monospace" font-size="12" text-anchor="middle">Subtext 1</text></g>\n</g>',
+    axes: '<g id="nodes-layer">\n<g id="node-1" class="diagram-node-instance" data-node-id="1" data-semantic-target="node-1" transform="translate(640.00, 360.00)" style="cursor: move;"><rect x="-85" y="-40" width="170" height="80" fill="#161b22" fill-opacity="0.92" stroke="none" /><line x1="-42.5" y1="-40" x2="-42.5" y2="40" stroke="#58a6ff" stroke-opacity="0.2" stroke-width="1" stroke-dasharray="4,4" /><line x1="-85" y1="20" x2="85" y2="20" stroke="#58a6ff" stroke-opacity="0.2" stroke-width="1" stroke-dasharray="4,4" /><line x1="0" y1="-40" x2="0" y2="40" stroke="#58a6ff" stroke-opacity="0.2" stroke-width="1" stroke-dasharray="4,4" /><line x1="-85" y1="0" x2="85" y2="0" stroke="#58a6ff" stroke-opacity="0.2" stroke-width="1" stroke-dasharray="4,4" /><line x1="42.5" y1="-40" x2="42.5" y2="40" stroke="#58a6ff" stroke-opacity="0.2" stroke-width="1" stroke-dasharray="4,4" /><line x1="-85" y1="-20" x2="85" y2="-20" stroke="#58a6ff" stroke-opacity="0.2" stroke-width="1" stroke-dasharray="4,4" /><line x1="85" y1="-40" x2="85" y2="40" stroke="#58a6ff" stroke-opacity="0.2" stroke-width="1" stroke-dasharray="4,4" /><line x1="-85" y1="-40" x2="85" y2="-40" stroke="#58a6ff" stroke-opacity="0.2" stroke-width="1" stroke-dasharray="4,4" /><polyline points="-85,-40 -85,40 85,40" fill="none" stroke="#58a6ff" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" /><text x="-85" y="-50" fill="#e6edf3" font-family="-apple-system, BlinkMacSystemFont, \'Segoe UI\', Roboto, sans-serif" font-size="15" font-weight="600" text-anchor="start">Shape Label</text><text x="85" y="60" fill="#e6edf3" fill-opacity="0.75" font-family="monospace" font-size="12" text-anchor="end">Subtext 1</text></g>\n</g>',
+    unknown_test_shape: '<g id="nodes-layer">\n<g id="node-1" class="diagram-node-instance" data-node-id="1" data-semantic-target="node-1" transform="translate(640.00, 360.00)" style="cursor: move;"><text x="0" y="-5.5" fill="#e6edf3" font-family="-apple-system, BlinkMacSystemFont, \'Segoe UI\', Roboto, sans-serif" font-size="15" font-weight="600" text-anchor="middle">Shape Label</text><text x="0" y="15.7" fill="#e6edf3" fill-opacity="0.75" font-family="monospace" font-size="12" text-anchor="middle">Subtext 1</text></g>\n</g>'
   };
 
   const savedDiagramNodesState = window.DiagramNodes.getState();
@@ -9765,35 +9765,69 @@ async function runHarness() {
     set innerHTML(html) {
       this._innerHTML = html;
       this.children = [];
-      // Build lightweight mock nodes from SVG string
-      const svgMatch = /<svg\b[^>]*\bid=["']([^"']+)["'][^>]*>/i.exec(html);
+      const svgMatch = /<svg\b([^>]*\bid=["']([^"']+)["'][^>]*)>/i.exec(html);
       const rootSvg = new MockStage16BElement('svg');
-      if (svgMatch) rootSvg.id = svgMatch[1];
+      if (svgMatch) rootSvg.id = svgMatch[2];
       rootSvg.ownerDocument = this.ownerDocument;
 
-      // Extract child elements with id
-      const reElems = /<([a-zA-Z0-9]+)\b([^>]*\bid=["']([^"']+)["'][^>]*)>/gi;
-      let em;
-      while ((em = reElems.exec(html)) !== null) {
-        const childEl = new MockStage16BElement(em[1]);
-        childEl.id = em[3];
-        const semM = /data-semantic-target=["']([^"']+)["']/.exec(em[2]);
-        if (semM) childEl.setAttribute('data-semantic-target', semM[1]);
-        childEl.ownerDocument = this.ownerDocument;
-        rootSvg.children.push(childEl);
+      const reTag = /<\/?([a-zA-Z0-9]+)\b([^>]*)\/?>|([^<]+)/gi;
+      let tm;
+      const stack = [rootSvg];
+      let currentParent = rootSvg;
+
+      while ((tm = reTag.exec(html)) !== null) {
+        const fullMatch = tm[0];
+        if (fullMatch.startsWith('</')) {
+          if (stack.length > 1) stack.pop();
+          currentParent = stack[stack.length - 1];
+          continue;
+        }
+        if (fullMatch.startsWith('<')) {
+          const tagName = tm[1];
+          if (tagName.toLowerCase() === 'svg') continue;
+          const attrStr = tm[2] || '';
+          const el = new MockStage16BElement(tagName);
+          el.ownerDocument = this.ownerDocument;
+          const attrRegex = /([a-zA-Z0-9_-]+)=["']([^"']*)["']/g;
+          let am;
+          while ((am = attrRegex.exec(attrStr)) !== null) {
+            el.setAttribute(am[1], am[2]);
+            if (am[1] === 'id') el.id = am[2];
+          }
+          currentParent.appendChild(el);
+          if (!fullMatch.endsWith('/>') && tagName.toLowerCase() !== 'br' && tagName.toLowerCase() !== 'hr') {
+            stack.push(el);
+            currentParent = el;
+          }
+        } else {
+          const text = fullMatch.trim();
+          if (text) {
+            currentParent.textContent = text;
+          }
+        }
       }
       this.children.push(rootSvg);
     }
 
     querySelector(sel) {
+      if (!sel) return null;
+      if (sel.includes(' ')) {
+        const parts = sel.split(/\s+/).filter(Boolean);
+        let cur = this;
+        for (const p of parts) {
+          cur = cur ? cur.querySelector(p) : null;
+          if (!cur) return null;
+        }
+        return cur;
+      }
       if (sel === 'svg') {
+        if (this.tagName === 'SVG') return this;
         return this.children.find((c) => c.tagName === 'SVG') || null;
       }
       if (sel.startsWith('#')) {
         const targetId = sel.slice(1);
         if (this.id === targetId) return this;
         for (const c of this.children) {
-          if (c.id === targetId) return c;
           const found = c.querySelector(sel);
           if (found) return found;
         }
@@ -9806,16 +9840,39 @@ async function runHarness() {
           if (found) return found;
         }
       }
+      if (sel.includes('data-semantic-name=')) {
+        const m = /data-semantic-name=["']([^"']+)["']/.exec(sel);
+        if (m && this.getAttribute('data-semantic-name') === m[1]) return this;
+        for (const c of this.children) {
+          const found = c.querySelector(sel);
+          if (found) return found;
+        }
+      }
+      if (/^[a-zA-Z0-9]+$/.test(sel)) {
+        if (this.tagName === sel.toUpperCase()) return this;
+        for (const c of this.children) {
+          const found = c.querySelector(sel);
+          if (found) return found;
+        }
+      }
       return null;
     }
 
     querySelectorAll(sel) {
       const res = [];
-      if (sel === '*[id]') {
-        if (this.id) res.push(this);
-        for (const c of this.children) {
-          res.push(...c.querySelectorAll(sel));
+      const tags = sel.split(',').map(s => s.trim().toUpperCase());
+      const checkNode = (node) => {
+        if (sel === '*[id]') {
+          if (node.id) res.push(node);
+        } else if (tags.includes(node.tagName)) {
+          res.push(node);
         }
+        for (const c of node.children) {
+          checkNode(c);
+        }
+      };
+      for (const c of this.children) {
+        checkNode(c);
       }
       return res;
     }
@@ -10508,6 +10565,7 @@ async function runHarness() {
   }
 
   // 3. Image Visibility: Test SVG with embedded raster photo (data:image/png;base64,...)
+  window.EngineBridge.setWidgetParameters([]);
   const photoSvg = `<svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 512 512">` +
     `<image id="photo-bg" href="data:image/png;base64,iVBORw0KGgoAAAANSUhEUgAAAAEAAAABCAYAAAAfFcSJAAAADUlEQVR42mNk+M9QDwADhgGAWjR9awAAAABJRU5ErkJggg==" width="512" height="512"/>` +
     `<text id="mytext1" x="20" y="50">Mail Delivery</text>` +
@@ -10585,14 +10643,14 @@ async function runHarness() {
   // Verify saved in Go engine
   const paramsAfterSave = window.EngineBridge.getWidgetParameters();
   assert.strictEqual(paramsAfterSave.length, 1, 'W16B-UI08: 1 parameter saved to engine');
-  assert.strictEqual(paramsAfterSave[0].name, 'node-gateway-fill', 'W16B-UI09: Parameter name auto-derived as node-gateway-fill');
+  assert.strictEqual(paramsAfterSave[0].name, 'gateway-node-fill', 'W16B-UI09: Parameter name auto-derived as gateway-node-fill');
   assert.strictEqual(paramsAfterSave[0].target, `node-${gwNode.id}`, 'W16B-UI10: Target is node ID');
 
   // 4. Export package with authored parameter
-  const authoredPkg = window.EngineBridge.buildWidgetPackage('Gateway', '<svg viewBox="0 0 800 600"><rect id="node-1"/></svg>');
+  const authoredPkg = window.EngineBridge.buildWidgetPackage('Gateway', `<svg viewBox="0 0 800 600"><g id="node-${gwNode.id}" data-semantic-target="node-${gwNode.id}"><rect width="50" height="50"/></g></svg>`);
   assert.strictEqual(authoredPkg.success, true, 'W16B-UI12: Package built successfully');
-  const authoredGuide = window.EngineBridge.generateWidgetGuide('Gateway', 'Gateway', '<svg viewBox="0 0 800 600"><rect id="node-1"/></svg>');
-  assert.ok(authoredGuide.markdown.includes('`node-gateway-fill`'), 'W16B-UI13: Exported guide contains node-gateway-fill');
+  const authoredGuide = window.EngineBridge.generateWidgetGuide('Gateway', 'Gateway', `<svg viewBox="0 0 800 600"><g id="node-${gwNode.id}" data-semantic-target="node-${gwNode.id}"><rect width="50" height="50"/></g></svg>`);
+  assert.ok(authoredGuide.markdown.includes('`gateway-node-fill`'), 'W16B-UI13: Exported guide contains gateway-node-fill');
   assert.ok(!authoredGuide.markdown.includes('exampleParam'), 'W16B-UI14: Exported guide does not use exampleParam');
 
   console.log('[HARNESS] Scenario 81 PASS: Stage 16B UI Authoring: Right Drawer Widget Rail Click, Object Binding & End-to-End Export verified.');
@@ -10883,28 +10941,28 @@ async function runHarness() {
   // =========================================================================
   console.log('\n[HARNESS] Testing Scenario 85: Stage 16B Final Property Contract & Effect Targeting Correction...');
 
-  // 1. Authoritative Parameter Name Generation & Renaming Sync
+  // 1. Authoritative Parameter Name Generation & Renaming Sync (Object-Name-First)
   const autoNodeParam = window.EngineBridge.generateParameterName('node-gateway', 'fill', 'node');
-  assert.strictEqual(autoNodeParam, 'node-gateway-fill', 'W16B-FIN01: Node fill param name auto-derived');
+  assert.strictEqual(autoNodeParam, 'gateway-node-fill', 'W16B-FIN01: Node fill param name auto-derived as gateway-node-fill');
 
   const autoFlowParam = window.EngineBridge.generateParameterName('flow-stream', 'color', 'flow');
-  assert.strictEqual(autoFlowParam, 'flow-stream-color', 'W16B-FIN02: Flow color param name auto-derived');
+  assert.strictEqual(autoFlowParam, 'stream-flow-color', 'W16B-FIN02: Flow color param name auto-derived as stream-flow-color');
 
   const autoFlowSpeed = window.EngineBridge.generateParameterName('flow-stream', 'speed', 'flow');
-  assert.strictEqual(autoFlowSpeed, 'flow-stream-speed', 'W16B-FIN03: Flow speed param name auto-derived');
+  assert.strictEqual(autoFlowSpeed, 'stream-flow-speed', 'W16B-FIN03: Flow speed param name auto-derived as stream-flow-speed');
 
   const autoGlowParam = window.EngineBridge.generateParameterName('glow-radar', 'color', 'glow');
-  assert.strictEqual(autoGlowParam, 'glow-radar-color', 'W16B-FIN04: Glow color param name auto-derived');
+  assert.strictEqual(autoGlowParam, 'radar-glow-color', 'W16B-FIN04: Glow color param name auto-derived as radar-glow-color');
 
   const autoRippleParam = window.EngineBridge.generateParameterName('ripple-wave', 'color', 'ripple');
-  assert.strictEqual(autoRippleParam, 'ripple-wave-color', 'W16B-FIN05: Ripple color param name auto-derived');
+  assert.strictEqual(autoRippleParam, 'wave-ripple-color', 'W16B-FIN05: Ripple color param name auto-derived as wave-ripple-color');
 
   // 2. Object Renaming and Automatic Parameter Synchronisation
   window.EngineBridge.setWidgetParameters([]);
   // Create a node in engine
   const s85Node = window.DiagramNodes.createNode({ shape: 'rect', text: 'Telemetry', x: 100, y: 100 });
   const s85Param = window.EngineBridge.addWidgetParameter({
-    name: 'node-telemetry-fill',
+    name: 'telemetry-node-fill',
     type: 'color',
     target: String(s85Node.id),
     property: 'fill',
@@ -10916,11 +10974,11 @@ async function runHarness() {
   const s85RenRes = window.EngineBridge.renameObject('node', String(s85Node.id), 'node-sensor');
   assert.ok(s85RenRes && s85RenRes.success, 'W16B-FIN07: Object rename succeeded');
 
-  // Verify that parameter name updated to node-sensor-fill
+  // Verify that parameter name updated to sensor-node-fill
   const s85CurrentParams = window.EngineBridge.getWidgetParameters();
   const s85UpdatedP = s85CurrentParams.find(p => String(p.target) === String(s85Node.id) && p.property === 'fill');
   assert.ok(s85UpdatedP, 'W16B-FIN08: Parameter still tracks target node');
-  assert.strictEqual(s85UpdatedP.name, 'node-sensor-fill', 'W16B-FIN09: Parameter name auto-updated on object rename');
+  assert.strictEqual(s85UpdatedP.name, 'sensor-node-fill', 'W16B-FIN09: Parameter name auto-updated on object rename');
 
   // 3. Effect Targeting Isolation in svg-widget.js Runtime
   // Test 3A: Flow Recolouring preserves motion guide
@@ -11003,11 +11061,159 @@ async function runHarness() {
   assert.ok(s85RenderedCards.length >= 5, 'W16B-FIN19: Compact property cards rendered for node');
   const s85FillCard = Array.from(s85RenderedCards).find(c => {
     const badge = c.querySelector('.widget-prop-badge');
-    return badge && badge.textContent === 'node-sensor-fill';
+    return badge && badge.textContent === 'sensor-node-fill';
   });
-  assert.ok(s85FillCard, 'W16B-FIN20: Fill property card displays derived parameter badge "node-sensor-fill"');
+  assert.ok(s85FillCard, 'W16B-FIN20: Fill property card displays derived parameter badge "sensor-node-fill"');
 
   console.log('[HARNESS] Scenario 85 PASS: Stage 16B Final Property Contract & Effect Targeting Correction verified.');
+
+  // =========================================================================
+  // Scenario 86: Stage 16B Node Target Resolution & Standardised Parameter Naming
+  // =========================================================================
+  console.log('\n[HARNESS] Testing Scenario 86: Node Target Resolution & Standardised Parameter Naming...');
+
+  // 1. Consistent Target Identity across Nodes, Flows, Glows, Ripples, Images
+  window.DiagramNodes.setState({ nodes: [], nodesCounter: 0 });
+  const s86Node = window.DiagramNodes.createNode({
+    shape: 'rounded',
+    text: 'Alpha Node',
+    name: 'alpha-node',
+    x: 200,
+    y: 150,
+    fillColor: '#1e293b',
+    strokeColor: '#3b82f6'
+  });
+  const nodeElSvg = window.DiagramNodes.renderNodeElement(s86Node, 1280, 720);
+  assert.ok(nodeElSvg.includes(`id="node-${s86Node.id}"`), 'W16B-NODE01: Node group has id="node-${id}"');
+  assert.ok(nodeElSvg.includes('class="diagram-node-instance"'), 'W16B-NODE02: Node group has class="diagram-node-instance"');
+  assert.ok(nodeElSvg.includes(`data-node-id="${s86Node.id}"`), 'W16B-NODE03: Node group has data-node-id');
+  assert.ok(nodeElSvg.includes(`data-semantic-target="node-${s86Node.id}"`), 'W16B-NODE04: Node group has data-semantic-target');
+  assert.ok(nodeElSvg.includes('data-semantic-name="alpha-node"'), 'W16B-NODE05: Node group has data-semantic-name');
+
+  // 2. Object-Name-First Parameter Naming Convention: <object-name>-<object-type>-<property>
+  const s86PNameText = window.EngineBridge.generateParameterName('mytext', 'text', 'node');
+  assert.strictEqual(s86PNameText, 'mytext-node-text', 'W16B-NODE06: mytext + text -> mytext-node-text');
+
+  const s86PNameFill = window.EngineBridge.generateParameterName('mytext', 'fill', 'node');
+  assert.strictEqual(s86PNameFill, 'mytext-node-fill', 'W16B-NODE07: mytext + fill -> mytext-node-fill');
+
+  const s86PNameStroke = window.EngineBridge.generateParameterName('mytext', 'stroke', 'node');
+  assert.strictEqual(s86PNameStroke, 'mytext-node-stroke', 'W16B-NODE08: mytext + stroke -> mytext-node-stroke');
+
+  const s86PFlowSpeed = window.EngineBridge.generateParameterName('border', 'speed', 'flow');
+  assert.strictEqual(s86PFlowSpeed, 'border-flow-speed', 'W16B-NODE09: border + speed -> border-flow-speed');
+
+  const s86PFlowColor = window.EngineBridge.generateParameterName('flow-border', 'color', 'flow');
+  assert.strictEqual(s86PFlowColor, 'border-flow-color', 'W16B-NODE10: flow-border + color strips duplicate token -> border-flow-color');
+
+  const s86PGlowColor = window.EngineBridge.generateParameterName('alarm', 'color', 'glow');
+  assert.strictEqual(s86PGlowColor, 'alarm-glow-color', 'W16B-NODE11: alarm + color -> alarm-glow-color');
+
+  const s86PRippleOpacity = window.EngineBridge.generateParameterName('warning', 'opacity', 'ripple');
+  assert.strictEqual(s86PRippleOpacity, 'warning-ripple-opacity', 'W16B-NODE12: warning + opacity -> warning-ripple-opacity');
+
+  // Default pattern normalisation (no duplicate token)
+  const s86PDefaultNode = window.EngineBridge.generateParameterName('node-1', 'text', 'node');
+  assert.strictEqual(s86PDefaultNode, 'node-1-text', 'W16B-NODE13: default node-1 + text -> node-1-text');
+
+  const s86PDefaultFlow = window.EngineBridge.generateParameterName('flow-2', 'speed', 'flow');
+  assert.strictEqual(s86PDefaultFlow, 'flow-2-speed', 'W16B-NODE14: default flow-2 + speed -> flow-2-speed');
+
+  // 3. Pre-Export Validation: Rejection of unresolvable target elements
+  window.EngineBridge.setWidgetParameters([]);
+  window.EngineBridge.addWidgetParameter({
+    name: 'orphan-node-fill',
+    type: 'color',
+    target: 'node-999',
+    property: 'fill',
+    default: '#ff0000'
+  });
+  const unresolvablePkg = window.EngineBridge.buildWidgetPackage('Unresolvable Test', '<svg viewBox="0 0 100 100"><rect id="node-1"/></svg>');
+  assert.strictEqual(unresolvablePkg, null, 'W16B-NODE15: Export rejected when parameter target missing from SVG');
+  const lastErr = window.EngineBridge.getLastError() || '';
+  assert.ok(lastErr.includes('could not be resolved') || lastErr.includes('does not exist'), 'W16B-NODE16: Descriptive validation error returned');
+
+  // 4. End-to-end Node property application in svg-widget.js runtime
+  const multiNodeSvg = `<svg id="test-canvas" viewBox="0 0 800 600" width="800" height="600">
+    <g id="node-1" class="diagram-node-instance" data-node-id="1" data-semantic-target="node-1" data-semantic-name="server">
+      <rect x="50" y="50" width="120" height="60" fill="#1e293b" stroke="#3b82f6" stroke-width="2"/>
+      <text x="110" y="85" fill="#ffffff">Server 1</text>
+    </g>
+    <g id="node-2" class="diagram-node-instance" data-node-id="2" data-semantic-target="node-2" data-semantic-name="client">
+      <rect x="300" y="50" width="120" height="60" fill="#0f172a" stroke="#10b981" stroke-width="2"/>
+      <text x="360" y="85" fill="#ffffff">Client 1</text>
+    </g>
+  </svg>`;
+
+  const manifestMultiNode = {
+    schemaVersion: 1,
+    parameters: [
+      { name: 'server-node-text', type: 'text', target: 'node-1', property: 'text', default: 'Server 1' },
+      { name: 'server-node-fill', type: 'color', target: 'node-1', property: 'fill', default: '#1e293b' },
+      { name: 'server-node-stroke', type: 'color', target: 'node-1', property: 'stroke', default: '#3b82f6' },
+      { name: 'client-node-text', type: 'text', target: 'node-2', property: 'text', default: 'Client 1' }
+    ]
+  };
+
+  const origDoc86 = global.document;
+  try {
+    const mockDoc = {
+      createElement(tag) {
+        const el = new MockStage16BElement(tag);
+        el.ownerDocument = mockDoc;
+        return el;
+      },
+      getElementById(id) {
+        return null;
+      },
+      head: new MockStage16BElement('head'),
+      body: new MockStage16BElement('body')
+    };
+    mockDoc.head.ownerDocument = mockDoc;
+    mockDoc.body.ownerDocument = mockDoc;
+    global.document = mockDoc;
+
+    const nodeTestContainer = mockDoc.createElement('div');
+    mockDoc.body.appendChild(nodeTestContainer);
+
+    const SVGWidgetRuntime = require('../internal/web/static/js/svg-widget.js');
+    const nodeWidget = SVGWidgetRuntime.mount(nodeTestContainer, multiNodeSvg, {
+      instanceId: 'multi-node-unit',
+      manifest: manifestMultiNode
+    });
+    assert.ok(nodeWidget, 'W16B-NODE17: Multi-node widget mounted successfully');
+
+    // Verify initial mounting parameters applied without exception
+    assert.strictEqual(nodeWidget.getParameter('server-node-text'), 'Server 1', 'W16B-NODE18: Initial text parameter value matches');
+
+    // Mutate server node text, fill, stroke
+    nodeWidget.setParameter('server-node-text', 'Production Gateway');
+    nodeWidget.setParameter('server-node-fill', '#b91c1c');
+    nodeWidget.setParameter('server-node-stroke', '#fca5a5');
+
+    const serverTextEl = nodeTestContainer.querySelector('[data-semantic-target="node-1"] text');
+    const serverRectEl = nodeTestContainer.querySelector('[data-semantic-target="node-1"] rect');
+    const clientTextEl = nodeTestContainer.querySelector('[data-semantic-target="node-2"] text');
+    const clientRectEl = nodeTestContainer.querySelector('[data-semantic-target="node-2"] rect');
+
+    assert.ok(serverTextEl, 'W16B-NODE19A: Server text element found');
+    assert.strictEqual(serverTextEl.textContent, 'Production Gateway', 'W16B-NODE19: Server text label updated');
+    assert.strictEqual(serverRectEl.getAttribute('fill'), '#b91c1c', 'W16B-NODE20: Server rect fill updated');
+    assert.strictEqual(serverRectEl.getAttribute('stroke'), '#fca5a5', 'W16B-NODE21: Server rect stroke updated');
+
+    // Verify client node is completely untouched (no cross-node contamination)
+    assert.strictEqual(clientTextEl.textContent, 'Client 1', 'W16B-NODE22: Client text untouched');
+    assert.strictEqual(clientRectEl.getAttribute('fill'), '#0f172a', 'W16B-NODE23: Client rect fill untouched');
+    assert.strictEqual(clientRectEl.getAttribute('stroke'), '#10b981', 'W16B-NODE24: Client rect stroke untouched');
+
+    nodeWidget.unmount();
+  } finally {
+    global.document = origDoc86;
+  }
+
+  window.EngineBridge.setWidgetParameters([]);
+
+  console.log('[HARNESS] Scenario 86 PASS: Stage 16B Node Target Resolution & Standardised Parameter Naming verified.');
 
   console.log('[HARNESS] REG-03 PASS: Stage 3, 4, 5, 6, 7, 8, 9, 11, 12, 13, 14, 15 & 16 non-destructive cropping, background extraction, image baking, dedicated crop clip & snip workspace, object-local clipping, unified layer management, independent image objects, persistent groups, duplication, copy/paste with flow remapping, multi-selection, alignment, distribution, colour tools, selection retention, notifications, naming sync, history(50), schema 1.2.0, .sva packaging, background photo restoration, SVG compilation, export payload builders, collision-free widgets, external runtime parameters, and Go WASM engines verified.');
 }

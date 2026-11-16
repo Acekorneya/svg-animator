@@ -762,7 +762,12 @@ func BuildWidgetPackageZip(sc *Scene, widgetName, rawSVG, svgWidgetJS string) ([
 		}
 	}
 
-	// 3. Generate documentation and inspection copies (embedding isolatedSVG into demo.html for direct offline file:// operation)
+	// 3. Pre-export validation
+	if err := ValidateWidgetExport(manifest, isolatedSVG, sc); err != nil {
+		return nil, err
+	}
+
+	// 4. Generate documentation and inspection copies (embedding isolatedSVG into demo.html for direct offline file:// operation)
 	guideMarkdown := GenerateWidgetPropertiesGuide(sc, widgetName, svgFilename, manifest)
 	readmeMarkdown := GenerateWidgetReadme(widgetName, svgFilename, manifest)
 	demoHTML := GenerateWidgetDemoHTML(widgetName, svgFilename, manifest, isolatedSVG)

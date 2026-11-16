@@ -3289,6 +3289,9 @@ func TestDispatchWidgetIsolateSVG(t *testing.T) {
 }
 
 func TestDispatchWidgetParameters(t *testing.T) {
+	activeScene = scene.NewScene()
+	activeScene.CreateNode(scene.Node{Shape: "rect"}, nil, false)
+
 	// 1. Initially empty
 	getBytes, err := Dispatch("Widget.GetParameters", nil)
 	if err != nil {

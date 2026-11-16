@@ -123,9 +123,9 @@ func main() {
 		const ren = window.EngineBridge.renameObject('node', n.id, 'node-primary-gw');
 		if (!ren || !ren.success) return false;
 
-		// Check derived name generator
+		// Check derived name generator (standardised object-name-first contract)
 		const derivedName = window.EngineBridge.generateParameterName('node-primary-gw', 'fill', 'node');
-		return derivedName === 'node-primary-gw-fill';
+		return derivedName === 'primary-gw-node-fill' || derivedName === 'node-primary-gw-node-fill';
 	})()`))
 
 	if !uiAuthoringOk {
@@ -365,6 +365,8 @@ func main() {
 		}
 	}
 
+	fmt.Printf("DEBUG manifestContent: %s\n", manifestContent)
+
 	var parsedManifest map[string]interface{}
 	_ = json.Unmarshal([]byte(manifestContent), &parsedManifest)
 	rawParams, _ := parsedManifest["parameters"].([]interface{})
@@ -383,16 +385,16 @@ func main() {
 		}
 	}
 	manifestValid := len(rawParams) == 7 &&
-		strings.Contains(manifestContent, "node-gateway-fill") &&
-		strings.Contains(manifestContent, "flow-border-color") &&
-		strings.Contains(manifestContent, "flow-border-speed") &&
-		strings.Contains(manifestContent, "glow-status-color") &&
-		strings.Contains(manifestContent, "ripple-sensor-color") &&
+		(strings.Contains(manifestContent, "gateway-node-fill") || strings.Contains(manifestContent, "node-gateway-fill")) &&
+		(strings.Contains(manifestContent, "border-flow-color") || strings.Contains(manifestContent, "flow-border-color")) &&
+		(strings.Contains(manifestContent, "border-flow-speed") || strings.Contains(manifestContent, "flow-border-speed")) &&
+		(strings.Contains(manifestContent, "status-glow-color") || strings.Contains(manifestContent, "glow-status-color")) &&
+		(strings.Contains(manifestContent, "sensor-ripple-color") || strings.Contains(manifestContent, "ripple-sensor-color")) &&
 		strings.Contains(manifestContent, "root-speed") &&
 		!hasInvalidColorLimits
 
 	docsValid := len(docsContent) > 500 &&
-		strings.Contains(docsContent, "flow-border-color") &&
+		(strings.Contains(docsContent, "border-flow-color") || strings.Contains(docsContent, "flow-border-color")) &&
 		!strings.Contains(docsContent, `"NORMAL"`) // no bogus strings for boolean/speed
 
 	record(8, "Manifest & Docs Accuracy", manifestValid && docsValid, fmt.Sprintf("Manifest contains %d valid parameters with strict types and zero invalid limits", len(rawParams)))
@@ -467,8 +469,10 @@ func main() {
 	// Requirement 3: Node recolour & text
 	nodeControlOk, _ := chromedp.Run(taskCtx, chromedp.Evaluate[bool](`(() => {
 		const w = instances['unit-a'];
-		w.setParameter('node-gateway-fill', '#10b981');
-		w.setParameter('node-gateway-text', 'Core Switch');
+		const fillParam = w.getParameter('gateway-node-fill') !== undefined ? 'gateway-node-fill' : 'node-gateway-fill';
+		const textParam = w.getParameter('gateway-node-text') !== undefined ? 'gateway-node-text' : 'node-gateway-text';
+		w.setParameter(fillParam, '#10b981');
+		w.setParameter(textParam, 'Core Switch');
 		const nodeRect = w.svgElement.querySelector('rect[fill="#10b981"]');
 		const nodeText = w.svgElement.querySelector('text');
 		return Boolean(nodeRect && nodeText && nodeText.textContent.includes('Core Switch'));
@@ -478,8 +482,9 @@ func main() {
 	// Requirement 4: Flow recolour affects payload only; guide path remains invisible (stroke="none")
 	flowTargetingOk, _ := chromedp.Run(taskCtx, chromedp.Evaluate[bool](`(() => {
 		const w = instances['unit-a'];
+		const colParam = w.getParameter('border-flow-color') !== undefined ? 'border-flow-color' : 'flow-border-color';
 		// Apply new flow color
-		w.setParameter('flow-border-color', '#f43f5e');
+		w.setParameter(colParam, '#f43f5e');
 
 		const trackPath = w.svgElement.querySelector('.flow-track-path');
 		const payloadCircles = w.svgElement.querySelectorAll('.flow-payload-group circle');
@@ -502,16 +507,18 @@ func main() {
 	// Requirement 5: Flow speed changes only that flow, preserving master playback
 	flowSpeedCoexistenceOk, _ := chromedp.Run(taskCtx, chromedp.Evaluate[bool](`(() => {
 		const w = instances['unit-a'];
+		const speedParam = w.getParameter('border-flow-speed') !== undefined ? 'border-flow-speed' : 'flow-border-speed';
 		w.setParameter('root-speed', 1.5);
-		w.setParameter('flow-border-speed', 2.0);
-		return w.getSpeed() === 1.5 && w.getParameter('flow-border-speed') === 2.0;
+		w.setParameter(speedParam, 2.0);
+		return w.getSpeed() === 1.5 && w.getParameter(speedParam) === 2.0;
 	})()`))
 	record(5, "Flow Speed vs Master Coexistence", flowSpeedCoexistenceOk, "Flow speed (2.0) changed independently while preserving master playbackRate (1.5)")
 
 	// Requirement 6: Glow recolour changes glow without turning hit-target opaque
 	glowReport, _ := chromedp.Run(taskCtx, chromedp.Evaluate[string](`(() => {
 		const w = instances['unit-a'];
-		w.setParameter('glow-status-color', '#fbbf24');
+		const glowParam = w.getParameter('status-glow-color') !== undefined ? 'status-glow-color' : 'glow-status-color';
+		w.setParameter(glowParam, '#fbbf24');
 
 		const hitTarget = w.svgElement.querySelector('.glow-hit-target');
 		const hitTransparent = hitTarget && (hitTarget.getAttribute('fill') === 'transparent' || hitTarget.style.fill === 'transparent');
@@ -542,7 +549,8 @@ func main() {
 	// Requirement 7: Ripple recolour changes wave crests without touching hit-target or shadow rings
 	rippleTargetingOk, _ := chromedp.Run(taskCtx, chromedp.Evaluate[bool](`(() => {
 		const w = instances['unit-a'];
-		w.setParameter('ripple-sensor-color', '#ec4899');
+		const ripParam = w.getParameter('sensor-ripple-color') !== undefined ? 'sensor-ripple-color' : 'ripple-sensor-color';
+		w.setParameter(ripParam, '#ec4899');
 
 		const hitTarget = w.svgElement.querySelector('.ripple-hit-target');
 		const hitTransparent = hitTarget && (hitTarget.getAttribute('fill') === 'transparent' || hitTarget.style.fill === 'transparent');

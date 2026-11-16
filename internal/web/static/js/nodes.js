@@ -328,7 +328,8 @@ window.DiagramNodes = {
       animTags = '<animate attributeName="opacity" from="0" to="1" dur="1.2s" fill="freeze" />';
     }
 
-    return '<g data-node-id="' + n.id + '" transform="translate(' + cx.toFixed(2) + ', ' + cy.toFixed(2) + ')" style="cursor: move;">' + animTags + shapeSVG + textSVG + '</g>';
+    const nodeNameAttr = n.name ? ' data-semantic-name="' + String(n.name).replace(/"/g, '&quot;') + '"' : '';
+    return '<g id="node-' + n.id + '" class="diagram-node-instance" data-node-id="' + n.id + '" data-semantic-target="node-' + n.id + '"' + nodeNameAttr + ' transform="translate(' + cx.toFixed(2) + ', ' + cy.toFixed(2) + ')" style="cursor: move;">' + animTags + shapeSVG + textSVG + '</g>';
   },
 
   injectIntoSVG(svgString, state) {

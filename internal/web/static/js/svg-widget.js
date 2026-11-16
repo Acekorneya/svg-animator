@@ -542,7 +542,7 @@
             el.style.fill = value;
             if (el.tagName && el.tagName.toLowerCase() === 'g') {
               el.querySelectorAll('rect, circle, path, polygon, ellipse').forEach(c => {
-                if (!c.classList?.contains('glow-hit-target') && !c.classList?.contains('ripple-hit-target') && c.getAttribute('fill') !== 'transparent') {
+                if (!c.classList?.contains('glow-hit-target') && !c.classList?.contains('ripple-hit-target') && c.getAttribute('fill') !== 'transparent' && c.getAttribute('fill') !== 'none') {
                   c.setAttribute('fill', value);
                   c.style.fill = value;
                 }
@@ -554,8 +554,11 @@
             if (el.tagName && el.tagName.toLowerCase() === 'g') {
               el.querySelectorAll('rect, circle, path, polygon, ellipse, line').forEach(c => {
                 if (!c.classList?.contains('glow-hit-target') && !c.classList?.contains('ripple-hit-target') && !c.classList?.contains('flow-track-path')) {
-                  c.setAttribute('stroke', value);
-                  c.style.stroke = value;
+                  const curStroke = c.getAttribute('stroke');
+                  if (curStroke !== 'none') {
+                    c.setAttribute('stroke', value);
+                    c.style.stroke = value;
+                  }
                 }
               });
             }
@@ -603,11 +606,16 @@
       case 'text':
       case 'textContent':
         if (el) {
-          const textEl = (el.tagName && el.tagName.toLowerCase() === 'text') ? el : el.querySelector('text');
-          if (textEl) {
-            textEl.textContent = String(value);
+          const valStr = String(value);
+          if (el.tagName && el.tagName.toLowerCase() === 'text') {
+            el.textContent = valStr;
           } else {
-            el.textContent = String(value);
+            const textEls = el.querySelectorAll('text');
+            if (textEls.length > 0) {
+              textEls[0].textContent = valStr;
+            } else {
+              el.textContent = valStr;
+            }
           }
         }
         break;
@@ -773,7 +781,7 @@
       let currentSpeed = 1.0;
 
       // Ensure global paused CSS helper exists once in document
-      if (typeof document.getElementById === 'function' && !document.getElementById('sva-widget-global-style')) {
+      if (typeof document !== 'undefined' && typeof document.getElementById === 'function' && !document.getElementById('sva-widget-global-style')) {
         const styleEl = document.createElement('style');
         styleEl.id = 'sva-widget-global-style';
         styleEl.textContent = `
@@ -782,7 +790,10 @@
             animation-play-state: paused !important;
           }
         `;
-        document.head.appendChild(styleEl);
+        const targetHost = document.head || document.body;
+        if (targetHost && typeof targetHost.appendChild === 'function') {
+          targetHost.appendChild(styleEl);
+        }
       }
 
       // 7. Construct instance handle

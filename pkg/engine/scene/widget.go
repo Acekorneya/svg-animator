@@ -5,6 +5,7 @@ import (
 	"fmt"
 	"math"
 	"regexp"
+	"strconv"
 	"strings"
 	"sync/atomic"
 	"time"
@@ -332,30 +333,19 @@ func floatPtr(v float64) *float64 {
 }
 
 // GenerateParameterName derives an automatic parameter name from an object name and property.
-// Example: flow-border + speed -> flow-border-speed
-// Example: flow-border + color -> flow-border-color
-// Example: glow-status + color -> glow-status-color
-// Example: node-server + fill  -> node-server-fill
-// Example: root + playbackRate -> root-speed
+// Standard object-name-first convention: <object-name>-<object-type>-<property>
+// Example: mytext + node + text  -> mytext-node-text
+// Example: border + flow + speed -> border-flow-speed
+// Example: alarm + glow + color  -> alarm-glow-color
+// Example: warning + ripple + opacity -> warning-ripple-opacity
+// Example: flow-1 + flow + speed -> flow-1-speed (default naming avoids duplicate type token)
+// Example: root + playbackRate   -> root-speed
 func GenerateParameterName(objectName, property string, targetType ...string) string {
-	cleanObj := strings.TrimSpace(strings.ToLower(objectName))
+	rawName := strings.TrimSpace(strings.ToLower(objectName))
 	tType := ""
 	if len(targetType) > 0 {
 		tType = strings.TrimSpace(strings.ToLower(targetType[0]))
 	}
-
-	if cleanObj == "" || cleanObj == "root" || cleanObj == "global" || cleanObj == "stage" || cleanObj == "widget" {
-		cleanObj = "root"
-	} else if tType != "" && tType != "root" {
-		prefix := tType + "-"
-		if !strings.HasPrefix(cleanObj, prefix) {
-			cleanObj = prefix + cleanObj
-		}
-	}
-
-	cleanObj = regexp.MustCompile(`[^a-z0-9_-]`).ReplaceAllString(cleanObj, "-")
-	cleanObj = regexp.MustCompile(`-+`).ReplaceAllString(cleanObj, "-")
-	cleanObj = strings.Trim(cleanObj, "-")
 
 	suffix := strings.ToLower(strings.TrimSpace(property))
 	switch suffix {
@@ -366,14 +356,60 @@ func GenerateParameterName(objectName, property string, targetType ...string) st
 	case "textcontent":
 		suffix = "text"
 	case "stroke":
-		if strings.HasPrefix(cleanObj, "flow-") {
+		if tType == "flow" || strings.HasPrefix(rawName, "flow-") || strings.Contains(rawName, "flow") {
 			suffix = "color"
 		} else {
 			suffix = "stroke"
 		}
 	}
 
-	return cleanObj + "-" + suffix
+	if rawName == "" || rawName == "root" || rawName == "global" || rawName == "stage" || rawName == "widget" {
+		return "root-" + suffix
+	}
+
+	regInvalid := regexp.MustCompile(`[^a-z0-9_-]`)
+	cleanName := regInvalid.ReplaceAllString(rawName, "-")
+	cleanName = regexp.MustCompile(`-+`).ReplaceAllString(cleanName, "-")
+	cleanName = strings.Trim(cleanName, "-")
+
+	if tType == "" {
+		tType = InferTargetType(cleanName)
+	}
+
+	if tType == "" || tType == "root" {
+		return cleanName + "-" + suffix
+	}
+
+	// Check if cleanName is a default pattern like "flow-1", "node-2", or just a number "1"
+	isDefaultPattern := false
+	if cleanName == tType || strings.HasPrefix(cleanName, tType+"-") {
+		rem := strings.TrimPrefix(cleanName, tType+"-")
+		if _, err := strconv.Atoi(rem); err == nil {
+			isDefaultPattern = true
+			cleanName = tType + "-" + rem
+		}
+	} else if _, err := strconv.Atoi(cleanName); err == nil {
+		isDefaultPattern = true
+		cleanName = tType + "-" + cleanName
+	}
+
+	if isDefaultPattern {
+		return cleanName + "-" + suffix
+	}
+
+	// Strip type prefix or suffix if user named it e.g. "flow-border" or "border-flow"
+	pureName := cleanName
+	if strings.HasPrefix(pureName, tType+"-") {
+		pureName = strings.TrimPrefix(pureName, tType+"-")
+	} else if strings.HasSuffix(pureName, "-"+tType) {
+		pureName = strings.TrimSuffix(pureName, "-"+tType)
+	}
+	pureName = strings.Trim(pureName, "-")
+	if pureName == "" {
+		pureName = cleanName
+	}
+
+	return pureName + "-" + tType + "-" + suffix
 }
 
 // ObjectPropertyCatalog maps each object category to its genuinely supported properties.
@@ -738,4 +774,98 @@ func ExtractWidgetManifest(rawSVG string) *WidgetManifest {
 		return nil
 	}
 	return &manifest
+}
+
+// ValidateWidgetExport validates the entire export manifest and verifies that all target elements exist and resolve in the isolated SVG.
+func ValidateWidgetExport(manifest *WidgetManifest, isolatedSVG string, sc *Scene) error {
+	if manifest == nil || len(manifest.Parameters) == 0 {
+		return nil
+	}
+
+	seenNames := make(map[string]bool)
+
+	for _, p := range manifest.Parameters {
+		// 1. Structure and schema validation
+		if err := ValidateWidgetParameter(p); err != nil {
+			return fmt.Errorf("widget export validation failed for parameter %q: %w", p.Name, err)
+		}
+
+		// 2. Uniqueness of parameter names
+		if seenNames[p.Name] {
+			return fmt.Errorf("widget export validation failed: duplicate parameter name %q", p.Name)
+		}
+		seenNames[p.Name] = true
+
+		// 3. Existence in Scene (if scene contains objects)
+		tType := InferTargetType(p.Target)
+		hasSceneObjects := sc != nil && (len(sc.nodes) > 0 || len(sc.flows) > 0 || len(sc.glows) > 0 || len(sc.ripples) > 0 || len(sc.images) > 0)
+		if hasSceneObjects && tType != "" && tType != "root" {
+			cleanID := p.Target
+			for _, prefix := range []string{"node-", "flow-", "glow-", "ripple-", "image-"} {
+				cleanID = strings.TrimPrefix(cleanID, prefix)
+			}
+			existsInScene := false
+			switch tType {
+			case "node":
+				existsInScene = (sc.GetNode(StringID(cleanID)) != nil || sc.GetNode(StringID(p.Target)) != nil)
+			case "flow":
+				existsInScene = (sc.GetFlow(StringID(cleanID)) != nil || sc.GetFlow(StringID(p.Target)) != nil)
+			case "glow":
+				existsInScene = (sc.GetGlow(StringID(cleanID)) != nil || sc.GetGlow(StringID(p.Target)) != nil)
+			case "ripple":
+				existsInScene = (sc.GetRipple(StringID(cleanID)) != nil || sc.GetRipple(StringID(p.Target)) != nil)
+			case "image":
+				_, ok1 := sc.GetImage(StringID(cleanID))
+				_, ok2 := sc.GetImage(StringID(p.Target))
+				existsInScene = ok1 || ok2
+			default:
+				existsInScene = true
+			}
+			if !existsInScene {
+				return fmt.Errorf("widget export validation failed: target object %q for parameter %q does not exist in scene", p.Target, p.Name)
+			}
+		}
+
+		// 4. Target element resolution in isolatedSVG
+		if isolatedSVG != "" && p.Target != "" && p.Target != "root" && p.Target != "global" && p.Target != "stage" && p.Target != "widget" {
+			targetResolved := false
+			cleanID := p.Target
+			for _, prefix := range []string{"node-", "flow-", "glow-", "ripple-", "image-"} {
+				cleanID = strings.TrimPrefix(cleanID, prefix)
+			}
+
+			patterns := []string{
+				fmt.Sprintf(`data-semantic-target="%s"`, p.Target),
+				fmt.Sprintf(`data-semantic-target='%s'`, p.Target),
+				fmt.Sprintf(`data-semantic-name="%s"`, p.Target),
+				fmt.Sprintf(`data-semantic-name='%s'`, p.Target),
+				fmt.Sprintf(`id="%s"`, p.Target),
+				fmt.Sprintf(`id='%s'`, p.Target),
+				fmt.Sprintf(`__%s"`, p.Target),
+				fmt.Sprintf(`__%s'`, p.Target),
+				fmt.Sprintf(`-%s"`, p.Target),
+				fmt.Sprintf(`-%s'`, p.Target),
+				fmt.Sprintf(`data-node-id="%s"`, cleanID),
+				fmt.Sprintf(`data-flow-id="%s"`, cleanID),
+				fmt.Sprintf(`data-glow-id="%s"`, cleanID),
+				fmt.Sprintf(`data-ripple-id="%s"`, cleanID),
+				fmt.Sprintf(`data-image-id="%s"`, cleanID),
+				fmt.Sprintf(`data-node-id="%s"`, p.Target),
+				fmt.Sprintf(`data-flow-id="%s"`, p.Target),
+				fmt.Sprintf(`data-glow-id="%s"`, p.Target),
+				fmt.Sprintf(`data-ripple-id="%s"`, p.Target),
+				fmt.Sprintf(`data-image-id="%s"`, p.Target),
+			}
+			for _, pat := range patterns {
+				if strings.Contains(isolatedSVG, pat) {
+					targetResolved = true
+					break
+				}
+			}
+			if !targetResolved {
+				return fmt.Errorf("widget export validation failed: target element %q for parameter %q could not be resolved in the exported SVG", p.Target, p.Name)
+			}
+		}
+	}
+	return nil
 }

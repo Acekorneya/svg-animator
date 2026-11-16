@@ -137,7 +137,11 @@ func TestWidgetDocsGeneration(t *testing.T) {
 	}
 
 	// 4. Verify ZIP Package
-	rawSVG := `<svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 800 600"><rect id="tankHull" width="200" height="300"/></svg>`
+	rawSVG := `<svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 800 600">` +
+		`<rect id="tankHull" width="200" height="300"/>` +
+		`<rect id="fluidColumn" width="180" height="150"/>` +
+		`<g id="glow-1" data-glow-id="1" data-semantic-target="glow-1"><circle r="25"/></g>` +
+		`</svg>`
 	mockJS := `// Mock svg-widget.js runtime v1.2.0`
 
 	zipBytes, err := BuildWidgetPackageZip(sc, "Industrial Storage Tank", rawSVG, mockJS)

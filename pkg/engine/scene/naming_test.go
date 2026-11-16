@@ -23,10 +23,10 @@ func TestObjectNamingAndParameterGeneration(t *testing.T) {
 		t.Fatalf("expected glow name 'glow-status', got %q", g1.Name)
 	}
 
-	// 2. Add parameters with automatic naming
+	// 2. Add parameters with automatic naming (object-name-first)
 	pFlowSpeed := GenerateParameterName(f1.Name, "speed")
-	if pFlowSpeed != "flow-border-speed" {
-		t.Errorf("expected 'flow-border-speed', got %q", pFlowSpeed)
+	if pFlowSpeed != "border-flow-speed" {
+		t.Errorf("expected 'border-flow-speed', got %q", pFlowSpeed)
 	}
 	err := sc.AddParameter(WidgetParameter{
 		Name:     pFlowSpeed,
@@ -36,12 +36,12 @@ func TestObjectNamingAndParameterGeneration(t *testing.T) {
 		Default:  1.5,
 	})
 	if err != nil {
-		t.Fatalf("AddParameter flow-border-speed failed: %v", err)
+		t.Fatalf("AddParameter border-flow-speed failed: %v", err)
 	}
 
 	pFlowColor := GenerateParameterName(f1.Name, "color")
-	if pFlowColor != "flow-border-color" {
-		t.Errorf("expected 'flow-border-color', got %q", pFlowColor)
+	if pFlowColor != "border-flow-color" {
+		t.Errorf("expected 'border-flow-color', got %q", pFlowColor)
 	}
 	err = sc.AddParameter(WidgetParameter{
 		Name:     pFlowColor,
@@ -51,12 +51,12 @@ func TestObjectNamingAndParameterGeneration(t *testing.T) {
 		Default:  "#38bdf8",
 	})
 	if err != nil {
-		t.Fatalf("AddParameter flow-border-color failed: %v", err)
+		t.Fatalf("AddParameter border-flow-color failed: %v", err)
 	}
 
 	pGlowColor := GenerateParameterName(g1.Name, "color")
-	if pGlowColor != "glow-status-color" {
-		t.Errorf("expected 'glow-status-color', got %q", pGlowColor)
+	if pGlowColor != "status-glow-color" {
+		t.Errorf("expected 'status-glow-color', got %q", pGlowColor)
 	}
 	err = sc.AddParameter(WidgetParameter{
 		Name:     pGlowColor,
@@ -66,7 +66,7 @@ func TestObjectNamingAndParameterGeneration(t *testing.T) {
 		Default:  "#22c55e",
 	})
 	if err != nil {
-		t.Fatalf("AddParameter glow-status-color failed: %v", err)
+		t.Fatalf("AddParameter status-glow-color failed: %v", err)
 	}
 
 	// 3. Test duplicate name rejection on rename
@@ -95,14 +95,36 @@ func TestObjectNamingAndParameterGeneration(t *testing.T) {
 			foundColor = &params[i]
 		}
 	}
-	if foundSpeed == nil || foundSpeed.Name != "flow-primary-speed" {
-		t.Errorf("expected renamed parameter 'flow-primary-speed', got %+v", foundSpeed)
+	if foundSpeed == nil || foundSpeed.Name != "primary-flow-speed" {
+		t.Errorf("expected renamed parameter 'primary-flow-speed', got %+v", foundSpeed)
 	}
-	if foundColor == nil || foundColor.Name != "flow-primary-color" {
-		t.Errorf("expected renamed parameter 'flow-primary-color', got %+v", foundColor)
+	if foundColor == nil || foundColor.Name != "primary-flow-color" {
+		t.Errorf("expected renamed parameter 'primary-flow-color', got %+v", foundColor)
 	}
 
-	// 5. Root parameter name generation
+	// 5. Node parameter naming verification
+	pNodeFill := GenerateParameterName("mytext", "fill", "node")
+	if pNodeFill != "mytext-node-fill" {
+		t.Errorf("expected 'mytext-node-fill', got %q", pNodeFill)
+	}
+	pNodeText := GenerateParameterName("mytext", "text", "node")
+	if pNodeText != "mytext-node-text" {
+		t.Errorf("expected 'mytext-node-text', got %q", pNodeText)
+	}
+	pNodeStroke := GenerateParameterName("mytext", "stroke", "node")
+	if pNodeStroke != "mytext-node-stroke" {
+		t.Errorf("expected 'mytext-node-stroke', got %q", pNodeStroke)
+	}
+	pNodeDefault := GenerateParameterName("node-1", "fill", "node")
+	if pNodeDefault != "node-1-fill" {
+		t.Errorf("expected 'node-1-fill', got %q", pNodeDefault)
+	}
+	pFlowDefault := GenerateParameterName("flow-1", "speed", "flow")
+	if pFlowDefault != "flow-1-speed" {
+		t.Errorf("expected 'flow-1-speed', got %q", pFlowDefault)
+	}
+
+	// 6. Root parameter name generation
 	pRootSpeed := GenerateParameterName("root", "playbackRate")
 	if pRootSpeed != "root-speed" {
 		t.Errorf("expected 'root-speed', got %q", pRootSpeed)
