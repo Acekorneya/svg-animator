@@ -1,0 +1,9 @@
+{
+  "schemaVersion": 1,
+  "packageVersion": "9.9.9",
+  "packageId": "broken-mismatched-id",
+  "widgetName": "broken-inconsistent",
+  "parameters": [
+    { "name": "hostname-node-text", "type": "text", "default": "broken", "target": "node-1", "property": "text" }
+  ]
+}

@@ -1,0 +1,84 @@
+{
+  "schemaVersion": 1,
+  "packageVersion": "1.0.0",
+  "packageId": "host-monitor-v1-76948473a9ef",
+  "widgetName": "host-monitor-v1",
+  "parameters": [
+    {
+      "name": "hostname-node-text",
+      "type": "text",
+      "default": "host-01",
+      "target": "node-1",
+      "property": "text"
+    },
+    {
+      "name": "hostname-node-fill",
+      "type": "color",
+      "default": "#1e293b",
+      "target": "node-1",
+      "property": "fill"
+    },
+    {
+      "name": "hostname-node-stroke",
+      "type": "color",
+      "default": "#38bdf8",
+      "target": "node-1",
+      "property": "stroke"
+    },
+    {
+      "name": "traffic-flow-color",
+      "type": "color",
+      "default": "#22c55e",
+      "target": "flow-1",
+      "property": "color"
+    },
+    {
+      "name": "traffic-flow-speed",
+      "type": "speed",
+      "default": 1,
+      "target": "flow-1",
+      "property": "speed",
+      "min": 0.2,
+      "max": 5
+    },
+    {
+      "name": "traffic-flow-visibility",
+      "type": "boolean",
+      "default": true,
+      "target": "flow-1",
+      "property": "visibility"
+    },
+    {
+      "name": "status-glow-color",
+      "type": "color",
+      "default": "#22c55e",
+      "target": "glow-1",
+      "property": "color"
+    },
+    {
+      "name": "status-glow-opacity",
+      "type": "number",
+      "default": 0.8,
+      "target": "glow-1",
+      "property": "opacity",
+      "min": 0,
+      "max": 1
+    },
+    {
+      "name": "heartbeat-ripple-opacity",
+      "type": "number",
+      "default": 0.7,
+      "target": "ripple-1",
+      "property": "opacity",
+      "min": 0,
+      "max": 1
+    },
+    {
+      "name": "heartbeat-ripple-visibility",
+      "type": "boolean",
+      "default": true,
+      "target": "ripple-1",
+      "property": "visibility"
+    }
+  ]
+}

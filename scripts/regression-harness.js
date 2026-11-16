@@ -11215,6 +11215,141 @@ async function runHarness() {
 
   console.log('[HARNESS] Scenario 86 PASS: Stage 16B Node Target Resolution & Standardised Parameter Naming verified.');
 
+  // ===========================================================================
+  // Scenario 87: Stage 16C External Data-Driven Widget Integration
+  // ===========================================================================
+  console.log('\n[HARNESS] Testing Scenario 87: Stage 16C External Data-Driven Widget Integration...');
+
+  const ConsumerLib = require('../demos/stage16c-widget-consumer/consumer.js');
+  const pkgBaseDir = path.join(__dirname, '..', 'demos', 'stage16c-widget-consumer', 'packages');
+
+  function loadLocalPackage(slug) {
+    const dir = path.join(pkgBaseDir, slug);
+    const manifest = JSON.parse(fs.readFileSync(path.join(dir, 'widget-manifest.json'), 'utf8'));
+    const svgText = fs.readFileSync(path.join(dir, `${slug}.svg`), 'utf8');
+    const widgetRuntime = require(path.join(dir, 'js', 'svg-widget.js'));
+    return { baseName: slug, manifest, svgText, widgetRuntime };
+  }
+
+  const pkgV1 = loadLocalPackage('host-monitor-v1');
+  const pkgV2 = loadLocalPackage('host-monitor-v2');
+  const pkgBroken = loadLocalPackage('broken-inconsistent');
+
+  // 1. Validate complete package consistency and reject inconsistent packages
+  const v1Info = ConsumerLib.validateWidgetPackageConsistency(pkgV1);
+  assert.strictEqual(v1Info.valid, true, 'W16C-01: Complete v1 package passes consistency check');
+  assert.ok(v1Info.packageId.startsWith('host-monitor-v1-'), 'W16C-02: v1 packageId populated');
+
+  assert.throws(
+    () => ConsumerLib.validateWidgetPackageConsistency(pkgBroken),
+    /Package consistency error/,
+    'W16C-03: Inconsistent/mixed package rejected explicitly'
+  );
+
+  // 2. Validate consumer mappings against manifest & reject stale mappings on v2
+  assert.strictEqual(
+    ConsumerLib.validateMappingsAgainstManifest(ConsumerLib.MAPPING_PROFILES['host-monitor-v1'], pkgV1.manifest),
+    true,
+    'W16C-04: v1 mapping validates against v1 manifest'
+  );
+  assert.throws(
+    () => ConsumerLib.validateMappingsAgainstManifest(ConsumerLib.MAPPING_PROFILES['host-monitor-v1'], pkgV2.manifest),
+    /Invalid parameter mapping/,
+    'W16C-05: Stale v1 mapping rejected when loading v2 package'
+  );
+
+  // 3. Mount 3 independent instances and verify live data-driven updates
+  const origDoc87 = global.document;
+  try {
+    const mockDoc87 = {
+      createElement(tag) {
+        const el = new MockStage16BElement(tag);
+        el.ownerDocument = mockDoc87;
+        return el;
+      },
+      getElementById() { return null; },
+      head: new MockStage16BElement('head'),
+      body: new MockStage16BElement('body')
+    };
+    mockDoc87.head.ownerDocument = mockDoc87;
+    mockDoc87.body.ownerDocument = mockDoc87;
+    global.document = mockDoc87;
+
+    const sim = new ConsumerLib.SimulatedHostDataSource();
+    const mgr = new ConsumerLib.WidgetInstanceManager();
+    mgr.loadPackage(pkgV1, ConsumerLib.MAPPING_PROFILES['host-monitor-v1']);
+
+    const containers = {
+      'host-a': mockDoc87.createElement('div'),
+      'host-b': mockDoc87.createElement('div'),
+      'host-c': mockDoc87.createElement('div')
+    };
+
+    for (const host of sim.getHosts()) {
+      mgr.mountHostInstance(host, containers[host.id]);
+    }
+
+    assert.strictEqual(mgr.getInstanceInfo('host-a').parameters['hostname-node-text'], 'pve01', 'W16C-06: host-a initial hostname applied');
+    assert.strictEqual(mgr.getInstanceInfo('host-b').parameters['hostname-node-text'], 'pve02 [OFF]', 'W16C-07: host-b initial offline state applied');
+    assert.strictEqual(mgr.getInstanceInfo('host-b').parameters['traffic-flow-visibility'], false, 'W16C-08: host-b flow hidden when offline');
+    assert.strictEqual(mgr.getInstanceInfo('host-c').parameters['hostname-node-text'], 'pve03', 'W16C-09: host-c initial hostname applied');
+
+    // Cross-instance SVG ID collision check
+    const idsA = containers['host-a'].querySelectorAll('*[id]').map((e) => e.id);
+    const idsB = containers['host-b'].querySelectorAll('*[id]').map((e) => e.id);
+    const idsC = containers['host-c'].querySelectorAll('*[id]').map((e) => e.id);
+    assert.strictEqual(idsA.filter((id) => idsB.includes(id)).length, 0, 'W16C-10: Zero ID collisions between host-a and host-b');
+    assert.strictEqual(idsA.filter((id) => idsC.includes(id)).length, 0, 'W16C-11: Zero ID collisions between host-a and host-c');
+
+    // Distinguish valid zero (cpu: 0) vs missing (cpu: null)
+    const zeroHost = sim.updateHost('host-a', { online: true, cpu: 0 });
+    mgr.updateHostInstance(zeroHost);
+    assert.strictEqual(mgr.getInstanceInfo('host-a').parameters['status-glow-color'], '#38bdf8', 'W16C-12: Valid CPU=0 maps to idle cyan');
+    assert.strictEqual(mgr.getInstanceInfo('host-a').parameters['hostname-node-text'], 'pve01', 'W16C-13: Valid CPU=0 preserves hostname');
+
+    const missingHost = sim.updateHost('host-a', { online: true, cpu: null });
+    mgr.updateHostInstance(missingHost);
+    assert.strictEqual(mgr.getInstanceInfo('host-a').parameters['status-glow-color'], '#f59e0b', 'W16C-14: Missing CPU=null maps to amber warning');
+    assert.strictEqual(mgr.getInstanceInfo('host-a').parameters['hostname-node-text'], 'pve01 [NO CPU]', 'W16C-15: Missing CPU=null distinct from CPU=0');
+
+    // Alternate missing strategy: 'hide'
+    mgr.missingStrategy = 'hide';
+    mgr.updateHostInstance(missingHost);
+    assert.strictEqual(mgr.getInstanceInfo('host-a').parameters['traffic-flow-visibility'], false, 'W16C-16: Hide missing strategy hides flow');
+
+    // Verify repeated live updates do not remount (mountCount stays 1) and leave other hosts untouched
+    mgr.missingStrategy = 'warn';
+    const highCpu = sim.updateHost('host-a', { online: true, cpu: 92 });
+    mgr.updateHostInstance(highCpu);
+    assert.strictEqual(mgr.getInstanceInfo('host-a').mountCount, 1, 'W16C-17: Live update does not remount widget');
+    assert.strictEqual(mgr.getInstanceInfo('host-a').parameters['status-glow-color'], '#ef4444', 'W16C-18: High CPU updates host-a glow to red');
+    assert.strictEqual(mgr.getInstanceInfo('host-c').parameters['hostname-node-text'], 'pve03', 'W16C-19: host-c untouched by host-a updates');
+
+    // Reject invalid parameter value without corrupting state
+    const handleA = mgr.instances.get('host-a').handle;
+    const prevSpeedA = handleA.getParameter('traffic-flow-speed');
+    assert.throws(() => handleA.setParameter('traffic-flow-speed', 999), /above maximum allowed/, 'W16C-20: Invalid speed rejected');
+    assert.strictEqual(handleA.getParameter('traffic-flow-speed'), prevSpeedA, 'W16C-21: State preserved after invalid update');
+
+    // Unmount and re-mount host-b cleanly
+    assert.strictEqual(mgr.unmountHostInstance('host-b'), true, 'W16C-22: host-b unmounted cleanly');
+    assert.strictEqual(containers['host-b'].children.length, 0, 'W16C-23: host-b container emptied on unmount');
+    mgr.mountHostInstance(sim.getHost('host-b'), containers['host-b']);
+    assert.strictEqual(mgr.getInstanceInfo('host-b').mountCount, 1, 'W16C-24: host-b re-mounted cleanly');
+
+    // Load v2 package with matching v2 mapping profile
+    const v2Info = mgr.loadPackage(pkgV2, ConsumerLib.MAPPING_PROFILES['host-monitor-v2']);
+    assert.strictEqual(v2Info.widgetName, 'host-monitor-v2', 'W16C-25: v2 package loaded with v2 mapping');
+    mgr.mountHostInstance(sim.getHost('host-c'), containers['host-c']);
+    assert.strictEqual(mgr.getInstanceInfo('host-c').parameters['server-node-text'], 'pve03', 'W16C-26: v2 server-node-text applied');
+
+    mgr.unmountAll();
+  } finally {
+    global.document = origDoc87;
+  }
+
+  console.log('[HARNESS] Scenario 87 PASS: Stage 16C External Data-Driven Widget Integration verified.');
+
   console.log('[HARNESS] REG-03 PASS: Stage 3, 4, 5, 6, 7, 8, 9, 11, 12, 13, 14, 15 & 16 non-destructive cropping, background extraction, image baking, dedicated crop clip & snip workspace, object-local clipping, unified layer management, independent image objects, persistent groups, duplication, copy/paste with flow remapping, multi-selection, alignment, distribution, colour tools, selection retention, notifications, naming sync, history(50), schema 1.2.0, .sva packaging, background photo restoration, SVG compilation, export payload builders, collision-free widgets, external runtime parameters, and Go WASM engines verified.');
 }
 

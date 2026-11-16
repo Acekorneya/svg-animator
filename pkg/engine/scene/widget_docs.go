@@ -3,6 +3,7 @@ package scene
 import (
 	"archive/zip"
 	"bytes"
+	"crypto/sha256"
 	"encoding/base64"
 	"encoding/json"
 	"fmt"
@@ -746,6 +747,20 @@ func BuildWidgetPackageZip(sc *Scene, widgetName, rawSVG, svgWidgetJS string) ([
 			for _, p := range manifest.Parameters {
 				_ = sc.AddParameter(p)
 			}
+		}
+	}
+
+	if manifest != nil {
+		if manifest.WidgetName == "" {
+			manifest.WidgetName = cleanBase
+		}
+		if manifest.PackageVersion == "" {
+			manifest.PackageVersion = "1.0.0"
+		}
+		if manifest.PackageId == "" {
+			paramJson, _ := json.Marshal(manifest.Parameters)
+			h := sha256.Sum256([]byte(cleanBase + "|" + rawSVG + "|" + string(paramJson)))
+			manifest.PackageId = fmt.Sprintf("%s-%x", cleanBase, h[:6])
 		}
 	}
 

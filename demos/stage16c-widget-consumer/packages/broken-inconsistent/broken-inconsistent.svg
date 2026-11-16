@@ -1,0 +1,52 @@
+<svg id="sva-widget-host-monitor-v1" xmlns="http://www.w3.org/2000/svg" viewBox="0 0 360 220" width="360" height="220" style="background-color:#0f172a" data-sva-widget-instance="host-monitor-v1">
+  <defs>
+    <radialGradient id="host-monitor-v1__glowGrad-1">
+      <stop offset="0%" stop-color="#22c55e" stop-opacity="0.9" />
+      <stop offset="100%" stop-color="#22c55e" stop-opacity="0" />
+    </radialGradient>
+    <path id="host-monitor-v1__flowPath-1" d="M 190 110 L 310 110" />
+  </defs>
+  <rect x="0" y="0" width="360" height="220" fill="#0f172a" rx="10" />
+  <g id="host-monitor-v1__nodes-layer">
+    <g id="host-monitor-v1__node-1" class="diagram-node-instance" data-node-id="host-monitor-v1__1" data-semantic-target="node-1" data-semantic-name="hostname">
+      <rect x="40" y="70" width="150" height="80" rx="10" fill="#1e293b" stroke="#38bdf8" stroke-width="2.5" />
+      <text x="115" y="115" fill="#f8fafc" font-family="system-ui, sans-serif" font-size="16" font-weight="600" text-anchor="middle">host-01</text>
+    </g>
+  </g>
+  <g id="host-monitor-v1__flows-layer">
+    <g id="host-monitor-v1__flow-1" class="diagram-flow-instance" data-flow-id="host-monitor-v1__1" data-semantic-target="flow-1" data-semantic-name="traffic">
+      <path class="flow-track-path" d="M 190 110 L 310 110" stroke="none" fill="none" />
+      <line x1="190" y1="110" x2="310" y2="110" stroke="#334155" stroke-width="2" stroke-dasharray="4 4" />
+      <g class="flow-payload-group">
+        <circle cx="0" cy="0" r="6" fill="#22c55e">
+          <animateMotion dur="1.5s" repeatCount="indefinite" rotate="auto">
+            <mpath href="#host-monitor-v1__flowPath-1" />
+          </animateMotion>
+        </circle>
+      </g>
+    </g>
+  </g>
+  <g id="host-monitor-v1__glows-layer">
+    <g id="host-monitor-v1__glow-1" class="diagram-glow-instance" data-glow-id="host-monitor-v1__1" data-semantic-target="glow-1" data-semantic-name="status">
+      <rect class="glow-hit-target" x="262" y="32" width="56" height="56" fill="transparent" pointer-events="all" />
+      <g pointer-events="none">
+        <circle cx="290" cy="60" r="24" fill="url(#host-monitor-v1__glowGrad-1)">
+          <animate attributeName="opacity" values="0.35; 1; 0.35" dur="1.8s" repeatCount="indefinite" />
+        </circle>
+      </g>
+    </g>
+  </g>
+  <g id="host-monitor-v1__ripples-layer">
+    <g id="host-monitor-v1__ripple-1" class="diagram-ripple-instance" data-ripple-id="host-monitor-v1__1" data-semantic-target="ripple-1" data-semantic-name="heartbeat">
+      <circle class="ripple-hit-target" cx="290" cy="155" r="32" fill="transparent" pointer-events="all" />
+      <g pointer-events="none">
+        <circle class="ripple-wave" cx="290" cy="155" r="6" fill="none" stroke="#38bdf8" stroke-width="2">
+          <animate attributeName="r" values="6; 32" dur="2.2s" repeatCount="indefinite" />
+          <animate attributeName="stroke-opacity" values="0.9; 0" dur="2.2s" repeatCount="indefinite" />
+        </circle>
+      </g>
+    </g>
+  </g>
+
+  <script type="application/json" id="host-monitor-v1__sva-widget-manifest">{"schemaVersion":1,"packageVersion":"1.0.0","packageId":"host-monitor-v1-76948473a9ef","widgetName":"host-monitor-v1","parameters":[{"name":"hostname-node-text","type":"text","default":"host-01","target":"node-1","property":"text"},{"name":"hostname-node-fill","type":"color","default":"#1e293b","target":"node-1","property":"fill"},{"name":"hostname-node-stroke","type":"color","default":"#38bdf8","target":"node-1","property":"stroke"},{"name":"traffic-flow-color","type":"color","default":"#22c55e","target":"flow-1","property":"color"},{"name":"traffic-flow-speed","type":"speed","default":1,"target":"flow-1","property":"speed","min":0.2,"max":5},{"name":"traffic-flow-visibility","type":"boolean","default":true,"target":"flow-1","property":"visibility"},{"name":"status-glow-color","type":"color","default":"#22c55e","target":"glow-1","property":"color"},{"name":"status-glow-opacity","type":"number","default":0.8,"target":"glow-1","property":"opacity","min":0,"max":1},{"name":"heartbeat-ripple-opacity","type":"number","default":0.7,"target":"ripple-1","property":"opacity","min":0,"max":1},{"name":"heartbeat-ripple-visibility","type":"boolean","default":true,"target":"ripple-1","property":"visibility"}]}</script>
+</svg>

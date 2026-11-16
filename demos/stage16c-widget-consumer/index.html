@@ -1,0 +1,506 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+  <meta charset="UTF-8" />
+  <meta name="viewport" content="width=device-width, initial-scale=1.0" />
+  <title>Stage 16C — Independent Data-Driven SVG Widget Consumer</title>
+  <style>
+    :root {
+      --bg: #0b1120;
+      --panel: #111827;
+      --border: #1f2937;
+      --text: #e2e8f0;
+      --muted: #94a3b8;
+      --accent: #38bdf8;
+      --ok: #22c55e;
+      --warn: #f59e0b;
+      --err: #ef4444;
+    }
+    * { box-sizing: border-box; }
+    body {
+      margin: 0;
+      padding: 20px;
+      font-family: system-ui, -apple-system, Segoe UI, Roboto, sans-serif;
+      background: var(--bg);
+      color: var(--text);
+      line-height: 1.45;
+    }
+    header {
+      display: flex;
+      flex-wrap: wrap;
+      justify-content: space-between;
+      align-items: center;
+      gap: 12px;
+      border-bottom: 1px solid var(--border);
+      padding-bottom: 14px;
+      margin-bottom: 18px;
+    }
+    h1 { margin: 0; font-size: 1.3rem; }
+    .subtitle { color: var(--muted); font-size: 0.88rem; margin-top: 4px; }
+    .toolbar {
+      display: flex;
+      flex-wrap: wrap;
+      gap: 12px;
+      align-items: flex-end;
+      background: var(--panel);
+      border: 1px solid var(--border);
+      border-radius: 10px;
+      padding: 14px;
+      margin-bottom: 16px;
+    }
+    .field { display: flex; flex-direction: column; gap: 4px; font-size: 0.82rem; }
+    .field label { color: var(--muted); font-weight: 600; }
+    select, input[type="text"], input[type="number"] {
+      background: #0f172a;
+      color: var(--text);
+      border: 1px solid #334155;
+      border-radius: 6px;
+      padding: 6px 10px;
+      font-size: 0.85rem;
+    }
+    button {
+      background: #1e293b;
+      color: var(--text);
+      border: 1px solid #334155;
+      border-radius: 6px;
+      padding: 6px 12px;
+      font-size: 0.84rem;
+      cursor: pointer;
+      font-weight: 500;
+    }
+    button:hover { border-color: var(--accent); }
+    button.primary { background: #0284c7; border-color: #0284c7; color: #fff; }
+    button.danger { background: #7f1d1d; border-color: #ef4444; color: #fecaca; }
+    .status-bar {
+      display: flex;
+      flex-wrap: wrap;
+      gap: 16px;
+      align-items: center;
+      background: #0f172a;
+      border: 1px solid var(--border);
+      border-radius: 8px;
+      padding: 10px 14px;
+      margin-bottom: 16px;
+      font-size: 0.84rem;
+    }
+    .badge {
+      display: inline-block;
+      padding: 2px 8px;
+      border-radius: 999px;
+      font-size: 0.76rem;
+      font-weight: 600;
+      background: #1e293b;
+      border: 1px solid #334155;
+    }
+    .badge.ok { color: var(--ok); border-color: #166534; background: #052e16; }
+    .badge.err { color: #fecaca; border-color: #ef4444; background: #450a0a; }
+    #errorBanner {
+      display: none;
+      background: #450a0a;
+      border: 1px solid #ef4444;
+      color: #fecaca;
+      border-radius: 8px;
+      padding: 12px 14px;
+      margin-bottom: 16px;
+      font-size: 0.88rem;
+    }
+    .grid {
+      display: grid;
+      grid-template-columns: repeat(auto-fit, minmax(340px, 1fr));
+      gap: 16px;
+    }
+    .card {
+      background: var(--panel);
+      border: 1px solid var(--border);
+      border-radius: 10px;
+      padding: 14px;
+      display: flex;
+      flex-direction: column;
+      gap: 12px;
+    }
+    .card-header {
+      display: flex;
+      justify-content: space-between;
+      align-items: center;
+      border-bottom: 1px solid var(--border);
+      padding-bottom: 8px;
+    }
+    .widget-stage {
+      width: 100%;
+      min-height: 220px;
+      background: #090d16;
+      border: 1px solid #1e293b;
+      border-radius: 8px;
+      display: flex;
+      align-items: center;
+      justify-content: center;
+      overflow: hidden;
+    }
+    .controls-row {
+      display: flex;
+      flex-wrap: wrap;
+      gap: 6px;
+    }
+    .metrics-box {
+      background: #0f172a;
+      border: 1px solid var(--border);
+      border-radius: 6px;
+      padding: 8px 10px;
+      font-family: ui-monospace, SFMono-Regular, Menlo, monospace;
+      font-size: 0.76rem;
+      color: #cbd5e1;
+      white-space: pre-wrap;
+      word-break: break-word;
+    }
+    .log-panel {
+      margin-top: 18px;
+      background: var(--panel);
+      border: 1px solid var(--border);
+      border-radius: 10px;
+      padding: 12px 14px;
+    }
+    .log-panel h3 { margin: 0 0 8px 0; font-size: 0.92rem; }
+    #eventLog {
+      max-height: 160px;
+      overflow-y: auto;
+      font-family: ui-monospace, monospace;
+      font-size: 0.78rem;
+      color: var(--muted);
+    }
+  </style>
+</head>
+<body>
+  <header>
+    <div>
+      <h1>Stage 16C — Independent Data-Driven SVG Widget Consumer</h1>
+      <div class="subtitle">Standalone host application consuming exported Stage 16B packages via public <code>SVGWidget</code> runtime &amp; <code>widget-manifest.json</code></div>
+    </div>
+    <div>
+      <span id="pkgIdentityBadge" class="badge">Package: Loading...</span>
+    </div>
+  </header>
+
+  <div id="errorBanner" role="alert"></div>
+
+  <div class="toolbar">
+    <div class="field">
+      <label for="packageSelect">Widget Package</label>
+      <select id="packageSelect">
+        <option value="host-monitor-v1">host-monitor-v1 (Valid v1)</option>
+        <option value="host-monitor-v2">host-monitor-v2 (Valid v2 - changed contract)</option>
+        <option value="broken-inconsistent">broken-inconsistent (Mixed/Invalid Package)</option>
+      </select>
+    </div>
+    <div class="field">
+      <label for="mappingSelect">Consumer Mapping Profile</label>
+      <select id="mappingSelect">
+        <option value="host-monitor-v1">v1 Mapping (hostname + heartbeat visibility)</option>
+        <option value="host-monitor-v2">v2 Mapping (server node)</option>
+      </select>
+    </div>
+    <div class="field">
+      <label for="missingStrategySelect">Missing CPU Strategy</label>
+      <select id="missingStrategySelect">
+        <option value="warn">Warn (Amber + [NO CPU])</option>
+        <option value="treat-as-zero">Treat Missing as Zero</option>
+        <option value="hide">Hide Flow &amp; Ripple</option>
+      </select>
+    </div>
+    <button id="btnLoadPackage" class="primary">Load Package &amp; Mount All</button>
+    <button id="btnToggleSim">Start Periodic Simulation</button>
+    <button id="btnStepSim">Step Simulation Once</button>
+    <button id="btnResetHosts">Reset Hosts</button>
+  </div>
+
+  <div class="status-bar" id="statusBar">
+    <span><strong>Widget:</strong> <span id="stWidgetName">-</span></span>
+    <span><strong>Package ID:</strong> <span id="stPackageId">-</span></span>
+    <span><strong>Version:</strong> <span id="stPackageVersion">-</span></span>
+    <span><strong>Exposed Params:</strong> <span id="stParamCount">0</span></span>
+    <span><strong>Simulation:</strong> <span id="stSimState">Paused (Manual)</span></span>
+  </div>
+
+  <div class="grid" id="hostsGrid"></div>
+
+  <div class="log-panel">
+    <h3>Consumer Event &amp; Validation Log</h3>
+    <div id="eventLog"></div>
+  </div>
+
+  <!-- Public exported widget runtime (loaded directly from exported package, zero Studio dependency) -->
+  <script src="packages/host-monitor-v1/js/svg-widget.js"></script>
+  <script src="consumer.js"></script>
+  <script>
+    (function () {
+      'use strict';
+
+      const {
+        MAPPING_PROFILES,
+        SimulatedHostDataSource,
+        WidgetInstanceManager
+      } = window.Stage16CConsumer;
+
+      const dataSource = new SimulatedHostDataSource();
+      const manager = new WidgetInstanceManager();
+      let simTimer = null;
+
+      const elGrid = document.getElementById('hostsGrid');
+      const elErr = document.getElementById('errorBanner');
+      const elLog = document.getElementById('eventLog');
+      const elPkgSelect = document.getElementById('packageSelect');
+      const elMapSelect = document.getElementById('mappingSelect');
+      const elMissingSelect = document.getElementById('missingStrategySelect');
+
+      function logEvent(msg, level = 'info') {
+        const ts = new Date().toLocaleTimeString();
+        const line = document.createElement('div');
+        line.style.color = level === 'error' ? '#fca5a5' : (level === 'warn' ? '#fcd34d' : '#94a3b8');
+        line.textContent = `[${ts}] ${msg}`;
+        elLog.prepend(line);
+      }
+
+      function showError(msg) {
+        if (!msg) {
+          elErr.style.display = 'none';
+          elErr.textContent = '';
+          return;
+        }
+        elErr.style.display = 'block';
+        elErr.textContent = msg;
+        logEvent(msg, 'error');
+      }
+
+      async function fetchPackageFiles(pkgSlug) {
+        const base = `packages/${pkgSlug}`;
+        const [manifestResp, svgResp] = await Promise.all([
+          fetch(`${base}/widget-manifest.json`, { cache: 'no-store' }),
+          fetch(`${base}/${pkgSlug}.svg`, { cache: 'no-store' })
+        ]);
+        if (!manifestResp.ok) {
+          throw new Error(`Failed to load ${base}/widget-manifest.json (HTTP ${manifestResp.status})`);
+        }
+        if (!svgResp.ok) {
+          throw new Error(`Failed to load ${base}/${pkgSlug}.svg (HTTP ${svgResp.status})`);
+        }
+        const manifest = await manifestResp.json();
+        const svgText = await svgResp.text();
+        return {
+          baseName: pkgSlug,
+          manifest,
+          svgText,
+          widgetRuntime: window.SVGWidget
+        };
+      }
+
+      function renderHostCards() {
+        elGrid.innerHTML = '';
+        const hosts = dataSource.getHosts();
+
+        hosts.forEach((host) => {
+          const card = document.createElement('div');
+          card.className = 'card';
+          card.id = `card-${host.id}`;
+
+          card.innerHTML = `
+            <div class="card-header">
+              <strong>${host.id.toUpperCase()}</strong>
+              <span class="badge" id="inst-badge-${host.id}">Not mounted</span>
+            </div>
+            <div class="widget-stage" id="stage-${host.id}"></div>
+            <div class="controls-row">
+              <button data-action="toggle-online" data-host="${host.id}">Toggle Online/Offline</button>
+              <button data-action="cpu-zero" data-host="${host.id}">CPU = 0</button>
+              <button data-action="cpu-missing" data-host="${host.id}">CPU = Missing</button>
+              <button data-action="cpu-high" data-host="${host.id}">CPU = 92%</button>
+              <button data-action="rename" data-host="${host.id}">Rename</button>
+              <button data-action="toggle-mount" data-host="${host.id}">Unmount</button>
+              <button data-action="test-invalid" data-host="${host.id}" class="danger">Test Invalid Value</button>
+            </div>
+            <div class="metrics-box" id="metrics-${host.id}"></div>
+          `;
+          elGrid.appendChild(card);
+        });
+      }
+
+      function refreshHostCardUI(hostId) {
+        const host = dataSource.getHost(hostId);
+        const info = manager.getInstanceInfo(hostId);
+        const badge = document.getElementById(`inst-badge-${hostId}`);
+        const metricsEl = document.getElementById(`metrics-${hostId}`);
+        const mountBtn = document.querySelector(`button[data-action="toggle-mount"][data-host="${hostId}"]`);
+
+        if (badge) {
+          if (info && !info.isDestroyed) {
+            badge.className = 'badge ok';
+            badge.textContent = `${info.instanceId} (mounted)`;
+          } else {
+            badge.className = 'badge err';
+            badge.textContent = 'Unmounted';
+          }
+        }
+        if (mountBtn) {
+          mountBtn.textContent = (info && !info.isDestroyed) ? 'Unmount' : 'Mount';
+        }
+        if (metricsEl && host) {
+          const cpuLabel = (host.cpu === null || host.cpu === undefined) ? 'MISSING (null)' : `${host.cpu}%`;
+          metricsEl.textContent =
+            `Host Input: hostname="${host.hostname}", online=${host.online}, cpu=${cpuLabel}\n` +
+            `Widget Params: ${info ? JSON.stringify(info.parameters) : '(unmounted)'}`;
+        }
+      }
+
+      function syncAllInstances() {
+        const hosts = dataSource.getHosts();
+        hosts.forEach((h) => {
+          try {
+            manager.updateHostInstance(h);
+          } catch (err) {
+            showError(`Update error on ${h.id}: ${err.message}`);
+          }
+          refreshHostCardUI(h.id);
+        });
+      }
+
+      async function loadAndMountSelectedPackage() {
+        showError('');
+        const pkgSlug = elPkgSelect.value;
+        const profileKey = elMapSelect.value;
+        const mappingSpec = MAPPING_PROFILES[profileKey];
+
+        try {
+          const pkg = await fetchPackageFiles(pkgSlug);
+          const info = manager.loadPackage(pkg, mappingSpec);
+
+          document.getElementById('stWidgetName').textContent = info.widgetName;
+          document.getElementById('stPackageId').textContent = info.packageId;
+          document.getElementById('stPackageVersion').textContent = info.packageVersion;
+          document.getElementById('stParamCount').textContent = String(info.parameterCount);
+          const pkgBadge = document.getElementById('pkgIdentityBadge');
+          pkgBadge.className = 'badge ok';
+          pkgBadge.textContent = `Active: ${info.packageId}`;
+
+          renderHostCards();
+          dataSource.getHosts().forEach((host) => {
+            const container = document.getElementById(`stage-${host.id}`);
+            manager.mountHostInstance(host, container);
+            refreshHostCardUI(host.id);
+          });
+
+          logEvent(`Loaded package "${info.widgetName}" (${info.packageId}) with ${info.parameterCount} parameters.`);
+        } catch (err) {
+          const pkgBadge = document.getElementById('pkgIdentityBadge');
+          pkgBadge.className = 'badge err';
+          pkgBadge.textContent = 'Package Rejected';
+          showError(err.message);
+        }
+      }
+
+      // Bind toolbar actions
+      document.getElementById('btnLoadPackage').addEventListener('click', loadAndMountSelectedPackage);
+
+      elMissingSelect.addEventListener('change', () => {
+        manager.missingStrategy = elMissingSelect.value;
+        logEvent(`Missing CPU strategy changed to "${manager.missingStrategy}".`);
+        syncAllInstances();
+      });
+
+      document.getElementById('btnStepSim').addEventListener('click', () => {
+        dataSource.stepSimulation();
+        syncAllInstances();
+        logEvent('Simulation stepped once.');
+      });
+
+      document.getElementById('btnResetHosts').addEventListener('click', () => {
+        dataSource.reset();
+        syncAllInstances();
+        logEvent('Host data reset to defaults.');
+      });
+
+      document.getElementById('btnToggleSim').addEventListener('click', (e) => {
+        if (simTimer) {
+          clearInterval(simTimer);
+          simTimer = null;
+          e.target.textContent = 'Start Periodic Simulation';
+          document.getElementById('stSimState').textContent = 'Paused (Manual)';
+          logEvent('Periodic simulation stopped.');
+        } else {
+          simTimer = setInterval(() => {
+            dataSource.stepSimulation();
+            syncAllInstances();
+          }, 1500);
+          e.target.textContent = 'Stop Periodic Simulation';
+          document.getElementById('stSimState').textContent = 'Running (1.5s)';
+          logEvent('Periodic simulation started (1.5s interval).');
+        }
+      });
+
+      // Delegated per-host card actions
+      elGrid.addEventListener('click', (e) => {
+        const btn = e.target.closest('button[data-action]');
+        if (!btn) return;
+        const action = btn.dataset.action;
+        const hostId = btn.dataset.host;
+        const host = dataSource.getHost(hostId);
+        if (!host) return;
+
+        showError('');
+        try {
+          if (action === 'toggle-online') {
+            const updated = dataSource.updateHost(hostId, { online: !host.online });
+            manager.updateHostInstance(updated);
+            logEvent(`${hostId} transitioned to ${updated.online ? 'ONLINE' : 'OFFLINE'}.`);
+          } else if (action === 'cpu-zero') {
+            const updated = dataSource.updateHost(hostId, { online: true, cpu: 0 });
+            manager.updateHostInstance(updated);
+            logEvent(`${hostId} CPU set to valid zero (0%).`);
+          } else if (action === 'cpu-missing') {
+            const updated = dataSource.updateHost(hostId, { online: true, cpu: null });
+            manager.updateHostInstance(updated);
+            logEvent(`${hostId} CPU set to MISSING (null).`);
+          } else if (action === 'cpu-high') {
+            const updated = dataSource.updateHost(hostId, { online: true, cpu: 92 });
+            manager.updateHostInstance(updated);
+            logEvent(`${hostId} CPU set to 92% (high load).`);
+          } else if (action === 'rename') {
+            const suffix = Math.floor(10 + Math.random() * 89);
+            const updated = dataSource.updateHost(hostId, { hostname: `${host.id}-${suffix}` });
+            manager.updateHostInstance(updated);
+            logEvent(`${hostId} renamed to "${updated.hostname}".`);
+          } else if (action === 'toggle-mount') {
+            const info = manager.getInstanceInfo(hostId);
+            if (info && !info.isDestroyed) {
+              manager.unmountHostInstance(hostId);
+              logEvent(`${hostId} unmounted cleanly.`);
+            } else {
+              const container = document.getElementById(`stage-${hostId}`);
+              manager.mountHostInstance(host, container);
+              logEvent(`${hostId} mounted cleanly.`);
+            }
+          } else if (action === 'test-invalid') {
+            const entry = manager.instances.get(hostId);
+            if (!entry || !entry.handle) {
+              throw new Error(`Cannot test invalid parameter: ${hostId} is not mounted.`);
+            }
+            const speedParam = manager.activeMapping.flowSpeedParam;
+            entry.handle.setParameter(speedParam, 999);
+          }
+        } catch (err) {
+          showError(`Consumer caught expected error on ${hostId}: ${err.message}`);
+        }
+        refreshHostCardUI(hostId);
+      });
+
+      // Expose controller for automated inspection
+      window.Stage16CDemo = {
+        dataSource,
+        manager,
+        loadAndMountSelectedPackage,
+        syncAllInstances
+      };
+
+      // Auto-load initial v1 package on startup
+      loadAndMountSelectedPackage();
+    })();
+  </script>
+</body>
+</html>

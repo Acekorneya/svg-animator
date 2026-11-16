@@ -430,8 +430,11 @@ type WidgetParameter struct {
 
 // WidgetManifest describes the external parameter schema of an exported widget.
 type WidgetManifest struct {
-	SchemaVersion int               `json:"schemaVersion"`
-	Parameters    []WidgetParameter `json:"parameters"`
+	SchemaVersion  int               `json:"schemaVersion"`
+	PackageVersion string            `json:"packageVersion,omitempty"`
+	PackageId      string            `json:"packageId,omitempty"`
+	WidgetName     string            `json:"widgetName,omitempty"`
+	Parameters     []WidgetParameter `json:"parameters"`
 }
 
 // Snapshot is a serialized snapshot of the scene for import/export across boundaries.

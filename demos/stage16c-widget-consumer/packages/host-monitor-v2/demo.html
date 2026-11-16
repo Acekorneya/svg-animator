@@ -1,0 +1,268 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+  <meta charset="UTF-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1.0">
+  <title>host-monitor-v2 — Interactive Widget Control Studio</title>
+  <style>
+    * { box-sizing: border-box; margin: 0; padding: 0; }
+    body { font-family: -apple-system, BlinkMacSystemFont, 'Segoe UI', Roboto, sans-serif; background: #0d1117; color: #c9d1d9; line-height: 1.5; padding: 20px; }
+    header { max-width: 1380px; margin: 0 auto 20px auto; display: flex; justify-content: space-between; align-items: center; border-bottom: 1px solid #30363d; padding-bottom: 16px; }
+    .header-title h1 { font-size: 1.35rem; color: #f0f6fc; font-weight: 600; display: flex; align-items: center; gap: 8px; }
+    .header-title p { font-size: 0.85rem; color: #8b949e; margin-top: 4px; }
+    .badge { font-size: 0.72rem; padding: 2px 8px; border-radius: 12px; background: rgba(56, 139, 253, 0.15); color: #58a6ff; border: 1px solid rgba(56, 139, 253, 0.4); }
+    .grid-container { max-width: 1380px; margin: 0 auto; display: grid; grid-template-columns: repeat(auto-fit, minmax(380px, 1fr)); gap: 20px; }
+    .instance-card { background: #161b22; border: 1px solid #30363d; border-radius: 8px; overflow: hidden; display: flex; flex-direction: column; }
+    .card-header { padding: 12px 16px; background: #21262d; border-bottom: 1px solid #30363d; display: flex; justify-content: space-between; align-items: center; }
+    .card-header h2 { font-size: 0.95rem; font-weight: 600; color: #f0f6fc; }
+    .stage-wrapper { padding: 16px; background: #0b0f19; min-height: 280px; display: flex; align-items: center; justify-content: center; position: relative; border-bottom: 1px solid #30363d; }
+    .stage-wrapper svg { max-width: 100%; max-height: 280px; height: auto; display: block; }
+    .transport-bar { padding: 8px 16px; background: #161b22; border-bottom: 1px solid #30363d; display: flex; gap: 8px; align-items: center; }
+    .btn { font-size: 0.75rem; padding: 4px 10px; border-radius: 4px; border: 1px solid #30363d; background: #21262d; color: #c9d1d9; cursor: pointer; display: inline-flex; align-items: center; gap: 4px; }
+    .btn:hover { background: #30363d; color: #f0f6fc; }
+    .btn-reset { margin-left: auto; color: #8b949e; }
+    .controls-deck { padding: 16px; display: flex; flex-direction: column; gap: 12px; flex: 1; }
+    .control-item { display: flex; flex-direction: column; gap: 4px; }
+    .control-label-row { display: flex; justify-content: space-between; font-size: 0.78rem; }
+    .param-name { font-weight: 600; color: #e6edf3; }
+    .param-val { color: #58a6ff; font-family: monospace; font-size: 0.75rem; }
+    .control-input-row { display: flex; align-items: center; gap: 8px; }
+    .control-input-row input[type="range"] { flex: 1; height: 6px; cursor: pointer; accent-color: #58a6ff; }
+    .control-input-row input[type="color"] { width: 36px; height: 26px; border: 1px solid #30363d; border-radius: 4px; cursor: pointer; background: transparent; padding: 0; }
+    .control-input-row input[type="text"], .control-input-row select { flex: 1; padding: 5px 8px; background: #0d1117; color: #c9d1d9; border: 1px solid #30363d; border-radius: 4px; font-size: 0.8rem; }
+    .control-input-row input[type="checkbox"] { width: 16px; height: 16px; accent-color: #58a6ff; cursor: pointer; }
+    .param-desc { font-size: 0.72rem; color: #7d8590; }
+    .footer-section { max-width: 1380px; margin: 30px auto 0 auto; padding-top: 20px; border-top: 1px solid #30363d; font-size: 0.8rem; color: #8b949e; display: flex; justify-content: space-between; align-items: center; }
+  </style>
+  <script src="js/svg-widget.js"></script>
+</head>
+<body>
+
+  <header>
+    <div class="header-title">
+      <h1>📦 host-monitor-v2 <span class="badge">Stage 16B No-Code Studio</span></h1>
+      <p>Operate independent instances with real-time controls — zero code required.</p>
+    </div>
+    <div>
+      <a href="host-monitor-v2-properties.md" class="btn" target="_blank">📋 View Properties Guide</a>
+    </div>
+  </header>
+
+  <main class="grid-container">
+    <div class="instance-card">
+      <div class="card-header">
+        <h2>Instance 1 (Unit A / Primary)</h2>
+        <span class="badge" id="badge-unit-a">ID: unit-a</span>
+      </div>
+      <div class="stage-wrapper" id="container-unit-a"></div>
+      <div class="transport-bar">
+        <button class="btn" id="btn-play-unit-a" title="Play animation">▶ Play</button>
+        <button class="btn" id="btn-pause-unit-a" title="Pause animation">⏸ Pause</button>
+        <button class="btn btn-reset" id="btn-reset-unit-a" title="Reset to defaults">↺ Reset Defaults</button>
+      </div>
+      <div class="controls-deck" id="controls-unit-a"></div>
+    </div>
+    <div class="instance-card">
+      <div class="card-header">
+        <h2>Instance 2 (Unit B / Warning)</h2>
+        <span class="badge" id="badge-unit-b">ID: unit-b</span>
+      </div>
+      <div class="stage-wrapper" id="container-unit-b"></div>
+      <div class="transport-bar">
+        <button class="btn" id="btn-play-unit-b" title="Play animation">▶ Play</button>
+        <button class="btn" id="btn-pause-unit-b" title="Pause animation">⏸ Pause</button>
+        <button class="btn btn-reset" id="btn-reset-unit-b" title="Reset to defaults">↺ Reset Defaults</button>
+      </div>
+      <div class="controls-deck" id="controls-unit-b"></div>
+    </div>
+    <div class="instance-card">
+      <div class="card-header">
+        <h2>Instance 3 (Unit C / Standby)</h2>
+        <span class="badge" id="badge-unit-c">ID: unit-c</span>
+      </div>
+      <div class="stage-wrapper" id="container-unit-c"></div>
+      <div class="transport-bar">
+        <button class="btn" id="btn-play-unit-c" title="Play animation">▶ Play</button>
+        <button class="btn" id="btn-pause-unit-c" title="Pause animation">⏸ Pause</button>
+        <button class="btn btn-reset" id="btn-reset-unit-c" title="Reset to defaults">↺ Reset Defaults</button>
+      </div>
+      <div class="controls-deck" id="controls-unit-c"></div>
+    </div>
+  </main>
+
+  <div class="footer-section">
+    <span>Asset: <code>host-monitor-v2.svg</code> (Universal Stage 16B Runtime)</span>
+    <span>SVG Animator Studio v1.2.0 • Standalone No-Code Package</span>
+  </div>
+
+  <!-- Embedded self-contained offline SVG payload enables direct file:// double-click operation without an HTTP server -->
+  <script id="embedded-widget-svg" type="application/base64">PHN2ZyBpZD0ic3ZhLXdpZGdldC1ob3N0LW1vbml0b3ItdjIiIHhtbG5zPSJodHRwOi8vd3d3LnczLm9yZy8yMDAwL3N2ZyIgdmlld0JveD0iMCAwIDM2MCAyMjAiIHdpZHRoPSIzNjAiIGhlaWdodD0iMjIwIiBzdHlsZT0iYmFja2dyb3VuZC1jb2xvcjojMGYxNzJhIiBkYXRhLXN2YS13aWRnZXQtaW5zdGFuY2U9Imhvc3QtbW9uaXRvci12MiI+CiAgPGRlZnM+CiAgICA8cmFkaWFsR3JhZGllbnQgaWQ9Imhvc3QtbW9uaXRvci12Ml9fZ2xvd0dyYWQtMSI+CiAgICAgIDxzdG9wIG9mZnNldD0iMCUiIHN0b3AtY29sb3I9IiMyMmM1NWUiIHN0b3Atb3BhY2l0eT0iMC45IiAvPgogICAgICA8c3RvcCBvZmZzZXQ9IjEwMCUiIHN0b3AtY29sb3I9IiMyMmM1NWUiIHN0b3Atb3BhY2l0eT0iMCIgLz4KICAgIDwvcmFkaWFsR3JhZGllbnQ+CiAgICA8cGF0aCBpZD0iaG9zdC1tb25pdG9yLXYyX19mbG93UGF0aC0xIiBkPSJNIDE5MCAxMTAgTCAzMTAgMTEwIiAvPgogIDwvZGVmcz4KICA8cmVjdCB4PSIwIiB5PSIwIiB3aWR0aD0iMzYwIiBoZWlnaHQ9IjIyMCIgZmlsbD0iIzBmMTcyYSIgcng9IjEwIiAvPgogIDxnIGlkPSJob3N0LW1vbml0b3ItdjJfX25vZGVzLWxheWVyIj4KICAgIDxnIGlkPSJob3N0LW1vbml0b3ItdjJfX25vZGUtMSIgY2xhc3M9ImRpYWdyYW0tbm9kZS1pbnN0YW5jZSIgZGF0YS1ub2RlLWlkPSJob3N0LW1vbml0b3ItdjJfXzEiIGRhdGEtc2VtYW50aWMtdGFyZ2V0PSJub2RlLTEiIGRhdGEtc2VtYW50aWMtbmFtZT0ic2VydmVyIj4KICAgICAgPHJlY3QgeD0iNDAiIHk9IjcwIiB3aWR0aD0iMTUwIiBoZWlnaHQ9IjgwIiByeD0iMTAiIGZpbGw9IiMxZTI5M2IiIHN0cm9rZT0iIzM4YmRmOCIgc3Ryb2tlLXdpZHRoPSIyLjUiIC8+CiAgICAgIDx0ZXh0IHg9IjExNSIgeT0iMTE1IiBmaWxsPSIjZjhmYWZjIiBmb250LWZhbWlseT0ic3lzdGVtLXVpLCBzYW5zLXNlcmlmIiBmb250LXNpemU9IjE2IiBmb250LXdlaWdodD0iNjAwIiB0ZXh0LWFuY2hvcj0ibWlkZGxlIj5ob3N0LTAxPC90ZXh0PgogICAgPC9nPgogIDwvZz4KICA8ZyBpZD0iaG9zdC1tb25pdG9yLXYyX19mbG93cy1sYXllciI+CiAgICA8ZyBpZD0iaG9zdC1tb25pdG9yLXYyX19mbG93LTEiIGNsYXNzPSJkaWFncmFtLWZsb3ctaW5zdGFuY2UiIGRhdGEtZmxvdy1pZD0iaG9zdC1tb25pdG9yLXYyX18xIiBkYXRhLXNlbWFudGljLXRhcmdldD0iZmxvdy0xIiBkYXRhLXNlbWFudGljLW5hbWU9InRyYWZmaWMiPgogICAgICA8cGF0aCBjbGFzcz0iZmxvdy10cmFjay1wYXRoIiBkPSJNIDE5MCAxMTAgTCAzMTAgMTEwIiBzdHJva2U9Im5vbmUiIGZpbGw9Im5vbmUiIC8+CiAgICAgIDxsaW5lIHgxPSIxOTAiIHkxPSIxMTAiIHgyPSIzMTAiIHkyPSIxMTAiIHN0cm9rZT0iIzMzNDE1NSIgc3Ryb2tlLXdpZHRoPSIyIiBzdHJva2UtZGFzaGFycmF5PSI0IDQiIC8+CiAgICAgIDxnIGNsYXNzPSJmbG93LXBheWxvYWQtZ3JvdXAiPgogICAgICAgIDxjaXJjbGUgY3g9IjAiIGN5PSIwIiByPSI2IiBmaWxsPSIjMjJjNTVlIj4KICAgICAgICAgIDxhbmltYXRlTW90aW9uIGR1cj0iMS41cyIgcmVwZWF0Q291bnQ9ImluZGVmaW5pdGUiIHJvdGF0ZT0iYXV0byI+CiAgICAgICAgICAgIDxtcGF0aCBocmVmPSIjaG9zdC1tb25pdG9yLXYyX19mbG93UGF0aC0xIiAvPgogICAgICAgICAgPC9hbmltYXRlTW90aW9uPgogICAgICAgIDwvY2lyY2xlPgogICAgICA8L2c+CiAgICA8L2c+CiAgPC9nPgogIDxnIGlkPSJob3N0LW1vbml0b3ItdjJfX2dsb3dzLWxheWVyIj4KICAgIDxnIGlkPSJob3N0LW1vbml0b3ItdjJfX2dsb3ctMSIgY2xhc3M9ImRpYWdyYW0tZ2xvdy1pbnN0YW5jZSIgZGF0YS1nbG93LWlkPSJob3N0LW1vbml0b3ItdjJfXzEiIGRhdGEtc2VtYW50aWMtdGFyZ2V0PSJnbG93LTEiIGRhdGEtc2VtYW50aWMtbmFtZT0ic3RhdHVzIj4KICAgICAgPHJlY3QgY2xhc3M9Imdsb3ctaGl0LXRhcmdldCIgeD0iMjYyIiB5PSIzMiIgd2lkdGg9IjU2IiBoZWlnaHQ9IjU2IiBmaWxsPSJ0cmFuc3BhcmVudCIgcG9pbnRlci1ldmVudHM9ImFsbCIgLz4KICAgICAgPGcgcG9pbnRlci1ldmVudHM9Im5vbmUiPgogICAgICAgIDxjaXJjbGUgY3g9IjI5MCIgY3k9IjYwIiByPSIyNCIgZmlsbD0idXJsKCNob3N0LW1vbml0b3ItdjJfX2dsb3dHcmFkLTEpIj4KICAgICAgICAgIDxhbmltYXRlIGF0dHJpYnV0ZU5hbWU9Im9wYWNpdHkiIHZhbHVlcz0iMC4zNTsgMTsgMC4zNSIgZHVyPSIxLjhzIiByZXBlYXRDb3VudD0iaW5kZWZpbml0ZSIgLz4KICAgICAgICA8L2NpcmNsZT4KICAgICAgPC9nPgogICAgPC9nPgogIDwvZz4KICA8ZyBpZD0iaG9zdC1tb25pdG9yLXYyX19yaXBwbGVzLWxheWVyIj4KICAgIDxnIGlkPSJob3N0LW1vbml0b3ItdjJfX3JpcHBsZS0xIiBjbGFzcz0iZGlhZ3JhbS1yaXBwbGUtaW5zdGFuY2UiIGRhdGEtcmlwcGxlLWlkPSJob3N0LW1vbml0b3ItdjJfXzEiIGRhdGEtc2VtYW50aWMtdGFyZ2V0PSJyaXBwbGUtMSIgZGF0YS1zZW1hbnRpYy1uYW1lPSJoZWFydGJlYXQiPgogICAgICA8Y2lyY2xlIGNsYXNzPSJyaXBwbGUtaGl0LXRhcmdldCIgY3g9IjI5MCIgY3k9IjE1NSIgcj0iMzIiIGZpbGw9InRyYW5zcGFyZW50IiBwb2ludGVyLWV2ZW50cz0iYWxsIiAvPgogICAgICA8ZyBwb2ludGVyLWV2ZW50cz0ibm9uZSI+CiAgICAgICAgPGNpcmNsZSBjbGFzcz0icmlwcGxlLXdhdmUiIGN4PSIyOTAiIGN5PSIxNTUiIHI9IjYiIGZpbGw9Im5vbmUiIHN0cm9rZT0iIzM4YmRmOCIgc3Ryb2tlLXdpZHRoPSIyIj4KICAgICAgICAgIDxhbmltYXRlIGF0dHJpYnV0ZU5hbWU9InIiIHZhbHVlcz0iNjsgMzIiIGR1cj0iMi4ycyIgcmVwZWF0Q291bnQ9ImluZGVmaW5pdGUiIC8+CiAgICAgICAgICA8YW5pbWF0ZSBhdHRyaWJ1dGVOYW1lPSJzdHJva2Utb3BhY2l0eSIgdmFsdWVzPSIwLjk7IDAiIGR1cj0iMi4ycyIgcmVwZWF0Q291bnQ9ImluZGVmaW5pdGUiIC8+CiAgICAgICAgPC9jaXJjbGU+CiAgICAgIDwvZz4KICAgIDwvZz4KICA8L2c+CgogIDxzY3JpcHQgdHlwZT0iYXBwbGljYXRpb24vanNvbiIgaWQ9Imhvc3QtbW9uaXRvci12Ml9fc3ZhLXdpZGdldC1tYW5pZmVzdCI+eyJzY2hlbWFWZXJzaW9uIjoxLCJwYWNrYWdlVmVyc2lvbiI6IjEuMC4wIiwicGFja2FnZUlkIjoiaG9zdC1tb25pdG9yLXYyLTZjNzZmOWE2ZGZkOCIsIndpZGdldE5hbWUiOiJob3N0LW1vbml0b3ItdjIiLCJwYXJhbWV0ZXJzIjpbeyJuYW1lIjoic2VydmVyLW5vZGUtdGV4dCIsInR5cGUiOiJ0ZXh0IiwiZGVmYXVsdCI6Imhvc3QtMDEiLCJ0YXJnZXQiOiJub2RlLTEiLCJwcm9wZXJ0eSI6InRleHQifSx7Im5hbWUiOiJzZXJ2ZXItbm9kZS1maWxsIiwidHlwZSI6ImNvbG9yIiwiZGVmYXVsdCI6IiMxZTI5M2IiLCJ0YXJnZXQiOiJub2RlLTEiLCJwcm9wZXJ0eSI6ImZpbGwifSx7Im5hbWUiOiJzZXJ2ZXItbm9kZS1zdHJva2UiLCJ0eXBlIjoiY29sb3IiLCJkZWZhdWx0IjoiIzM4YmRmOCIsInRhcmdldCI6Im5vZGUtMSIsInByb3BlcnR5Ijoic3Ryb2tlIn0seyJuYW1lIjoidHJhZmZpYy1mbG93LWNvbG9yIiwidHlwZSI6ImNvbG9yIiwiZGVmYXVsdCI6IiMyMmM1NWUiLCJ0YXJnZXQiOiJmbG93LTEiLCJwcm9wZXJ0eSI6ImNvbG9yIn0seyJuYW1lIjoidHJhZmZpYy1mbG93LXNwZWVkIiwidHlwZSI6InNwZWVkIiwiZGVmYXVsdCI6MSwidGFyZ2V0IjoiZmxvdy0xIiwicHJvcGVydHkiOiJzcGVlZCIsIm1pbiI6MC4yLCJtYXgiOjV9LHsibmFtZSI6InRyYWZmaWMtZmxvdy12aXNpYmlsaXR5IiwidHlwZSI6ImJvb2xlYW4iLCJkZWZhdWx0Ijp0cnVlLCJ0YXJnZXQiOiJmbG93LTEiLCJwcm9wZXJ0eSI6InZpc2liaWxpdHkifSx7Im5hbWUiOiJzdGF0dXMtZ2xvdy1jb2xvciIsInR5cGUiOiJjb2xvciIsImRlZmF1bHQiOiIjMjJjNTVlIiwidGFyZ2V0IjoiZ2xvdy0xIiwicHJvcGVydHkiOiJjb2xvciJ9LHsibmFtZSI6InN0YXR1cy1nbG93LW9wYWNpdHkiLCJ0eXBlIjoibnVtYmVyIiwiZGVmYXVsdCI6MC44LCJ0YXJnZXQiOiJnbG93LTEiLCJwcm9wZXJ0eSI6Im9wYWNpdHkiLCJtaW4iOjAsIm1heCI6MX0seyJuYW1lIjoiaGVhcnRiZWF0LXJpcHBsZS1vcGFjaXR5IiwidHlwZSI6Im51bWJlciIsImRlZmF1bHQiOjAuNywidGFyZ2V0IjoicmlwcGxlLTEiLCJwcm9wZXJ0eSI6Im9wYWNpdHkiLCJtaW4iOjAsIm1heCI6MX1dfTwvc2NyaXB0Pgo8L3N2Zz4=</script>
+
+  <script>
+    const SVG_FILE = 'host-monitor-v2.svg';
+    const MANIFEST = {"schemaVersion":1,"packageVersion":"1.0.0","packageId":"host-monitor-v2-6c76f9a6dfd8","widgetName":"host-monitor-v2","parameters":[{"name":"server-node-text","type":"text","default":"host-01","target":"node-1","property":"text"},{"name":"server-node-fill","type":"color","default":"#1e293b","target":"node-1","property":"fill"},{"name":"server-node-stroke","type":"color","default":"#38bdf8","target":"node-1","property":"stroke"},{"name":"traffic-flow-color","type":"color","default":"#22c55e","target":"flow-1","property":"color"},{"name":"traffic-flow-speed","type":"speed","default":1,"target":"flow-1","property":"speed","min":0.2,"max":5},{"name":"traffic-flow-visibility","type":"boolean","default":true,"target":"flow-1","property":"visibility"},{"name":"status-glow-color","type":"color","default":"#22c55e","target":"glow-1","property":"color"},{"name":"status-glow-opacity","type":"number","default":0.8,"target":"glow-1","property":"opacity","min":0,"max":1},{"name":"heartbeat-ripple-opacity","type":"number","default":0.7,"target":"ripple-1","property":"opacity","min":0,"max":1}]};
+
+    const instances = {};
+    window.instances = instances;
+
+    function getRawSvg() {
+      const embeddedScript = document.getElementById('embedded-widget-svg');
+      if (embeddedScript && embeddedScript.textContent.trim()) {
+        try {
+          const binaryStr = atob(embeddedScript.textContent.trim());
+          const bytes = new Uint8Array(binaryStr.length);
+          for (let i = 0; i < binaryStr.length; i++) {
+            bytes[i] = binaryStr.charCodeAt(i);
+          }
+          return new TextDecoder('utf-8').decode(bytes);
+        } catch (e) {
+          console.warn('[demo] Base64 decode failed, falling back to fetch:', e);
+        }
+      }
+      return null;
+    }
+
+    function init() {
+      const rawSvg = getRawSvg();
+      if (rawSvg) {
+        mountAll(rawSvg);
+        return;
+      }
+      fetch(SVG_FILE)
+        .then(resp => {
+          if (!resp.ok) throw new Error('HTTP ' + resp.status);
+          return resp.text();
+        })
+        .then(mountAll)
+        .catch(err => {
+          document.body.innerHTML = '<div style="color:#f85149;padding:40px;text-align:center;"><h2>Failed to load SVG asset</h2><p>' + SVG_FILE + ' (' + err.message + ')</p><p style="color:#8b949e;font-size:0.85rem;margin-top:8px;">Keep demo.html in the same directory as ' + SVG_FILE + '.</p></div>';
+        });
+    }
+
+    function mountAll(rawSvg) {
+      ['unit-a', 'unit-b', 'unit-c'].forEach((instId, idx) => {
+        const container = document.getElementById('container-' + instId);
+        const controlsDeck = document.getElementById('controls-' + instId);
+
+        const widget = SVGWidget.mount(container, rawSvg, {
+          instanceId: instId,
+          scopeCss: true
+        });
+        instances[instId] = widget;
+
+        // Transport Controls
+        document.getElementById('btn-play-' + instId)?.addEventListener('click', () => widget.play());
+        document.getElementById('btn-pause-' + instId)?.addEventListener('click', () => widget.pause());
+        document.getElementById('btn-reset-' + instId)?.addEventListener('click', () => {
+          widget.resetParameters();
+          syncControls(instId);
+        });
+
+        // Build Controls from Manifest
+        const params = (widget.manifest && widget.manifest.parameters) || (MANIFEST.parameters) || [];
+        if (params.length === 0) {
+          const emptyMsg = document.createElement('div');
+          emptyMsg.style.cssText = 'color:#8b949e;font-size:0.75rem;text-align:center;padding:12px;background:#0d1117;border-radius:6px;border:1px dashed #30363d;margin-top:8px;';
+          emptyMsg.innerHTML = '<span style="color:#58a6ff;font-weight:600;">Standard Playback Mode</span><br><span style="color:#7d8590;font-size:0.7rem;">Widget running with authored scene defaults. Use transport controls above to test multi-instance animation.</span>';
+          controlsDeck.appendChild(emptyMsg);
+        } else {
+          params.forEach((p) => {
+          const item = document.createElement('div');
+          item.className = 'control-item';
+
+          const labelRow = document.createElement('div');
+          labelRow.className = 'control-label-row';
+          labelRow.innerHTML = '<span class="param-name">' + p.name + '</span><span class="param-val" id="val-' + instId + '-' + p.name + '">' + (widget.getParameter(p.name) ?? p.default) + '</span>';
+          item.appendChild(labelRow);
+
+          const inputRow = document.createElement('div');
+          inputRow.className = 'control-input-row';
+
+          const curVal = widget.getParameter(p.name) ?? p.default;
+          if (p.type === 'color') {
+            const inp = document.createElement('input');
+            inp.type = 'color';
+            inp.value = curVal;
+            inp.addEventListener('input', (e) => {
+              widget.setParameter(p.name, e.target.value);
+              document.getElementById('val-' + instId + '-' + p.name).textContent = e.target.value;
+            });
+            inputRow.appendChild(inp);
+          } else if (p.type === 'number' || p.type === 'speed') {
+            const inp = document.createElement('input');
+            inp.type = 'range';
+            inp.min = (p.min !== undefined) ? p.min : 0;
+            inp.max = (p.max !== undefined) ? p.max : 100;
+            inp.step = (p.step !== undefined) ? p.step : (p.type === 'speed' ? 0.1 : 1);
+            inp.value = curVal;
+            inp.addEventListener('input', (e) => {
+              const num = parseFloat(e.target.value);
+              widget.setParameter(p.name, num);
+              document.getElementById('val-' + instId + '-' + p.name).textContent = num + (p.unit ? ' ' + p.unit : '');
+            });
+            inputRow.appendChild(inp);
+          } else if (p.type === 'boolean') {
+            const inp = document.createElement('input');
+            inp.type = 'checkbox';
+            inp.checked = Boolean(curVal);
+            inp.addEventListener('change', (e) => {
+              widget.setParameter(p.name, e.target.checked);
+              document.getElementById('val-' + instId + '-' + p.name).textContent = e.target.checked;
+            });
+            inputRow.appendChild(inp);
+          } else if (p.type === 'enum' && Array.isArray(p.options)) {
+            const sel = document.createElement('select');
+            p.options.forEach((opt) => {
+              const o = document.createElement('option');
+              o.value = opt; o.textContent = opt;
+              if (opt === curVal) o.selected = true;
+              sel.appendChild(o);
+            });
+            sel.addEventListener('change', (e) => {
+              widget.setParameter(p.name, e.target.value);
+              document.getElementById('val-' + instId + '-' + p.name).textContent = e.target.value;
+            });
+            inputRow.appendChild(sel);
+          } else {
+            const inp = document.createElement('input');
+            inp.type = 'text';
+            inp.value = curVal;
+            inp.addEventListener('input', (e) => {
+              widget.setParameter(p.name, e.target.value);
+              document.getElementById('val-' + instId + '-' + p.name).textContent = e.target.value;
+            });
+            inputRow.appendChild(inp);
+          }
+
+          item.appendChild(inputRow);
+          if (p.description) {
+            const desc = document.createElement('div');
+            desc.className = 'param-desc';
+            desc.textContent = p.description;
+            item.appendChild(desc);
+          }
+          controlsDeck.appendChild(item);
+        });
+      }
+      });
+    }
+
+    function syncControls(instId) {
+      const widget = instances[instId];
+      if (!widget) return;
+      const params = (widget.manifest && widget.manifest.parameters) || (MANIFEST.parameters) || [];
+      params.forEach((p) => {
+        const val = widget.getParameter(p.name);
+        const el = document.getElementById('val-' + instId + '-' + p.name);
+        if (el) el.textContent = val + (p.unit ? ' ' + p.unit : '');
+      });
+    }
+
+    if (document.readyState === 'loading') {
+      window.addEventListener('DOMContentLoaded', init);
+    } else {
+      init();
+    }
+  </script>
+</body>
+</html>
