@@ -4037,6 +4037,10 @@ document.addEventListener('DOMContentLoaded', () => {
       window.Ripples.handleStageClick(x, y);
       return;
     }
+    if (window.LiteEffects && window.LiteEffects.activeId !== null) {
+      window.LiteEffects.handleStageClick(x, y);
+      return;
+    }
     if (window.DiagramNodes && window.DiagramNodes.activeId !== null) {
       window.DiagramNodes.handleStageClick(x, y);
       return;

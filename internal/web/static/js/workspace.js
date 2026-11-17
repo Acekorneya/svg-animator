@@ -31,6 +31,7 @@
       'acc-flows': 'Data Flows & Connectors',
       'acc-glows': 'Hotspots & Glows',
       'acc-ripples': 'Water Ripples',
+      'acc-lite-effects': 'Low-Load Effects (Lite)',
       'acc-layers': 'Layers & Objects',
       'acc-image-tools': 'Crop, Clip & Snip',
       'acc-playback': 'Scene & Timeline',
@@ -43,7 +44,7 @@
 
     showToolPanel(toolId) {
       if (!toolId) return;
-      const isLeft = ['acc-background', 'acc-nodes', 'acc-presets', 'acc-flows', 'acc-glows', 'acc-ripples', 'acc-layers', 'acc-image-tools'].includes(toolId);
+      const isLeft = ['acc-background', 'acc-nodes', 'acc-presets', 'acc-flows', 'acc-glows', 'acc-ripples', 'acc-lite-effects', 'acc-layers', 'acc-image-tools'].includes(toolId);
       const isRight = ['acc-playback', 'acc-camera', 'acc-optics', 'acc-frame', 'acc-widget-params', 'acc-export'].includes(toolId);
       if (!isLeft && !isRight) return;
 
@@ -56,7 +57,7 @@
           titleEl.textContent = this.toolTitles[toolId];
         }
 
-        const objectTools = ['acc-nodes', 'acc-flows', 'acc-glows', 'acc-ripples', 'acc-layers', 'acc-image-tools'];
+        const objectTools = ['acc-nodes', 'acc-flows', 'acc-glows', 'acc-ripples', 'acc-lite-effects', 'acc-layers', 'acc-image-tools'];
         const leftDrawer = document.getElementById('leftDrawer');
         if (leftDrawer && leftDrawer.classList) {
           leftDrawer.classList.toggle('expanded-inspector', objectTools.includes(toolId));
@@ -68,6 +69,7 @@
             'acc-flows': 'flow',
             'acc-glows': 'glow',
             'acc-ripples': 'ripple',
+            'acc-lite-effects': 'lite',
             'acc-layers': 'image',
             'acc-image-tools': 'image'
           };
@@ -76,7 +78,7 @@
           }
         }
 
-        const leftSections = ['acc-background', 'acc-nodes', 'acc-presets', 'acc-flows', 'acc-glows', 'acc-ripples', 'acc-layers', 'acc-image-tools'];
+        const leftSections = ['acc-background', 'acc-nodes', 'acc-presets', 'acc-flows', 'acc-glows', 'acc-ripples', 'acc-lite-effects', 'acc-layers', 'acc-image-tools'];
         leftSections.forEach((secId) => {
           const sec = document.getElementById(secId);
           if (sec && sec.classList) {
@@ -298,7 +300,7 @@
 
     syncRailForAccordion(accId) {
       if (!accId) return;
-      const isLeftSection = ['acc-background', 'acc-nodes', 'acc-presets', 'acc-flows', 'acc-glows', 'acc-ripples', 'acc-layers', 'acc-image-tools'].includes(accId);
+      const isLeftSection = ['acc-background', 'acc-nodes', 'acc-presets', 'acc-flows', 'acc-glows', 'acc-ripples', 'acc-lite-effects', 'acc-layers', 'acc-image-tools'].includes(accId);
       const isRightSection = ['acc-playback', 'acc-camera', 'acc-optics', 'acc-frame', 'acc-widget-params', 'acc-export'].includes(accId);
       if (isLeftSection) this.lastLeftAccId = accId;
       if (isRightSection) this.lastRightAccId = accId;

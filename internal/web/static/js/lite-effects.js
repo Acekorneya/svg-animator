@@ -384,18 +384,45 @@ window.LiteEffects = {
       }
     };
 
+    const bindPair = (baseId, prop, isInt = false) => {
+      const slider = document.getElementById(baseId + 'Slider');
+      const num = document.getElementById(baseId + 'Num');
+      const handle = (src, dst) => {
+        if (!src) return;
+        src.addEventListener('input', (e) => {
+          const val = isInt ? parseInt(e.target.value, 10) : parseFloat(e.target.value);
+          if (!Number.isFinite(val)) return;
+          if (dst) dst.value = val;
+          this.updateActive(prop, val);
+        });
+        src.addEventListener('change', () => {
+          if (window.AppCoordinator) window.AppCoordinator.recordHistoryImmediate();
+        });
+      };
+      handle(slider, num);
+      handle(num, slider);
+    };
+
+    const deselectBtn = document.getElementById('btnDeselectLite');
+    if (deselectBtn) deselectBtn.addEventListener('click', () => this.deselectLite());
+
     bindField('liteNameInput', 'name');
+    bindField('liteXNum', 'x', true);
+    bindField('liteYNum', 'y', true);
     bindField('liteVariantSelect', 'variant');
     bindField('liteColorPicker', 'color');
-    bindField('liteOpacityNum', 'opacity', true);
-    bindField('liteStrokeWidthNum', 'strokeWidth', true);
-    bindField('liteSegmentsNum', 'segments', true);
+    bindPair('liteOpacity', 'opacity');
+    bindPair('liteWidth', 'width', true);
+    bindPair('liteHeight', 'height', true);
+    bindPair('liteRadius', 'radius', true);
+    bindPair('liteStrokeWidth', 'strokeWidth');
+    bindPair('liteSegments', 'segments', true);
     bindField('liteRatioInput', 'lineGapRatio');
     bindField('liteDirectionSelect', 'direction');
     bindField('liteStyleSelect', 'segmentStyle');
-    bindField('liteSpeedNum', 'speed', true);
-    bindField('litePeriodNum', 'period', true);
-    bindField('liteFlashDurNum', 'dur', true);
+    bindPair('liteSpeed', 'speed');
+    bindPair('litePeriod', 'period');
+    bindPair('liteFlashDur', 'dur');
     bindField('liteRepeatChk', 'repeat', false, true);
     bindField('liteVisibleChk', 'visible', false, true);
   },
@@ -416,13 +443,30 @@ window.LiteEffects = {
     this.triggerAppRender();
   },
 
-  selectLite(id) {
+  selectLite(id, opts = {}) {
     this.activeId = String(id);
     const le = this.getLiteEffect(id);
     this.syncEditorUI(le);
     this.renderList();
-    if (window.AppCoordinator && typeof window.AppCoordinator.selectObject === 'function') {
-      window.AppCoordinator.selectObject('lite', String(id));
+    if (!opts.skipCoordinator && window.AppCoordinator && typeof window.AppCoordinator.selectObject === 'function') {
+      window.AppCoordinator.selectObject('lite', String(id), { openAccordionId: 'acc-lite-effects' });
+    }
+  },
+
+  handleStageClick(xPct, yPct) {
+    if (!this.activeId) return;
+    const le = this.getLiteEffect(this.activeId);
+    if (!le) return;
+    const cw = (window.Stage && window.Stage.canvasWidth) || 1280;
+    const ch = (window.Stage && window.Stage.canvasHeight) || 720;
+    const cx = (Number(xPct) / 100) * cw;
+    const cy = (Number(yPct) / 100) * ch;
+    const nextX = le.kind === 'perimeter-tracer' ? Math.round(cx - (Number(le.width || 140) / 2)) : Math.round(cx);
+    const nextY = le.kind === 'perimeter-tracer' ? Math.round(cy - (Number(le.height || 80) / 2)) : Math.round(cy);
+    const updated = this.updateLiteEffect(this.activeId, { x: nextX, y: nextY });
+    if (updated) {
+      this.syncEditorUI(updated);
+      this.triggerAppRender();
     }
   },
 
@@ -430,6 +474,12 @@ window.LiteEffects = {
     this.activeId = null;
     this.syncEditorUI(null);
     this.renderList();
+    if (window.AppCoordinator &&
+        window.AppCoordinator.activeSelection &&
+        window.AppCoordinator.activeSelection.type === 'lite' &&
+        !window.AppCoordinator._isCoordinatingSelection) {
+      window.AppCoordinator.clearSelection();
+    }
   },
 
   updateActive(key, value) {
@@ -438,6 +488,10 @@ window.LiteEffects = {
     patch[key] = value;
     const updated = this.updateLiteEffect(this.activeId, patch);
     if (updated) {
+      if (key === 'name') {
+        const lbl = document.getElementById('editingLiteLabel');
+        if (lbl) lbl.textContent = `Editing ${updated.name || (updated.kind + ' ' + updated.id)}`;
+      }
       this.renderList();
       this.triggerAppRender();
     }
@@ -464,7 +518,11 @@ window.LiteEffects = {
     empty.style.display = 'none';
 
     const setVal = (id, v) => { const el = document.getElementById(id); if (el) el.value = v; };
+    const setPair = (baseId, v) => { setVal(baseId + 'Slider', v); setVal(baseId + 'Num', v); };
     const setChk = (id, v) => { const el = document.getElementById(id); if (el) el.checked = Boolean(v); };
+
+    const lbl = document.getElementById('editingLiteLabel');
+    if (lbl) lbl.textContent = `Editing ${le.name || (le.kind + ' ' + le.id)}`;
 
     const variantSel = document.getElementById('liteVariantSelect');
     if (variantSel) {
@@ -478,24 +536,31 @@ window.LiteEffects = {
     }
 
     setVal('liteNameInput', le.name || '');
+    setVal('liteXNum', Math.round(Number(le.x) || 0));
+    setVal('liteYNum', Math.round(Number(le.y) || 0));
     setVal('liteVariantSelect', le.variant || '');
     setVal('liteColorPicker', le.color || '#38bdf8');
-    setVal('liteOpacityNum', le.opacity != null ? le.opacity : 0.9);
-    setVal('liteStrokeWidthNum', le.strokeWidth || 2.5);
-    setVal('liteSegmentsNum', le.segments || 2);
+    setPair('liteOpacity', le.opacity != null ? le.opacity : 0.9);
+    setPair('liteWidth', Math.round(Number(le.width) || 140));
+    setPair('liteHeight', Math.round(Number(le.height) || 80));
+    setPair('liteRadius', Math.round(Number(le.radius) || 24));
+    setPair('liteStrokeWidth', le.strokeWidth || 2.5);
+    setPair('liteSegments', le.segments || 2);
     setVal('liteRatioInput', le.lineGapRatio || '1:3');
     setVal('liteDirectionSelect', le.direction || 'cw');
     setVal('liteStyleSelect', le.segmentStyle || 'rounded');
-    setVal('liteSpeedNum', le.speed || 3.0);
-    setVal('litePeriodNum', le.period || 1.8);
-    setVal('liteFlashDurNum', le.dur || 0.22);
+    setPair('liteSpeed', le.speed || 3.0);
+    setPair('litePeriod', le.period || 1.8);
+    setPair('liteFlashDur', le.dur || 0.22);
     setChk('liteRepeatChk', le.repeat);
     setChk('liteVisibleChk', le.visible !== false);
 
     const tracerGroup = document.getElementById('liteTracerGroup');
+    const sizeGroup = document.getElementById('liteSizeGroup');
     const pulseGroup = document.getElementById('litePulseGroup');
     const flashGroup = document.getElementById('liteFlashGroup');
     if (tracerGroup) tracerGroup.style.display = le.kind === 'perimeter-tracer' ? 'block' : 'none';
+    if (sizeGroup) sizeGroup.style.display = (le.kind === 'pulse' || le.kind === 'flash') ? 'block' : 'none';
     if (pulseGroup) pulseGroup.style.display = le.kind === 'pulse' ? 'block' : 'none';
     if (flashGroup) flashGroup.style.display = le.kind === 'flash' ? 'block' : 'none';
   },
@@ -504,13 +569,25 @@ window.LiteEffects = {
     const listEl = document.getElementById('liteEffectsList');
     if (!listEl) return;
     listEl.innerHTML = '';
+    if (this.list.length === 0) {
+      listEl.innerHTML = '<div class="stage-hint" id="emptyLiteListHint">No low-load effects active.</div>';
+      return;
+    }
+    const iconByKind = { 'perimeter-tracer': '▭', 'pulse': '◎', 'flash': '✦' };
+    const kindShort = { 'perimeter-tracer': 'Tracer', 'pulse': 'Pulse', 'flash': 'Flash' };
     this.list.forEach((le) => {
       const row = document.createElement('div');
-      row.className = 'item-row' + (String(this.activeId) === String(le.id) ? ' active' : '');
-      row.innerHTML = `<span>${this.escapeXML(le.name || `${le.kind}-${le.id}`)} <small>(${le.kind})</small></span>
-        <button type="button" class="btn-mini-del" title="Delete">&times;</button>`;
+      const isActive = String(this.activeId) === String(le.id);
+      row.className = 'flow-list-item compact-instance-row' + (isActive ? ' active' : '');
+      row.dataset.liteListId = String(le.id);
+      const label = le.name || `${kindShort[le.kind] || le.kind}-${le.id}`;
+      const meta = kindShort[le.kind] || le.kind;
+      row.innerHTML = `<span class="instance-icon">${iconByKind[le.kind] || '⚡'}</span>
+        <span class="instance-label">${this.escapeXML(label)}</span>
+        <span class="compact-meta">${this.escapeXML(meta)}</span>
+        <button type="button" class="btn-row-action btn-row-delete" title="Delete">&times;</button>`;
       row.addEventListener('click', (e) => {
-        if (e.target.closest('.btn-mini-del')) {
+        if (e.target.closest('.btn-row-delete')) {
           this.removeLite(le.id);
         } else {
           this.selectLite(le.id);

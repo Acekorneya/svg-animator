@@ -702,6 +702,44 @@ window.Stage = {
           }
         }
 
+        // 5b. Lite effect hit testing
+        const liteEl = e.target.closest ? e.target.closest('[data-lite-id]') : null;
+        if (liteEl && window.LiteEffects) {
+          let liteId = liteEl.getAttribute ? liteEl.getAttribute('data-lite-id') : null;
+          if (liteId && window.LayerManager && typeof window.LayerManager.getEffective === 'function') {
+            const effL = window.LayerManager.getEffective('lite', liteId);
+            if (effL && (effL.locked || !effL.visible)) {
+              liteId = null;
+            }
+          }
+          if (liteId) {
+            this.isGroupDragging = false;
+            this.potentialSingleSelectType = null;
+            this.potentialSingleSelectId = null;
+            this.groupDragInitialPositions = null;
+            if (window.AppCoordinator && typeof window.AppCoordinator.selectObject === 'function') {
+              window.AppCoordinator.selectObject('lite', liteId, { openAccordionId: 'acc-lite-effects' });
+            } else {
+              window.LiteEffects.selectLite(liteId);
+            }
+            const le = window.LiteEffects.getLiteEffect(liteId);
+            if (le) {
+              const cxPx = le.kind === 'perimeter-tracer' ? (Number(le.x) + Number(le.width || 140) / 2) : Number(le.x);
+              const cyPx = le.kind === 'perimeter-tracer' ? (Number(le.y) + Number(le.height || 80) / 2) : Number(le.y);
+              const cxPct = (cxPx / (this.canvasWidth || 1280)) * 100;
+              const cyPct = (cyPx / (this.canvasHeight || 720)) * 100;
+              this.nodeGrabOffsetX = cxPct - coords.x;
+              this.nodeGrabOffsetY = cyPct - coords.y;
+            } else {
+              this.nodeGrabOffsetX = 0;
+              this.nodeGrabOffsetY = 0;
+            }
+            this.isDragging = true;
+            try { this.previewBox.setPointerCapture(e.pointerId); } catch (_) {}
+            return;
+          }
+        }
+
         // 6. Flow track hit testing
         const flowEl = e.target.closest ? e.target.closest('.flow-track-path, [data-flow-id], [id^="flowPath-"]') : null;
         if (flowEl && window.DataFlows) {
@@ -1304,7 +1342,7 @@ window.Stage = {
             }
           } else if (potentialType && potentialId) {
             // Click without drag on multi-selected item -> narrow selection to single clicked item
-            const accMap = { node: 'acc-nodes', glow: 'acc-glows', ripple: 'acc-ripples', flow: 'acc-flows', image: 'acc-layers' };
+            const accMap = { node: 'acc-nodes', glow: 'acc-glows', ripple: 'acc-ripples', flow: 'acc-flows', lite: 'acc-lite-effects', image: 'acc-layers' };
             if (window.AppCoordinator) {
               window.AppCoordinator.selectObject(potentialType, potentialId, { openAccordionId: accMap[potentialType] });
             }

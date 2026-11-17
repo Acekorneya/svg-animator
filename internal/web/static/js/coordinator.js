@@ -135,7 +135,7 @@
         const normalizedType = (id !== null && id !== undefined) ? type : null;
         const normalizedId = (id !== null && id !== undefined) ? id : null;
 
-        if (normalizedType && normalizedId !== null && ['node', 'flow', 'glow', 'ripple', 'image', 'group'].includes(normalizedType) && options.source !== 'layers_list' && window.LayerManager && typeof window.LayerManager.getEffective === 'function') {
+        if (normalizedType && normalizedId !== null && ['node', 'flow', 'glow', 'ripple', 'lite', 'image', 'group'].includes(normalizedType) && options.source !== 'layers_list' && window.LayerManager && typeof window.LayerManager.getEffective === 'function') {
           const eff = window.LayerManager.getEffective(normalizedType, normalizedId);
           if (eff && (eff.locked || !eff.visible)) {
             return false;
@@ -223,6 +223,9 @@
         if (validatedType !== 'ripple' && window.Ripples && window.Ripples.activeId !== null) {
           window.Ripples.deselectRipple();
         }
+        if (validatedType !== 'lite' && window.LiteEffects && window.LiteEffects.activeId !== null) {
+          window.LiteEffects.deselectLite();
+        }
         if (validatedType !== 'camera' && !options.skipStageClear && window.Stage && window.Stage.activePlacement) {
           window.Stage.clearActive();
         }
@@ -237,6 +240,8 @@
             window.Glows.selectGlow(validatedId);
           } else if (validatedType === 'ripple' && window.Ripples && window.Ripples.activeId !== validatedId) {
             window.Ripples.selectRipple(validatedId);
+          } else if (validatedType === 'lite' && window.LiteEffects && String(window.LiteEffects.activeId) !== String(validatedId)) {
+            window.LiteEffects.selectLite(validatedId, { skipCoordinator: true });
           } else if (validatedType === 'image') {
             if (typeof window.syncImageEditorUI === 'function') {
               window.syncImageEditorUI();
@@ -414,6 +419,9 @@
       }
       if (window.Ripples && typeof window.Ripples.renderList === 'function') {
         window.Ripples.renderList();
+      }
+      if (window.LiteEffects && typeof window.LiteEffects.renderList === 'function') {
+        window.LiteEffects.renderList();
       }
       if (window.LayerManager && typeof window.LayerManager.syncFromEngine === 'function') {
         window.LayerManager.syncFromEngine();
