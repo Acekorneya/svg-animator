@@ -118,3 +118,71 @@ func TestLiteEffectCRUDAndValidation(t *testing.T) {
 		t.Fatalf("expected 2 lite effects after delete, got %d", len(sc.GetLiteEffects()))
 	}
 }
+
+func TestLiteEffectLegacyMigrationAndNewProperties(t *testing.T) {
+	// 1. Legacy perimeter-tracer without OriginMode (top-left X=100, Y=100, W=140, H=80)
+	// must migrate to center X=170, Y=140 so top-left (X-W/2, Y-H/2) stays at (100, 100).
+	sc := NewScene()
+	snap := sc.GetSnapshot()
+	snap.LiteEffects = []LiteEffect{
+		{
+			ID:     "1",
+			Kind:   "perimeter-tracer",
+			X:      100,
+			Y:      100,
+			Width:  140,
+			Height: 80,
+		},
+		{
+			ID:       "2",
+			Kind:     "pulse",
+			X:        200,
+			Y:        200,
+			Radius:   30,
+			Width:    140,
+			Height:   80,
+		},
+		{
+			ID:       "3",
+			Kind:     "flash",
+			X:        300,
+			Y:        300,
+			Duration: 0.22,
+		},
+	}
+	snap.LiteEffectsCounter = 3
+	sc.SetFromSnapshot(snap)
+
+	t1, ok := sc.GetLiteEffect("1")
+	if !ok || t1.OriginMode != "center" || t1.X != 170 || t1.Y != 140 {
+		t.Fatalf("legacy tracer migration failed: got %+v", t1)
+	}
+	if t1.ShowGuide == nil || !*t1.ShowGuide {
+		t.Fatalf("expected ShowGuide default true on migrated tracer")
+	}
+
+	p2, ok := sc.GetLiteEffect("2")
+	if !ok || p2.OriginMode != "center" || p2.Width != 60 || p2.Height != 60 || p2.MinScale != 0.85 || p2.MaxScale != 1.15 {
+		t.Fatalf("legacy pulse migration failed: got %+v", p2)
+	}
+
+	f3, ok := sc.GetLiteEffect("3")
+	if !ok || f3.Duration != 0.22 {
+		t.Fatalf("legacy flash duration should be preserved (0.22), got %+v", f3)
+	}
+
+	// 2. New Flash defaults to 100ms (0.10s) and supports durationMs updates
+	fNew := sc.CreateLiteEffect(LiteEffect{Kind: "flash"})
+	if fNew.Duration != 0.10 {
+		t.Fatalf("expected new flash default Duration=0.10 (100ms), got %v", fNew.Duration)
+	}
+	fUpd, err := sc.UpdateLiteEffect(fNew.ID, map[string]any{"durationMs": 180})
+	if err != nil || fUpd.Duration != 0.18 {
+		t.Fatalf("expected durationMs=180 to set Duration=0.18, got %v (err=%v)", fUpd.Duration, err)
+	}
+
+	// 3. Pulse minScale / maxScale validation
+	if _, err := sc.UpdateLiteEffect("2", map[string]any{"minScale": 1.4, "maxScale": 0.9}); err == nil {
+		t.Fatalf("expected error when minScale > maxScale")
+	}
+}

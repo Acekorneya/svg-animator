@@ -698,6 +698,15 @@ func (s *Scene) RenameObject(selType SelectionType, id StringID, name string) (b
 		img.Name = normalized
 		s.images[id] = img
 
+	case SelectionLite:
+		le, ok := s.liteEffects[id]
+		if !ok {
+			return false, errors.New("lite effect not found: " + string(id))
+		}
+		oldName = le.Name
+		le.Name = normalized
+		s.liteEffects[id] = le
+
 	case SelectionGroup:
 		grp, ok := s.groups[id]
 		if !ok {
@@ -911,6 +920,7 @@ func (s *Scene) setFromSnapshotLocked(snap Snapshot) {
 		if idNum, err := strconv.ParseInt(string(le.ID), 10, 64); err == nil && idNum > s.liteEffectsCounter {
 			s.liteEffectsCounter = idNum
 		}
+		MigrateLegacyLiteEffect(&le)
 		s.liteEffects[le.ID] = le
 		s.liteEffectOrder = append(s.liteEffectOrder, le.ID)
 	}

@@ -147,7 +147,7 @@
           return;
         }
 
-        if (options.additive && normalizedType && normalizedId !== null && ['node', 'flow', 'glow', 'ripple', 'image'].includes(normalizedType)) {
+        if (options.additive && normalizedType && normalizedId !== null && ['node', 'flow', 'glow', 'ripple', 'lite', 'image'].includes(normalizedType)) {
           this._addToSelectionInternal(normalizedType, normalizedId, options);
           return;
         }
@@ -299,6 +299,8 @@
         window.Glows.selectGlow(id, { multi: true, skipCoordinator: true });
       } else if (type === 'ripple' && window.Ripples && typeof window.Ripples.selectRipple === 'function') {
         window.Ripples.selectRipple(id, { multi: true, skipCoordinator: true });
+      } else if (type === 'lite' && window.LiteEffects && typeof window.LiteEffects.selectLite === 'function') {
+        window.LiteEffects.selectLite(id, { multi: true, skipCoordinator: true });
       }
 
       this._refreshAllInstanceLists();
@@ -353,6 +355,8 @@
         window.Glows.selectGlow(nextId, { multi: true, skipCoordinator: true });
       } else if (nextType === 'ripple' && window.Ripples && typeof window.Ripples.selectRipple === 'function') {
         window.Ripples.selectRipple(nextId, { multi: true, skipCoordinator: true });
+      } else if (nextType === 'lite' && window.LiteEffects && typeof window.LiteEffects.selectLite === 'function') {
+        window.LiteEffects.selectLite(nextId, { multi: true, skipCoordinator: true });
       }
 
       this._refreshAllInstanceLists();
@@ -399,6 +403,8 @@
         window.Glows.selectGlow(primary.id, { multi: true, skipCoordinator: true });
       } else if (primary.type === 'ripple' && window.Ripples && typeof window.Ripples.selectRipple === 'function') {
         window.Ripples.selectRipple(primary.id, { multi: true, skipCoordinator: true });
+      } else if (primary.type === 'lite' && window.LiteEffects && typeof window.LiteEffects.selectLite === 'function') {
+        window.LiteEffects.selectLite(primary.id, { multi: true, skipCoordinator: true });
       }
 
       this._refreshAllInstanceLists();
@@ -1065,6 +1071,8 @@
                 window.Glows.deleteGlow(m.id);
               } else if (m.type === 'ripple' && window.Ripples && typeof window.Ripples.deleteRipple === 'function') {
                 window.Ripples.deleteRipple(m.id);
+              } else if (m.type === 'lite' && window.LiteEffects && typeof window.LiteEffects.deleteLiteEffect === 'function') {
+                window.LiteEffects.deleteLiteEffect(m.id);
               } else if (m.type === 'image' && window.ImageObjects && typeof window.ImageObjects.deleteImage === 'function') {
                 window.ImageObjects.deleteImage(m.id);
               }
@@ -1106,6 +1114,9 @@
           deletedCount++;
         } else if (it.type === 'ripple' && window.Ripples && typeof window.Ripples.deleteRipple === 'function') {
           window.Ripples.deleteRipple(it.id);
+          deletedCount++;
+        } else if (it.type === 'lite' && window.LiteEffects && typeof window.LiteEffects.deleteLiteEffect === 'function') {
+          window.LiteEffects.deleteLiteEffect(it.id);
           deletedCount++;
         } else if (it.type === 'image' && window.ImageObjects && typeof window.ImageObjects.deleteImage === 'function') {
           window.ImageObjects.deleteImage(it.id);
@@ -1172,7 +1183,7 @@
           if (typeof window.DiagramNodes.updateUIOverlay === 'function') {
             window.DiagramNodes.updateUIOverlay(activeNode || null);
           }
-        } else if ((this.getSelectedItems().length > 0 || (this.activeSelection.type === 'image' && this.activeSelection.id != null)) && typeof window.DiagramNodes.updateUIOverlay === 'function') {
+        } else if ((this.getSelectedItems().length > 0 || ((this.activeSelection.type === 'image' || this.activeSelection.type === 'lite') && this.activeSelection.id != null)) && typeof window.DiagramNodes.updateUIOverlay === 'function') {
           window.DiagramNodes.updateUIOverlay(null);
         }
       }
@@ -1260,6 +1271,9 @@
         } else if (rSel.type === 'ripple' && window.Ripples && Array.isArray(window.Ripples.list) && window.Ripples.list.some((r) => String(r.id) === idStr)) {
           selectionRestored = true;
           this.selectObject('ripple', rSel.id);
+        } else if (rSel.type === 'lite' && window.LiteEffects && Array.isArray(window.LiteEffects.list) && window.LiteEffects.list.some((l) => String(l.id) === idStr)) {
+          selectionRestored = true;
+          this.selectObject('lite', rSel.id);
         }
       }
 

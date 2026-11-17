@@ -58,6 +58,10 @@ func IsolateSVGWidget(rawSVG string, opts WidgetIsolationOptions) (string, map[s
 
 	rootWidgetID := "sva-widget-" + instanceID
 
+	// 0. Strip editor-only helper groups (e.g. Flash Lite inactive editor marker) from exported widgets
+	reEditorOnly := regexp.MustCompile(`(?s)<g\b[^>]*\bdata-editor-only\s*=\s*["']true["'][^>]*>.*?</g>`)
+	rawSVG = reEditorOnly.ReplaceAllString(rawSVG, "")
+
 	// 1. Scan and collect all declared IDs: id="VALUE" or id='VALUE'
 	idMap := make(map[string]string)
 	reDeclaredID := regexp.MustCompile(`\bid\s*=\s*["']([^"']+)["']`)
@@ -451,7 +455,9 @@ var ObjectPropertyCatalog = map[string][]EligibleProperty{
 		{Property: "opacity", Type: "number", Label: "Opacity", ParamSuffix: "opacity", Description: "Transparency of the low-load effect (0.0 to 1.0)", Min: floatPtr(0), Max: floatPtr(1), Default: 0.9, DefaultSource: "lite.opacity", RuntimeSemantics: "sets lite effect overall opacity"},
 		{Property: "visibility", Type: "boolean", Label: "Visibility", ParamSuffix: "visibility", Description: "Toggle visibility of the low-load effect", Default: true, DefaultSource: "true", RuntimeSemantics: "toggles lite effect visibility"},
 		{Property: "speed", Type: "speed", Label: "Speed / Rate", ParamSuffix: "speed", Description: "Playback speed multiplier for the effect (0.1 to 10.0)", Min: floatPtr(0.1), Max: floatPtr(10.0), Default: 1.0, DefaultSource: "1.0", RuntimeSemantics: "scales CSS animation duration"},
-		{Property: "trigger", Type: "number", Label: "Event Trigger", ParamSuffix: "trigger", Description: "Incrementing or changing this value triggers a single-shot Flash Lite pulse", Min: floatPtr(0), Max: floatPtr(1000000), Default: 0, DefaultSource: "0", RuntimeSemantics: "triggers one-shot flash animation"},
+		{Property: "scale", Type: "number", Label: "Pulse Max Scale", ParamSuffix: "scale", Description: "Maximum pulse expansion scale multiplier (0.4 to 2.5)", Min: floatPtr(0.4), Max: floatPtr(2.5), Default: 1.15, DefaultSource: "lite.maxScale", RuntimeSemantics: "updates CSS --sva-pulse-max scale factor"},
+		{Property: "trigger", Type: "number", Label: "Flash Trigger", ParamSuffix: "trigger", Description: "Incrementing or changing this value triggers a single-shot Flash Lite pulse", Min: floatPtr(0), Max: floatPtr(1000000), Default: 0, DefaultSource: "0", RuntimeSemantics: "triggers one-shot flash animation"},
+		{Property: "duration", Type: "number", Label: "Flash Duration (ms)", ParamSuffix: "duration", Description: "Flash duration in milliseconds (20 to 1000 ms)", Min: floatPtr(20), Max: floatPtr(1000), Default: 100.0, DefaultSource: "lite.durationMs", RuntimeSemantics: "sets flash animation duration in milliseconds"},
 	},
 	"root": {
 		{Property: "playbackRate", Type: "speed", Label: "Master Speed", ParamSuffix: "speed", Description: "Overall playback speed rate multiplier for the widget (0.1 to 5.0)", Min: floatPtr(0.1), Max: floatPtr(5.0), Default: 1.0, DefaultSource: "1.0", RuntimeSemantics: "widget-wide master playback rate"},

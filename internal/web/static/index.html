@@ -1198,19 +1198,37 @@
                   <input type="checkbox" id="liteVisibleChk" checked>
                 </div>
 
-                <div id="liteTracerGroup" style="display: none;">
+                <div id="liteDimensionsGroup">
                   <div class="inspector-prop-row">
                     <label for="liteWidthSlider">Width (px)</label>
                     <div class="slider-row">
-                      <input type="range" id="liteWidthSlider" min="20" max="800" step="2" value="140">
-                      <input type="number" class="num-input" id="liteWidthNum" min="20" max="800" step="2" value="140">
+                      <input type="range" id="liteWidthSlider" min="16" max="800" step="2" value="140">
+                      <input type="number" class="num-input" id="liteWidthNum" min="12" max="1200" step="1" value="140">
                     </div>
                   </div>
                   <div class="inspector-prop-row">
                     <label for="liteHeightSlider">Height (px)</label>
                     <div class="slider-row">
-                      <input type="range" id="liteHeightSlider" min="20" max="800" step="2" value="80">
-                      <input type="number" class="num-input" id="liteHeightNum" min="20" max="800" step="2" value="80">
+                      <input type="range" id="liteHeightSlider" min="16" max="800" step="2" value="80">
+                      <input type="number" class="num-input" id="liteHeightNum" min="12" max="1200" step="1" value="80">
+                    </div>
+                  </div>
+                  <div class="inspector-prop-row" id="liteLockAspectRow">
+                    <label for="liteLockAspectChk">Lock Aspect</label>
+                    <input type="checkbox" id="liteLockAspectChk" checked>
+                  </div>
+                </div>
+
+                <div id="liteTracerGroup" style="display: none;">
+                  <div class="inspector-prop-row">
+                    <label for="liteShowGuideChk">Boundary Guide</label>
+                    <input type="checkbox" id="liteShowGuideChk" checked title="Show static boundary guide path">
+                  </div>
+                  <div class="inspector-prop-row" id="liteCornerRadiusRow">
+                    <label for="liteCornerRadiusSlider">Corner R (px)</label>
+                    <div class="slider-row">
+                      <input type="range" id="liteCornerRadiusSlider" min="0" max="80" step="1" value="10">
+                      <input type="number" class="num-input" id="liteCornerRadiusNum" min="0" max="200" step="1" value="10">
                     </div>
                   </div>
                   <div class="inspector-prop-row">
@@ -1253,19 +1271,30 @@
                       <input type="number" class="num-input" id="liteSpeedNum" min="0.2" max="30" step="0.1" value="3.0">
                     </div>
                   </div>
-                </div>
-
-                <div id="liteSizeGroup" style="display: none;">
                   <div class="inspector-prop-row">
-                    <label for="liteRadiusSlider">Radius (px)</label>
+                    <label for="liteStartOffsetSlider">Start Offset (%)</label>
                     <div class="slider-row">
-                      <input type="range" id="liteRadiusSlider" min="6" max="200" step="1" value="26">
-                      <input type="number" class="num-input" id="liteRadiusNum" min="6" max="200" step="1" value="26">
+                      <input type="range" id="liteStartOffsetSlider" min="0" max="100" step="5" value="0">
+                      <input type="number" class="num-input" id="liteStartOffsetNum" min="0" max="100" step="1" value="0">
                     </div>
                   </div>
                 </div>
 
                 <div id="litePulseGroup" style="display: none;">
+                  <div class="inspector-prop-row">
+                    <label for="liteMinScaleSlider">Min Scale</label>
+                    <div class="slider-row">
+                      <input type="range" id="liteMinScaleSlider" min="0.40" max="1.20" step="0.05" value="0.85">
+                      <input type="number" class="num-input" id="liteMinScaleNum" min="0.20" max="2.00" step="0.05" value="0.85">
+                    </div>
+                  </div>
+                  <div class="inspector-prop-row">
+                    <label for="liteMaxScaleSlider">Max Scale</label>
+                    <div class="slider-row">
+                      <input type="range" id="liteMaxScaleSlider" min="0.80" max="2.50" step="0.05" value="1.15">
+                      <input type="number" class="num-input" id="liteMaxScaleNum" min="0.50" max="3.00" step="0.05" value="1.15">
+                    </div>
+                  </div>
                   <div class="inspector-prop-row">
                     <label for="litePeriodSlider">Pulse Period (s)</label>
                     <div class="slider-row">
@@ -1277,10 +1306,10 @@
 
                 <div id="liteFlashGroup" style="display: none;">
                   <div class="inspector-prop-row">
-                    <label for="liteFlashDurSlider">Flash Dur (s)</label>
+                    <label for="liteFlashDurSlider">Duration (ms)</label>
                     <div class="slider-row">
-                      <input type="range" id="liteFlashDurSlider" min="0.06" max="1.2" step="0.02" value="0.22">
-                      <input type="number" class="num-input" id="liteFlashDurNum" min="0.05" max="1.5" step="0.02" value="0.22">
+                      <input type="range" id="liteFlashDurSlider" min="50" max="500" step="10" value="100">
+                      <input type="number" class="num-input" id="liteFlashDurNum" min="20" max="1000" step="10" value="100">
                     </div>
                   </div>
                   <div class="inspector-prop-row">
@@ -1291,6 +1320,33 @@
                     <label>Test Trigger</label>
                     <button type="button" class="tool-btn-compact" id="btnTriggerLiteFlash">⚡ Trigger Flash</button>
                   </div>
+                </div>
+
+                <div class="inspector-layer-section" id="liteLayerSection">
+                  <div class="inspector-section-divider">
+                    <span>LAYER</span>
+                  </div>
+                  <div class="layer-reorder-btn-row">
+                    <button type="button" class="btn-layer-reorder" id="btnLiteLayerToFront" data-action="toFront" title="Bring to Front (Ctrl+Shift+])" aria-label="Bring to Front">⤊ Front</button>
+                    <button type="button" class="btn-layer-reorder" id="btnLiteLayerForward" data-action="forward" title="Bring Forward (Ctrl+])" aria-label="Bring Forward">↑ Forward</button>
+                    <button type="button" class="btn-layer-reorder" id="btnLiteLayerBackward" data-action="backward" title="Send Backward (Ctrl+[)" aria-label="Send Backward">↓ Backward</button>
+                    <button type="button" class="btn-layer-reorder" id="btnLiteLayerToBack" data-action="toBack" title="Send to Back (Ctrl+Shift+[)" aria-label="Send to Back">⤋ Back</button>
+                  </div>
+                  <div class="layer-status-row">
+                    <span class="layer-position-label" id="liteLayerPositionLabel">Position: —</span>
+                    <div class="layer-state-toggles">
+                      <button type="button" class="btn-layer-toggle btn-layer-vis" id="btnLiteLayerVis" data-action="toggleVis" title="Toggle Visibility">👁 Visible</button>
+                      <button type="button" class="btn-layer-toggle btn-layer-lock" id="btnLiteLayerLock" data-action="toggleLock" title="Toggle Lock">🔓 Unlocked</button>
+                    </div>
+                  </div>
+                </div>
+
+                <div class="inspector-prop-row" style="margin-top: 0.5rem; padding-top: 0.4rem; border-top: 1px dashed var(--border-color, #30363d);">
+                  <label style="color: #58a6ff;">Widget</label>
+                  <button type="button" class="btn-sidebar-widget-expose" id="btnLiteExposeWidget" style="flex: 1; padding: 0.25rem 0.5rem; font-size: 0.72rem; background: #21262d; border: 1px solid #30363d; color: #58a6ff; border-radius: 4px; cursor: pointer; text-align: left; display: flex; justify-content: space-between; align-items: center;" title="Expose this low-load effect as an external widget parameter">
+                    <span>🌐 Expose as Parameter</span>
+                    <span style="font-size: 0.65rem; color: #8b949e;">➔</span>
+                  </button>
                 </div>
               </div>
             </div>
@@ -2289,19 +2345,36 @@
               <input type="number" class="num-input" id="fctx-liteOpacityNum" min="0.05" max="1" step="0.05" value="0.9">
             </div>
           </div>
-          <div id="fctx-liteTracerGroup" style="display: none;">
+          <div id="fctx-liteDimensionsGroup">
             <div class="floating-prop-row">
               <label for="fctx-liteWidthSlider">Width</label>
               <div class="slider-row">
-                <input type="range" id="fctx-liteWidthSlider" min="20" max="800" step="2" value="140">
-                <input type="number" class="num-input" id="fctx-liteWidthNum" min="20" max="1200" step="1" value="140">
+                <input type="range" id="fctx-liteWidthSlider" min="16" max="800" step="2" value="140">
+                <input type="number" class="num-input" id="fctx-liteWidthNum" min="12" max="1200" step="1" value="140">
               </div>
             </div>
             <div class="floating-prop-row">
               <label for="fctx-liteHeightSlider">Height</label>
               <div class="slider-row">
-                <input type="range" id="fctx-liteHeightSlider" min="20" max="600" step="2" value="80">
-                <input type="number" class="num-input" id="fctx-liteHeightNum" min="20" max="1200" step="1" value="80">
+                <input type="range" id="fctx-liteHeightSlider" min="16" max="600" step="2" value="80">
+                <input type="number" class="num-input" id="fctx-liteHeightNum" min="12" max="1200" step="1" value="80">
+              </div>
+            </div>
+            <div class="floating-prop-row" id="fctx-liteLockAspectRow">
+              <label for="fctx-liteLockAspectChk">Lock Aspect</label>
+              <input type="checkbox" id="fctx-liteLockAspectChk" checked>
+            </div>
+          </div>
+          <div id="fctx-liteTracerGroup" style="display: none;">
+            <div class="floating-prop-row">
+              <label for="fctx-liteShowGuideChk">Guide</label>
+              <input type="checkbox" id="fctx-liteShowGuideChk" checked>
+            </div>
+            <div class="floating-prop-row" id="fctx-liteCornerRadiusRow">
+              <label for="fctx-liteCornerRadiusSlider">Corner R</label>
+              <div class="slider-row">
+                <input type="range" id="fctx-liteCornerRadiusSlider" min="0" max="80" step="1" value="10">
+                <input type="number" class="num-input" id="fctx-liteCornerRadiusNum" min="0" max="200" step="1" value="10">
               </div>
             </div>
             <div class="floating-prop-row">
@@ -2314,8 +2387,8 @@
             <div class="floating-prop-row">
               <label for="fctx-liteSegmentsSlider">Segments</label>
               <div class="slider-row">
-                <input type="range" id="fctx-liteSegmentsSlider" min="1" max="8" step="1" value="2">
-                <input type="number" class="num-input" id="fctx-liteSegmentsNum" min="1" max="8" step="1" value="2">
+                <input type="range" id="fctx-liteSegmentsSlider" min="1" max="16" step="1" value="2">
+                <input type="number" class="num-input" id="fctx-liteSegmentsNum" min="1" max="16" step="1" value="2">
               </div>
             </div>
             <div class="floating-prop-row">
@@ -2337,16 +2410,21 @@
               </div>
             </div>
           </div>
-          <div id="fctx-liteSizeGroup" style="display: none;">
+          <div id="fctx-litePulseGroup" style="display: none;">
             <div class="floating-prop-row">
-              <label for="fctx-liteRadiusSlider">Radius</label>
+              <label for="fctx-liteMinScaleSlider">Min Scale</label>
               <div class="slider-row">
-                <input type="range" id="fctx-liteRadiusSlider" min="6" max="200" step="1" value="24">
-                <input type="number" class="num-input" id="fctx-liteRadiusNum" min="6" max="300" step="1" value="24">
+                <input type="range" id="fctx-liteMinScaleSlider" min="0.40" max="1.20" step="0.05" value="0.85">
+                <input type="number" class="num-input" id="fctx-liteMinScaleNum" min="0.20" max="2.00" step="0.05" value="0.85">
               </div>
             </div>
-          </div>
-          <div id="fctx-litePulseGroup" style="display: none;">
+            <div class="floating-prop-row">
+              <label for="fctx-liteMaxScaleSlider">Max Scale</label>
+              <div class="slider-row">
+                <input type="range" id="fctx-liteMaxScaleSlider" min="0.80" max="2.50" step="0.05" value="1.15">
+                <input type="number" class="num-input" id="fctx-liteMaxScaleNum" min="0.50" max="3.00" step="0.05" value="1.15">
+              </div>
+            </div>
             <div class="floating-prop-row">
               <label for="fctx-litePeriodSlider">Period (s)</label>
               <div class="slider-row">
@@ -2357,10 +2435,10 @@
           </div>
           <div id="fctx-liteFlashGroup" style="display: none;">
             <div class="floating-prop-row">
-              <label for="fctx-liteFlashDurSlider">Flash (s)</label>
+              <label for="fctx-liteFlashDurSlider">Duration (ms)</label>
               <div class="slider-row">
-                <input type="range" id="fctx-liteFlashDurSlider" min="0.08" max="5" step="0.02" value="0.22">
-                <input type="number" class="num-input" id="fctx-liteFlashDurNum" min="0.08" max="10" step="0.02" value="0.22">
+                <input type="range" id="fctx-liteFlashDurSlider" min="50" max="500" step="10" value="100">
+                <input type="number" class="num-input" id="fctx-liteFlashDurNum" min="20" max="1000" step="10" value="100">
               </div>
             </div>
             <div class="floating-prop-row">

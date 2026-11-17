@@ -2787,6 +2787,16 @@
         });
       }
 
+      const rawLiteEffects = Array.isArray(raw.liteEffects) ? raw.liteEffects : [];
+      const liteEffects = rawLiteEffects.map((l) => Object.assign({}, l, { id: String(l.id || '') }));
+      let liteEffectsCounter = Number(raw.liteEffectsCounter) || 0;
+      if (liteEffectsCounter === 0 && liteEffects.length > 0) {
+        liteEffects.forEach((l) => {
+          const num = parseInt(String(l.id).replace(/^lite-/, ''), 10);
+          if (!isNaN(num) && num > liteEffectsCounter) liteEffectsCounter = num;
+        });
+      }
+
       const rawLayers = Array.isArray(raw.layers) ? raw.layers : [];
       const layers = rawLayers.map((l) => ({
         type: String(l.type || ''),
@@ -2846,6 +2856,8 @@
         flows: flows,
         glows: glows,
         ripples: ripples,
+        liteEffects: liteEffects,
+        liteEffectsCounter: liteEffectsCounter,
         groups: groups,
         groupsCounter: groupsCounter,
         images: images,
@@ -2883,6 +2895,12 @@
       const ripples = (typeof window !== 'undefined' && window.Ripples && Array.isArray(window.Ripples.list))
         ? window.Ripples.list
         : [];
+      const liteEffects = (typeof window !== 'undefined' && window.LiteEffects && Array.isArray(window.LiteEffects.list))
+        ? window.LiteEffects.list
+        : [];
+      const liteEffectsCounter = (typeof window !== 'undefined' && window.LiteEffects)
+        ? (window.LiteEffects.counter || 0)
+        : 0;
 
       let groups = [];
       let groupsCounter = 0;
@@ -2924,6 +2942,8 @@
         flows: flows,
         glows: glows,
         ripples: ripples,
+        liteEffects: liteEffects,
+        liteEffectsCounter: liteEffectsCounter,
         groups: groups,
         groupsCounter: groupsCounter,
         images: images,
@@ -4441,6 +4461,15 @@
           }
         });
       }
+      if (typeof window !== 'undefined' && window.LiteEffects && Array.isArray(window.LiteEffects.list)) {
+        window.LiteEffects.list.forEach((le) => {
+          const key = `lite:${le.id}`;
+          if (!existing.has(key)) {
+            defaultOrder.push({ type: 'lite', id: String(le.id) });
+            existing.add(key);
+          }
+        });
+      }
       if (typeof window !== 'undefined' && window.Glows && Array.isArray(window.Glows.list)) {
         window.Glows.list.forEach((g) => {
           const key = `glow:${g.id}`;
@@ -4597,6 +4626,8 @@
         window.Glows.updateGlow(strId, { visible: v });
       } else if (type === 'ripple' && window.Ripples) {
         window.Ripples.updateRipple(strId, { visible: v });
+      } else if (type === 'lite' && window.LiteEffects) {
+        window.LiteEffects.updateLiteEffect(strId, { visible: v });
       } else if (type === 'image' && window.ImageObjects) {
         window.ImageObjects.updateImage(strId, { visible: v });
       }
@@ -4633,6 +4664,8 @@
         window.Glows.updateGlow(strId, { locked: l });
       } else if (type === 'ripple' && window.Ripples) {
         window.Ripples.updateRipple(strId, { locked: l });
+      } else if (type === 'lite' && window.LiteEffects) {
+        window.LiteEffects.updateLiteEffect(strId, { locked: l });
       } else if (type === 'image' && window.ImageObjects) {
         window.ImageObjects.updateImage(strId, { locked: l });
       }
@@ -4645,7 +4678,7 @@
     },
 
     getEffective(type, id) {
-      if (!['node', 'flow', 'glow', 'ripple', 'image', 'group'].includes(String(type))) {
+      if (!['node', 'flow', 'glow', 'ripple', 'lite', 'image', 'group'].includes(String(type))) {
         return { visible: true, locked: false };
       }
       if (typeof window !== 'undefined' && window.EngineBridge && typeof window.EngineBridge.isReady === 'function' && window.EngineBridge.isReady()) {
@@ -4681,6 +4714,12 @@
         if (r) {
           if (r.visible !== undefined) ownVisible = !!r.visible;
           if (r.locked !== undefined) ownLocked = !!r.locked;
+        }
+      } else if (type === 'lite' && window.LiteEffects) {
+        const le = window.LiteEffects.getLiteEffect(strId);
+        if (le) {
+          if (le.visible !== undefined) ownVisible = !!le.visible;
+          if (le.locked !== undefined) ownLocked = !!le.locked;
         }
       } else if (type === 'image' && window.ImageObjects) {
         const img = window.ImageObjects.getImage(strId);

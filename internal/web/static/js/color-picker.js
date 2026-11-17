@@ -100,21 +100,24 @@
         });
       }
 
-      // 3. Eyedropper API
+      // 3. Eyedropper API (Native EyeDropper with non-HTTPS stage/DOM sampler fallback)
       if (btnPipette) {
-        if (!window.EyeDropper) {
-          btnPipette.style.display = 'none';
-        } else {
-          btnPipette.addEventListener('click', async () => {
+        btnPipette.style.display = 'inline-flex';
+        btnPipette.addEventListener('click', async (e) => {
+          e.preventDefault();
+          e.stopPropagation();
+          if (window.EyeDropper) {
             try {
               const eyeDropper = new window.EyeDropper();
               const res = await eyeDropper.open();
               if (res && res.sRGBHex) {
                 this.setColor(res.sRGBHex);
+                return;
               }
             } catch (_) {}
-          });
-        }
+          }
+          this.startFallbackEyedropper(btnPipette);
+        });
       }
 
       // 4. RGB sliders & numeric inputs
@@ -147,7 +150,7 @@
 
       // 6. Click-outside to cancel & close non-modal popover
       document.addEventListener('pointerdown', (e) => {
-        if (!this.isOpen) return;
+        if (!this.isOpen || this.isSamplingPipette) return;
         if (popover && !popover.contains(e.target)) {
           if (!this.activeInput || !this.activeInput.contains(e.target)) {
             this.cancel();
@@ -369,6 +372,100 @@
       const rgb = this.hexToRgb(norm);
       this.currentHsv = this.rgbToHsv(rgb.r, rgb.g, rgb.b);
       this.syncAllFromHsv(options);
+    },
+
+    parseCssColorToHex(str) {
+      if (!str || typeof str !== 'string') return null;
+      const s = str.trim();
+      if (!s || s === 'none' || s === 'transparent' || s.startsWith('url(')) return null;
+      if (/^#(?:[0-9a-fA-F]{3}|[0-9a-fA-F]{6})$/.test(s)) return this.normalizeHex(s);
+      const m = s.match(/^rgba?\(\s*(\d+)\s*,\s*(\d+)\s*,\s*(\d+)(?:\s*,\s*([0-9.]+))?\s*\)$/i);
+      if (m) {
+        if (m[4] !== undefined && parseFloat(m[4]) === 0) return null;
+        return this.rgbToHex(parseInt(m[1], 10), parseInt(m[2], 10), parseInt(m[3], 10));
+      }
+      return null;
+    },
+
+    extractElementColor(target) {
+      if (!target) return null;
+      if (target.closest) {
+        const objGrp = target.closest('[data-lite-id], [data-node-id], [data-glow-id], [data-ripple-id], [data-flow-id]');
+        if (objGrp) {
+          const candidates = objGrp.querySelectorAll('.lite-payload, rect, circle, path, polygon, ellipse');
+          for (const c of candidates) {
+            if (c.classList && (c.classList.contains('lite-hit-target') || c.classList.contains('glow-hit-target') || c.classList.contains('ripple-hit-target'))) {
+              continue;
+            }
+            for (const attr of ['stroke', 'fill']) {
+              const hex = this.parseCssColorToHex(c.getAttribute(attr));
+              if (hex) return hex;
+            }
+          }
+        }
+      }
+      let el = target;
+      while (el && el !== document.documentElement) {
+        if (el.getAttribute) {
+          for (const attr of ['stroke', 'fill', 'stop-color', 'flood-color']) {
+            const hex = this.parseCssColorToHex(el.getAttribute(attr));
+            if (hex) return hex;
+          }
+        }
+        if (el.tagName === 'INPUT' && el.type === 'color' && el.value) {
+          const hex = this.parseCssColorToHex(el.value);
+          if (hex) return hex;
+        }
+        const isSvg = (typeof SVGElement !== 'undefined' && el instanceof SVGElement) || (el.namespaceURI && el.namespaceURI.includes('svg'));
+        if (!isSvg && window.getComputedStyle) {
+          const cs = window.getComputedStyle(el);
+          for (const prop of ['backgroundColor', 'borderColor', 'color']) {
+            const hex = this.parseCssColorToHex(cs[prop]);
+            if (hex) return hex;
+          }
+        }
+        el = el.parentElement;
+      }
+      return null;
+    },
+
+    startFallbackEyedropper(btnPipette) {
+      if (this.isSamplingPipette) return;
+      this.isSamplingPipette = true;
+      const prevCursor = document.body.style.cursor;
+      document.body.style.cursor = 'crosshair';
+      if (btnPipette) btnPipette.style.borderColor = '#58a6ff';
+
+      const cleanup = () => {
+        this.isSamplingPipette = false;
+        document.body.style.cursor = prevCursor;
+        if (btnPipette) btnPipette.style.borderColor = '';
+        document.removeEventListener('click', onSampleClick, true);
+        document.removeEventListener('keydown', onSampleKey, true);
+      };
+
+      const onSampleClick = (e) => {
+        e.preventDefault();
+        e.stopPropagation();
+        const sampled = this.extractElementColor(e.target);
+        cleanup();
+        if (sampled) {
+          this.setColor(sampled);
+        }
+      };
+
+      const onSampleKey = (e) => {
+        if (e.key === 'Escape') {
+          e.preventDefault();
+          e.stopPropagation();
+          cleanup();
+        }
+      };
+
+      setTimeout(() => {
+        document.addEventListener('click', onSampleClick, true);
+        document.addEventListener('keydown', onSampleKey, true);
+      }, 0);
     },
 
     renderQuickPalette() {

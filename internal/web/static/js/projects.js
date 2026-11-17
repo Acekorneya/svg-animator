@@ -369,6 +369,8 @@ window.ProjectManager = {
         flows: Array.isArray(data.flows) ? data.flows : [],
         glows: Array.isArray(data.glows) ? data.glows : [],
         ripples: Array.isArray(data.ripples) ? data.ripples : [],
+        liteEffects: Array.isArray(data.liteEffects) ? data.liteEffects : [],
+        liteEffectsCounter: Number(data.liteEffectsCounter) || 0,
         groups: Array.isArray(data.groups) ? data.groups : [],
         groupsCounter: Number(data.groupsCounter) || 0,
         images: Array.isArray(data.images) ? data.images : [],

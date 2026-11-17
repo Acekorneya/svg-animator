@@ -753,6 +753,23 @@ window.DiagramNodes = {
         } else {
           selBox.style.display = 'none';
         }
+      } else if (!targetNode && window.AppCoordinator && window.AppCoordinator.activeSelection && window.AppCoordinator.activeSelection.type === 'lite' && window.LiteEffects) {
+        const le = window.LiteEffects.getLiteEffect(window.AppCoordinator.activeSelection.id);
+        const isVis = !window.LayerManager || typeof window.LayerManager.getEffective !== 'function' ||
+          window.LayerManager.getEffective('lite', window.AppCoordinator.activeSelection.id)?.visible !== false;
+        if (le && isVis && typeof window.LiteEffects.getBoundingBox === 'function') {
+          const bbox = window.LiteEffects.getBoundingBox(le);
+          const w = bbox.width + pad * 2;
+          const h = bbox.height + pad * 2;
+          selBox.setAttribute('x', (bbox.x - pad).toFixed(1));
+          selBox.setAttribute('y', (bbox.y - pad).toFixed(1));
+          selBox.setAttribute('width', w.toFixed(1));
+          selBox.setAttribute('height', h.toFixed(1));
+          selBox.setAttribute('stroke', '#a371f7');
+          selBox.style.display = 'block';
+        } else {
+          selBox.style.display = 'none';
+        }
       } else {
         selBox.style.display = 'none';
       }

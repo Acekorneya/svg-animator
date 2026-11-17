@@ -67,12 +67,15 @@ Chromium **does not** automatically stop ticking off-screen SMIL animations (`30
 
 ---
 
-## 5. Studio UI Integration, Tests & Real-Browser Verification
+## 5. First-Class Studio Integration, Tests & Real-Browser Verification
 
-- **Studio UI & Context Editor Alignment:**
-  - `#acc-lite-effects` registered in `workspace.js` (`toolTitles`, `showToolPanel`, `syncRailForAccordion`) and `coordinator.js` / `stage.js` (`[data-lite-id]` hit testing and drag).
-  - Drawer uses standard `.accordion-body`, `.inspector-split-layout`, `.compact-instance-list` (`.flow-list-item.compact-instance-row`), `.inspector-prop-row`, and paired `.slider-row` controls (including Tracer `Width`/`Height` and Pulse/Flash `Radius`).
-  - `#floatingContextEditor` (`context-editor.js` + `#fctx-liteSection`) supports right-click/double-click on Lite effects with full parameter editing, Flash trigger, and delete.
-- **Go Tests (`go test ./...`):** 100% PASS (including `TestComputePerimeterDash` and `TestLiteEffectCRUDAndValidation`).
-- **JS Regression Harness (`node scripts/regression-harness.js`):** 88/88 scenarios PASS (including Scenario 88).
-- **Real-Browser CDP (`scripts/cmd/verify-stage16d-a/main.go`):** 8/8 real-click/drag/right-click criteria PASS on Kiwiberry (`192.168.100.40:8088` & `8092`, plus unpacked `file:///home/nigel/acceptance-demo/stage16d-a-widget/lite-effects-demo/demo.html`).
+- **Persistent Integration Plan:** `docs/stage16d-a-integration-plan.md` documents the full architecture audit, 9-area integration gap matrix, saved-project coordinate migration (`OriginMode: "center"`), and 6 completed work packages.
+- **First-Class Object & Layer Integration:**
+  - `LiteEffects` participate in `LayerManager` (`engine-bridge.js`), `layers-ui.js` (`#layersListContainer` & `#liteLayerSection`), `AppCoordinator.updateActiveOverlays()`, and `DiagramNodes.updateUIOverlay()` (`#nodeSelectionBox` purple dashed bounding outline).
+  - Fixed `EngineBridge.normalizeSceneSnapshot` / `buildCurrentSceneSnapshot` and `ProjectManager.applyStudioState` so `liteEffects` and `liteEffectsCounter` are preserved across `Scene.SetState` syncs.
+  - Center-based `(x, y)` coordinates across all Lite effects (`MigrateLegacyLiteEffect` converts legacy top-left tracers without shifting visual position); Tracer `circle` links `width = height`; Pulse supports `width`, `height`, `maintainAspectRatio`, `minScale`/`maxScale`, and exact `width × height` diamond bounds; Flash uses real-time `durationMs` (`50–500 ms`, `10 ms` steps, `100 ms` default) and renders an editor-only marker (`.lite-editor-marker`, stripped on export by `ScopeWidgetSVG`).
+  - Restored `#btnColorPickerPipette` in `color-picker.js` with a 1-click SVG/DOM colour-sampling fallback when `window.EyeDropper` is unavailable on plain HTTP (`http://192.168.100.40:8088/`).
+  - Enabled Stage 16B three-tier Widget Property Exposure (`#fctx-widgetSection`, `#btnLiteExposeWidget`, `renderWidgetPropertyCards` filtered by `le.kind`) for `color`, `opacity`, `visibility`, `speed`, `scale`, `trigger`, and `duration`.
+- **Go Tests (`go test ./...`):** 100% PASS (including `TestComputePerimeterDash`, `TestLiteEffectCRUDAndValidation`, and `TestLiteEffectLegacyMigrationAndNewProperties`).
+- **JS Regression Harness (`node scripts/regression-harness.js`):** 88/88 scenarios PASS (including expanded Scenario 88).
+- **Real-Browser CDP (`scripts/cmd/verify-stage16d-a/main.go`):** **20/20 user-interaction scenarios PASS** on Kiwiberry (`192.168.100.40:8088`, `8091`, and `8092`). Status: **Awaiting human visual review**.

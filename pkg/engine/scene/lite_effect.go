@@ -92,6 +92,9 @@ func ValidateLiteEffect(l *LiteEffect) error {
 		if l.Intensity < 0 || l.Intensity > 1.0 {
 			return errors.New("intensity must be between 0.0 and 1.0")
 		}
+		if l.MinScale < 0 || l.MaxScale < 0 || (l.MinScale > 0 && l.MaxScale > 0 && l.MinScale > l.MaxScale) {
+			return errors.New("pulse minScale cannot exceed maxScale")
+		}
 	}
 	if l.Kind == "flash" {
 		if l.Duration <= 0 || l.Duration > 1.5 {
@@ -104,9 +107,45 @@ func ValidateLiteEffect(l *LiteEffect) error {
 	return nil
 }
 
+// MigrateLegacyLiteEffect upgrades pre-amendment LiteEffect snapshots so center-based
+// coordinates, pulse dimensions, and flash durations do not reposition or corrupt saved objects.
+func MigrateLegacyLiteEffect(l *LiteEffect) {
+	if l == nil {
+		return
+	}
+	if l.OriginMode == "" {
+		if l.Kind == "perimeter-tracer" {
+			w := l.Width
+			if w <= 0 {
+				w = 140
+			}
+			h := l.Height
+			if h <= 0 {
+				h = 80
+			}
+			l.X = l.X + w/2.0
+			l.Y = l.Y + h/2.0
+		} else if l.Kind == "pulse" {
+			r := l.Radius
+			if r <= 0 {
+				r = 28
+			}
+			if l.Width <= 0 || (l.Width == 140 && l.Height == 80) {
+				l.Width = r * 2
+				l.Height = r * 2
+			}
+		}
+		l.OriginMode = "center"
+	}
+	applyLiteEffectDefaults(l)
+}
+
 func applyLiteEffectDefaults(l *LiteEffect) {
 	if l.Kind == "" {
 		l.Kind = "perimeter-tracer"
+	}
+	if l.OriginMode == "" {
+		l.OriginMode = "center"
 	}
 	if l.Color == "" {
 		switch l.Kind {
@@ -128,16 +167,24 @@ func applyLiteEffectDefaults(l *LiteEffect) {
 		l.Radius = 28
 	}
 	if l.Width <= 0 {
-		l.Width = 140
+		if l.Kind == "pulse" || l.Kind == "flash" {
+			l.Width = l.Radius * 2
+		} else {
+			l.Width = 140
+		}
 	}
 	if l.Height <= 0 {
-		l.Height = 80
+		if l.Kind == "pulse" || l.Kind == "flash" {
+			l.Height = l.Radius * 2
+		} else {
+			l.Height = 80
+		}
 	}
 	if l.X == 0 {
-		l.X = 100
+		l.X = 240
 	}
 	if l.Y == 0 {
-		l.Y = 100
+		l.Y = 180
 	}
 
 	switch l.Kind {
@@ -163,6 +210,10 @@ func applyLiteEffectDefaults(l *LiteEffect) {
 		if l.Speed <= 0 {
 			l.Speed = 3.0 // 3.0s circuit duration
 		}
+		if l.ShowGuide == nil {
+			sg := true
+			l.ShowGuide = &sg
+		}
 	case "pulse":
 		if l.Variant == "" {
 			l.Variant = "circle"
@@ -173,12 +224,22 @@ func applyLiteEffectDefaults(l *LiteEffect) {
 		if l.Intensity <= 0 {
 			l.Intensity = 0.85
 		}
+		if l.MinScale <= 0 {
+			l.MinScale = 0.85
+		}
+		if l.MaxScale <= 0 {
+			l.MaxScale = 1.15
+		}
+		if l.MaintainAspectRatio == nil {
+			mar := true
+			l.MaintainAspectRatio = &mar
+		}
 	case "flash":
 		if l.Variant == "" {
 			l.Variant = "diamond"
 		}
 		if l.Duration <= 0 {
-			l.Duration = 0.22 // brief geometric flash
+			l.Duration = 0.10 // 100 ms default brief flash
 		}
 		if l.Period <= 0 {
 			l.Period = 3.0 // gentle repeating interval if Repeat=true
@@ -224,8 +285,14 @@ func (s *Scene) UpdateLiteEffect(id StringID, patch map[string]any) (LiteEffect,
 		return LiteEffect{}, fmt.Errorf("lite effect not found: %s", id)
 	}
 
+	oldName := existing.Name
+	nameChanged := false
 	if v, ok := patch["name"].(string); ok {
-		existing.Name = v
+		trimmed := strings.TrimSpace(v)
+		if trimmed != existing.Name {
+			existing.Name = trimmed
+			nameChanged = true
+		}
 	}
 	if v, ok := patch["kind"].(string); ok && v != "" {
 		existing.Kind = v
@@ -290,8 +357,26 @@ func (s *Scene) UpdateLiteEffect(id StringID, patch map[string]any) (LiteEffect,
 	if v, ok := toFloat(patch["duration"]); ok && v > 0 {
 		existing.Duration = v
 	}
+	if v, ok := toFloat(patch["durationMs"]); ok && v > 0 {
+		existing.Duration = v / 1000.0
+	}
 	if v, ok := toFloat(patch["intensity"]); ok {
 		existing.Intensity = math.Max(0, math.Min(1, v))
+	}
+	if v, ok := toFloat(patch["minScale"]); ok && v > 0 {
+		existing.MinScale = math.Max(0.1, math.Min(3.0, v))
+	}
+	if v, ok := toFloat(patch["maxScale"]); ok && v > 0 {
+		existing.MaxScale = math.Max(0.1, math.Min(4.0, v))
+	}
+	if v, ok := patch["originMode"].(string); ok && v != "" {
+		existing.OriginMode = v
+	}
+	if v, ok := patch["maintainAspectRatio"].(bool); ok {
+		existing.MaintainAspectRatio = &v
+	}
+	if v, ok := patch["showGuide"].(bool); ok {
+		existing.ShowGuide = &v
 	}
 	if v, ok := patch["repeat"].(bool); ok {
 		existing.Repeat = v
@@ -311,6 +396,19 @@ func (s *Scene) UpdateLiteEffect(id StringID, patch map[string]any) (LiteEffect,
 	}
 
 	s.liteEffects[id] = existing
+	if nameChanged {
+		targetID := "lite-" + string(id)
+		targetName := existing.Name
+		if targetName == "" {
+			targetName = targetID
+		}
+		for i := range s.parameters {
+			p := &s.parameters[i]
+			if p.Target == string(id) || p.Target == targetID || (oldName != "" && p.Target == oldName) {
+				p.Name = GenerateParameterName(targetName, p.Property, "lite")
+			}
+		}
+	}
 	s.revision++
 	return existing, nil
 }

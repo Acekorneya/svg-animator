@@ -724,8 +724,8 @@ window.Stage = {
             }
             const le = window.LiteEffects.getLiteEffect(liteId);
             if (le) {
-              const cxPx = le.kind === 'perimeter-tracer' ? (Number(le.x) + Number(le.width || 140) / 2) : Number(le.x);
-              const cyPx = le.kind === 'perimeter-tracer' ? (Number(le.y) + Number(le.height || 80) / 2) : Number(le.y);
+              const cxPx = Number(le.x) || 240;
+              const cyPx = Number(le.y) || 180;
               const cxPct = (cxPx / (this.canvasWidth || 1280)) * 100;
               const cyPct = (cyPx / (this.canvasHeight || 720)) * 100;
               this.nodeGrabOffsetX = cxPct - coords.x;

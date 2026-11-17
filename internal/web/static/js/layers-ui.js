@@ -54,7 +54,7 @@
       }
     } else if (Array.isArray(sel.items) && sel.items.length > 0) {
       sel.items.forEach((it) => {
-        if (['node', 'flow', 'glow', 'ripple', 'image'].includes(it.type)) {
+        if (['node', 'flow', 'glow', 'ripple', 'lite', 'image'].includes(it.type)) {
           const grp = (typeof window.AppCoordinator.findGroupByMember === 'function') ? window.AppCoordinator.findGroupByMember(it.type, it.id) : null;
           if (grp && Array.isArray(grp.members)) {
             grp.members.forEach((m) => targetKeys.add(`${m.type}:${m.id}`));
@@ -63,7 +63,7 @@
           }
         }
       });
-    } else if (sel.type && sel.id != null && ['node', 'flow', 'glow', 'ripple', 'image'].includes(sel.type)) {
+    } else if (sel.type && sel.id != null && ['node', 'flow', 'glow', 'ripple', 'lite', 'image'].includes(sel.type)) {
       const grp = (typeof window.AppCoordinator.findGroupByMember === 'function') ? window.AppCoordinator.findGroupByMember(sel.type, sel.id) : null;
       if (grp && Array.isArray(grp.members)) {
         grp.members.forEach((m) => targetKeys.add(`${m.type}:${m.id}`));
@@ -177,6 +177,13 @@
         icon = '💧';
         const r = window.Ripples ? window.Ripples.getRipple(layer.id) : null;
         if (r) name = r.name || `Ripple #${layer.id}`;
+      } else if (layer.type === 'lite') {
+        const le = window.LiteEffects ? window.LiteEffects.getLiteEffect(layer.id) : null;
+        const kindMap = { 'perimeter-tracer': 'Tracer', 'pulse': 'Pulse', 'flash': 'Flash' };
+        const iconMap = { 'perimeter-tracer': '▭', 'pulse': '◎', 'flash': '✦' };
+        icon = le ? (iconMap[le.kind] || '⚡') : '⚡';
+        const kindLabel = le ? (kindMap[le.kind] || le.kind) : 'Lite';
+        name = (le && le.name) ? `${le.name} (${kindLabel})` : `${kindLabel} #${layer.id}`;
       } else if (layer.type === 'image') {
         icon = '🖼️';
         const img = window.ImageObjects ? window.ImageObjects.getImage(layer.id) : null;
@@ -323,6 +330,7 @@
       { prefix: 'Flow', type: 'flow', editorId: 'flowEditor', sectionId: 'flowLayerSection' },
       { prefix: 'Glow', type: 'glow', editorId: 'glowEditor', sectionId: 'glowLayerSection' },
       { prefix: 'Ripple', type: 'ripple', editorId: 'rippleEditor', sectionId: 'rippleLayerSection' },
+      { prefix: 'Lite', type: 'lite', editorId: 'liteEditorControls', sectionId: 'liteLayerSection' },
       { prefix: 'Image', type: 'image', editorId: 'imageEditor', sectionId: 'imageLayerSection' },
       { prefix: 'Group', type: 'group', editorId: 'nodeMultiSelectToolbar', sectionId: 'groupLayerSection' },
     ];
@@ -364,6 +372,9 @@
             isTargetActive = true;
           } else if (type === 'ripple' && window.Ripples && window.Ripples.activeId != null) {
             targetId = window.Ripples.activeId;
+            isTargetActive = true;
+          } else if (type === 'lite' && window.LiteEffects && window.LiteEffects.activeId != null) {
+            targetId = window.LiteEffects.activeId;
             isTargetActive = true;
           } else if (type === 'image' && window.ImageObjects && window.ImageObjects.activeId != null) {
             targetId = window.ImageObjects.activeId;
@@ -455,6 +466,7 @@
       { prefix: 'Flow', type: 'flow' },
       { prefix: 'Glow', type: 'glow' },
       { prefix: 'Ripple', type: 'ripple' },
+      { prefix: 'Lite', type: 'lite' },
       { prefix: 'Image', type: 'image' },
       { prefix: 'Group', type: 'group' },
     ];
@@ -484,6 +496,7 @@
         else if (type === 'flow' && window.DataFlows) modId = window.DataFlows.activeId;
         else if (type === 'glow' && window.Glows) modId = window.Glows.activeId;
         else if (type === 'ripple' && window.Ripples) modId = window.Ripples.activeId;
+        else if (type === 'lite' && window.LiteEffects) modId = window.LiteEffects.activeId;
         else if (type === 'image' && window.ImageObjects) modId = window.ImageObjects.activeId;
         if (modId !== null && modId !== undefined) {
           return [{ type: type, id: String(modId) }];

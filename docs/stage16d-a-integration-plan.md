@@ -2,12 +2,23 @@
 
 ## Status & Baseline
 - **Current Stage:** Stage 16D-A (Corrective First-Class Object Integration Pass)
-- **Phase Gate:** **Phase 2 — Awaiting Explicit Project-Owner Approval (Planning Only)**
-- **Git Branch & Baseline Commit:** `main` @ `01735aa` (builds on `830c866` Stage 16D-A initial implementation, `1ea7e23` Stage 16C, `41118bf` Stage 16B, and `v1.2.0` release baseline)
+- **Phase Gate:** **Phase 3 — Approved with Amendments (Implementation in Progress)**
+- **Git Branch & Baseline Commit:** `main` @ `05ad3b9` (plan baseline on `01735aa` / `830c866` Stage 16D-A, `1ea7e23` Stage 16C, `41118bf` Stage 16B, and `v1.2.0` release baseline)
 - **Deployed Environment:** Kiwiberry (`192.168.100.40`):
   - Studio development server: `http://192.168.100.40:8088/`
   - Stage 16C independent consumer harness: `http://192.168.100.40:8091/stage16c-consumer/index.html`
   - Stage 16D benchmark harness: `http://192.168.100.40:8092/stage16d-benchmark/index.html`
+
+### Approved Project-Owner Amendments (Mandatory Execution Rules)
+1. **Prioritise usable exported widgets:** Get Perimeter Tracer Lite, Pulse Lite, and Flash Lite working as normal Studio objects and externally controlled widgets as early as practical so Sentinel-PVE and Digital Twin development are not held up.
+2. **Reuse existing APIs:** Do not create parallel Lite-specific systems for Layers, selection, Context Editor, widget property exposure, or export. Extend the established Stage 16B/16C mechanisms where necessary.
+3. **Preserve saved-project compatibility:** The change to center-based coordinates, new dimension properties, and Flash duration defaults must not silently corrupt or reposition existing saved objects.
+   - *Compatibility Strategy:* Add `OriginMode string` (`json:"originMode,omitempty"`, set to `"center"` on creation/migration). When loading a pre-amendment `perimeter-tracer` where `OriginMode == ""`, convert top-left `(x, y)` to center `(x + width/2, y + height/2)` and set `OriginMode = "center"`, keeping its rendered pixel box `(cx - w/2, cy - h/2)` identical. When loading a legacy `pulse` where `OriginMode == ""` and `Radius > 0`, initialize `Width = Radius*2, Height = Radius*2` and `OriginMode = "center"`. Preserve any non-zero saved Flash `Duration`.
+4. **Keep the eyedropper correction proportionate:** Audited existing colour-sampling mechanisms (`color-picker.js` is the sole colour picker in Studio; `btnPipette` was hidden on plain HTTP because `!window.EyeDropper`). Keep `#btnColorPickerPipette` visible and use a concise (~25-line) 1-click DOM/SVG computed-colour sampler in `color-picker.js` when `window.EyeDropper` is unavailable, without building a separate subsystem.
+5. **Establish an early exported-widget checkpoint:** Reorder work packages so **WP2 (Widget Property Exposure & Early Export Checkpoint)** runs immediately after **WP1 (Go Engine Model & Catalog)** and **WP3 (Layers & Selection)**, proving UI property exposure, package export, and Stage 16C consumer control before optional UI polish.
+6. **Maintain genuine browser acceptance tests:** Use actual user mouse/keyboard interactions for selection, Layers, editing, property exposure, and export; preserve existing regression coverage and visibility-aware animation behaviour.
+7. **Update the persistent plan and progress checklist** as each work package is completed, recording test evidence, commits, and any deviations.
+8. **Stay within Stage 16D-A:** No Stage 16D-B effects, group architecture, or background/canvas changes. Stop after implementation and verification for human visual acceptance.
 
 ---
 
@@ -160,27 +171,28 @@ Go Engine (Authoritative: pkg/engine/scene, geometry, protocol, sva)
 
 | Work Package | Status | Commit | Automated Tests | Browser Verified | Notes |
 |---|---|---|---|---|---|
-| **Phase 1–2: Architecture Audit & Plan** | **Implemented (Awaiting Approval)** | *(this commit)* | N/A (Planning only) | N/A | Audited all Stage 16B/16C/16D-A files; documented root causes & 6 work packages. |
-| **WP1: Go Engine Model & Catalog** | Not started | — | Pending | Pending | Blocked on Phase 2 approval gate. |
-| **WP2: Layers, Selection & Outlines** | Not started | — | Pending | Pending | Blocked on Phase 2 approval gate. |
-| **WP3: Tracer, Pulse & Flash Fixes** | Not started | — | Pending | Pending | Blocked on Phase 2 approval gate. |
-| **WP4: Colour Picker & Eyedropper** | Not started | — | Pending | Pending | Blocked on Phase 2 approval gate. |
-| **WP5: Widget Property Exposure** | Not started | — | Pending | Pending | Blocked on Phase 2 approval gate. |
-| **WP6: 20-Scenario CDP Verification** | Not started | — | Pending | Pending | Blocked on Phase 2 approval gate. |
+| **Phase 1–2: Architecture Audit & Plan** | **Approved with Amendments** | `05ad3b9` | N/A (Planning) | N/A | Approved by project owner; 8 amendments recorded above. |
+| **WP1: Go Engine Model, Compatibility & Catalog** | **Awaiting human visual review** | *(current)* | `go test ./...` PASS | Verified (Scenarios 6, 11–13, 16–18) | Added `OriginMode` migration (`MigrateLegacyLiteEffect`), `MaintainAspectRatio`, `MinScale`/`MaxScale`, `ShowGuide`, Flash default `Duration=0.10`s (`100ms`), `RenameObject(SelectionLite)`, `ObjectPropertyCatalog["lite"]` (`scale`, `duration`), and `ScopeWidgetSVG` `data-editor-only="true"` stripping. |
+| **WP2: Layers, Selection & Outlines** | **Awaiting human visual review** | *(current)* | `regression-harness.js` PASS | Verified (Scenarios 3, 4, 7) | Wired `'lite'` into `LayerManager`, `layers-ui.js`, `#liteLayerSection`, `AppCoordinator`, and `DiagramNodes.updateUIOverlay()` (`#nodeSelectionBox`). Fixed `EngineBridge.normalizeSceneSnapshot`/`buildCurrentSceneSnapshot` and `projects.js` `applyStudioState` so `liteEffects` are preserved across `syncScene`. |
+| **WP3: Widget Property Exposure (Early Export Checkpoint)** | **Awaiting human visual review** | *(current)* | `regression-harness.js` PASS | Verified (Scenarios 16, 18) | Enabled `#fctx-widgetSection`, `#btnLiteExposeWidget`, `renderWidgetPropertyCards` (filtered by `le.kind`), `getObjectPropValue`, and `svg-widget.js` (`scale`, `duration`). Verified in `demo.html` and Stage 16C consumer (`8091`). |
+| **WP4: Tracer, Pulse & Flash Geometry/Authoring** | **Awaiting human visual review** | *(current)* | `go test` & `regression-harness` PASS | Verified (Scenarios 5–14) | Center-based `(x, y)` coordinates; Tracer `Width`/`Height` resize in place (`circle` links 1:1) + `showGuide`; Pulse `width`/`height`/aspect lock, `minScale`/`maxScale`, exact `w×h` diamond bounds; Flash `10ms`-step duration (`50–500ms`, default `100ms`) + `.lite-editor-marker` (stripped on export). |
+| **WP5: Proportionate Colour Picker Eyedropper Fix** | **Awaiting human visual review** | *(current)* | `regression-harness.js` PASS | Verified (Scenario 15) | Kept `#btnColorPickerPipette` visible (`inline-flex`); added concise 1-click SVG/DOM colour sampler fallback in `color-picker.js` when `window.EyeDropper` is unavailable on plain HTTP (`192.168.100.40:8088`). |
+| **WP6: 20-Scenario CDP Verification & BookStack** | **Awaiting human visual review** | *(current)* | **20/20 CDP Scenarios PASS** | Verified on Kiwiberry (`8088`, `8091`, `8092`) | Captured screenshots (`/tmp/stage16d-a-*.png`), verified `go test ./...`, `node scripts/regression-harness.js` (88/88), and updated BookStack page `466`. |
 
 ---
 
 ## G. Session Recovery Instructions
 
 If a new Antigravity session resumes this task:
-1. **Current Stage:** Stage 16D-A (Corrective First-Class Object Integration). Do **NOT** start Stage 16D-B.
-2. **Last Completed Action:** Phase 1 & Phase 2 (Architecture Audit and Persistent Plan committed in `docs/stage16d-a-integration-plan.md`).
-3. **Approval Gate:** Check whether the project owner has explicitly approved this plan. If approved, execute **WP1 → WP2 → WP3 → WP4 → WP5 → WP6** in order, updating Section F after each work package.
-4. **Tests to Run on Every Package:**
+1. **Current Stage:** Stage 16D-A (All 6 work packages implemented and verified; **awaiting human visual acceptance**). Do **NOT** start Stage 16D-B until the project owner explicitly accepts Stage 16D-A.
+2. **Last Completed Action:** WP1–WP6 implemented, deployed to Kiwiberry (`192.168.100.40:8088`), verified across `go test ./...`, `node scripts/regression-harness.js` (88/88), and `go run ./scripts/cmd/verify-stage16d-a/main.go` (20/20 real-browser CDP scenarios).
+3. **Current Outstanding Defects:** None.
+4. **Next Action:** Wait for project owner's manual visual review on `http://192.168.100.40:8088/`.
+5. **Tests to Rerun if Needed:**
    - `go test ./...`
    - `node scripts/regression-harness.js`
    - `go run ./scripts/cmd/verify-stage16d-a/main.go` (against `http://192.168.100.40:8088/`, `8091`, and `8092`)
-5. **Deployment Command (Non-Hanging SSH):**
+6. **Deployment Command (Non-Hanging SSH):**
    - Build: `GOOS=js GOARCH=wasm go build -o internal/web/static/wasm/engine.wasm ./cmd/wasm && go build -o /tmp/svg-animator ./cmd/svg-animator`
    - Deploy: `ssh nigel@192.168.100.40 "pkill -x svg-animator || true" && scp /tmp/svg-animator nigel@192.168.100.40:/home/nigel/svg-animator && ssh -f nigel@192.168.100.40 "setsid /home/nigel/svg-animator -serve :8088 </dev/null >/home/nigel/svg-animator.log 2>&1 &"`
    - Verify: `curl -sI http://192.168.100.40:8088/ | head -n 1`

@@ -3344,7 +3344,7 @@ func Dispatch(command string, payloadJSON []byte) ([]byte, error) {
 		if err := json.Unmarshal(payloadJSON, &req); err != nil {
 			return nil, fmt.Errorf("decoding LayerEffectiveRequest: %w", err)
 		}
-		if req.Type != "node" && req.Type != "flow" && req.Type != "glow" && req.Type != "ripple" && req.Type != "image" && req.Type != "group" {
+		if req.Type != "node" && req.Type != "flow" && req.Type != "glow" && req.Type != "ripple" && req.Type != "lite" && req.Type != "image" && req.Type != "group" {
 			return json.Marshal(LayerEffectiveResponse{Visible: true, Locked: false})
 		}
 		vis := activeScene.GetEffectiveVisibility(req.Type, req.ID)

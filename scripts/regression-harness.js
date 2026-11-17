@@ -11432,6 +11432,18 @@ async function runHarness() {
   const litePkg = window.EngineBridge.buildWidgetPackage('lite-demo', litePkgSvg, 'window.SVGWidget={};');
   assert.ok(litePkg && litePkg.success && litePkg.zipB64, 'W16D-18: Widget package builds cleanly with LiteEffect targets');
 
+  // 3b. Verify legacy top-left migration, LayerManager integration, and center-based getBoundingBox
+  const migTracer = window.LiteEffects._migrateLiteEffect({ id: '99', kind: 'perimeter-tracer', x: 100, y: 100, width: 140, height: 80 });
+  assert.strictEqual(migTracer.originMode, 'center', 'W16D-18b: Legacy tracer migrated to center originMode');
+  assert.strictEqual(migTracer.x, 170, 'W16D-18c: Legacy tracer x migrated to center (100 + 140/2)');
+  assert.strictEqual(migTracer.y, 140, 'W16D-18d: Legacy tracer y migrated to center (100 + 80/2)');
+  const bbox99 = window.LiteEffects.getBoundingBox(migTracer);
+  assert.strictEqual(bbox99.x, 100, 'W16D-18e: Migrated tracer top-left x remains at 100');
+  assert.strictEqual(bbox99.y, 100, 'W16D-18f: Migrated tracer top-left y remains at 100');
+  window.LayerManager.setVisibility('lite', tracer.id, false);
+  assert.strictEqual(window.LayerManager.getEffective('lite', tracer.id).visible, false, 'W16D-18g: LayerManager toggles lite visibility');
+  window.LayerManager.setVisibility('lite', tracer.id, true);
+
   // 4. Visibility-aware suspension & reduced-motion in svg-widget.js
   const origDoc88 = global.document;
   const origIO = global.IntersectionObserver;

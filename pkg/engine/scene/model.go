@@ -464,10 +464,15 @@ type LiteEffect struct {
 	Period       float64        `json:"period,omitempty"`       // pulse period or flash repeat interval in seconds
 	Duration     float64        `json:"dur,omitempty"`          // flash brief duration in seconds
 	Intensity    float64        `json:"intensity,omitempty"`    // pulse/flash peak amplitude (0..1)
-	Repeat       bool           `json:"repeat,omitempty"`       // flash repeating interval toggle
-	TriggerNonce int64          `json:"triggerNonce,omitempty"` // flash single-shot trigger counter
-	Visible      *bool          `json:"visible,omitempty"`
-	Locked       bool           `json:"locked"`
+	Repeat              bool           `json:"repeat,omitempty"`              // flash repeating interval toggle
+	TriggerNonce        int64          `json:"triggerNonce,omitempty"`        // flash single-shot trigger counter
+	OriginMode          string         `json:"originMode,omitempty"`          // "center" (migrates legacy top-left tracers on load)
+	MaintainAspectRatio *bool          `json:"maintainAspectRatio,omitempty"` // pulse/tracer aspect ratio lock
+	MinScale            float64        `json:"minScale,omitempty"`            // pulse minimum scale multiplier (e.g. 0.85)
+	MaxScale            float64        `json:"maxScale,omitempty"`            // pulse maximum scale multiplier (e.g. 1.15)
+	ShowGuide           *bool          `json:"showGuide,omitempty"`           // perimeter-tracer static boundary guide visibility
+	Visible             *bool          `json:"visible,omitempty"`
+	Locked              bool           `json:"locked"`
 }
 
 func (l LiteEffect) IsVisible() bool {

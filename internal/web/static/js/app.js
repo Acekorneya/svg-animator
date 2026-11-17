@@ -2660,6 +2660,15 @@ function getDrawerWidgetPropDefs(type) {
       { prop: 'opacity', label: 'Group Opacity (0..1)', type: 'number', min: 0, max: 1, desc: 'Opacity of the group' },
       { prop: 'visibility', label: 'Visibility (Toggle)', type: 'boolean', desc: 'Shows or hides this group' }
     ],
+    lite: [
+      { prop: 'color', label: 'Effect Colour', type: 'color', desc: 'Primary stroke or fill colour of the low-load effect' },
+      { prop: 'opacity', label: 'Opacity (0..1)', type: 'number', min: 0, max: 1, desc: 'Transparency of the low-load effect (0.0 to 1.0)' },
+      { prop: 'visibility', label: 'Visibility (Toggle)', type: 'boolean', desc: 'Toggle visibility of the low-load effect' },
+      { prop: 'speed', label: 'Speed / Rate', type: 'speed', min: 0.1, max: 10, desc: 'Playback speed multiplier for the effect (0.1 to 10.0)' },
+      { prop: 'scale', label: 'Pulse Max Scale', type: 'number', min: 0.4, max: 2.5, desc: 'Maximum pulse expansion scale multiplier (0.4 to 2.5)' },
+      { prop: 'trigger', label: 'Flash Trigger', type: 'number', min: 0, max: 1000000, desc: 'Incrementing or changing this value triggers a single-shot Flash Lite pulse' },
+      { prop: 'duration', label: 'Flash Duration (ms)', type: 'number', min: 20, max: 1000, desc: 'Flash duration in milliseconds (20 to 1000 ms)' }
+    ],
     root: [
       { prop: 'playbackRate', label: 'Master Speed', type: 'speed', min: 0.1, max: 5.0, desc: 'Master playback rate multiplier for the entire widget' },
       { prop: 'visibility', label: 'Widget Visibility', type: 'boolean', desc: 'Master visibility toggle for the entire widget' },
@@ -2725,6 +2734,19 @@ function getObjectPropValue(type, id, prop) {
         case 'visibility': return img.visible !== false;
       }
     }
+  } else if (type === 'lite' && window.LiteEffects) {
+    const le = window.LiteEffects.getLiteEffect(id);
+    if (le) {
+      switch (prop) {
+        case 'color': return le.color || '#38bdf8';
+        case 'opacity': return le.opacity !== undefined ? le.opacity : 0.9;
+        case 'visibility': return le.visible !== false;
+        case 'speed': return 1.0;
+        case 'scale': return le.maxScale !== undefined ? le.maxScale : 1.15;
+        case 'trigger': return 0;
+        case 'duration': return Math.round((Number(le.dur) || 0.10) * 1000);
+      }
+    }
   }
   return '';
 }
@@ -2735,6 +2757,7 @@ window.renderWidgetPropertyCards = function(containerEl, sel, statusMsgEl) {
 
   let objName = sel.name || '';
   let objDisplayName = sel.name || `${sel.type} #${sel.id}`;
+  let liteKind = '';
   if (sel.type === 'node' && window.DiagramNodes) {
     const n = window.DiagramNodes.getNode(sel.id);
     if (n) {
@@ -2759,6 +2782,15 @@ window.renderWidgetPropertyCards = function(containerEl, sel, statusMsgEl) {
       if (!objName) objName = r.name || '';
       objDisplayName = r.name ? `${r.name} (#${sel.id})` : `Ripple #${sel.id}`;
     }
+  } else if (sel.type === 'lite' && window.LiteEffects) {
+    const le = window.LiteEffects.getLiteEffect(sel.id);
+    if (le) {
+      liteKind = le.kind || '';
+      if (!objName) objName = le.name || '';
+      const kindMap = { 'perimeter-tracer': 'Tracer', 'pulse': 'Pulse', 'flash': 'Flash' };
+      const kindLabel = kindMap[le.kind] || 'Lite';
+      objDisplayName = le.name ? `${le.name} (${kindLabel} #${sel.id})` : `${kindLabel} #${sel.id}`;
+    }
   } else if (sel.type === 'image' && window.ImageObjects) {
     const img = window.ImageObjects.getImage(sel.id);
     if (img) {
@@ -2772,7 +2804,15 @@ window.renderWidgetPropertyCards = function(containerEl, sel, statusMsgEl) {
     allParams = window.EngineBridge.getWidgetParameters() || [];
   }
   const targetId = `${sel.type}-${sel.id}`;
-  const propDefs = getDrawerWidgetPropDefs(sel.type);
+  let propDefs = getDrawerWidgetPropDefs(sel.type);
+  if (sel.type === 'lite' && liteKind) {
+    propDefs = propDefs.filter((p) => {
+      if (p.prop === 'trigger' || p.prop === 'duration') return liteKind === 'flash';
+      if (p.prop === 'scale') return liteKind === 'pulse';
+      if (p.prop === 'speed') return liteKind === 'perimeter-tracer' || liteKind === 'pulse';
+      return true;
+    });
+  }
 
   propDefs.forEach((p) => {
     const bound = allParams.find((item) => {
@@ -3004,6 +3044,13 @@ window.initDrawerWidgetEvents = function() {
           } else if (sel.type === 'ripple' && window.Ripples) {
             const r = window.Ripples.getRipple(sel.id);
             if (r) r.name = newName;
+          } else if (sel.type === 'lite' && window.LiteEffects) {
+            const le = window.LiteEffects.getLiteEffect(sel.id);
+            if (le) {
+              le.name = newName;
+              window.LiteEffects.syncEditorUI(le);
+              window.LiteEffects.renderList();
+            }
           } else if (sel.type === 'image' && window.ImageObjects) {
             const img = window.ImageObjects.getImage(sel.id);
             if (img) img.name = newName;
@@ -3146,7 +3193,7 @@ window.renderWidgetParametersOverview = function(selectionPayload) {
       : null);
 
   if (btnExposeActive) {
-    if (sel && ['node', 'flow', 'glow', 'ripple', 'image'].includes(sel.type) && sel.id !== null) {
+    if (sel && ['node', 'flow', 'glow', 'ripple', 'lite', 'image'].includes(sel.type) && sel.id !== null) {
       btnExposeActive.style.display = 'inline-block';
       btnExposeActive.textContent = `+ Expose ${sel.type.charAt(0).toUpperCase() + sel.type.slice(1)}`;
       btnExposeActive.title = `Expose selected ${sel.type} #${sel.id} as a widget parameter`;
@@ -3165,6 +3212,7 @@ window.renderWidgetParametersOverview = function(selectionPayload) {
       else if (type === 'flow' && window.DataFlows) targetId = window.DataFlows.activeId;
       else if (type === 'glow' && window.Glows) targetId = window.Glows.activeId;
       else if (type === 'ripple' && window.Ripples) targetId = window.Ripples.activeId;
+      else if (type === 'lite' && window.LiteEffects) targetId = window.LiteEffects.activeId;
     }
     if (targetId !== null) {
       const boundParam = params.find(p => {
@@ -3189,6 +3237,7 @@ window.renderWidgetParametersOverview = function(selectionPayload) {
   updateSidebarBtn('btnFlowExposeWidget', 'flow');
   updateSidebarBtn('btnGlowExposeWidget', 'glow');
   updateSidebarBtn('btnRippleExposeWidget', 'ripple');
+  updateSidebarBtn('btnLiteExposeWidget', 'lite');
 
   // Synchronize Right Drawer Inline Parameter Authoring Deck
   const drawerNoSel = document.getElementById('drawerWidgetNoSelection');
@@ -3200,7 +3249,7 @@ window.renderWidgetParametersOverview = function(selectionPayload) {
   const drawerStatusMsg = document.getElementById('drawerWidgetStatusMsg');
 
   if (drawerDeck && drawerNoSel) {
-    if (sel && ['node', 'flow', 'glow', 'ripple', 'image'].includes(sel.type) && sel.id !== null) {
+    if (sel && ['node', 'flow', 'glow', 'ripple', 'lite', 'image'].includes(sel.type) && sel.id !== null) {
       drawerNoSel.style.display = 'none';
       drawerDeck.style.display = 'block';
       if (drawerObjTypeBadge) drawerObjTypeBadge.textContent = sel.type.toUpperCase();
@@ -3230,6 +3279,14 @@ window.renderWidgetParametersOverview = function(selectionPayload) {
         if (r) {
           currentName = r.name || '';
           objDisplayName = r.name ? `${r.name} (#${sel.id})` : `Ripple #${sel.id}`;
+        }
+      } else if (sel.type === 'lite' && window.LiteEffects) {
+        const le = window.LiteEffects.getLiteEffect(sel.id);
+        if (le) {
+          currentName = le.name || '';
+          const kindMap = { 'perimeter-tracer': 'Tracer', 'pulse': 'Pulse', 'flash': 'Flash' };
+          const kindLabel = kindMap[le.kind] || 'Lite';
+          objDisplayName = le.name ? `${le.name} (${kindLabel} #${sel.id})` : `${kindLabel} #${sel.id}`;
         }
       } else if (sel.type === 'image' && window.ImageObjects) {
         const img = window.ImageObjects.getImage(sel.id);
@@ -4742,7 +4799,7 @@ document.addEventListener('DOMContentLoaded', () => {
       const sel = (window.AppCoordinator && typeof window.AppCoordinator.getActiveSelection === 'function')
         ? window.AppCoordinator.getActiveSelection()
         : null;
-      if (sel && ['node', 'flow', 'glow', 'ripple', 'image'].includes(sel.type) && sel.id !== null) {
+      if (sel && ['node', 'flow', 'glow', 'ripple', 'lite', 'image'].includes(sel.type) && sel.id !== null) {
         if (typeof window.openAccordionById === 'function') {
           window.openAccordionById('acc-widget-params');
         }
@@ -4774,6 +4831,7 @@ document.addEventListener('DOMContentLoaded', () => {
         else if (type === 'flow' && window.DataFlows) targetId = window.DataFlows.activeId;
         else if (type === 'glow' && window.Glows) targetId = window.Glows.activeId;
         else if (type === 'ripple' && window.Ripples) targetId = window.Ripples.activeId;
+        else if (type === 'lite' && window.LiteEffects) targetId = window.LiteEffects.activeId;
       }
       if (targetId !== null) {
         if (window.AppCoordinator && typeof window.AppCoordinator.selectObject === 'function') {
@@ -4792,6 +4850,7 @@ document.addEventListener('DOMContentLoaded', () => {
   wireExposeBtn('btnFlowExposeWidget', 'flow');
   wireExposeBtn('btnGlowExposeWidget', 'glow');
   wireExposeBtn('btnRippleExposeWidget', 'ripple');
+  wireExposeBtn('btnLiteExposeWidget', 'lite');
 
   if (typeof populateShapeDropdowns === 'function') {
     populateShapeDropdowns();

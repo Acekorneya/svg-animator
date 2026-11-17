@@ -707,6 +707,34 @@
         }
         break;
       }
+      case 'scale': {
+        if (el) {
+          const sVal = Math.max(0.2, Math.min(4.0, parseFloat(value) || 1.15));
+          el.querySelectorAll('.lite-payload').forEach(node => {
+            node.setAttribute('data-pulse-scale', String(sVal));
+            if (node.style && typeof node.style.setProperty === 'function') {
+              node.style.setProperty('--sva-pulse-max', String(sVal));
+            }
+          });
+        }
+        break;
+      }
+      case 'duration': {
+        if (el) {
+          const msVal = Math.max(10, Math.min(5000, parseFloat(value) || 100));
+          const secVal = (msVal / 1000).toFixed(3);
+          el.querySelectorAll('.lite-payload').forEach(node => {
+            node.setAttribute('data-flash-duration-ms', String(Math.round(msVal)));
+            if (node.style) {
+              node.style.animationDuration = `${secVal}s`;
+              if (typeof node.style.setProperty === 'function') {
+                node.style.setProperty('--sva-base-dur', `${secVal}s`);
+              }
+            }
+          });
+        }
+        break;
+      }
       default:
         if (el) {
           try { el.setAttribute(property, String(value)); } catch (e) {}
