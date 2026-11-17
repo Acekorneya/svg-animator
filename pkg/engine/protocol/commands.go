@@ -3724,6 +3724,69 @@ func Dispatch(command string, payloadJSON []byte) ([]byte, error) {
 			Size:          len(zipBytes),
 		})
 
+	case "Lite.Create":
+		var req struct {
+			Initial scene.LiteEffect `json:"initial"`
+		}
+		if err := json.Unmarshal(payloadJSON, &req); err != nil {
+			return nil, fmt.Errorf("decoding Lite.Create: %w", err)
+		}
+		le := activeScene.CreateLiteEffect(req.Initial)
+		return json.Marshal(map[string]any{
+			"liteEffect": le,
+			"revision":   activeScene.Revision(),
+		})
+
+	case "Lite.Update":
+		var req struct {
+			ID    scene.StringID `json:"id"`
+			Patch map[string]any `json:"patch"`
+		}
+		if err := json.Unmarshal(payloadJSON, &req); err != nil {
+			return nil, fmt.Errorf("decoding Lite.Update: %w", err)
+		}
+		le, err := activeScene.UpdateLiteEffect(req.ID, req.Patch)
+		if err != nil {
+			return nil, err
+		}
+		return json.Marshal(map[string]any{
+			"liteEffect": le,
+			"revision":   activeScene.Revision(),
+		})
+
+	case "Lite.Delete":
+		var req struct {
+			ID scene.StringID `json:"id"`
+		}
+		if err := json.Unmarshal(payloadJSON, &req); err != nil {
+			return nil, fmt.Errorf("decoding Lite.Delete: %w", err)
+		}
+		ok := activeScene.DeleteLiteEffect(req.ID)
+		return json.Marshal(map[string]any{
+			"deleted":  ok,
+			"revision": activeScene.Revision(),
+		})
+
+	case "Lite.GetAll":
+		return json.Marshal(map[string]any{
+			"liteEffects": activeScene.GetLiteEffects(),
+			"revision":    activeScene.Revision(),
+		})
+
+	case "Lite.ComputePerimeterDash":
+		var req struct {
+			Segments     int    `json:"segments"`
+			LineGapRatio string `json:"lineGapRatio"`
+		}
+		if err := json.Unmarshal(payloadJSON, &req); err != nil {
+			return nil, fmt.Errorf("decoding Lite.ComputePerimeterDash: %w", err)
+		}
+		dashLen, gapLen := scene.ComputePerimeterDash(req.Segments, req.LineGapRatio)
+		return json.Marshal(map[string]any{
+			"dashLen": dashLen,
+			"gapLen":  gapLen,
+		})
+
 	default:
 		return nil, errors.New("unknown engine command: " + command)
 	}

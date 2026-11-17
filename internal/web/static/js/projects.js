@@ -82,6 +82,13 @@ window.ProjectManager = {
           ripplesCounter: window.Ripples ? window.Ripples.counter : 0
         };
 
+    let liteState = (window.LiteEffects && typeof window.LiteEffects.getState === 'function')
+      ? window.LiteEffects.getState()
+      : {
+          liteEffects: window.LiteEffects ? window.LiteEffects.list : [],
+          liteEffectsCounter: window.LiteEffects ? window.LiteEffects.counter : 0
+        };
+
     let imageState = (window.ImageObjects && typeof window.ImageObjects.getState === 'function')
       ? window.ImageObjects.getState()
       : {
@@ -201,6 +208,8 @@ window.ProjectManager = {
       glowsCounter: glowState.glowsCounter,
       ripples: rippleState.ripples,
       ripplesCounter: rippleState.ripplesCounter,
+      liteEffects: liteState.liteEffects,
+      liteEffectsCounter: liteState.liteEffectsCounter,
       groups: groupsList,
       groupsCounter: groupsCounter,
       images: imageState.images,
@@ -313,6 +322,13 @@ window.ProjectManager = {
         window.Ripples.list = data.ripples || [];
         window.Ripples.counter = data.ripplesCounter || 0;
       }
+    }
+
+    if (window.LiteEffects && typeof window.LiteEffects.setState === 'function') {
+      window.LiteEffects.setState({
+        liteEffects: data.liteEffects || [],
+        liteEffectsCounter: data.liteEffectsCounter || 0
+      });
     }
 
     if (window.ObjectGroups) {
@@ -792,6 +808,9 @@ window.ProjectManager = {
     if (window.Ripples) {
       if (typeof window.Ripples.setState === 'function') window.Ripples.setState({ ripples: [], ripplesCounter: 0 });
       else { window.Ripples.list = []; window.Ripples.counter = 0; }
+    }
+    if (window.LiteEffects && typeof window.LiteEffects.setState === 'function') {
+      window.LiteEffects.setState({ liteEffects: [], liteEffectsCounter: 0 });
     }
     if (window.ObjectGroups) {
       if (typeof window.ObjectGroups.setState === 'function') window.ObjectGroups.setState({ groups: [], groupsCounter: 0 });

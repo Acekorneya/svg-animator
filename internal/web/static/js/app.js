@@ -4912,6 +4912,7 @@ document.addEventListener('DOMContentLoaded', () => {
   if (window.DataFlows) window.DataFlows.init();
   if (window.Glows) window.Glows.init();
   if (window.Ripples) window.Ripples.init();
+  if (window.LiteEffects) window.LiteEffects.init();
   if (window.CustomColorPicker) window.CustomColorPicker.init();
   if (window.TimelinePlayer && typeof window.TimelinePlayer.init === 'function') {
     window.TimelinePlayer.init();

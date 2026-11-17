@@ -15,6 +15,7 @@ const (
 	SelectionRipple SelectionType = "ripple"
 	SelectionGroup  SelectionType = "group"
 	SelectionImage  SelectionType = "image"
+	SelectionLite   SelectionType = "lite"
 )
 
 // SelectionItem represents a single selected object reference in a selection set.
@@ -71,6 +72,9 @@ func (s *Scene) objectExistsLocked(selType SelectionType, id StringID) bool {
 		return ok
 	case SelectionImage:
 		_, ok := s.images[id]
+		return ok
+	case SelectionLite:
+		_, ok := s.liteEffects[id]
 		return ok
 	default:
 		return false

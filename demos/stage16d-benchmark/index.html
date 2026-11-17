@@ -1,0 +1,237 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+  <meta charset="UTF-8" />
+  <title>Stage 16D — SVG Widget Scalability Benchmark</title>
+  <style>
+    * { box-sizing: border-box; }
+    body {
+      margin: 0;
+      padding: 12px;
+      font-family: system-ui, -apple-system, sans-serif;
+      background: #0b1120;
+      color: #e2e8f0;
+    }
+    #scrollViewport {
+      width: 100%;
+      height: 680px;
+      overflow-y: auto;
+      border: 1px solid #1e293b;
+      background: #0f172a;
+      padding: 12px;
+    }
+    #grid {
+      display: grid;
+      grid-template-columns: repeat(3, 1fr);
+      gap: 12px;
+    }
+    #grid.compact-all-visible {
+      grid-template-columns: repeat(10, 1fr);
+      gap: 4px;
+    }
+    .bench-card {
+      background: #111827;
+      border: 1px solid #1f2937;
+      border-radius: 6px;
+      padding: 6px;
+      min-height: 200px;
+    }
+    #grid.compact-all-visible .bench-card {
+      min-height: 64px;
+      padding: 2px;
+    }
+    .bench-spacer {
+      height: 1600px;
+      display: flex;
+      align-items: center;
+      justify-content: center;
+      color: #64748b;
+    }
+  </style>
+</head>
+<body>
+  <div id="benchHeader">Stage 16D Benchmark Harness Ready</div>
+  <div id="scrollViewport">
+    <div id="topSpacer" class="bench-spacer" style="display:none;">Off-screen Spacer (widgets below)</div>
+    <div id="grid"></div>
+  </div>
+
+  <script src="../stage16c-widget-consumer/packages/host-monitor-v1/js/svg-widget.js"></script>
+  <script>
+    (function () {
+      'use strict';
+
+      let cachedPkg = null;
+      let mountedHandles = [];
+
+      async function loadBasePackage() {
+        if (cachedPkg) return cachedPkg;
+        const base = '../stage16c-widget-consumer/packages/host-monitor-v1';
+        const [mResp, sResp] = await Promise.all([
+          fetch(`${base}/widget-manifest.json`, { cache: 'no-store' }),
+          fetch(`${base}/host-monitor-v1.svg`, { cache: 'no-store' })
+        ]);
+        cachedPkg = {
+          manifest: await mResp.json(),
+          svgText: await sResp.text()
+        };
+        return cachedPkg;
+      }
+
+      function stripAnimationsForStatic(svgText) {
+        return svgText
+          .replace(/<animateMotion[\s\S]*?<\/animateMotion>/gi, '')
+          .replace(/<animate\b[^>]*\/>/gi, '')
+          .replace(/<animate\b[\s\S]*?<\/animate>/gi, '');
+      }
+
+      function clearAll() {
+        mountedHandles.forEach((h) => {
+          try { h.destroy(); } catch (e) {}
+        });
+        mountedHandles = [];
+        document.getElementById('grid').innerHTML = '';
+      }
+
+      window.BenchmarkHarness = {
+        async setup(opts = {}) {
+          const count = opts.count || 30;
+          const layout = opts.layout || 'dashboard'; // 'dashboard' | 'all-visible' | 'all-hidden'
+          const mode = opts.mode || 'animated'; // 'animated' | 'static' | 'mixed'
+          const visibilityAware = opts.visibilityAware === true;
+
+          clearAll();
+          const pkg = await loadBasePackage();
+          const staticSvg = stripAnimationsForStatic(pkg.svgText);
+
+          const grid = document.getElementById('grid');
+          const spacer = document.getElementById('topSpacer');
+          const viewport = document.getElementById('scrollViewport');
+
+          grid.className = layout === 'all-visible' ? 'compact-all-visible' : '';
+          spacer.style.display = layout === 'all-hidden' ? 'flex' : 'none';
+          viewport.scrollTop = 0;
+
+          const t0 = performance.now();
+          for (let i = 0; i < count; i++) {
+            const card = document.createElement('div');
+            card.className = 'bench-card';
+            grid.appendChild(card);
+
+            const isStatic = mode === 'static' || (mode === 'mixed' && i % 2 === 1);
+            const svg = isStatic ? staticSvg : pkg.svgText;
+            const handle = window.SVGWidget.mount(card, svg, {
+              instanceId: `bench-${i}`,
+              manifest: pkg.manifest,
+              visibilityAware: visibilityAware,
+              visibilityRoot: viewport,
+              parameters: {
+                'hostname-node-text': `node-${i + 1}`,
+                'traffic-flow-speed': 1.0 + (i % 4) * 0.4,
+                'status-glow-color': i % 3 === 0 ? '#22c55e' : (i % 3 === 1 ? '#f59e0b' : '#38bdf8')
+              }
+            });
+            mountedHandles.push(handle);
+          }
+          const mountMs = performance.now() - t0;
+
+          // Allow IntersectionObserver microtasks to settle
+          await new Promise((r) => setTimeout(r, 100));
+
+          return {
+            count: mountedHandles.length,
+            mountMs: Number(mountMs.toFixed(2)),
+            stats: this.getStats()
+          };
+        },
+
+        stepUpdates(ratio = 1.0, tick = 1) {
+          const t0 = performance.now();
+          const limit = Math.max(1, Math.floor(mountedHandles.length * ratio));
+          for (let i = 0; i < limit; i++) {
+            const h = mountedHandles[i];
+            const cpu = ((tick * 17 + i * 11) % 100);
+            const col = cpu >= 80 ? '#ef4444' : (cpu >= 50 ? '#f59e0b' : '#22c55e');
+            h.setParameters({
+              'hostname-node-text': `node-${i + 1} (${cpu}%)`,
+              'status-glow-color': col,
+              'traffic-flow-color': col,
+              'traffic-flow-speed': Number((0.6 + (cpu / 100) * 3.0).toFixed(2))
+            });
+          }
+          return Number((performance.now() - t0).toFixed(2));
+        },
+
+        measureFrames(durationMs = 1000, scrollDuring = false) {
+          return new Promise((resolve) => {
+            const viewport = document.getElementById('scrollViewport');
+            const frameTimes = [];
+            let lastTs = null;
+            const startTs = performance.now();
+            let scrollPos = 0;
+
+            function tick(ts) {
+              if (lastTs !== null) {
+                frameTimes.push(ts - lastTs);
+              }
+              lastTs = ts;
+              if (scrollDuring) {
+                scrollPos = (scrollPos + 80) % Math.max(1, viewport.scrollHeight - viewport.clientHeight);
+                viewport.scrollTop = scrollPos;
+              }
+              if (ts - startTs < durationMs) {
+                requestAnimationFrame(tick);
+              } else {
+                const sorted = [...frameTimes].sort((a, b) => a - b);
+                const sum = frameTimes.reduce((a, b) => a + b, 0);
+                const avg = frameTimes.length ? sum / frameTimes.length : 0;
+                const p95 = sorted.length ? sorted[Math.floor(sorted.length * 0.95)] : 0;
+                const max = sorted.length ? sorted[sorted.length - 1] : 0;
+                const over16 = frameTimes.filter((d) => d > 16.7).length;
+                const over50 = frameTimes.filter((d) => d > 50.0).length;
+                resolve({
+                  frames: frameTimes.length,
+                  fps: avg > 0 ? Number((1000 / avg).toFixed(1)) : 0,
+                  avgFrameMs: Number(avg.toFixed(2)),
+                  p95FrameMs: Number(p95.toFixed(2)),
+                  maxFrameMs: Number(max.toFixed(2)),
+                  longFramesOver16ms: over16,
+                  longFramesOver50ms: over50
+                });
+              }
+            }
+            requestAnimationFrame(tick);
+          });
+        },
+
+        getStats() {
+          let visible = 0;
+          let suspended = 0;
+          let active = 0;
+          for (const h of mountedHandles) {
+            if (h.isDestroyed) continue;
+            if (typeof h.isSuspended === 'function' && h.isSuspended()) {
+              suspended++;
+            } else {
+              active++;
+            }
+            if (typeof h.isVisibleInViewport === 'function') {
+              if (h.isVisibleInViewport()) visible++;
+            } else {
+              const rect = h.wrapper.getBoundingClientRect();
+              const vp = document.getElementById('scrollViewport').getBoundingClientRect();
+              if (rect.bottom >= vp.top && rect.top <= vp.bottom) visible++;
+            }
+          }
+          return {
+            mounted: mountedHandles.length,
+            visible,
+            active,
+            suspended
+          };
+        }
+      };
+    })();
+  </script>
+</body>
+</html>

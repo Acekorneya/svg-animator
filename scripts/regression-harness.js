@@ -163,6 +163,7 @@ async function runHarness() {
   loadProductionScript('flows.js');
   loadProductionScript('glows.js');
   loadProductionScript('ripples.js');
+  loadProductionScript('lite-effects.js');
 
   // 2.1 Stage pure math (computeSnappedPosition, computeSnappedPct, computeFitScale, rectClientToPct)
   const snappedOn = window.Stage.computeSnappedPosition(3.7, 5.0, {
@@ -2238,7 +2239,7 @@ async function runHarness() {
   while ((scriptMatch = scriptRegex.exec(htmlSource)) !== null) {
     scriptTagsInHtml.push(scriptMatch[1]);
   }
-  assert.strictEqual(scriptTagsInHtml.length, 25, 'index.html must contain exactly 25 script tags');
+  assert.strictEqual(scriptTagsInHtml.length, 26, 'index.html must contain exactly 26 script tags');
   const expectedScriptOrder = [
     'js/wasm_exec.js',
     'js/engine-bridge.js',
@@ -2252,6 +2253,7 @@ async function runHarness() {
     'js/flows.js',
     'js/glows.js',
     'js/ripples.js',
+    'js/lite-effects.js',
     'js/history.js',
     'js/projects.js',
     'js/shape-dropdown.js',
@@ -9166,8 +9168,8 @@ async function runHarness() {
   while ((s74Match = s74ScriptRegex.exec(s74IndexHtmlContent)) !== null) {
     expectedHtmlScripts.push(s74Match[1]);
   }
-  assert.strictEqual(expectedHtmlScripts.length, 25, 'Test 1: index.html must declare exactly 25 scripts');
-  assert.strictEqual(harnessLoadedScripts.length, 25, 'Test 1: Harness must load exactly 25 production scripts');
+  assert.strictEqual(expectedHtmlScripts.length, 26, 'Test 1: index.html must declare exactly 26 scripts');
+  assert.strictEqual(harnessLoadedScripts.length, 26, 'Test 1: Harness must load exactly 26 production scripts');
   for (let i = 0; i < expectedHtmlScripts.length; i++) {
     assert.strictEqual(
       harnessLoadedScripts[i],
@@ -11349,6 +11351,173 @@ async function runHarness() {
   }
 
   console.log('[HARNESS] Scenario 87 PASS: Stage 16C External Data-Driven Widget Integration verified.');
+
+  // ===========================================================================
+  // Scenario 88: Stage 16D-A Visibility-Aware Animation & Low-Load Effects
+  // ===========================================================================
+  console.log('\n[HARNESS] Testing Scenario 88: Stage 16D-A Visibility-Aware Animation & Low-Load Effects...');
+
+  // 1. Go/WASM LiteEffect CRUD, perimeter dash math, and SVG generation
+  window.ProjectManager.resetToNewProject();
+  window.EngineBridge.setWidgetParameters([]);
+
+  const dashInfo = window.EngineBridge.computePerimeterDash(2, '1:3');
+  assert.strictEqual(dashInfo.dashLen, 125, 'W16D-01: 2 segments @ 1:3 dashLen === 125');
+  assert.strictEqual(dashInfo.gapLen, 375, 'W16D-02: 2 segments @ 1:3 gapLen === 375');
+
+  const tracer = window.LiteEffects.createLiteEffect({
+    name: 'border',
+    kind: 'perimeter-tracer',
+    variant: 'rounded',
+    segments: 2,
+    lineGapRatio: '1:3',
+    direction: 'cw',
+    speed: 2.5,
+    color: '#38bdf8'
+  });
+  assert.ok(tracer && tracer.id, 'W16D-03: Perimeter Tracer Lite created via Go/WASM');
+
+  const pulse = window.LiteEffects.createLiteEffect({
+    name: 'heartbeat',
+    kind: 'pulse',
+    variant: 'diamond',
+    period: 1.6,
+    color: '#22c55e'
+  });
+  assert.ok(pulse && pulse.id, 'W16D-04: Pulse Lite created via Go/WASM');
+
+  const flash = window.LiteEffects.createLiteEffect({
+    name: 'alert',
+    kind: 'flash',
+    variant: 'star',
+    dur: 0.22,
+    color: '#f59e0b'
+  });
+  assert.ok(flash && flash.id, 'W16D-05: Flash Lite created via Go/WASM');
+
+  const tracerMarkup = window.LiteEffects.renderLiteElement(tracer);
+  assert.ok(tracerMarkup.includes('pathLength="1000"'), 'W16D-06: Tracer uses stable pathLength=1000');
+  assert.ok(tracerMarkup.includes('stroke-dasharray="125 375"'), 'W16D-07: Tracer applies 1:3 repeating dasharray');
+  assert.ok(tracerMarkup.includes('data-semantic-target="lite-1"'), 'W16D-08: Tracer emits semantic target');
+  assert.ok(!tracerMarkup.includes('<filter'), 'W16D-09: Lite effects avoid expensive SVG blur filters');
+
+  const pulseMarkup = window.LiteEffects.renderLiteElement(pulse);
+  assert.ok(pulseMarkup.includes('sva-lite-pulse-anim'), 'W16D-10: Pulse Lite emits economical CSS animation');
+
+  const flashMarkup = window.LiteEffects.renderLiteElement(flash);
+  assert.ok(flashMarkup.includes('sva-lite-flash-anim') && flashMarkup.includes('animation-iteration-count:1'), 'W16D-11: Flash Lite defaults to single-shot brief flash');
+
+  // 2. Project persistence round-trip preserves LiteEffects
+  const savedJson88 = window.ProjectManager.serializeStudioState();
+  const parsedSaved88 = JSON.parse(savedJson88);
+  assert.strictEqual(parsedSaved88.liteEffects.length, 3, 'W16D-12: Project serialization preserves 3 LiteEffects');
+  window.ProjectManager.resetToNewProject();
+  assert.strictEqual(window.LiteEffects.getAllLiteEffects().length, 0, 'W16D-13: Reset clears LiteEffects');
+  window.ProjectManager.applyStudioState(savedJson88);
+  assert.strictEqual(window.LiteEffects.getAllLiteEffects().length, 3, 'W16D-14: Project restore recovers all 3 LiteEffects');
+
+  // 3. Widget naming, pre-export validation & package export for LiteEffect
+  const liteColorParam = window.EngineBridge.generateParameterName('border', 'color', 'lite');
+  const liteSpeedParam = window.EngineBridge.generateParameterName('border', 'speed', 'lite');
+  const flashTrigParam = window.EngineBridge.generateParameterName('alert', 'trigger', 'lite');
+  assert.strictEqual(liteColorParam, 'border-lite-color', 'W16D-15: Canonical lite color parameter name');
+  assert.strictEqual(liteSpeedParam, 'border-lite-speed', 'W16D-16: Canonical lite speed parameter name');
+  assert.strictEqual(flashTrigParam, 'alert-lite-trigger', 'W16D-17: Canonical lite trigger parameter name');
+
+  window.EngineBridge.addWidgetParameter({ name: liteColorParam, type: 'color', target: 'lite-1', property: 'color', default: '#38bdf8' });
+  window.EngineBridge.addWidgetParameter({ name: liteSpeedParam, type: 'speed', target: 'lite-1', property: 'speed', default: 1.0, min: 0.1, max: 5.0 });
+  window.EngineBridge.addWidgetParameter({ name: flashTrigParam, type: 'number', target: 'lite-3', property: 'trigger', default: 0, min: 0, max: 1000000 });
+
+  const litePkgSvg = `<svg viewBox="0 0 300 200">${window.LiteEffects.getLiteDefs()}${tracerMarkup}${flashMarkup}</svg>`;
+  const litePkg = window.EngineBridge.buildWidgetPackage('lite-demo', litePkgSvg, 'window.SVGWidget={};');
+  assert.ok(litePkg && litePkg.success && litePkg.zipB64, 'W16D-18: Widget package builds cleanly with LiteEffect targets');
+
+  // 4. Visibility-aware suspension & reduced-motion in svg-widget.js
+  const origDoc88 = global.document;
+  const origIO = global.IntersectionObserver;
+  try {
+    const observers = [];
+    global.IntersectionObserver = class MockIntersectionObserver {
+      constructor(cb, opts) {
+        this.cb = cb;
+        this.opts = opts;
+        this.targets = [];
+        this.disconnected = false;
+        observers.push(this);
+      }
+      observe(el) { this.targets.push(el); }
+      disconnect() { this.disconnected = true; }
+      trigger(el, isIntersecting) {
+        this.cb([{ target: el, isIntersecting, intersectionRatio: isIntersecting ? 1 : 0 }]);
+      }
+    };
+
+    const mockDoc88 = {
+      createElement(tag) {
+        const el = new MockStage16BElement(tag);
+        el.ownerDocument = mockDoc88;
+        return el;
+      },
+      getElementById() { return null; },
+      head: new MockStage16BElement('head'),
+      body: new MockStage16BElement('body')
+    };
+    mockDoc88.head.ownerDocument = mockDoc88;
+    mockDoc88.body.ownerDocument = mockDoc88;
+    global.document = mockDoc88;
+
+    const SVGWidgetMod88 = require('../internal/web/static/js/svg-widget.js');
+    const c1 = mockDoc88.createElement('div');
+    const c2 = mockDoc88.createElement('div');
+
+    const hVis = SVGWidgetMod88.mount(c1, litePkgSvg, {
+      instanceId: 'vis-test-1',
+      manifest: {
+        schemaVersion: 1,
+        parameters: [
+          { name: liteColorParam, type: 'color', target: 'lite-1', property: 'color', default: '#38bdf8' },
+          { name: flashTrigParam, type: 'number', target: 'lite-3', property: 'trigger', default: 0, min: 0, max: 1000000 }
+        ]
+      }
+    });
+
+    const hOptOut = SVGWidgetMod88.mount(c2, litePkgSvg, {
+      instanceId: 'vis-optout',
+      visibilityAware: false,
+      manifest: { schemaVersion: 1, parameters: [] }
+    });
+
+    assert.strictEqual(hVis.isSuspended(), false, 'W16D-19: Visible widget initially active');
+    assert.strictEqual(observers.length, 1, 'W16D-20: Only visibilityAware widget registers IntersectionObserver');
+
+    // Simulate scrolling off-screen
+    observers[0].trigger(hVis.wrapper, false);
+    assert.strictEqual(hVis.isSuspended(), true, 'W16D-21: Off-screen widget suspends decorative animations');
+    assert.strictEqual(hVis.wrapper.classList.contains('sva-suspended'), true, 'W16D-22: sva-suspended class applied');
+    assert.strictEqual(hOptOut.isSuspended(), false, 'W16D-23: Opt-out widget remains active');
+
+    // Update parameter while hidden -> retained and applied
+    hVis.setParameter(liteColorParam, '#ef4444');
+    assert.strictEqual(hVis.getParameter(liteColorParam), '#ef4444', 'W16D-24: Hidden widget retains telemetry update');
+    assert.strictEqual(hVis.isSuspended(), true, 'W16D-25: Hidden widget stays suspended during telemetry update');
+
+    // Simulate scrolling back into view
+    observers[0].trigger(hVis.wrapper, true);
+    assert.strictEqual(hVis.isSuspended(), false, 'W16D-26: Resumes automatically when visible');
+    assert.strictEqual(hVis.getParameter(liteColorParam), '#ef4444', 'W16D-27: Retained update intact upon resume');
+
+    // Unmount disconnects IntersectionObserver
+    hVis.unmount();
+    assert.strictEqual(observers[0].disconnected, true, 'W16D-28: Unmount disconnects IntersectionObserver cleanly');
+    hOptOut.unmount();
+  } finally {
+    global.document = origDoc88;
+    global.IntersectionObserver = origIO;
+  }
+
+  window.ProjectManager.resetToNewProject();
+  window.EngineBridge.setWidgetParameters([]);
+  console.log('[HARNESS] Scenario 88 PASS: Stage 16D-A Visibility-Aware Animation & Low-Load Effects verified.');
 
   console.log('[HARNESS] REG-03 PASS: Stage 3, 4, 5, 6, 7, 8, 9, 11, 12, 13, 14, 15 & 16 non-destructive cropping, background extraction, image baking, dedicated crop clip & snip workspace, object-local clipping, unified layer management, independent image objects, persistent groups, duplication, copy/paste with flow remapping, multi-selection, alignment, distribution, colour tools, selection retention, notifications, naming sync, history(50), schema 1.2.0, .sva packaging, background photo restoration, SVG compilation, export payload builders, collision-free widgets, external runtime parameters, and Go WASM engines verified.');
 }

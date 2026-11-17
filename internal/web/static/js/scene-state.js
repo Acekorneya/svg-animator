@@ -403,6 +403,9 @@
           if (includeRipples && window.Ripples && typeof window.Ripples.getRippleDefs === 'function') {
             defs += window.Ripples.getRippleDefs(state) + '\n';
           }
+          if (window.LiteEffects && typeof window.LiteEffects.getLiteDefs === 'function') {
+            defs += window.LiteEffects.getLiteDefs() + '\n';
+          }
 
           let elements = '';
           const rendered = new Set();
@@ -429,6 +432,9 @@
             } else if (l.type === 'ripple' && includeRipples && window.Ripples) {
               const r = window.Ripples.getRipple(l.id);
               if (r) elements += window.Ripples.renderRippleElement(r, state) + '\n';
+            } else if (l.type === 'lite' && window.LiteEffects) {
+              const le = window.LiteEffects.getLiteEffect(l.id);
+              if (le) elements += window.LiteEffects.renderLiteElement(le) + '\n';
             } else if (l.type === 'image' && includeImages) {
               const img = (window.ImageObjects && typeof window.ImageObjects.getImage === 'function')
                 ? window.ImageObjects.getImage(l.id)
@@ -502,6 +508,17 @@
               }
             });
           }
+          if (window.LiteEffects && Array.isArray(window.LiteEffects.list)) {
+            window.LiteEffects.list.forEach((le) => {
+              if (!rendered.has(`lite:${le.id}`)) {
+                if (window.LayerManager && typeof window.LayerManager.getEffective === 'function') {
+                  const eff = window.LayerManager.getEffective('lite', le.id);
+                  if (eff && !eff.visible) return;
+                }
+                elements += window.LiteEffects.renderLiteElement(le) + '\n';
+              }
+            });
+          }
 
           let svgString = window.Effects.build(state);
           const layerMarkup = '\n<defs>\n' + defs + '</defs>\n<g id="scene-layers" class="scene-layers ripples-layer glows-layer flows-layer images-layer nodes-layer">\n' + elements + '</g>\n';
@@ -515,6 +532,7 @@
       if (includeFlows && window.DataFlows) svgString = window.DataFlows.injectIntoSVG(svgString, state);
       if (includeImages && window.ImageObjects) svgString = window.ImageObjects.injectIntoSVG(svgString, state);
       if (includeNodes && window.DiagramNodes) svgString = window.DiagramNodes.injectIntoSVG(svgString, state);
+      if (window.LiteEffects) svgString = window.LiteEffects.injectIntoSVG(svgString);
       return svgString;
     },
 

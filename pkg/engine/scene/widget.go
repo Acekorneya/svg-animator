@@ -446,6 +446,13 @@ var ObjectPropertyCatalog = map[string][]EligibleProperty{
 		{Property: "opacity", Type: "number", Label: "Group Opacity", ParamSuffix: "opacity", Description: "Transparency of the group (0.0 to 1.0)", Min: floatPtr(0), Max: floatPtr(1), Default: 1.0, DefaultSource: "1.0", RuntimeSemantics: "sets group opacity"},
 		{Property: "visibility", Type: "boolean", Label: "Visibility", ParamSuffix: "visibility", Description: "Toggle visibility of the group", Default: true, DefaultSource: "true", RuntimeSemantics: "toggles group visibility"},
 	},
+	"lite": {
+		{Property: "color", Type: "color", Label: "Effect Colour", ParamSuffix: "color", Description: "Primary stroke or fill colour of the low-load effect", Default: "#38bdf8", DefaultSource: "lite.color", RuntimeSemantics: "recolours lite effect payload; hit-targets untouched"},
+		{Property: "opacity", Type: "number", Label: "Opacity", ParamSuffix: "opacity", Description: "Transparency of the low-load effect (0.0 to 1.0)", Min: floatPtr(0), Max: floatPtr(1), Default: 0.9, DefaultSource: "lite.opacity", RuntimeSemantics: "sets lite effect overall opacity"},
+		{Property: "visibility", Type: "boolean", Label: "Visibility", ParamSuffix: "visibility", Description: "Toggle visibility of the low-load effect", Default: true, DefaultSource: "true", RuntimeSemantics: "toggles lite effect visibility"},
+		{Property: "speed", Type: "speed", Label: "Speed / Rate", ParamSuffix: "speed", Description: "Playback speed multiplier for the effect (0.1 to 10.0)", Min: floatPtr(0.1), Max: floatPtr(10.0), Default: 1.0, DefaultSource: "1.0", RuntimeSemantics: "scales CSS animation duration"},
+		{Property: "trigger", Type: "number", Label: "Event Trigger", ParamSuffix: "trigger", Description: "Incrementing or changing this value triggers a single-shot Flash Lite pulse", Min: floatPtr(0), Max: floatPtr(1000000), Default: 0, DefaultSource: "0", RuntimeSemantics: "triggers one-shot flash animation"},
+	},
 	"root": {
 		{Property: "playbackRate", Type: "speed", Label: "Master Speed", ParamSuffix: "speed", Description: "Overall playback speed rate multiplier for the widget (0.1 to 5.0)", Min: floatPtr(0.1), Max: floatPtr(5.0), Default: 1.0, DefaultSource: "1.0", RuntimeSemantics: "widget-wide master playback rate"},
 		{Property: "visibility", Type: "boolean", Label: "Visibility", ParamSuffix: "visibility", Description: "Master visibility toggle for the entire widget", Default: true, DefaultSource: "true", RuntimeSemantics: "toggles root widget visibility"},
@@ -560,6 +567,22 @@ func (s *Scene) getObjectNameForTargetLocked(target string) (string, string) {
 		return name, "image"
 	}
 
+	cleanID = strings.TrimPrefix(t, "lite-")
+	if le, ok := s.liteEffects[StringID(cleanID)]; ok {
+		name := le.Name
+		if name == "" {
+			name = "lite-" + string(le.ID)
+		}
+		return name, "lite"
+	}
+	if le, ok := s.liteEffects[StringID(t)]; ok {
+		name := le.Name
+		if name == "" {
+			name = "lite-" + string(le.ID)
+		}
+		return name, "lite"
+	}
+
 	return t, InferTargetType(t)
 }
 
@@ -579,6 +602,8 @@ func InferTargetType(target string) string {
 		return "ripple"
 	case strings.HasPrefix(t, "image-") || strings.HasPrefix(t, "image_"):
 		return "image"
+	case strings.HasPrefix(t, "lite-") || strings.HasPrefix(t, "lite_"):
+		return "lite"
 	case strings.HasPrefix(t, "group-") || strings.HasPrefix(t, "group_"):
 		return "group"
 	default:
@@ -798,10 +823,10 @@ func ValidateWidgetExport(manifest *WidgetManifest, isolatedSVG string, sc *Scen
 
 		// 3. Existence in Scene (if scene contains objects)
 		tType := InferTargetType(p.Target)
-		hasSceneObjects := sc != nil && (len(sc.nodes) > 0 || len(sc.flows) > 0 || len(sc.glows) > 0 || len(sc.ripples) > 0 || len(sc.images) > 0)
+		hasSceneObjects := sc != nil && (len(sc.nodes) > 0 || len(sc.flows) > 0 || len(sc.glows) > 0 || len(sc.ripples) > 0 || len(sc.images) > 0 || len(sc.liteEffects) > 0)
 		if hasSceneObjects && tType != "" && tType != "root" {
 			cleanID := p.Target
-			for _, prefix := range []string{"node-", "flow-", "glow-", "ripple-", "image-"} {
+			for _, prefix := range []string{"node-", "flow-", "glow-", "ripple-", "image-", "lite-"} {
 				cleanID = strings.TrimPrefix(cleanID, prefix)
 			}
 			existsInScene := false
@@ -817,6 +842,10 @@ func ValidateWidgetExport(manifest *WidgetManifest, isolatedSVG string, sc *Scen
 			case "image":
 				_, ok1 := sc.GetImage(StringID(cleanID))
 				_, ok2 := sc.GetImage(StringID(p.Target))
+				existsInScene = ok1 || ok2
+			case "lite":
+				_, ok1 := sc.GetLiteEffect(StringID(cleanID))
+				_, ok2 := sc.GetLiteEffect(StringID(p.Target))
 				existsInScene = ok1 || ok2
 			default:
 				existsInScene = true

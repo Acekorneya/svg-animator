@@ -712,6 +712,63 @@
       return false;
     },
 
+    // =========================================================================
+    // Low-Load Lite Effects Operations (Stage 16D)
+    // =========================================================================
+
+    createLiteEffect(initialProps = {}) {
+      if (this.isReady()) {
+        const res = this.dispatch('Lite.Create', { initial: initialProps });
+        if (res && res.liteEffect) return res.liteEffect;
+      }
+      return null;
+    },
+
+    updateLiteEffect(id, patch = {}) {
+      if (this.isReady() && id !== undefined && id !== null) {
+        const patchObj = Object.assign({}, patch);
+        delete patchObj.id;
+        const res = this.dispatch('Lite.Update', { id: String(id), patch: patchObj });
+        if (res && res.liteEffect) return res.liteEffect;
+      }
+      return null;
+    },
+
+    deleteLiteEffect(id) {
+      if (this.isReady() && id !== undefined && id !== null) {
+        const res = this.dispatch('Lite.Delete', { id: String(id) });
+        if (res && res.deleted !== undefined) return !!res.deleted;
+      }
+      return false;
+    },
+
+    getAllLiteEffects() {
+      if (this.isReady()) {
+        const res = this.dispatch('Lite.GetAll', {});
+        if (res && Array.isArray(res.liteEffects)) return res.liteEffects;
+      }
+      return [];
+    },
+
+    computePerimeterDash(segments = 2, lineGapRatio = '1:3') {
+      if (this.isReady()) {
+        const res = this.dispatch('Lite.ComputePerimeterDash', {
+          segments: Number(segments) || 2,
+          lineGapRatio: String(lineGapRatio || '1:3')
+        });
+        if (res && res.dashLen !== undefined) return res;
+      }
+      const segs = Math.max(1, Math.min(16, Number(segments) || 2));
+      const parts = String(lineGapRatio || '1:3').split(':');
+      const l = parseFloat(parts[0]) > 0 ? parseFloat(parts[0]) : 1;
+      const g = parseFloat(parts[1]) > 0 ? parseFloat(parts[1]) : 3;
+      const unit = 1000 / segs;
+      return {
+        dashLen: Math.round(unit * (l / (l + g)) * 100) / 100,
+        gapLen: Math.round(unit * (g / (l + g)) * 100) / 100
+      };
+    },
+
     getRipple(id) {
       if (this.isReady() && id !== undefined && id !== null) {
         const res = this.dispatch('Ripple.Get', { id: String(id) });
@@ -2328,6 +2385,13 @@
         group: [
           { property: 'opacity', type: 'number', label: 'Group Opacity', paramSuffix: 'opacity', description: 'Transparency of the group (0.0 to 1.0)', min: 0, max: 1, default: 1.0 },
           { property: 'visibility', type: 'boolean', label: 'Visibility', paramSuffix: 'visibility', description: 'Toggle visibility of the group', default: true }
+        ],
+        lite: [
+          { property: 'color', type: 'color', label: 'Effect Colour', paramSuffix: 'color', description: 'Primary stroke or fill colour of the low-load effect', default: '#38bdf8' },
+          { property: 'opacity', type: 'number', label: 'Opacity', paramSuffix: 'opacity', description: 'Transparency of the low-load effect (0.0 to 1.0)', min: 0, max: 1, default: 0.9 },
+          { property: 'visibility', type: 'boolean', label: 'Visibility', paramSuffix: 'visibility', description: 'Toggle visibility of the low-load effect', default: true },
+          { property: 'speed', type: 'speed', label: 'Speed / Rate', paramSuffix: 'speed', description: 'Playback speed multiplier for the effect (0.1 to 10.0)', min: 0.1, max: 10.0, default: 1.0 },
+          { property: 'trigger', type: 'number', label: 'Event Trigger', paramSuffix: 'trigger', description: 'Incrementing or changing this value triggers a single-shot Flash Lite pulse', min: 0, max: 1000000, default: 0 }
         ],
         root: [
           { property: 'playbackRate', type: 'speed', label: 'Master Speed', paramSuffix: 'speed', description: 'Overall playback speed rate multiplier for the widget (0.1 to 5.0)', min: 0.1, max: 5.0, default: 1.0 },

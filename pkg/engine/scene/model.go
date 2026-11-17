@@ -437,23 +437,69 @@ type WidgetManifest struct {
 	Parameters     []WidgetParameter `json:"parameters"`
 }
 
+// LiteEffect represents a low-load declarative SVG visual effect (Stage 16D).
+// Kind values in 16D-A: "perimeter-tracer", "pulse", "flash".
+type LiteEffect struct {
+	ID           StringID       `json:"id"`
+	Name         string         `json:"name,omitempty"`
+	Metadata     map[string]any `json:"metadata,omitempty"`
+	Kind         string         `json:"kind"`              // "perimeter-tracer" | "pulse" | "flash"
+	Variant      string         `json:"variant,omitempty"` // e.g. "rect", "rounded", "circle", "ellipse", "square", "diamond", "cross", "ring", "star"
+	TargetID     string         `json:"targetId,omitempty"`
+	X            float64        `json:"x"`
+	Y            float64        `json:"y"`
+	Width        float64        `json:"width,omitempty"`
+	Height       float64        `json:"height,omitempty"`
+	Radius       float64        `json:"radius,omitempty"`
+	CornerRadius float64        `json:"cornerRadius,omitempty"`
+	Color        string         `json:"color"`
+	Opacity      float64        `json:"opacity"`
+	StrokeWidth  float64        `json:"strokeWidth,omitempty"`
+	Segments     int            `json:"segments,omitempty"`     // Perimeter Tracer: 1..16
+	LineGapRatio string         `json:"lineGapRatio,omitempty"` // Perimeter Tracer: e.g. "1:3"
+	SegmentStyle string         `json:"segmentStyle,omitempty"` // "solid" | "rounded" | "dashed"
+	StartOffset  float64        `json:"startOffset,omitempty"`  // 0..100 percent
+	Direction    string         `json:"direction,omitempty"`    // "cw" | "ccw"
+	Speed        float64        `json:"speed,omitempty"`        // circuit duration in seconds or multiplier
+	Period       float64        `json:"period,omitempty"`       // pulse period or flash repeat interval in seconds
+	Duration     float64        `json:"dur,omitempty"`          // flash brief duration in seconds
+	Intensity    float64        `json:"intensity,omitempty"`    // pulse/flash peak amplitude (0..1)
+	Repeat       bool           `json:"repeat,omitempty"`       // flash repeating interval toggle
+	TriggerNonce int64          `json:"triggerNonce,omitempty"` // flash single-shot trigger counter
+	Visible      *bool          `json:"visible,omitempty"`
+	Locked       bool           `json:"locked"`
+}
+
+func (l LiteEffect) IsVisible() bool {
+	if l.Visible == nil {
+		return true
+	}
+	return *l.Visible
+}
+
+func (l LiteEffect) IsLocked() bool {
+	return l.Locked
+}
+
 // Snapshot is a serialized snapshot of the scene for import/export across boundaries.
 type Snapshot struct {
-	Revision      int64             `json:"revision"`
-	Canvas        CanvasConfig      `json:"canvas"`
-	Background    *BackgroundConfig `json:"background,omitempty"`
-	Camera        CameraConfig      `json:"camera"`
-	Optical       OpticalConfig     `json:"optical,omitempty"`
-	Frame         FrameConfig       `json:"frame,omitempty"`
-	Overlays      FrameConfig       `json:"overlays,omitempty"` // Alias for JS state.overlays compatibility
-	Nodes         []Node            `json:"nodes"`
-	Flows         []Flow            `json:"flows"`
-	Glows         []Glow            `json:"glows"`
-	Ripples       []Ripple          `json:"ripples"`
-	Groups        []Group           `json:"groups"`
-	GroupsCounter int64             `json:"groupsCounter,omitempty"`
-	Images        []Image           `json:"images"`
-	ImagesCounter int64             `json:"imagesCounter,omitempty"`
-	Layers        []LayerEntry      `json:"layers,omitempty"`
-	Parameters    []WidgetParameter `json:"parameters,omitempty"`
+	Revision           int64             `json:"revision"`
+	Canvas             CanvasConfig      `json:"canvas"`
+	Background         *BackgroundConfig `json:"background,omitempty"`
+	Camera             CameraConfig      `json:"camera"`
+	Optical            OpticalConfig     `json:"optical,omitempty"`
+	Frame              FrameConfig       `json:"frame,omitempty"`
+	Overlays           FrameConfig       `json:"overlays,omitempty"` // Alias for JS state.overlays compatibility
+	Nodes              []Node            `json:"nodes"`
+	Flows              []Flow            `json:"flows"`
+	Glows              []Glow            `json:"glows"`
+	Ripples            []Ripple          `json:"ripples"`
+	LiteEffects        []LiteEffect      `json:"liteEffects,omitempty"`
+	LiteEffectsCounter int64             `json:"liteEffectsCounter,omitempty"`
+	Groups             []Group           `json:"groups"`
+	GroupsCounter      int64             `json:"groupsCounter,omitempty"`
+	Images             []Image           `json:"images"`
+	ImagesCounter      int64             `json:"imagesCounter,omitempty"`
+	Layers             []LayerEntry      `json:"layers,omitempty"`
+	Parameters         []WidgetParameter `json:"parameters,omitempty"`
 }

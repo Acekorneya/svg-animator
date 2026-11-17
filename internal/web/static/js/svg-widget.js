@@ -347,14 +347,14 @@
       }
     }
 
-    // 5. Stable entity data attributes (data-node-id, data-flow-id, data-image-id, data-glow-id, data-ripple-id)
-    el = svgEl.querySelector(`[data-node-id="${targetName}"], [data-flow-id="${targetName}"], [data-image-id="${targetName}"], [data-glow-id="${targetName}"], [data-ripple-id="${targetName}"]`);
+    // 5. Stable entity data attributes (data-node-id, data-flow-id, data-image-id, data-glow-id, data-ripple-id, data-lite-id)
+    el = svgEl.querySelector(`[data-node-id="${targetName}"], [data-flow-id="${targetName}"], [data-image-id="${targetName}"], [data-glow-id="${targetName}"], [data-ripple-id="${targetName}"], [data-lite-id="${targetName}"]`);
     if (el) return el;
 
     // Stripped prefix fallback (e.g. "node-1" -> "1")
-    const strippedId = String(targetName).replace(/^(node|flow|glow|ripple|image)-/, '');
+    const strippedId = String(targetName).replace(/^(node|flow|glow|ripple|image|lite)-/, '');
     if (strippedId !== targetName) {
-      el = svgEl.querySelector(`[data-node-id="${strippedId}"], [data-flow-id="${strippedId}"], [data-image-id="${strippedId}"], [data-glow-id="${strippedId}"], [data-ripple-id="${strippedId}"]`);
+      el = svgEl.querySelector(`[data-node-id="${strippedId}"], [data-flow-id="${strippedId}"], [data-image-id="${strippedId}"], [data-glow-id="${strippedId}"], [data-ripple-id="${strippedId}"], [data-lite-id="${strippedId}"]`);
       if (el) return el;
     }
 
@@ -410,6 +410,20 @@
         const newDur = (parseFloat(baseDur) / effectiveSpeed).toFixed(3);
         animEl.setAttribute('dur', `${newDur}s`);
       });
+
+      // 3. CSS @keyframes animations on Lite effect payloads
+      el.querySelectorAll('.lite-payload').forEach((payEl) => {
+        if (!payEl.style) return;
+        let baseDur = payEl.getAttribute('data-base-dur') || (payEl.style.getPropertyValue && payEl.style.getPropertyValue('--sva-base-dur'));
+        if (!baseDur) {
+          baseDur = payEl.style.animationDuration || '3s';
+        }
+        const parsed = parseFloat(baseDur);
+        if (!isNaN(parsed) && parsed > 0) {
+          payEl.setAttribute('data-base-dur', String(parsed));
+          payEl.style.animationDuration = `${(parsed / effectiveSpeed).toFixed(3)}s`;
+        }
+      });
     }
   }
 
@@ -429,6 +443,9 @@
     const isRipple = el && (Boolean(el.classList?.contains('diagram-ripple-instance')) ||
                      Boolean(typeof el.hasAttribute === 'function' && el.hasAttribute('data-ripple-id')) ||
                      Boolean(el.querySelector?.('.ripple-hit-target')));
+    const isLite = el && (Boolean(el.classList?.contains('diagram-lite-instance')) ||
+                   Boolean(typeof el.hasAttribute === 'function' && el.hasAttribute('data-lite-id')) ||
+                   Boolean(el.querySelector?.('.lite-payload')));
 
     switch (property) {
       case 'stroke':
@@ -535,6 +552,20 @@
             c.setAttribute('stroke', value);
             c.style.stroke = value;
           });
+        } else if (isLite) {
+          // Lite effects: recolour visible .lite-payload elements only, preserving .lite-hit-target
+          el.querySelectorAll('.lite-payload').forEach(c => {
+            const curStroke = c.getAttribute('stroke');
+            const curFill = c.getAttribute('fill');
+            if (curStroke && curStroke !== 'none') {
+              c.setAttribute('stroke', value);
+              if (c.style) c.style.stroke = value;
+            }
+            if (curFill && curFill !== 'none') {
+              c.setAttribute('fill', value);
+              if (c.style) c.style.fill = value;
+            }
+          });
         } else {
           // Generic Node or Element
           if (property === 'fill') {
@@ -590,6 +621,20 @@
           const gfx = el.querySelector('g[pointer-events="none"]') || el;
           gfx.style.opacity = String(num);
           gfx.setAttribute('opacity', String(num));
+        } else if (isLite) {
+          el.querySelectorAll('.lite-payload').forEach(c => {
+            c.setAttribute('opacity', String(num));
+            if (c.getAttribute('stroke') && c.getAttribute('stroke') !== 'none') {
+              c.setAttribute('stroke-opacity', String(num));
+            }
+            if (c.style) {
+              c.style.opacity = String(num);
+              if (typeof c.style.setProperty === 'function') {
+                c.style.setProperty('--sva-base-op', String(num));
+                c.style.setProperty('--sva-flash-int', String(num));
+              }
+            }
+          });
         } else {
           el.setAttribute('opacity', String(num));
           el.style.opacity = String(num);
@@ -646,6 +691,19 @@
           if (instance) instance.stop();
         } else if (stateStr === 'running') {
           if (instance) instance.resume();
+        }
+        break;
+      }
+      case 'trigger': {
+        if (el) {
+          el.querySelectorAll('.lite-flash-anim, .sva-lite-flash-anim').forEach(node => {
+            node.setAttribute('data-trigger-nonce', String(value));
+            if (node.style) {
+              node.style.animationName = 'none';
+              try { void node.getBoundingClientRect(); } catch (e) {}
+              node.style.animationName = '';
+            }
+          });
         }
         break;
       }
@@ -776,23 +834,79 @@
       // 5. Event system
       const eventListeners = {};
 
-      // 6. Animation state
+      // 6. Animation & Visibility-Aware Suspension State
       let isPaused = false;
+      let isVisible = true;
+      let isReducedMotion = false;
+      let isSuspended = false;
       let currentSpeed = 1.0;
+      let visibilityObserver = null;
+      let reducedMotionQuery = null;
+      let reducedMotionHandler = null;
 
-      // Ensure global paused CSS helper exists once in document
+      const visibilityAware = options.visibilityAware !== false;
+      const reducedMotionMode = options.reducedMotion || 'auto'; // 'auto' | 'reduce' | 'ignore'
+
+      // Ensure global paused/suspended CSS helper exists once in document
       if (typeof document !== 'undefined' && typeof document.getElementById === 'function' && !document.getElementById('sva-widget-global-style')) {
         const styleEl = document.createElement('style');
         styleEl.id = 'sva-widget-global-style';
         styleEl.textContent = `
           .sva-widget-wrapper.sva-paused *,
-          .sva-widget-wrapper.sva-paused {
+          .sva-widget-wrapper.sva-paused,
+          .sva-widget-wrapper.sva-suspended *,
+          .sva-widget-wrapper.sva-suspended {
             animation-play-state: paused !important;
           }
         `;
         const targetHost = document.head || document.body;
         if (targetHost && typeof targetHost.appendChild === 'function') {
           targetHost.appendChild(styleEl);
+        }
+      }
+
+      function setSMILSuspended(svgRoot, suspended) {
+        if (!svgRoot || typeof svgRoot.querySelectorAll !== 'function') return;
+        const smilEls = svgRoot.querySelectorAll('animate, animateMotion, animateTransform');
+        if (!smilEls || smilEls.length === 0) return;
+        smilEls.forEach((animEl) => {
+          if (suspended) {
+            if (animEl.dataset && animEl.dataset.svaOrigBegin === undefined) {
+              animEl.dataset.svaOrigBegin = animEl.getAttribute('begin') || '0s';
+            }
+            animEl.setAttribute('begin', 'indefinite');
+            if (typeof animEl.endElement === 'function') {
+              try { animEl.endElement(); } catch (e) {}
+            }
+          } else {
+            const origBegin = (animEl.dataset && animEl.dataset.svaOrigBegin !== undefined)
+              ? animEl.dataset.svaOrigBegin
+              : '0s';
+            animEl.setAttribute('begin', origBegin);
+            if (animEl.dataset) delete animEl.dataset.svaOrigBegin;
+            if (typeof animEl.beginElement === 'function') {
+              try { animEl.beginElement(); } catch (e) {}
+            }
+          }
+        });
+      }
+
+      function applySuspensionState() {
+        const shouldSuspend = isPaused || isReducedMotion || (visibilityAware && !isVisible);
+        if (shouldSuspend === isSuspended) return;
+        isSuspended = shouldSuspend;
+        if (wrapper && wrapper.classList) {
+          if (isSuspended) wrapper.classList.add('sva-suspended');
+          else wrapper.classList.remove('sva-suspended');
+        }
+        setSMILSuspended(svgEl, isSuspended);
+        if (typeof handle !== 'undefined' && handle._emit) {
+          handle._emit('suspensionChange', {
+            instanceId: handle.instanceId,
+            suspended: isSuspended,
+            visible: isVisible,
+            reducedMotion: isReducedMotion
+          });
         }
       }
 
@@ -932,6 +1046,26 @@
           return isPaused;
         },
 
+        isSuspended() {
+          return isSuspended;
+        },
+
+        isVisibleInViewport() {
+          return isVisible;
+        },
+
+        suspendAnimations() {
+          isPaused = true;
+          applySuspensionState();
+          return handle;
+        },
+
+        resumeAnimations() {
+          isPaused = false;
+          applySuspensionState();
+          return handle;
+        },
+
         setSpeed(speed) {
           const rate = Number(speed);
           if (isNaN(rate) || rate < 0) {
@@ -953,7 +1087,7 @@
               if ((p.property === 'speed' || p.property === 'playbackRate') && p.target && p.target !== 'root' && p.target !== 'global') {
                 const targetSpeed = Number(currentValues[p.name]);
                 if (!isNaN(targetSpeed) && targetSpeed > 0) {
-                  const targetEl = resolveTargetElement(svgEl, p.target);
+                  const targetEl = resolveTargetElement(svgEl, details.idMap, p.target);
                   if (targetEl) {
                     applyTargetedSpeed(targetEl, targetSpeed, rate);
                   }
@@ -997,6 +1131,21 @@
 
         // Unmount & destruction
         unmount() {
+          if (visibilityObserver) {
+            try { visibilityObserver.disconnect(); } catch (e) {}
+            visibilityObserver = null;
+          }
+          if (reducedMotionQuery && reducedMotionHandler) {
+            try {
+              if (typeof reducedMotionQuery.removeEventListener === 'function') {
+                reducedMotionQuery.removeEventListener('change', reducedMotionHandler);
+              } else if (typeof reducedMotionQuery.removeListener === 'function') {
+                reducedMotionQuery.removeListener(reducedMotionHandler);
+              }
+            } catch (e) {}
+            reducedMotionQuery = null;
+            reducedMotionHandler = null;
+          }
           if (wrapper && wrapper.parentNode) {
             wrapper.parentNode.removeChild(wrapper);
           }
@@ -1022,6 +1171,45 @@
           console.warn('[SVGWidget] Failed applying initial parameters on mount:', err);
         }
       }
+
+      // 9. Initialize Reduced-Motion preference & IntersectionObserver visibility-aware suspension
+      if (reducedMotionMode === 'reduce') {
+        isReducedMotion = true;
+      } else if (reducedMotionMode !== 'ignore' && typeof window !== 'undefined' && typeof window.matchMedia === 'function') {
+        try {
+          reducedMotionQuery = window.matchMedia('(prefers-reduced-motion: reduce)');
+          isReducedMotion = Boolean(reducedMotionQuery && reducedMotionQuery.matches);
+          reducedMotionHandler = (ev) => {
+            isReducedMotion = Boolean(ev && ev.matches);
+            applySuspensionState();
+          };
+          if (typeof reducedMotionQuery.addEventListener === 'function') {
+            reducedMotionQuery.addEventListener('change', reducedMotionHandler);
+          } else if (typeof reducedMotionQuery.addListener === 'function') {
+            reducedMotionQuery.addListener(reducedMotionHandler);
+          }
+        } catch (e) {}
+      }
+
+      if (visibilityAware && typeof IntersectionObserver === 'function' && wrapper) {
+        try {
+          visibilityObserver = new IntersectionObserver((entries) => {
+            for (const entry of entries) {
+              if (entry.target === wrapper) {
+                isVisible = Boolean(entry.isIntersecting || entry.intersectionRatio > 0);
+                applySuspensionState();
+              }
+            }
+          }, {
+            root: options.visibilityRoot || null,
+            rootMargin: options.visibilityMargin || '50px',
+            threshold: 0.01
+          });
+          visibilityObserver.observe(wrapper);
+        } catch (e) {}
+      }
+
+      applySuspensionState();
 
       return handle;
     },

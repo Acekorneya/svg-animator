@@ -48,6 +48,10 @@ type Scene struct {
 	images        map[StringID]Image
 	imageIDs      []StringID
 
+	liteEffectsCounter int64
+	liteEffects        map[StringID]LiteEffect
+	liteEffectOrder    []StringID
+
 	layers []LayerEntry
 
 	parameters []WidgetParameter
@@ -102,14 +106,16 @@ func NewScene() *Scene {
 		flows:     make(map[StringID]Flow),
 		glows:     make(map[StringID]Glow),
 		ripples:   make(map[StringID]Ripple),
-		groups:    make(map[StringID]Group),
-		images:    make(map[StringID]Image),
-		nodeIDs:   make([]StringID, 0),
-		flowIDs:   make([]StringID, 0),
-		glowIDs:   make([]StringID, 0),
-		rippleIDs: make([]StringID, 0),
-		groupIDs:  make([]StringID, 0),
-		imageIDs:  make([]StringID, 0),
+		groups:          make(map[StringID]Group),
+		images:          make(map[StringID]Image),
+		liteEffects:     make(map[StringID]LiteEffect),
+		nodeIDs:         make([]StringID, 0),
+		flowIDs:         make([]StringID, 0),
+		glowIDs:         make([]StringID, 0),
+		rippleIDs:       make([]StringID, 0),
+		groupIDs:        make([]StringID, 0),
+		imageIDs:        make([]StringID, 0),
+		liteEffectOrder: make([]StringID, 0),
 		layers:    make([]LayerEntry, 0),
 		selection: SelectionState{Type: SelectionNone, ID: ""},
 		history:   NewHistoryManager(50),
@@ -898,6 +904,17 @@ func (s *Scene) setFromSnapshotLocked(snap Snapshot) {
 		s.imageIDs = append(s.imageIDs, img.ID)
 	}
 
+	s.liteEffects = make(map[StringID]LiteEffect, len(snap.LiteEffects))
+	s.liteEffectOrder = make([]StringID, 0, len(snap.LiteEffects))
+	s.liteEffectsCounter = snap.LiteEffectsCounter
+	for _, le := range snap.LiteEffects {
+		if idNum, err := strconv.ParseInt(string(le.ID), 10, 64); err == nil && idNum > s.liteEffectsCounter {
+			s.liteEffectsCounter = idNum
+		}
+		s.liteEffects[le.ID] = le
+		s.liteEffectOrder = append(s.liteEffectOrder, le.ID)
+	}
+
 	if len(snap.Layers) > 0 {
 		s.layers = make([]LayerEntry, len(snap.Layers))
 		for i, l := range snap.Layers {
@@ -1259,6 +1276,11 @@ func (s *Scene) getSnapshotLocked() Snapshot {
 		images[i] = DeepCopyImage(s.images[id])
 	}
 
+	liteEffects := make([]LiteEffect, len(s.liteEffectOrder))
+	for i, id := range s.liteEffectOrder {
+		liteEffects[i] = s.liteEffects[id]
+	}
+
 	layers := s.getLayersSnapshotLocked()
 
 	var params []WidgetParameter
@@ -1268,23 +1290,25 @@ func (s *Scene) getSnapshotLocked() Snapshot {
 	}
 
 	return Snapshot{
-		Revision:      s.revision,
-		Canvas:        s.canvas,
-		Background:    DeepCopyBackground(s.background),
-		Camera:        s.camera,
-		Optical:       s.optical,
-		Frame:         s.frame,
-		Overlays:      s.frame,
-		Nodes:         nodes,
-		Flows:         flows,
-		Glows:         glows,
-		Ripples:       ripples,
-		Groups:        groups,
-		GroupsCounter: s.groupsCounter,
-		Images:        images,
-		ImagesCounter: s.imagesCounter,
-		Layers:        layers,
-		Parameters:    params,
+		Revision:           s.revision,
+		Canvas:             s.canvas,
+		Background:         DeepCopyBackground(s.background),
+		Camera:             s.camera,
+		Optical:            s.optical,
+		Frame:              s.frame,
+		Overlays:           s.frame,
+		Nodes:              nodes,
+		Flows:              flows,
+		Glows:              glows,
+		Ripples:            ripples,
+		LiteEffects:        liteEffects,
+		LiteEffectsCounter: s.liteEffectsCounter,
+		Groups:             groups,
+		GroupsCounter:      s.groupsCounter,
+		Images:             images,
+		ImagesCounter:      s.imagesCounter,
+		Layers:             layers,
+		Parameters:         params,
 	}
 }
 

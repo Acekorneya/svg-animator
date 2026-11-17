@@ -1,0 +1,320 @@
+{
+  "timestamp": "2026-11-17T08:04:17Z",
+  "url": "http://192.168.100.40:8092/stage16d-benchmark/index.html",
+  "environment": {
+    "devicePixelRatio": 1,
+    "hardwareConcurrency": 2,
+    "hostCPUs": "2",
+    "hostOS": "Linux 7.0.12-1-pve",
+    "userAgent": "Mozilla/5.0 (X11; Linux x86_64) AppleWebKit/537.36 (KHTML, like Gecko) HeadlessChrome/155.0.0.0 Safari/537.36",
+    "viewport": {
+      "height": 900,
+      "width": 1366
+    },
+    "webglRenderer": "ANGLE (Google, Vulkan 1.3.0 (SwiftShader Device (Subzero) (0x0000C0DE)), SwiftShader driver)"
+  },
+  "unavailableMetricsNote": "Direct per-process OS CPU % and raw GPU utilization % are not exposed by HeadlessChrome CDP; main-thread Script/Layout/RecalcStyle/Task durations, frame timing, DOM node count, and JS heap are directly measured.",
+  "scenarios": [
+    {
+      "name": "30-static-dashboard",
+      "count": 30,
+      "layout": "dashboard",
+      "mode": "static",
+      "visibilityAware": false,
+      "mountMs": 21.6,
+      "frames": {
+        "frames": 61,
+        "fps": 60,
+        "avgFrameMs": 16.67,
+        "p95FrameMs": 16.7,
+        "maxFrameMs": 16.8,
+        "longFramesOver16ms": 35,
+        "longFramesOver50ms": 0
+      },
+      "stats": {
+        "mounted": 30,
+        "visible": 9,
+        "active": 30,
+        "suspended": 0
+      },
+      "scriptDeltaMs": 8.19,
+      "layoutDeltaMs": 0,
+      "styleDeltaMs": 0,
+      "taskDeltaMs": 18.21,
+      "layoutCountDelta": 0,
+      "jsHeapUsedMB": 1.3,
+      "domNodes": 2419
+    },
+    {
+      "name": "30-animated-dashboard",
+      "count": 30,
+      "layout": "dashboard",
+      "mode": "animated",
+      "visibilityAware": false,
+      "mountMs": 22.7,
+      "frames": {
+        "frames": 60,
+        "fps": 60,
+        "avgFrameMs": 16.67,
+        "p95FrameMs": 16.8,
+        "maxFrameMs": 16.8,
+        "longFramesOver16ms": 19,
+        "longFramesOver50ms": 0
+      },
+      "stats": {
+        "mounted": 30,
+        "visible": 9,
+        "active": 30,
+        "suspended": 0
+      },
+      "scriptDeltaMs": 1,
+      "layoutDeltaMs": 12.49,
+      "styleDeltaMs": 33.73,
+      "taskDeltaMs": 150.7,
+      "layoutCountDelta": 61,
+      "jsHeapUsedMB": 1.62,
+      "domNodes": 5119
+    },
+    {
+      "name": "30-animated-all-visible",
+      "count": 30,
+      "layout": "all-visible",
+      "mode": "animated",
+      "visibilityAware": false,
+      "mountMs": 17.1,
+      "frames": {
+        "frames": 60,
+        "fps": 60,
+        "avgFrameMs": 16.66,
+        "p95FrameMs": 16.7,
+        "maxFrameMs": 16.8,
+        "longFramesOver16ms": 16,
+        "longFramesOver50ms": 0
+      },
+      "stats": {
+        "mounted": 30,
+        "visible": 30,
+        "active": 30,
+        "suspended": 0
+      },
+      "scriptDeltaMs": 0.93,
+      "layoutDeltaMs": 15.37,
+      "styleDeltaMs": 40.75,
+      "taskDeltaMs": 172.72,
+      "layoutCountDelta": 62,
+      "jsHeapUsedMB": 1.78,
+      "domNodes": 7819
+    },
+    {
+      "name": "30-animated-all-hidden",
+      "count": 30,
+      "layout": "all-hidden",
+      "mode": "animated",
+      "visibilityAware": false,
+      "mountMs": 16.4,
+      "frames": {
+        "frames": 60,
+        "fps": 60,
+        "avgFrameMs": 16.67,
+        "p95FrameMs": 16.8,
+        "maxFrameMs": 16.8,
+        "longFramesOver16ms": 5,
+        "longFramesOver50ms": 0
+      },
+      "stats": {
+        "mounted": 30,
+        "visible": 0,
+        "active": 30,
+        "suspended": 0
+      },
+      "scriptDeltaMs": 0.91,
+      "layoutDeltaMs": 15.24,
+      "styleDeltaMs": 43.35,
+      "taskDeltaMs": 164.46,
+      "layoutCountDelta": 61,
+      "jsHeapUsedMB": 1.89,
+      "domNodes": 10519
+    },
+    {
+      "name": "100-static-dashboard",
+      "count": 100,
+      "layout": "dashboard",
+      "mode": "static",
+      "visibilityAware": false,
+      "mountMs": 43.9,
+      "frames": {
+        "frames": 61,
+        "fps": 60,
+        "avgFrameMs": 16.67,
+        "p95FrameMs": 16.8,
+        "maxFrameMs": 16.8,
+        "longFramesOver16ms": 8,
+        "longFramesOver50ms": 0
+      },
+      "stats": {
+        "mounted": 100,
+        "visible": 9,
+        "active": 100,
+        "suspended": 0
+      },
+      "scriptDeltaMs": 4.46,
+      "layoutDeltaMs": 0,
+      "styleDeltaMs": 0,
+      "taskDeltaMs": 13,
+      "layoutCountDelta": 0,
+      "jsHeapUsedMB": 2.44,
+      "domNodes": 18419
+    },
+    {
+      "name": "100-animated-dashboard",
+      "count": 100,
+      "layout": "dashboard",
+      "mode": "animated",
+      "visibilityAware": false,
+      "mountMs": 58.8,
+      "frames": {
+        "frames": 58,
+        "fps": 58,
+        "avgFrameMs": 17.24,
+        "p95FrameMs": 16.8,
+        "maxFrameMs": 33.3,
+        "longFramesOver16ms": 19,
+        "longFramesOver50ms": 0
+      },
+      "stats": {
+        "mounted": 100,
+        "visible": 9,
+        "active": 100,
+        "suspended": 0
+      },
+      "scriptDeltaMs": 0.99,
+      "layoutDeltaMs": 55.23,
+      "styleDeltaMs": 194.49,
+      "taskDeltaMs": 632.16,
+      "layoutCountDelta": 59,
+      "jsHeapUsedMB": 1.47,
+      "domNodes": 8734
+    },
+    {
+      "name": "100-mixed-dashboard",
+      "count": 100,
+      "layout": "dashboard",
+      "mode": "mixed",
+      "visibilityAware": false,
+      "mountMs": 79.3,
+      "frames": {
+        "frames": 59,
+        "fps": 59,
+        "avgFrameMs": 16.95,
+        "p95FrameMs": 16.8,
+        "maxFrameMs": 33.3,
+        "longFramesOver16ms": 28,
+        "longFramesOver50ms": 0
+      },
+      "stats": {
+        "mounted": 100,
+        "visible": 9,
+        "active": 100,
+        "suspended": 0
+      },
+      "scriptDeltaMs": 1.14,
+      "layoutDeltaMs": 24.49,
+      "styleDeltaMs": 82.07,
+      "taskDeltaMs": 296.91,
+      "layoutCountDelta": 60,
+      "jsHeapUsedMB": 1.5,
+      "domNodes": 8184
+    },
+    {
+      "name": "100-animated-scroll",
+      "count": 100,
+      "layout": "dashboard",
+      "mode": "animated",
+      "visibilityAware": false,
+      "mountMs": 43.5,
+      "frames": {
+        "frames": 61,
+        "fps": 60,
+        "avgFrameMs": 16.67,
+        "p95FrameMs": 16.7,
+        "maxFrameMs": 16.8,
+        "longFramesOver16ms": 27,
+        "longFramesOver50ms": 0
+      },
+      "stats": {
+        "mounted": 100,
+        "visible": 12,
+        "active": 100,
+        "suspended": 0
+      },
+      "scriptDeltaMs": 3.71,
+      "layoutDeltaMs": 37.01,
+      "styleDeltaMs": 175.38,
+      "taskDeltaMs": 545.3,
+      "layoutCountDelta": 62,
+      "jsHeapUsedMB": 1.46,
+      "domNodes": 8734
+    },
+    {
+      "name": "100-animated-hidden-updates",
+      "count": 100,
+      "layout": "all-hidden",
+      "mode": "animated",
+      "visibilityAware": false,
+      "mountMs": 47.8,
+      "updateMs": 34.5,
+      "frames": {
+        "frames": 61,
+        "fps": 60,
+        "avgFrameMs": 16.67,
+        "p95FrameMs": 16.8,
+        "maxFrameMs": 16.8,
+        "longFramesOver16ms": 22,
+        "longFramesOver50ms": 0
+      },
+      "stats": {
+        "mounted": 100,
+        "visible": 0,
+        "active": 100,
+        "suspended": 0
+      },
+      "scriptDeltaMs": 1.32,
+      "layoutDeltaMs": 34.7,
+      "styleDeltaMs": 204.38,
+      "taskDeltaMs": 538.71,
+      "layoutCountDelta": 63,
+      "jsHeapUsedMB": 1.56,
+      "domNodes": 8734
+    },
+    {
+      "name": "250-animated-dashboard",
+      "count": 250,
+      "layout": "dashboard",
+      "mode": "animated",
+      "visibilityAware": false,
+      "mountMs": 159.8,
+      "frames": {
+        "frames": 55,
+        "fps": 55,
+        "avgFrameMs": 18.18,
+        "p95FrameMs": 33.4,
+        "maxFrameMs": 33.4,
+        "longFramesOver16ms": 28,
+        "longFramesOver50ms": 0
+      },
+      "stats": {
+        "mounted": 250,
+        "visible": 9,
+        "active": 250,
+        "suspended": 0
+      },
+      "scriptDeltaMs": 3.59,
+      "layoutDeltaMs": 145.44,
+      "styleDeltaMs": 291.16,
+      "taskDeltaMs": 1019.85,
+      "layoutCountDelta": 57,
+      "jsHeapUsedMB": 2.42,
+      "domNodes": 21784
+    }
+  ]
+}

@@ -12,6 +12,7 @@ var FixedPrefixes = map[SelectionType]string{
 	SelectionGlow:   "glow-",
 	SelectionRipple: "ripple-",
 	SelectionImage:  "image-",
+	SelectionLite:   "lite-",
 }
 
 // PrefixForType returns the canonical fixed prefix for an object selection type.
@@ -73,6 +74,12 @@ func (s *Scene) ValidateObjectName(selType SelectionType, name string, excludeID
 		for id, img := range s.images {
 			if id != excludeID && strings.ToLower(img.Name) == lower {
 				return fmt.Errorf("image name %q is already in use by another image", trimmed)
+			}
+		}
+	case SelectionLite:
+		for id, le := range s.liteEffects {
+			if id != excludeID && strings.ToLower(le.Name) == lower {
+				return fmt.Errorf("lite effect name %q is already in use", trimmed)
 			}
 		}
 	}

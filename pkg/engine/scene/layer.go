@@ -31,6 +31,13 @@ func (s *Scene) ensureLayersInitializedLocked() {
 			validEntries = append(validEntries, LayerEntry{Type: SelectionRipple, ID: id})
 		}
 	}
+	for _, id := range s.liteEffectOrder {
+		key := "lite:" + string(id)
+		if !existingKeys[key] {
+			existingKeys[key] = true
+			validEntries = append(validEntries, LayerEntry{Type: SelectionLite, ID: id})
+		}
+	}
 	for _, id := range s.glowIDs {
 		key := "glow:" + string(id)
 		if !existingKeys[key] {
@@ -85,6 +92,13 @@ func (s *Scene) getLayersSnapshotLocked() []LayerEntry {
 		if !existingKeys[key] {
 			existingKeys[key] = true
 			validEntries = append(validEntries, LayerEntry{Type: SelectionRipple, ID: id})
+		}
+	}
+	for _, id := range s.liteEffectOrder {
+		key := "lite:" + string(id)
+		if !existingKeys[key] {
+			existingKeys[key] = true
+			validEntries = append(validEntries, LayerEntry{Type: SelectionLite, ID: id})
 		}
 	}
 	for _, id := range s.glowIDs {
@@ -251,7 +265,7 @@ func (s *Scene) SetLayers(entries []LayerEntry) error {
 
 func isValidLayerTargetType(t SelectionType) bool {
 	switch t {
-	case SelectionNode, SelectionFlow, SelectionGlow, SelectionRipple, SelectionImage, SelectionGroup:
+	case SelectionNode, SelectionFlow, SelectionGlow, SelectionRipple, SelectionImage, SelectionLite, SelectionGroup:
 		return true
 	default:
 		return false
@@ -586,6 +600,13 @@ func (s *Scene) setObjectVisibilityLocked(selType SelectionType, id StringID, vi
 		}
 		img.Visible = &visible
 		s.images[id] = img
+	case SelectionLite:
+		le, exists := s.liteEffects[id]
+		if !exists {
+			return fmt.Errorf("lite effect not found: %s", id)
+		}
+		le.Visible = &visible
+		s.liteEffects[id] = le
 	case SelectionGroup:
 		grp, exists := s.groups[id]
 		if !exists {
@@ -645,6 +666,13 @@ func (s *Scene) setObjectLockedLocked(selType SelectionType, id StringID, locked
 		}
 		img.Locked = locked
 		s.images[id] = img
+	case SelectionLite:
+		le, exists := s.liteEffects[id]
+		if !exists {
+			return fmt.Errorf("lite effect not found: %s", id)
+		}
+		le.Locked = locked
+		s.liteEffects[id] = le
 	case SelectionGroup:
 		grp, exists := s.groups[id]
 		if !exists {
@@ -695,6 +723,10 @@ func (s *Scene) getEffectiveVisibilityLocked(selType SelectionType, id StringID)
 		if img, ok := s.images[id]; ok {
 			return img.IsVisible()
 		}
+	case SelectionLite:
+		if le, ok := s.liteEffects[id]; ok {
+			return le.IsVisible()
+		}
 	case SelectionGroup:
 		if grp, ok := s.groups[id]; ok {
 			return grp.IsVisible()
@@ -738,6 +770,10 @@ func (s *Scene) getEffectiveLockedLocked(selType SelectionType, id StringID) boo
 	case SelectionImage:
 		if img, ok := s.images[id]; ok {
 			return img.IsLocked()
+		}
+	case SelectionLite:
+		if le, ok := s.liteEffects[id]; ok {
+			return le.IsLocked()
 		}
 	case SelectionGroup:
 		if grp, ok := s.groups[id]; ok {
