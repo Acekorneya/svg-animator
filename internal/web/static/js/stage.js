@@ -193,6 +193,16 @@ window.Stage = {
             initY: rp.y
           });
         }
+      } else if (it.type === 'lite' && window.LiteEffects) {
+        const le = window.LiteEffects.getLiteEffect(it.id);
+        if (le) {
+          this.groupDragInitialPositions.items.push({
+            type: 'lite',
+            id: le.id,
+            initX: le.x,
+            initY: le.y
+          });
+        }
       } else if (it.type === 'image' && window.ImageObjects) {
         const img = window.ImageObjects.getImage(it.id);
         if (img) {
@@ -1025,6 +1035,16 @@ window.Stage = {
                 const liveRipple = document.querySelector('#svgContainer [data-ripple-id="' + rp.id + '"]');
                 if (liveRipple) {
                   liveRipple.setAttribute('transform', 'translate(' + deltaXPx.toFixed(2) + ', ' + deltaYPx.toFixed(2) + ')');
+                }
+              }
+            } else if (item.type === 'lite') {
+              const le = window.LiteEffects ? window.LiteEffects.getLiteEffect(item.id) : null;
+              if (le) {
+                le.x = Math.round((item.initX + deltaXPx) * 100) / 100;
+                le.y = Math.round((item.initY + deltaYPx) * 100) / 100;
+                const liveLite = document.querySelector('#svgContainer [data-lite-id="' + le.id + '"]');
+                if (liveLite) {
+                  liveLite.setAttribute('transform', 'translate(' + deltaXPx.toFixed(2) + ', ' + deltaYPx.toFixed(2) + ')');
                 }
               }
             } else if (item.type === 'image') {

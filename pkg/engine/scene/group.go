@@ -319,6 +319,8 @@ func (s *Scene) DeleteGroup(groupID StringID, deleteMembers bool) error {
 				s.removeGlowLocked(m.ID)
 			case SelectionRipple:
 				s.removeRippleLocked(m.ID)
+			case SelectionLite:
+				s.removeLiteEffectLocked(m.ID)
 			case SelectionImage:
 				s.removeImageLocked(m.ID)
 			}
@@ -490,6 +492,27 @@ func (s *Scene) MoveGroup(groupID StringID, deltaX float64, deltaY float64) erro
 		}
 	}
 
+	// 6. Move member LiteEffects (coordinates stored in canvas pixels)
+	cw := float64(s.canvas.Width)
+	if cw <= 0 {
+		cw = 1280.0
+	}
+	ch := float64(s.canvas.Height)
+	if ch <= 0 {
+		ch = 720.0
+	}
+	deltaXPx := (deltaX / 100.0) * cw
+	deltaYPx := (deltaY / 100.0) * ch
+	for _, m := range grp.Members {
+		if m.Type == SelectionLite {
+			if le, exists := s.liteEffects[m.ID]; exists {
+				le.X = math.Round((le.X+deltaXPx)*100.0) / 100.0
+				le.Y = math.Round((le.Y+deltaYPx)*100.0) / 100.0
+				s.liteEffects[m.ID] = le
+			}
+		}
+	}
+
 	s.revision++
 	return nil
 }
@@ -577,6 +600,27 @@ func (s *Scene) ComputeGroupBounds(groupID StringID, canvasW, canvasH float64) (
 				maxX = math.Max(maxX, img.X+hwPct)
 				minY = math.Min(minY, img.Y-hhPct)
 				maxY = math.Max(maxY, img.Y+hhPct)
+				count++
+			}
+		case SelectionLite:
+			if le, exists := s.liteEffects[m.ID]; exists {
+				MigrateLegacyLiteEffect(&le)
+				w := le.Width
+				if w <= 0 {
+					w = 56
+				}
+				h := le.Height
+				if h <= 0 {
+					h = 56
+				}
+				cxPct := (le.X / canvasW) * 100.0
+				cyPct := (le.Y / canvasH) * 100.0
+				hwPct := (w / 2.0 / canvasW) * 100.0
+				hhPct := (h / 2.0 / canvasH) * 100.0
+				minX = math.Min(minX, cxPct-hwPct)
+				maxX = math.Max(maxX, cxPct+hwPct)
+				minY = math.Min(minY, cyPct-hhPct)
+				maxY = math.Max(maxY, cyPct+hhPct)
 				count++
 			}
 		}

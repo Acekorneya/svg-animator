@@ -189,7 +189,7 @@
 
         // Validate selection with authoritative Go engine before committing local state
         if (window.EngineBridge && typeof window.EngineBridge.isReady === 'function' && window.EngineBridge.isReady()) {
-          if (normalizedId !== null && ['node', 'flow', 'glow', 'ripple', 'image'].includes(normalizedType)) {
+          if (normalizedId !== null && ['node', 'flow', 'glow', 'ripple', 'lite', 'image'].includes(normalizedType)) {
             const res = window.EngineBridge.setSelection(normalizedType, normalizedId, validatedItems);
             if (!res || res.success === false) {
               // Go rejected the selection (e.g. object not found, locked, or invalid) - preserve existing selection
@@ -829,6 +829,14 @@
         if (window.DiagramNodes && typeof window.DiagramNodes.refreshAfterChange === 'function') {
           window.DiagramNodes.refreshAfterChange();
         }
+        if (window.LiteEffects && window.EngineBridge && typeof window.EngineBridge.getAllLiteEffects === 'function' && window.EngineBridge.isReady()) {
+          const goLites = window.EngineBridge.getAllLiteEffects();
+          if (Array.isArray(goLites)) {
+            window.LiteEffects.list = goLites.map((l) => window.LiteEffects._migrateLiteEffect(l));
+            window.LiteEffects.renderList();
+          }
+        }
+        this.requestRender();
         this.updateActiveOverlays();
         return true;
       }

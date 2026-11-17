@@ -91,7 +91,7 @@ func (s *Scene) SetSelection(selType SelectionType, id StringID) (SelectionState
 		s.selection = SelectionState{Type: SelectionNone, ID: "", Items: nil}
 		return s.selection, nil
 
-	case SelectionNode, SelectionFlow, SelectionGlow, SelectionRipple, SelectionImage:
+	case SelectionNode, SelectionFlow, SelectionGlow, SelectionRipple, SelectionLite, SelectionImage:
 		if !s.objectExistsLocked(selType, id) {
 			return s.selection, errors.New(string(selType) + " not found: " + string(id))
 		}

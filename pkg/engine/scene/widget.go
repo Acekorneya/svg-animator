@@ -239,6 +239,23 @@ func IsolateSVGWidget(rawSVG string, opts WidgetIsolationOptions) (string, map[s
 			return m
 		})
 
+		// Rewrite @keyframes animation-name references inside inline style="..." attributes
+		if len(keyframeMap) > 0 && strings.Contains(tagAttrs, "style") {
+			reStyleAttr := regexp.MustCompile(`\bstyle\s*=\s*(["'])([^"']*)(["'])`)
+			tagAttrs = reStyleAttr.ReplaceAllStringFunc(tagAttrs, func(sm string) string {
+				sp := reStyleAttr.FindStringSubmatch(sm)
+				if len(sp) < 4 {
+					return sm
+				}
+				sVal := sp[2]
+				for oldKF, newKF := range keyframeMap {
+					reInlineAnim := regexp.MustCompile(`\b(animation(?:-name)?\s*:\s*[^;]*?)\b` + regexp.QuoteMeta(oldKF) + `\b`)
+					sVal = reInlineAnim.ReplaceAllString(sVal, "${1}"+newKF)
+				}
+				return `style=` + sp[1] + sVal + sp[3]
+			})
+		}
+
 		return "<" + tagName + tagAttrs + ">"
 	})
 
@@ -451,13 +468,23 @@ var ObjectPropertyCatalog = map[string][]EligibleProperty{
 		{Property: "visibility", Type: "boolean", Label: "Visibility", ParamSuffix: "visibility", Description: "Toggle visibility of the group", Default: true, DefaultSource: "true", RuntimeSemantics: "toggles group visibility"},
 	},
 	"lite": {
-		{Property: "color", Type: "color", Label: "Effect Colour", ParamSuffix: "color", Description: "Primary stroke or fill colour of the low-load effect", Default: "#38bdf8", DefaultSource: "lite.color", RuntimeSemantics: "recolours lite effect payload; hit-targets untouched"},
+		{Property: "color", Type: "color", Label: "Effect Colour", ParamSuffix: "color", Description: "Primary stroke or fill colour of the low-load effect", Default: "#38bdf8", DefaultSource: "lite.color", RuntimeSemantics: "recolours lite effect payload and guide; hit-targets untouched"},
 		{Property: "opacity", Type: "number", Label: "Opacity", ParamSuffix: "opacity", Description: "Transparency of the low-load effect (0.0 to 1.0)", Min: floatPtr(0), Max: floatPtr(1), Default: 0.9, DefaultSource: "lite.opacity", RuntimeSemantics: "sets lite effect overall opacity"},
 		{Property: "visibility", Type: "boolean", Label: "Visibility", ParamSuffix: "visibility", Description: "Toggle visibility of the low-load effect", Default: true, DefaultSource: "true", RuntimeSemantics: "toggles lite effect visibility"},
 		{Property: "speed", Type: "speed", Label: "Speed / Rate", ParamSuffix: "speed", Description: "Playback speed multiplier for the effect (0.1 to 10.0)", Min: floatPtr(0.1), Max: floatPtr(10.0), Default: 1.0, DefaultSource: "1.0", RuntimeSemantics: "scales CSS animation duration"},
+		{Property: "strokeWidth", Type: "number", Label: "Stroke Width", ParamSuffix: "strokeWidth", Description: "Perimeter tracer stroke thickness in px (0.5 to 20)", Min: floatPtr(0.5), Max: floatPtr(20), Default: 2.5, DefaultSource: "lite.strokeWidth", RuntimeSemantics: "updates .lite-payload stroke-width"},
+		{Property: "segments", Type: "number", Label: "Segments", ParamSuffix: "segments", Description: "Number of tracer segments around perimeter (1 to 16)", Min: floatPtr(1), Max: floatPtr(16), Default: 2, DefaultSource: "lite.segments", RuntimeSemantics: "recomputes pathLength=1000 stroke-dasharray"},
+		{Property: "lineGapRatio", Type: "text", Label: "Line:Gap Ratio", ParamSuffix: "lineGapRatio", Description: "Repeating segment pattern ratio (e.g. 1:3)", Default: "1:3", DefaultSource: "lite.lineGapRatio", RuntimeSemantics: "recomputes pathLength=1000 stroke-dasharray"},
+		{Property: "direction", Type: "enum", Label: "Direction", ParamSuffix: "direction", Description: "Perimeter tracer travel direction", Options: []string{"cw", "ccw"}, Default: "cw", DefaultSource: "lite.direction", RuntimeSemantics: "switches .sva-lite-trace-cw / .sva-lite-trace-ccw"},
+		{Property: "startOffset", Type: "number", Label: "Start Offset (%)", ParamSuffix: "startOffset", Description: "Perimeter starting phase offset (0 to 100%)", Min: floatPtr(0), Max: floatPtr(100), Default: 0, DefaultSource: "lite.startOffset", RuntimeSemantics: "updates --sva-start-offset CSS property"},
+		{Property: "playbackMode", Type: "enum", Label: "Motion Mode", ParamSuffix: "playbackMode", Description: "Tracer playback mode (loop, pingpong, once)", Options: []string{"loop", "pingpong", "once"}, Default: "loop", DefaultSource: "lite.playbackMode", RuntimeSemantics: "switches .sva-lite-mode-* animation class"},
+		{Property: "showGuide", Type: "boolean", Label: "Guide Visibility", ParamSuffix: "showGuide", Description: "Show or hide static perimeter boundary guide", Default: true, DefaultSource: "lite.showGuide", RuntimeSemantics: "toggles .lite-guide-track visibility"},
 		{Property: "scale", Type: "number", Label: "Pulse Max Scale", ParamSuffix: "scale", Description: "Maximum pulse expansion scale multiplier (0.4 to 2.5)", Min: floatPtr(0.4), Max: floatPtr(2.5), Default: 1.15, DefaultSource: "lite.maxScale", RuntimeSemantics: "updates CSS --sva-pulse-max scale factor"},
+		{Property: "period", Type: "number", Label: "Pulse Period (s)", ParamSuffix: "period", Description: "Pulse cycle duration in seconds (0.2 to 20.0)", Min: floatPtr(0.2), Max: floatPtr(20.0), Default: 1.8, DefaultSource: "lite.period", RuntimeSemantics: "updates pulse animation duration"},
+		{Property: "intensity", Type: "number", Label: "Intensity", ParamSuffix: "intensity", Description: "Peak pulse/flash amplitude (0.0 to 1.0)", Min: floatPtr(0), Max: floatPtr(1), Default: 0.85, DefaultSource: "lite.intensity", RuntimeSemantics: "updates --sva-pulse-amp / --sva-flash-int"},
 		{Property: "trigger", Type: "number", Label: "Flash Trigger", ParamSuffix: "trigger", Description: "Incrementing or changing this value triggers a single-shot Flash Lite pulse", Min: floatPtr(0), Max: floatPtr(1000000), Default: 0, DefaultSource: "0", RuntimeSemantics: "triggers one-shot flash animation"},
 		{Property: "duration", Type: "number", Label: "Flash Duration (ms)", ParamSuffix: "duration", Description: "Flash duration in milliseconds (20 to 1000 ms)", Min: floatPtr(20), Max: floatPtr(1000), Default: 100.0, DefaultSource: "lite.durationMs", RuntimeSemantics: "sets flash animation duration in milliseconds"},
+		{Property: "repeat", Type: "boolean", Label: "Flash Repeat", ParamSuffix: "repeat", Description: "Repeat flash periodically instead of single-shot", Default: false, DefaultSource: "lite.repeat", RuntimeSemantics: "toggles flash animation-iteration-count"},
 	},
 	"root": {
 		{Property: "playbackRate", Type: "speed", Label: "Master Speed", ParamSuffix: "speed", Description: "Overall playback speed rate multiplier for the widget (0.1 to 5.0)", Min: floatPtr(0.1), Max: floatPtr(5.0), Default: 1.0, DefaultSource: "1.0", RuntimeSemantics: "widget-wide master playback rate"},
@@ -724,12 +751,12 @@ func ValidateWidgetParameter(p WidgetParameter) error {
 			return fmt.Errorf("color parameter does not support property %q (allowed: fill, stroke, color)", prop)
 		}
 	case "boolean":
-		if prop != "visibility" && prop != "display" {
-			return fmt.Errorf("boolean parameter does not support property %q (allowed: visibility, display)", prop)
+		if prop != "visibility" && prop != "display" && prop != "showGuide" && prop != "repeat" {
+			return fmt.Errorf("boolean parameter does not support property %q (allowed: visibility, display, showGuide, repeat)", prop)
 		}
 	case "text":
-		if prop != "text" && prop != "textContent" {
-			return fmt.Errorf("text parameter does not support property %q (allowed: text, textContent)", prop)
+		if prop != "text" && prop != "textContent" && prop != "lineGapRatio" {
+			return fmt.Errorf("text parameter does not support property %q (allowed: text, textContent, lineGapRatio)", prop)
 		}
 	case "speed":
 		if prop != "playbackRate" && prop != "speed" {

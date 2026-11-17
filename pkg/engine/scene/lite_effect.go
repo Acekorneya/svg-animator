@@ -84,6 +84,9 @@ func ValidateLiteEffect(l *LiteEffect) error {
 		if l.Speed <= 0 {
 			return errors.New("speed must be greater than 0")
 		}
+		if l.PlaybackMode != "" && l.PlaybackMode != "loop" && l.PlaybackMode != "pingpong" && l.PlaybackMode != "once" {
+			return fmt.Errorf("unsupported perimeter-tracer playbackMode %q", l.PlaybackMode)
+		}
 	}
 	if l.Kind == "pulse" {
 		if l.Period <= 0 {
@@ -206,6 +209,12 @@ func applyLiteEffectDefaults(l *LiteEffect) {
 		}
 		if l.Direction == "" {
 			l.Direction = "cw"
+		}
+		if l.PlaybackMode == "" {
+			l.PlaybackMode = "loop"
+		}
+		if l.EntryExit == "" {
+			l.EntryExit = "none"
 		}
 		if l.Speed <= 0 {
 			l.Speed = 3.0 // 3.0s circuit duration
@@ -345,6 +354,12 @@ func (s *Scene) UpdateLiteEffect(id StringID, patch map[string]any) (LiteEffect,
 	if v, ok := patch["direction"].(string); ok && (v == "cw" || v == "ccw") {
 		existing.Direction = v
 	}
+	if v, ok := patch["playbackMode"].(string); ok && (v == "loop" || v == "pingpong" || v == "once") {
+		existing.PlaybackMode = v
+	}
+	if v, ok := patch["entryExit"].(string); ok && (v == "none" || v == "fade" || v == "fade-grow") {
+		existing.EntryExit = v
+	}
 	if v, ok := toFloat(patch["speed"]); ok && v > 0 {
 		existing.Speed = v
 	}
@@ -413,11 +428,7 @@ func (s *Scene) UpdateLiteEffect(id StringID, patch map[string]any) (LiteEffect,
 	return existing, nil
 }
 
-// DeleteLiteEffect removes a LiteEffect from the scene.
-func (s *Scene) DeleteLiteEffect(id StringID) bool {
-	s.mu.Lock()
-	defer s.mu.Unlock()
-
+func (s *Scene) removeLiteEffectLocked(id StringID) bool {
 	if _, ok := s.liteEffects[id]; !ok {
 		return false
 	}
@@ -428,10 +439,19 @@ func (s *Scene) DeleteLiteEffect(id StringID) bool {
 			break
 		}
 	}
-	for i := len(s.layers) - 1; i >= 0; i-- {
-		if s.layers[i].Type == SelectionLite && s.layers[i].ID == id {
-			s.layers = append(s.layers[:i], s.layers[i+1:]...)
-		}
+	s.pruneSelectionLocked(SelectionLite, id)
+	s.pruneGroupMembersLocked(SelectionLite, id)
+	s.removeLayerEntryLocked(SelectionLite, id)
+	return true
+}
+
+// DeleteLiteEffect removes a LiteEffect from the scene.
+func (s *Scene) DeleteLiteEffect(id StringID) bool {
+	s.mu.Lock()
+	defer s.mu.Unlock()
+
+	if !s.removeLiteEffectLocked(id) {
+		return false
 	}
 	s.revision++
 	return true

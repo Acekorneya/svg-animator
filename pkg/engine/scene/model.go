@@ -459,8 +459,10 @@ type LiteEffect struct {
 	LineGapRatio string         `json:"lineGapRatio,omitempty"` // Perimeter Tracer: e.g. "1:3"
 	SegmentStyle string         `json:"segmentStyle,omitempty"` // "solid" | "rounded" | "dashed"
 	StartOffset  float64        `json:"startOffset,omitempty"`  // 0..100 percent
-	Direction    string         `json:"direction,omitempty"`    // "cw" | "ccw"
-	Speed        float64        `json:"speed,omitempty"`        // circuit duration in seconds or multiplier
+	Direction           string         `json:"direction,omitempty"`           // "cw" | "ccw"
+	PlaybackMode        string         `json:"playbackMode,omitempty"`        // "loop" | "pingpong" | "once"
+	EntryExit           string         `json:"entryExit,omitempty"`           // "none" | "fade" | "fade-grow"
+	Speed               float64        `json:"speed,omitempty"`               // circuit duration in seconds or multiplier
 	Period       float64        `json:"period,omitempty"`       // pulse period or flash repeat interval in seconds
 	Duration     float64        `json:"dur,omitempty"`          // flash brief duration in seconds
 	Intensity    float64        `json:"intensity,omitempty"`    // pulse/flash peak amplitude (0..1)

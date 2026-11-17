@@ -553,7 +553,7 @@
             c.style.stroke = value;
           });
         } else if (isLite) {
-          // Lite effects: recolour visible .lite-payload elements only, preserving .lite-hit-target
+          // Lite effects: recolour visible .lite-payload & .lite-guide-track elements, preserving .lite-hit-target
           el.querySelectorAll('.lite-payload').forEach(c => {
             const curStroke = c.getAttribute('stroke');
             const curFill = c.getAttribute('fill');
@@ -565,6 +565,10 @@
               c.setAttribute('fill', value);
               if (c.style) c.style.fill = value;
             }
+          });
+          el.querySelectorAll('.lite-guide-track').forEach(g => {
+            g.setAttribute('stroke', value);
+            if (g.style) g.style.stroke = value;
           });
         } else {
           // Generic Node or Element
@@ -730,6 +734,129 @@
               if (typeof node.style.setProperty === 'function') {
                 node.style.setProperty('--sva-base-dur', `${secVal}s`);
               }
+            }
+          });
+        }
+        break;
+      }
+      case 'strokeWidth': {
+        if (el) {
+          const sw = Math.max(0.5, Math.min(20, parseFloat(value) || 2.5));
+          el.querySelectorAll('.lite-payload').forEach(node => {
+            node.setAttribute('stroke-width', String(sw));
+            if (node.style && typeof node.style.setProperty === 'function') {
+              node.style.setProperty('--sva-base-sw', `${sw}px`);
+            }
+          });
+        }
+        break;
+      }
+      case 'segments':
+      case 'lineGapRatio': {
+        if (el) {
+          if (property === 'segments') {
+            el.setAttribute('data-lite-segments', String(Math.max(1, Math.min(16, parseInt(value, 10) || 2))));
+          } else {
+            el.setAttribute('data-lite-ratio', String(value || '1:3'));
+          }
+          const segs = Math.max(1, Math.min(16, parseInt(el.getAttribute('data-lite-segments') || '2', 10) || 2));
+          const ratioStr = el.getAttribute('data-lite-ratio') || '1:3';
+          const parts = String(ratioStr).split(':');
+          const lPart = Math.max(0.1, parseFloat(parts[0]) || 1);
+          const gPart = Math.max(0.1, parseFloat(parts[1]) || 3);
+          const unit = 1000 / segs;
+          const dashLen = Math.round((unit * (lPart / (lPart + gPart))) * 100) / 100;
+          const gapLen = Math.round((unit * (gPart / (lPart + gPart))) * 100) / 100;
+          el.querySelectorAll('.lite-payload').forEach(node => {
+            node.setAttribute('stroke-dasharray', `${dashLen} ${gapLen}`);
+          });
+        }
+        break;
+      }
+      case 'direction': {
+        if (el) {
+          const dir = String(value).toLowerCase() === 'ccw' ? 'ccw' : 'cw';
+          el.querySelectorAll('.lite-payload').forEach(node => {
+            if (!node.classList) return;
+            node.classList.remove('sva-lite-trace-cw', 'sva-lite-trace-ccw', 'sva-lite-trace-cw-fade', 'sva-lite-trace-ccw-fade', 'sva-lite-trace-cw-fadegrow', 'sva-lite-trace-ccw-fadegrow');
+            node.classList.add(`sva-lite-trace-${dir}`);
+            node.setAttribute('data-direction', dir);
+          });
+        }
+        break;
+      }
+      case 'startOffset': {
+        if (el) {
+          const pct = Math.max(0, Math.min(100, parseFloat(value) || 0));
+          const offsetUnits = -(pct / 100) * 1000;
+          el.querySelectorAll('.lite-payload').forEach(node => {
+            node.setAttribute('data-start-offset', String(pct));
+            if (node.style && typeof node.style.setProperty === 'function') {
+              node.style.setProperty('--sva-start-offset', String(offsetUnits));
+            }
+          });
+        }
+        break;
+      }
+      case 'playbackMode': {
+        if (el) {
+          const raw = String(value).toLowerCase();
+          const mode = raw === 'pingpong' ? 'pingpong' : (raw === 'once' ? 'once' : 'loop');
+          el.querySelectorAll('.lite-payload').forEach(node => {
+            if (node.classList) {
+              node.classList.remove('sva-lite-mode-loop', 'sva-lite-mode-pingpong', 'sva-lite-mode-once');
+              node.classList.add(`sva-lite-mode-${mode}`);
+            }
+            node.setAttribute('data-playback-mode', mode);
+          });
+        }
+        break;
+      }
+      case 'showGuide': {
+        if (el) {
+          const show = value !== false && value !== 'false' && value !== 0 && value !== '0';
+          el.querySelectorAll('.lite-guide-track').forEach(g => {
+            g.style.visibility = show ? 'visible' : 'hidden';
+            g.setAttribute('visibility', show ? 'visible' : 'hidden');
+          });
+        }
+        break;
+      }
+      case 'period': {
+        if (el) {
+          const sec = Math.max(0.2, Math.min(20, parseFloat(value) || 1.8));
+          el.querySelectorAll('.lite-payload').forEach(node => {
+            node.setAttribute('data-pulse-period', String(sec));
+            if (node.style) {
+              node.style.animationDuration = `${sec}s`;
+              if (typeof node.style.setProperty === 'function') {
+                node.style.setProperty('--sva-base-dur', `${sec}s`);
+              }
+            }
+          });
+        }
+        break;
+      }
+      case 'intensity': {
+        if (el) {
+          const amp = Math.max(0, Math.min(1, parseFloat(value) || 0.85));
+          el.querySelectorAll('.lite-payload').forEach(node => {
+            node.setAttribute('data-intensity', String(amp));
+            if (node.style && typeof node.style.setProperty === 'function') {
+              node.style.setProperty('--sva-pulse-amp', String(amp));
+              node.style.setProperty('--sva-flash-int', String(amp));
+            }
+          });
+        }
+        break;
+      }
+      case 'repeat': {
+        if (el) {
+          const rep = value === true || value === 'true' || value === 1 || value === '1';
+          el.querySelectorAll('.lite-payload').forEach(node => {
+            node.setAttribute('data-repeat', rep ? 'true' : 'false');
+            if (node.style) {
+              node.style.animationIterationCount = rep ? 'infinite' : '1';
             }
           });
         }

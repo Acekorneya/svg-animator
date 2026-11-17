@@ -216,6 +216,26 @@ window.LiteEffects = {
   from { stroke-dashoffset: var(--sva-start-offset, 0); }
   to { stroke-dashoffset: calc(var(--sva-start-offset, 0) + 1000); }
 }
+@keyframes sva-lite-trace-cw-fade {
+  0% { stroke-dashoffset: var(--sva-start-offset, 0); opacity: 0; }
+  12%, 88% { opacity: var(--sva-base-op, 0.9); }
+  100% { stroke-dashoffset: calc(var(--sva-start-offset, 0) - 1000); opacity: 0; }
+}
+@keyframes sva-lite-trace-ccw-fade {
+  0% { stroke-dashoffset: var(--sva-start-offset, 0); opacity: 0; }
+  12%, 88% { opacity: var(--sva-base-op, 0.9); }
+  100% { stroke-dashoffset: calc(var(--sva-start-offset, 0) + 1000); opacity: 0; }
+}
+@keyframes sva-lite-trace-cw-fadegrow {
+  0% { stroke-dashoffset: var(--sva-start-offset, 0); opacity: 0; stroke-width: 0.5px; }
+  15%, 85% { opacity: var(--sva-base-op, 0.9); stroke-width: var(--sva-base-sw, 2.5px); }
+  100% { stroke-dashoffset: calc(var(--sva-start-offset, 0) - 1000); opacity: 0; stroke-width: 0.5px; }
+}
+@keyframes sva-lite-trace-ccw-fadegrow {
+  0% { stroke-dashoffset: var(--sva-start-offset, 0); opacity: 0; stroke-width: 0.5px; }
+  15%, 85% { opacity: var(--sva-base-op, 0.9); stroke-width: var(--sva-base-sw, 2.5px); }
+  100% { stroke-dashoffset: calc(var(--sva-start-offset, 0) + 1000); opacity: 0; stroke-width: 0.5px; }
+}
 @keyframes sva-lite-pulse {
   0%, 100% { transform: scale(var(--sva-pulse-min, 0.85)); opacity: calc(var(--sva-base-op, 0.9) * (1 - var(--sva-pulse-amp, 0.55))); }
   50% { transform: scale(var(--sva-pulse-max, 1.15)); opacity: var(--sva-base-op, 0.9); }
@@ -227,8 +247,16 @@ window.LiteEffects = {
 }
 .sva-lite-tracer-anim {
   animation-timing-function: linear;
-  animation-iteration-count: infinite;
 }
+.sva-lite-trace-cw { animation-name: sva-lite-trace-cw; }
+.sva-lite-trace-ccw { animation-name: sva-lite-trace-ccw; }
+.sva-lite-trace-cw-fade { animation-name: sva-lite-trace-cw-fade; }
+.sva-lite-trace-ccw-fade { animation-name: sva-lite-trace-ccw-fade; }
+.sva-lite-trace-cw-fadegrow { animation-name: sva-lite-trace-cw-fadegrow; }
+.sva-lite-trace-ccw-fadegrow { animation-name: sva-lite-trace-ccw-fadegrow; }
+.sva-lite-mode-loop { animation-iteration-count: infinite; animation-direction: normal; }
+.sva-lite-mode-pingpong { animation-iteration-count: infinite; animation-direction: alternate; }
+.sva-lite-mode-once { animation-iteration-count: 1; animation-direction: normal; animation-fill-mode: forwards; }
 .sva-lite-pulse-anim {
   transform-box: fill-box;
   transform-origin: center;
@@ -308,17 +336,17 @@ window.LiteEffects = {
       return `<polygon points="${pts}" ${extraAttrs} />`;
     }
     if (variant === 'cross') {
-      const armX = rx * 0.35;
-      const armY = ry * 0.35;
+      const armX = Math.max(1.2, rx * 0.14);
+      const armY = Math.max(1.2, ry * 0.14);
       const d = `M ${(cx - armX).toFixed(2)},${(cy - ry).toFixed(2)} L ${(cx + armX).toFixed(2)},${(cy - ry).toFixed(2)} L ${(cx + armX).toFixed(2)},${(cy - armY).toFixed(2)} L ${(cx + rx).toFixed(2)},${(cy - armY).toFixed(2)} L ${(cx + rx).toFixed(2)},${(cy + armY).toFixed(2)} L ${(cx + armX).toFixed(2)},${(cy + armY).toFixed(2)} L ${(cx + armX).toFixed(2)},${(cy + ry).toFixed(2)} L ${(cx - armX).toFixed(2)},${(cy + ry).toFixed(2)} L ${(cx - armX).toFixed(2)},${(cy + armY).toFixed(2)} L ${(cx - rx).toFixed(2)},${(cy + armY).toFixed(2)} L ${(cx - rx).toFixed(2)},${(cy - armY).toFixed(2)} L ${(cx - armX).toFixed(2)},${(cy - armY).toFixed(2)} Z`;
       return `<path d="${d}" ${extraAttrs} />`;
     }
     if (variant === 'star') {
       const pts = [];
-      for (let i = 0; i < 10; i++) {
-        const ang = (Math.PI / 5) * i - Math.PI / 2;
-        const radX = i % 2 === 0 ? rx : rx * 0.44;
-        const radY = i % 2 === 0 ? ry : ry * 0.44;
+      for (let i = 0; i < 8; i++) {
+        const ang = (Math.PI / 4) * i - Math.PI / 2;
+        const radX = i % 2 === 0 ? rx : rx * 0.22;
+        const radY = i % 2 === 0 ? ry : ry * 0.22;
         pts.push(`${(cx + Math.cos(ang) * radX).toFixed(2)},${(cy + Math.sin(ang) * radY).toFixed(2)}`);
       }
       return `<polygon points="${pts.join(' ')}" ${extraAttrs} />`;
@@ -361,15 +389,21 @@ window.LiteEffects = {
 
       const linecap = le.segmentStyle === 'rounded' ? 'round' : 'butt';
       const dur = Math.max(0.2, Number(le.speed) || 3.0);
-      const animName = le.direction === 'ccw' ? 'sva-lite-trace-ccw' : 'sva-lite-trace-cw';
+      const dir = le.direction === 'ccw' ? 'ccw' : 'cw';
+      const entryExit = le.entryExit || 'none';
+      const traceClass = entryExit === 'fade'
+        ? `sva-lite-trace-${dir}-fade`
+        : (entryExit === 'fade-grow' ? `sva-lite-trace-${dir}-fadegrow` : `sva-lite-trace-${dir}`);
+      const mode = le.playbackMode === 'pingpong' ? 'pingpong' : (le.playbackMode === 'once' ? 'once' : 'loop');
+      const modeClass = `sva-lite-mode-${mode}`;
       const startOffsetUnits = -((Number(le.startOffset) || 0) / 100) * 1000;
-      const styleStr = `animation-name:${animName};animation-duration:${dur}s;--sva-base-dur:${dur}s;--sva-start-offset:${startOffsetUnits};`;
+      const styleStr = `animation-name:${traceClass};animation-duration:${dur}s;--sva-base-dur:${dur}s;--sva-base-op:${opacity};--sva-base-sw:${sw}px;--sva-start-offset:${startOffsetUnits};`;
 
       let shapeMarkup = '';
       let guideMarkup = '';
       let hitMarkup = '';
       const variant = le.variant || 'rounded';
-      const payloadAttrs = `class="lite-payload sva-lite-tracer-anim" data-semantic-role="payload" pathLength="1000" fill="none" stroke="${color}" stroke-width="${sw}" stroke-opacity="${opacity}" stroke-dasharray="${dashArray}" stroke-linecap="${linecap}" style="${styleStr}" pointer-events="none"`;
+      const payloadAttrs = `class="lite-payload sva-lite-tracer-anim ${traceClass} ${modeClass}" data-semantic-role="payload" data-playback-mode="${mode}" pathLength="1000" fill="none" stroke="${color}" stroke-width="${sw}" stroke-opacity="${opacity}" stroke-dasharray="${dashArray}" stroke-linecap="${linecap}" style="${styleStr}" pointer-events="none"`;
       const hitAttrs = `class="lite-hit-target" data-semantic-role="hit-target" fill="transparent" stroke="transparent" stroke-width="${Math.max(16, sw + 12)}" pointer-events="stroke" style="cursor:pointer;"`;
       const guideAttrs = `class="lite-guide-track" fill="none" stroke="${color}" stroke-width="${Math.max(1, sw * 0.55).toFixed(2)}" stroke-opacity="${(opacity * 0.22).toFixed(2)}" pointer-events="none"`;
       const editorGuideAttrs = `fill="none" stroke="${color}" stroke-width="1" stroke-opacity="0.25" stroke-dasharray="4 4" pointer-events="none"`;
@@ -396,7 +430,7 @@ window.LiteEffects = {
           : `<g class="lite-editor-marker" data-editor-only="true"><rect x="${x.toFixed(2)}" y="${y.toFixed(2)}" width="${w.toFixed(2)}" height="${h.toFixed(2)}" rx="${cornerR}" ${editorGuideAttrs} /></g>`;
       }
 
-      return `<g ${baseAttrs}>${hitMarkup}${guideMarkup}${shapeMarkup}</g>`;
+      return `<g ${baseAttrs} data-lite-segments="${segs}" data-lite-ratio="${this.escapeXML(le.lineGapRatio || '1:3')}">${hitMarkup}${guideMarkup}${shapeMarkup}</g>`;
     }
 
     if (le.kind === 'pulse') {
@@ -547,12 +581,15 @@ window.LiteEffects = {
     bindPair('liteSegments', 'segments', true);
     bindField('liteRatioInput', 'lineGapRatio');
     bindField('liteDirectionSelect', 'direction');
+    bindField('litePlaybackModeSelect', 'playbackMode');
+    bindField('liteEntryExitSelect', 'entryExit');
     bindField('liteStyleSelect', 'segmentStyle');
     bindPair('liteSpeed', 'speed');
     bindPair('liteStartOffset', 'startOffset', true);
     bindPair('liteMinScale', 'minScale');
     bindPair('liteMaxScale', 'maxScale');
     bindPair('litePeriod', 'period');
+    bindPair('liteIntensity', 'intensity');
     bindPair('liteFlashDur', 'durationMs', true);
     bindField('liteRepeatChk', 'repeat', false, true);
     bindField('liteVisibleChk', 'visible', false, true);
@@ -723,12 +760,15 @@ window.LiteEffects = {
     setPair('liteSegments', le.segments || 2);
     setVal('liteRatioInput', le.lineGapRatio || '1:3');
     setVal('liteDirectionSelect', le.direction || 'cw');
+    setVal('litePlaybackModeSelect', le.playbackMode || 'loop');
+    setVal('liteEntryExitSelect', le.entryExit || 'none');
     setVal('liteStyleSelect', le.segmentStyle || 'rounded');
     setPair('liteSpeed', le.speed || 3.0);
     setPair('liteStartOffset', Math.round(Number(le.startOffset) || 0));
     setPair('liteMinScale', le.minScale != null ? le.minScale : 0.85);
     setPair('liteMaxScale', le.maxScale != null ? le.maxScale : 1.15);
     setPair('litePeriod', le.period || 1.8);
+    setPair('liteIntensity', le.intensity != null ? le.intensity : (le.kind === 'flash' ? 0.75 : 0.85));
     setPair('liteFlashDur', durMs);
     setChk('liteRepeatChk', le.repeat);
     setChk('liteVisibleChk', le.visible !== false);
@@ -737,10 +777,12 @@ window.LiteEffects = {
     const cornerRow = document.getElementById('liteCornerRadiusRow');
     const pulseGroup = document.getElementById('litePulseGroup');
     const flashGroup = document.getElementById('liteFlashGroup');
+    const intensityRow = document.getElementById('liteIntensityRow');
     if (tracerGroup) tracerGroup.style.display = le.kind === 'perimeter-tracer' ? 'block' : 'none';
     if (cornerRow) cornerRow.style.display = (le.kind === 'perimeter-tracer' && le.variant === 'rounded') ? '' : 'none';
     if (pulseGroup) pulseGroup.style.display = le.kind === 'pulse' ? 'block' : 'none';
     if (flashGroup) flashGroup.style.display = le.kind === 'flash' ? 'block' : 'none';
+    if (intensityRow) intensityRow.style.display = (le.kind === 'pulse' || le.kind === 'flash') ? '' : 'none';
 
     if (typeof window.syncInspectorLayerSections === 'function') {
       window.syncInspectorLayerSections();

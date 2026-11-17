@@ -186,3 +186,55 @@ func TestLiteEffectLegacyMigrationAndNewProperties(t *testing.T) {
 		t.Fatalf("expected error when minScale > maxScale")
 	}
 }
+
+func TestLiteEffectLayersAndGroupingCompatibility(t *testing.T) {
+	sc := NewScene()
+	t1 := sc.CreateLiteEffect(LiteEffect{Name: "t1", Kind: "perimeter-tracer", X: 240, Y: 180, Width: 140, Height: 80})
+	p2 := sc.CreateLiteEffect(LiteEffect{Name: "p2", Kind: "pulse", X: 400, Y: 240, Width: 60, Height: 60})
+
+	// All 4 layer ordering operations on SelectionLite
+	if changed, err := sc.BringForward([]SelectionItem{{Type: SelectionLite, ID: t1.ID}}); err != nil || !changed {
+		t.Fatalf("BringForward(lite) failed: changed=%v err=%v", changed, err)
+	}
+	if changed, err := sc.SendBackward([]SelectionItem{{Type: SelectionLite, ID: t1.ID}}); err != nil || !changed {
+		t.Fatalf("SendBackward(lite) failed: changed=%v err=%v", changed, err)
+	}
+	if changed, err := sc.BringToFront([]SelectionItem{{Type: SelectionLite, ID: t1.ID}}); err != nil || !changed {
+		t.Fatalf("BringToFront(lite) failed: changed=%v err=%v", changed, err)
+	}
+	if changed, err := sc.SendToBack([]SelectionItem{{Type: SelectionLite, ID: t1.ID}}); err != nil || !changed {
+		t.Fatalf("SendToBack(lite) failed: changed=%v err=%v", changed, err)
+	}
+
+	// SetSelection for SelectionLite
+	sel, err := sc.SetSelection(SelectionLite, t1.ID)
+	if err != nil || sel.Type != SelectionLite || sel.ID != t1.ID {
+		t.Fatalf("SetSelection(SelectionLite) failed: %+v err=%v", sel, err)
+	}
+
+	// Grouping, MoveGroup, ComputeGroupBounds, and DeleteGroup
+	grp, err := sc.CreateGroup("lite-grp", []GroupMember{
+		{Type: SelectionLite, ID: t1.ID},
+		{Type: SelectionLite, ID: p2.ID},
+	})
+	if err != nil || len(grp.Members) != 2 {
+		t.Fatalf("CreateGroup with lite members failed: %+v err=%v", grp, err)
+	}
+	if err := sc.MoveGroup(grp.ID, 10, 5); err != nil {
+		t.Fatalf("MoveGroup with lite members failed: %v", err)
+	}
+	t1After, _ := sc.GetLiteEffect(t1.ID)
+	if t1After.X != 368 || t1After.Y != 216 {
+		t.Fatalf("expected t1 moved by (128, 36) px to (368, 216), got (%v, %v)", t1After.X, t1After.Y)
+	}
+	minX, minY, maxX, maxY, err := sc.ComputeGroupBounds(grp.ID, 1280, 720)
+	if err != nil || maxX <= minX || maxY <= minY {
+		t.Fatalf("ComputeGroupBounds failed: (%v,%v)-(%v,%v) err=%v", minX, minY, maxX, maxY, err)
+	}
+	if err := sc.DeleteGroup(grp.ID, true); err != nil {
+		t.Fatalf("DeleteGroup(deleteMembers=true) failed: %v", err)
+	}
+	if len(sc.GetLiteEffects()) != 0 {
+		t.Fatalf("expected 0 lite effects after DeleteGroup(deleteMembers=true), got %d", len(sc.GetLiteEffects()))
+	}
+}

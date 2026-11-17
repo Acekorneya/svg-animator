@@ -480,7 +480,10 @@ window.FloatingPropertiesEditor = {
         this._setPair('fctx-liteSegments', le.segments !== undefined ? le.segments : 2);
         this._setVal('fctx-liteRatioInput', le.lineGapRatio || '1:3');
         this._setVal('fctx-liteDirectionSelect', le.direction || 'cw');
+        this._setVal('fctx-litePlaybackModeSelect', le.playbackMode || 'loop');
+        this._setVal('fctx-liteEntryExitSelect', le.entryExit || 'none');
         this._setPair('fctx-liteSpeed', le.speed !== undefined ? le.speed : 3.0);
+        this._setPair('fctx-liteStartOffset', Math.round(Number(le.startOffset) || 0));
         this._setPair('fctx-liteMinScale', le.minScale !== undefined ? le.minScale : 0.85);
         this._setPair('fctx-liteMaxScale', le.maxScale !== undefined ? le.maxScale : 1.15);
         this._setPair('fctx-litePeriod', le.period !== undefined ? le.period : 1.8);
@@ -1265,6 +1268,7 @@ window.FloatingPropertiesEditor = {
       ['fctx-liteStrokeWidth', 'strokeWidth', false],
       ['fctx-liteSegments', 'segments', true],
       ['fctx-liteSpeed', 'speed', false],
+      ['fctx-liteStartOffset', 'startOffset', true],
       ['fctx-liteMinScale', 'minScale', false],
       ['fctx-liteMaxScale', 'maxScale', false],
       ['fctx-litePeriod', 'period', false],
@@ -1312,6 +1316,8 @@ window.FloatingPropertiesEditor = {
     bindLiteSimple('fctx-liteShowGuideChk', 'showGuide', 'change', true);
     bindLiteSimple('fctx-liteRatioInput', 'lineGapRatio', 'input');
     bindLiteSimple('fctx-liteDirectionSelect', 'direction', 'change');
+    bindLiteSimple('fctx-litePlaybackModeSelect', 'playbackMode', 'change');
+    bindLiteSimple('fctx-liteEntryExitSelect', 'entryExit', 'change');
     bindLiteSimple('fctx-liteRepeatChk', 'repeat', 'change', true);
 
     const btnTriggerLiteFlash = document.getElementById('fctx-btnTriggerLiteFlash');

@@ -172,12 +172,62 @@ Go Engine (Authoritative: pkg/engine/scene, geometry, protocol, sva)
 | Work Package | Status | Commit | Automated Tests | Browser Verified | Notes |
 |---|---|---|---|---|---|
 | **Phase 1–2: Architecture Audit & Plan** | **Approved with Amendments** | `05ad3b9` | N/A (Planning) | N/A | Approved by project owner; 8 amendments recorded above. |
-| **WP1: Go Engine Model, Compatibility & Catalog** | **Awaiting human visual review** | *(current)* | `go test ./...` PASS | Verified (Scenarios 6, 11–13, 16–18) | Added `OriginMode` migration (`MigrateLegacyLiteEffect`), `MaintainAspectRatio`, `MinScale`/`MaxScale`, `ShowGuide`, Flash default `Duration=0.10`s (`100ms`), `RenameObject(SelectionLite)`, `ObjectPropertyCatalog["lite"]` (`scale`, `duration`), and `ScopeWidgetSVG` `data-editor-only="true"` stripping. |
-| **WP2: Layers, Selection & Outlines** | **Awaiting human visual review** | *(current)* | `regression-harness.js` PASS | Verified (Scenarios 3, 4, 7) | Wired `'lite'` into `LayerManager`, `layers-ui.js`, `#liteLayerSection`, `AppCoordinator`, and `DiagramNodes.updateUIOverlay()` (`#nodeSelectionBox`). Fixed `EngineBridge.normalizeSceneSnapshot`/`buildCurrentSceneSnapshot` and `projects.js` `applyStudioState` so `liteEffects` are preserved across `syncScene`. |
-| **WP3: Widget Property Exposure (Early Export Checkpoint)** | **Awaiting human visual review** | *(current)* | `regression-harness.js` PASS | Verified (Scenarios 16, 18) | Enabled `#fctx-widgetSection`, `#btnLiteExposeWidget`, `renderWidgetPropertyCards` (filtered by `le.kind`), `getObjectPropValue`, and `svg-widget.js` (`scale`, `duration`). Verified in `demo.html` and Stage 16C consumer (`8091`). |
-| **WP4: Tracer, Pulse & Flash Geometry/Authoring** | **Awaiting human visual review** | *(current)* | `go test` & `regression-harness` PASS | Verified (Scenarios 5–14) | Center-based `(x, y)` coordinates; Tracer `Width`/`Height` resize in place (`circle` links 1:1) + `showGuide`; Pulse `width`/`height`/aspect lock, `minScale`/`maxScale`, exact `w×h` diamond bounds; Flash `10ms`-step duration (`50–500ms`, default `100ms`) + `.lite-editor-marker` (stripped on export). |
-| **WP5: Proportionate Colour Picker Eyedropper Fix** | **Awaiting human visual review** | *(current)* | `regression-harness.js` PASS | Verified (Scenario 15) | Kept `#btnColorPickerPipette` visible (`inline-flex`); added concise 1-click SVG/DOM colour sampler fallback in `color-picker.js` when `window.EyeDropper` is unavailable on plain HTTP (`192.168.100.40:8088`). |
-| **WP6: 20-Scenario CDP Verification & BookStack** | **Awaiting human visual review** | *(current)* | **20/20 CDP Scenarios PASS** | Verified on Kiwiberry (`8088`, `8091`, `8092`) | Captured screenshots (`/tmp/stage16d-a-*.png`), verified `go test ./...`, `node scripts/regression-harness.js` (88/88), and updated BookStack page `466`. |
+| **WP1: Go Engine Model, Compatibility & Catalog** | Implemented | `c1570f9` | `go test ./...` PASS | Verified | `OriginMode` migration, `MaintainAspectRatio`, `MinScale`/`MaxScale`, `ShowGuide`, Flash `Duration=0.10`s (`100ms`), `ObjectPropertyCatalog["lite"]`. |
+| **WP2: Layers, Selection & Outlines** | Implemented | `c1570f9` | `regression-harness.js` PASS | Verified | `'lite'` in `LayerManager`, `layers-ui.js`, `#liteLayerSection`, `#nodeSelectionBox`. |
+| **WP3: Widget Property Exposure (Early Export Checkpoint)** | Implemented | `c1570f9` | `regression-harness.js` PASS | Verified | `#fctx-widgetSection`, `#btnLiteExposeWidget`, `renderWidgetPropertyCards`. |
+| **WP4: Tracer, Pulse & Flash Geometry/Authoring** | Implemented | `c1570f9` | `go test` & `regression-harness` PASS | Verified | Center `(x, y)`, Tracer resize without translation, Pulse scale/aspect, Flash ms + editor marker. |
+| **WP5: Proportionate Colour Picker Eyedropper Fix** | Implemented | `c1570f9` | `regression-harness.js` PASS | Verified | `#btnColorPickerPipette` + SVG/DOM sampler fallback. |
+| **WP6: 20-Scenario CDP Verification & BookStack** | Implemented | `c1570f9` | 20/20 CDP PASS | Verified | Deployed & documented in BookStack page `466`. |
+| **WP7: Layer Ordering Validation & Grouping Compatibility** | Implemented (awaiting human visual review) | Pending commit | `go test ./...` PASS (`TestLiteEffectLayersAndGroupingCompatibility`) | CDP Scenarios 4 & 14 PASS | Added `'lite'` to `engine-bridge.js` `VALID_TYPES`, `selection.go` `SetSelection`, `group.go` (`DeleteGroup`, `MoveGroup`, `ComputeGroupBounds`), `stage.js` group drag. |
+| **WP8: Perimeter Tracer Motion & Export `@keyframes` Fix** | Implemented (awaiting human visual review) | Pending commit | `go test ./...` & `regression-harness.js` (88/88) PASS | CDP Scenarios 14 & 18 PASS | `ScopeWidgetSVG` rewrites inline `animation-name`; added `playbackMode` (`loop`/`pingpong`/`once`), `entryExit` (`none`/`fade`/`fade-grow`), CSS classes `.sva-lite-trace-*` / `.sva-lite-mode-*`, clarified Speed vs Start Offset. |
+| **WP9: Low-Load Drawer Organization & Cross/Flash Proportions** | Implemented (awaiting human visual review) | Pending commit | `regression-harness.js` (88/88) PASS | CDP Scenarios 1–2 & `/tmp/stage16d-a-drawer.png` PASS | Upper **Create Low-Load Effect** panel + lower **Instances** & **Selected Properties** split with scrollbar clearance; thinner/longer cross & starburst flash geometry. |
+| **WP10: Expanded Widget Property Coverage & Runtime Handlers** | Implemented (awaiting human visual review) | Pending commit | `go test ./...` & `regression-harness.js` (88/88) PASS | CDP Scenarios 16, 17 & 18 PASS | Expanded `ObjectPropertyCatalog["lite"]` + `ValidateWidgetParameter` (`strokeWidth`, `segments`, `lineGapRatio`, `direction`, `startOffset`, `playbackMode`, `showGuide`, `period`, `intensity`, `repeat`) & `svg-widget.js` handlers. |
+| **WP11: Final Regression, 20+ CDP Verification & BookStack** | Implemented (awaiting human visual review) | Pending commit | `go test ./...` & 88/88 JS harness PASS | 20/20 CDP Scenarios PASS | Verified on Kiwiberry (`:8088`, `:8091`, `:8092`) and published to BookStack page `466`. |
+
+---
+
+## H. Acceptance Corrections Addendum (Layers, Motion, UI & Widget Property Coverage)
+
+### Root Causes Found During Manual Review
+1. **Layer API Validation Rejection (`Invalid layer target type at index 0: "lite"`):**
+   - `internal/web/static/js/engine-bridge.js:1970` `normalizeLayerTargets` hardcoded `VALID_TYPES = new Set(['node', 'flow', 'glow', 'ripple', 'image', 'group'])` and omitted `'lite'`, rejecting all four ordering operations (`BringToFront`, `SendToBack`, `BringForward`, `SendBackward`) before reaching Go's `isValidLayerTargetType` (which already accepted `SelectionLite`).
+   - Additionally, `pkg/engine/scene/selection.go:94` (`SetSelection`) omitted `SelectionLite`.
+2. **Perimeter Tracer Exported Animation Failure & Missing Motion Modes:**
+   - `lite-effects.js` emitted `style="animation-name:sva-lite-trace-cw;..."` inline, whereas `ScopeWidgetSVG` (`pkg/engine/scene/widget.go`) rewrote `@keyframes sva-lite-trace-cw` to `@keyframes <prefix>sva-lite-trace-cw` without rewriting inline `style="animation-name:..."`, halting exported tracer motion. Moving `animation-name` and playback mode into `<style>` classes (`.sva-lite-trace-cw`, `.sva-lite-trace-ccw`, `.sva-lite-mode-loop`, `.sva-lite-mode-pingpong`, `.sva-lite-mode-once`) fixes both Studio and exported widgets.
+   - Added `playbackMode` (`loop` default, `pingpong`, `once`) and `entryExit` (`none`, `fade`) controls, and clarified `Speed (Circuit Dur s)` vs `Start Offset (%)`. (Elaborate dash-length morphing for `grow`/`shrink` is documented; `fade` and `fade-grow` via CSS opacity/stroke-width keyframes are included cleanly without per-frame JS.)
+3. **Grouping Compatibility:**
+   - `pkg/engine/scene/group.go` (`DeleteGroup`, `MoveGroup`, `ComputeGroupBounds`) and `internal/web/static/js/stage.js` (`groupDragInitialPositions`) omitted `SelectionLite`. Extending them allows Lite objects to participate in standard Studio groups (`Ctrl+G`, move, bounds, ungroup, delete) without introducing Stage 16E group-level property mapping.
+4. **Low-Load Drawer Layout & Cross/Flash Geometry:**
+   - Reorganize `#acc-lite-effects` into an upper **Create Low-Load Effect** panel (extensible for future Lite families) and a lower **Instances** + **Selected Properties** split inspector with proper scrollbar padding so checkboxes/sliders never clip under scrollbars.
+   - Refine `cross` and `star` proportions in `lite-effects.js` so arms are longer and much thinner (`armRatio = 0.14` instead of `0.35`, inner star radius `0.24` instead of `0.44`) for crisp brief light flashes while keeping exact `width × height` bounds.
+
+### Property Coverage Matrix (Three-Tier Architecture)
+
+| Effect | Authored Property | Runtime Eligible? | Type / Validation | Exported Target & Update Mechanism | Automated Test |
+|---|---|---|---|---|---|
+| **Common** | `visibility` | Yes | `boolean` | `<g data-semantic-target="lite-N">` `visibility` attribute/style | Yes |
+| **Common** | `color` | Yes | `color` (hex) | `.lite-payload` & `.lite-guide-track` `stroke`/`fill` | Yes |
+| **Common** | `opacity` | Yes | `number` (`0..1`) | `.lite-payload` `opacity`, `stroke-opacity`, `--sva-base-op`, `--sva-flash-int` | Yes |
+| **Common** | `x`, `y`, `width`, `height`, `variant` | Authoring-only | Geometry rebuild | Requires SVG path/shape geometry rebuild; stays Go-authored in Studio | Unit/CDP |
+| **Tracer** | `speed` | Yes | `speed` (`0.1..10.0`) | `.lite-payload` `animation-duration` scaled by `baseDur / (localRate * masterRate)` | Yes |
+| **Tracer** | `strokeWidth` | Yes | `number` (`0.5..20`) | `.lite-payload` `stroke-width` attribute | Yes |
+| **Tracer** | `segments` | Yes | `number` (`1..16`) | Recomputes `stroke-dasharray` (`ComputePerimeterDash`) on `.lite-payload` | Yes |
+| **Tracer** | `lineGapRatio` | Yes | `text` (`L:G`) | Recomputes `stroke-dasharray` (`ComputePerimeterDash`) on `.lite-payload` | Yes |
+| **Tracer** | `direction` | Yes | `enum` (`cw`, `ccw`) | Toggles `.sva-lite-trace-cw` / `.sva-lite-trace-ccw` class on `.lite-payload` | Yes |
+| **Tracer** | `startOffset` | Yes | `number` (`0..100`) | Updates `--sva-start-offset` CSS custom property (`-(pct/100)*1000`) | Yes |
+| **Tracer** | `playbackMode` | Yes | `enum` (`loop`, `pingpong`, `once`) | Toggles `.sva-lite-mode-*` class (`infinite normal` / `infinite alternate` / `1 forwards`) | Yes |
+| **Tracer** | `showGuide` | Yes | `boolean` | Toggles `.lite-guide-track` `visibility` (`visible`/`hidden`) | Yes |
+| **Pulse** | `speed` | Yes | `speed` (`0.1..10.0`) | Scales `.lite-payload` `animation-duration` | Yes |
+| **Pulse** | `scale` | Yes | `number` (`0.4..2.5`) | Updates `--sva-pulse-max` CSS custom property | Yes |
+| **Pulse** | `period` | Yes | `number` (`0.2..20.0`) | Updates `.lite-payload` `--sva-base-dur` & `animation-duration` | Yes |
+| **Pulse** | `intensity` | Yes | `number` (`0..1`) | Updates `--sva-pulse-amp` CSS custom property | Yes |
+| **Flash** | `trigger` | Yes | `number` (`0..1000000`) | Updates `data-trigger-nonce` & restarts `.sva-lite-flash-anim` | Yes |
+| **Flash** | `duration` | Yes | `number` (`20..1000` ms) | Updates `data-flash-duration-ms` & `animationDuration` (`ms/1000`) | Yes |
+| **Flash** | `intensity` | Yes | `number` (`0..1`) | Updates `--sva-flash-int` CSS custom property | Yes |
+| **Flash** | `repeat` | Yes | `boolean` | Toggles `animation-iteration-count` (`infinite` / `1`) | Yes |
+
+### Implementation Order
+`WP7 (Layer & Group Compatibility)` → `WP8 (Tracer Motion & Export Fix)` → `WP9 (Drawer Layout & Cross/Flash Geometry)` → `WP10 (Expanded Widget Property Catalog & Runtime)` → `WP11 (Tests, 20+ CDP Verification, Kiwiberry Deploy, BookStack)`
 
 ---
 

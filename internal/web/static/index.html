@@ -1131,31 +1131,35 @@
           <span style="color: #38bdf8;">⚡ Low-Load Effects</span>
           <span class="accordion-chevron">▾</span>
         </div>
-        <div class="accordion-body">
-          <div class="inspector-split-layout">
-            <div class="inspector-master-column">
+        <div class="accordion-body" style="padding: 0.55rem 0.65rem;">
+          <div style="background: rgba(56, 189, 248, 0.06); border: 1px solid rgba(56, 189, 248, 0.25); border-radius: 6px; padding: 0.5rem 0.6rem; margin-bottom: 0.6rem;">
+            <div style="font-size: 0.70rem; font-weight: 700; letter-spacing: 0.04em; color: #38bdf8; margin-bottom: 0.4rem;">CREATE LOW-LOAD EFFECT</div>
+            <div style="display: grid; grid-template-columns: repeat(3, 1fr); gap: 6px;">
+              <button type="button" class="tool-btn-compact" id="btnAddLiteTracer" title="Add Perimeter Tracer Lite" style="padding: 0.35rem 0.4rem; text-align: center;">▭ Tracer</button>
+              <button type="button" class="tool-btn-compact" id="btnAddLitePulse" title="Add Pulse Lite" style="padding: 0.35rem 0.4rem; text-align: center;">◎ Pulse</button>
+              <button type="button" class="tool-btn-compact" id="btnAddLiteFlash" title="Add Flash Lite" style="padding: 0.35rem 0.4rem; text-align: center;">✦ Flash</button>
+            </div>
+          </div>
+
+          <div class="inspector-split-layout" style="gap: 0.5rem;">
+            <div class="inspector-master-column" style="padding-right: 4px;">
               <div class="inspector-column-header">
                 <span class="inspector-column-title">INSTANCES</span>
-                <div style="display:flex; gap:3px; flex-wrap:wrap;">
-                  <button type="button" class="btn-compact-add" id="btnAddLiteTracer" title="Add Perimeter Tracer Lite">+ Tracer</button>
-                  <button type="button" class="btn-compact-add" id="btnAddLitePulse" title="Add Pulse Lite">+ Pulse</button>
-                  <button type="button" class="btn-compact-add" id="btnAddLiteFlash" title="Add Flash Lite">+ Flash</button>
-                </div>
               </div>
-              <div id="liteEffectsList" class="compact-instance-list">
+              <div id="liteEffectsList" class="compact-instance-list" style="padding-right: 6px;">
                 <div class="stage-hint" id="emptyLiteListHint">No low-load effects active.</div>
               </div>
             </div>
 
-            <div class="inspector-detail-column">
+            <div class="inspector-detail-column" style="padding-right: 8px;">
               <div class="inspector-column-header">
                 <span class="inspector-column-title">SELECTED PROPERTIES</span>
               </div>
               <div id="liteEmptyHint" class="inspector-empty-state">
-                Select a Low-Load effect to edit its properties, or click <strong>+ Tracer</strong>, <strong>+ Pulse</strong>, or <strong>+ Flash</strong>.
+                Select an effect in <strong>Instances</strong> or on the canvas, or create one above.
               </div>
 
-              <div id="liteEditorControls" style="display: none; margin-top: 0.25rem;">
+              <div id="liteEditorControls" style="display: none; margin-top: 0.25rem; padding-right: 6px;">
                 <div style="display: flex; justify-content: space-between; align-items: center; margin-bottom: 0.35rem;">
                   <span style="font-weight: bold; color: #fff;" id="editingLiteLabel">Editing Effect</span>
                   <button type="button" class="btn-deselect-sidebar" id="btnDeselectLite" title="Deselect effect (Select None)">Deselect</button>
@@ -1257,6 +1261,22 @@
                     </select>
                   </div>
                   <div class="inspector-prop-row">
+                    <label for="litePlaybackModeSelect">Motion Mode</label>
+                    <select id="litePlaybackModeSelect">
+                      <option value="loop">Loop (Continuous)</option>
+                      <option value="pingpong">Ping-Pong</option>
+                      <option value="once">Single Pass</option>
+                    </select>
+                  </div>
+                  <div class="inspector-prop-row">
+                    <label for="liteEntryExitSelect">Entry / Exit</label>
+                    <select id="liteEntryExitSelect">
+                      <option value="none">None</option>
+                      <option value="fade">Fade In / Out</option>
+                      <option value="fade-grow">Fade &amp; Grow/Shrink</option>
+                    </select>
+                  </div>
+                  <div class="inspector-prop-row">
                     <label for="liteStyleSelect">Segment Style</label>
                     <select id="liteStyleSelect">
                       <option value="rounded">Rounded</option>
@@ -1265,7 +1285,7 @@
                     </select>
                   </div>
                   <div class="inspector-prop-row">
-                    <label for="liteSpeedSlider">Circuit Dur (s)</label>
+                    <label for="liteSpeedSlider">Speed (Dur s)</label>
                     <div class="slider-row">
                       <input type="range" id="liteSpeedSlider" min="0.2" max="15" step="0.1" value="3.0">
                       <input type="number" class="num-input" id="liteSpeedNum" min="0.2" max="30" step="0.1" value="3.0">
@@ -1301,6 +1321,14 @@
                       <input type="range" id="litePeriodSlider" min="0.3" max="10" step="0.1" value="1.8">
                       <input type="number" class="num-input" id="litePeriodNum" min="0.2" max="20" step="0.1" value="1.8">
                     </div>
+                  </div>
+                </div>
+
+                <div id="liteIntensityRow" style="display: none;" class="inspector-prop-row">
+                  <label for="liteIntensitySlider">Intensity</label>
+                  <div class="slider-row">
+                    <input type="range" id="liteIntensitySlider" min="0.1" max="1" step="0.05" value="0.85">
+                    <input type="number" class="num-input" id="liteIntensityNum" min="0" max="1" step="0.05" value="0.85">
                   </div>
                 </div>
 
@@ -2403,10 +2431,33 @@
               </select>
             </div>
             <div class="floating-prop-row">
-              <label for="fctx-liteSpeedSlider">Duration (s)</label>
+              <label for="fctx-litePlaybackModeSelect">Motion</label>
+              <select id="fctx-litePlaybackModeSelect" class="full-select">
+                <option value="loop">Loop (Continuous)</option>
+                <option value="pingpong">Ping-Pong</option>
+                <option value="once">Single Pass</option>
+              </select>
+            </div>
+            <div class="floating-prop-row">
+              <label for="fctx-liteEntryExitSelect">Entry/Exit</label>
+              <select id="fctx-liteEntryExitSelect" class="full-select">
+                <option value="none">None</option>
+                <option value="fade">Fade In / Out</option>
+                <option value="fade-grow">Fade &amp; Grow/Shrink</option>
+              </select>
+            </div>
+            <div class="floating-prop-row">
+              <label for="fctx-liteSpeedSlider">Speed (s)</label>
               <div class="slider-row">
                 <input type="range" id="fctx-liteSpeedSlider" min="0.2" max="30" step="0.1" value="3.0">
                 <input type="number" class="num-input" id="fctx-liteSpeedNum" min="0.2" max="60" step="0.1" value="3.0">
+              </div>
+            </div>
+            <div class="floating-prop-row">
+              <label for="fctx-liteStartOffsetSlider">Offset (%)</label>
+              <div class="slider-row">
+                <input type="range" id="fctx-liteStartOffsetSlider" min="0" max="100" step="5" value="0">
+                <input type="number" class="num-input" id="fctx-liteStartOffsetNum" min="0" max="100" step="1" value="0">
               </div>
             </div>
           </div>

@@ -1967,7 +1967,7 @@
         return { valid: false, error: 'No target objects specified for layer reordering', targets: [] };
       }
 
-      const VALID_TYPES = new Set(['node', 'flow', 'glow', 'ripple', 'image', 'group']);
+      const VALID_TYPES = new Set(['node', 'flow', 'glow', 'ripple', 'lite', 'image', 'group']);
       let candidates = [];
 
       if (!Array.isArray(rawTargets) && typeof rawTargets === 'object') {

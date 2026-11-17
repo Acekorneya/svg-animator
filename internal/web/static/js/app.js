@@ -2665,9 +2665,19 @@ function getDrawerWidgetPropDefs(type) {
       { prop: 'opacity', label: 'Opacity (0..1)', type: 'number', min: 0, max: 1, desc: 'Transparency of the low-load effect (0.0 to 1.0)' },
       { prop: 'visibility', label: 'Visibility (Toggle)', type: 'boolean', desc: 'Toggle visibility of the low-load effect' },
       { prop: 'speed', label: 'Speed / Rate', type: 'speed', min: 0.1, max: 10, desc: 'Playback speed multiplier for the effect (0.1 to 10.0)' },
+      { prop: 'strokeWidth', label: 'Stroke Width', type: 'number', min: 0.5, max: 20, desc: 'Perimeter tracer stroke thickness in px (0.5 to 20)' },
+      { prop: 'segments', label: 'Segments', type: 'number', min: 1, max: 16, desc: 'Number of tracer segments around perimeter (1 to 16)' },
+      { prop: 'lineGapRatio', label: 'Line:Gap Ratio', type: 'text', desc: 'Repeating segment pattern ratio (e.g. 1:3)' },
+      { prop: 'direction', label: 'Direction', type: 'enum', options: ['cw', 'ccw'], desc: 'Perimeter tracer travel direction' },
+      { prop: 'startOffset', label: 'Start Offset (%)', type: 'number', min: 0, max: 100, desc: 'Perimeter starting phase offset (0 to 100%)' },
+      { prop: 'playbackMode', label: 'Motion Mode', type: 'enum', options: ['loop', 'pingpong', 'once'], desc: 'Tracer playback mode (loop, pingpong, once)' },
+      { prop: 'showGuide', label: 'Guide Visibility', type: 'boolean', desc: 'Show or hide static perimeter boundary guide' },
       { prop: 'scale', label: 'Pulse Max Scale', type: 'number', min: 0.4, max: 2.5, desc: 'Maximum pulse expansion scale multiplier (0.4 to 2.5)' },
+      { prop: 'period', label: 'Pulse Period (s)', type: 'number', min: 0.2, max: 20, desc: 'Pulse cycle duration in seconds (0.2 to 20.0)' },
+      { prop: 'intensity', label: 'Intensity', type: 'number', min: 0, max: 1, desc: 'Peak pulse/flash amplitude (0.0 to 1.0)' },
       { prop: 'trigger', label: 'Flash Trigger', type: 'number', min: 0, max: 1000000, desc: 'Incrementing or changing this value triggers a single-shot Flash Lite pulse' },
-      { prop: 'duration', label: 'Flash Duration (ms)', type: 'number', min: 20, max: 1000, desc: 'Flash duration in milliseconds (20 to 1000 ms)' }
+      { prop: 'duration', label: 'Flash Duration (ms)', type: 'number', min: 20, max: 1000, desc: 'Flash duration in milliseconds (20 to 1000 ms)' },
+      { prop: 'repeat', label: 'Flash Repeat', type: 'boolean', desc: 'Repeat flash periodically instead of single-shot' }
     ],
     root: [
       { prop: 'playbackRate', label: 'Master Speed', type: 'speed', min: 0.1, max: 5.0, desc: 'Master playback rate multiplier for the entire widget' },
@@ -2742,9 +2752,19 @@ function getObjectPropValue(type, id, prop) {
         case 'opacity': return le.opacity !== undefined ? le.opacity : 0.9;
         case 'visibility': return le.visible !== false;
         case 'speed': return 1.0;
+        case 'strokeWidth': return le.strokeWidth !== undefined ? le.strokeWidth : 2.5;
+        case 'segments': return le.segments !== undefined ? le.segments : 2;
+        case 'lineGapRatio': return le.lineGapRatio || '1:3';
+        case 'direction': return le.direction || 'cw';
+        case 'startOffset': return le.startOffset !== undefined ? le.startOffset : 0;
+        case 'playbackMode': return le.playbackMode || 'loop';
+        case 'showGuide': return le.showGuide !== false;
         case 'scale': return le.maxScale !== undefined ? le.maxScale : 1.15;
+        case 'period': return le.period !== undefined ? le.period : 1.8;
+        case 'intensity': return le.intensity !== undefined ? le.intensity : (le.kind === 'flash' ? 0.75 : 0.85);
         case 'trigger': return 0;
         case 'duration': return Math.round((Number(le.dur) || 0.10) * 1000);
+        case 'repeat': return Boolean(le.repeat);
       }
     }
   }
@@ -2807,8 +2827,12 @@ window.renderWidgetPropertyCards = function(containerEl, sel, statusMsgEl) {
   let propDefs = getDrawerWidgetPropDefs(sel.type);
   if (sel.type === 'lite' && liteKind) {
     propDefs = propDefs.filter((p) => {
-      if (p.prop === 'trigger' || p.prop === 'duration') return liteKind === 'flash';
-      if (p.prop === 'scale') return liteKind === 'pulse';
+      if (['strokeWidth', 'segments', 'lineGapRatio', 'direction', 'startOffset', 'playbackMode', 'showGuide'].includes(p.prop)) {
+        return liteKind === 'perimeter-tracer';
+      }
+      if (['scale', 'period'].includes(p.prop)) return liteKind === 'pulse';
+      if (['trigger', 'duration', 'repeat'].includes(p.prop)) return liteKind === 'flash';
+      if (p.prop === 'intensity') return liteKind === 'pulse' || liteKind === 'flash';
       if (p.prop === 'speed') return liteKind === 'perimeter-tracer' || liteKind === 'pulse';
       return true;
     });
