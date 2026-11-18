@@ -83,6 +83,15 @@ Chromium **does not** automatically stop ticking off-screen SMIL animations (`30
     - Unified Tracer `circle` and `ellipse` to `<ellipse shape-rendering="geometricPrecision">` and exact `ComputePerimeterDash` (`segments * (dash + gap) === 1000`).
     - Added **Burst/Pause Scheduling** (`burstCycles`, `pauseSeconds`, `pauseVisibility`: `hide`/`hold`) using native CSS `animation-iteration-count: N` + `animationend` + `setTimeout`, cleared cleanly on `IntersectionObserver` suspension.
     - Lowered Pulse/Flash min dimensions to `5` SVG units, added independent `armThickness` (`1..20`, default `3`) for `cross` & `star`, and separated Flash `duration` (`ms`) from `repeatInterval` (`s`).
-- **Go Tests (`go test ./...`):** 100% PASS (including `TestComputePerimeterDash`, `TestLiteEffectCRUDAndValidation`, `TestLiteEffectLegacyMigrationAndNewProperties`, and `TestLiteEffectLayersAndGroupingCompatibility`).
-- **JS Regression Harness (`node scripts/regression-harness.js`):** 88/88 scenarios PASS (including expanded Scenario 88).
-- **Real-Browser CDP (`scripts/cmd/verify-stage16d-a/main.go` & `scripts/cmd/verify-stage16d-a-motion/main.go`):** **20/20 Studio/Widget CDP scenarios PASS** and **8/8 real-browser motion/burst/geometry checks PASS** on Kiwiberry (`192.168.100.40:8088`, `8091`, and `8092`). Status: **Awaiting human visual review**.
+### Standalone SVG vs. `<img>` vs. Widget Runtime Matrix
+
+| Feature / Capability | `<img>` Tag (No Script) | Standalone SVG (`<svg>` tab / `<object>`) | Widget Package (`SVGWidget.mount`) |
+|---|---|---|---|
+| **Continuous Tracer (`loop`, `pingpong`, `once`), Pulse, Flash (`1x`)** | Supported (CSS `@keyframes`) | Supported | Supported |
+| **4-Circuit Burst / Pause / Restart & Flash Repeat Interval** | Runs initial burst/flash only (scripts disabled in `<img>`) | Supported (inline `getLiteBurstScript`) | Supported (`SVGWidget` + `IntersectionObserver` timer cleanup) |
+| **External `setParameter` Controls & Visibility Suspension** | Not supported | Not supported | Supported |
+
+- **Standalone SVG Export Audit:** Fixed `SVGExportAdapter.serialize` (`export-adapter.js`) to strip `[data-editor-only="true"]` markers from standalone SVG exports, and updated `getLiteBurstScript()` (`lite-effects.js`) + `SVGWidget.mount()` (`svg-widget.js`) to guard on `data-sva-runtime-managed` / `.sva-widget-wrapper` instead of `data-sva-widget-instance`, so both direct standalone SVGs and package `.svg` files run burst/pause/restart when opened directly.
+- **Go Tests (`go test ./...`):** 100% PASS.
+- **JS Regression Harness (`node scripts/regression-harness.js`):** 88/88 scenarios PASS.
+- **Real-Browser CDP (`scripts/cmd/verify-stage16d-a/main.go` & `scripts/cmd/verify-stage16d-a-motion/main.go`):** **20/20 Studio/Widget CDP scenarios PASS** and **10/10 real-browser audit/motion/burst/geometry checks PASS** on Kiwiberry (`192.168.100.40:8088`, `8091`, and `8092`). Status: **Awaiting final Stage 16D-A acceptance**.

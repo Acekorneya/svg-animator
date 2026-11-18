@@ -467,7 +467,7 @@ window.LiteEffects = {
 (function(){
   var cs=document.currentScript;
   var s=(cs&&(cs.ownerSVGElement||(cs.closest&&cs.closest('svg'))))||document.documentElement;
-  if(!s||s.hasAttribute('data-sva-widget-instance'))return;
+  if(!s||s.hasAttribute('data-sva-runtime-managed')||(s.closest&&s.closest('.sva-widget-wrapper')))return;
   var nodes=s.querySelectorAll('[data-burst-cycles]');
   for(var i=0;i<nodes.length;i++){(function(n){
     n.addEventListener('animationend',function(){

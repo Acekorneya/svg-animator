@@ -220,7 +220,7 @@ func main() {
 	})()`))
 	zipBytes, _ := base64.StdEncoding.DecodeString(pkgB64)
 	zr, _ := zip.NewReader(bytes.NewReader(zipBytes), int64(len(zipBytes)))
-	var demoHTML, manifestJSON, svgWidgetJS string
+	var demoHTML, manifestJSON, svgWidgetJS, pkgSVG string
 	for _, f := range zr.File {
 		rc, _ := f.Open()
 		var buf bytes.Buffer
@@ -232,6 +232,8 @@ func main() {
 			manifestJSON = buf.String()
 		} else if strings.HasSuffix(f.Name, "svg-widget.js") {
 			svgWidgetJS = buf.String()
+		} else if strings.HasSuffix(f.Name, "motion-v2.svg") {
+			pkgSVG = buf.String()
 		}
 	}
 	if svgWidgetJS == "" {
@@ -241,6 +243,38 @@ func main() {
 	rec(3, "Manifest: No startOffset, has burst & arm",
 		!strings.Contains(manifestJSON, "startoffset") && strings.Contains(manifestJSON, "burstcycles") && strings.Contains(manifestJSON, "armthickness") && strings.Contains(manifestJSON, "repeatinterval"),
 		fmt.Sprintf("len=%d, noStartOffset=%v, hasBurst=%v", len(manifestJSON), !strings.Contains(manifestJSON, "startoffset"), strings.Contains(manifestJSON, "burstcycles")))
+
+	// Audit XML validity & zero editor-only elements in BOTH standaloneSVG and pkgSVG
+	xmlAuditJSON, _ := chromedp.Run(ctx, chromedp.Evaluate[string](fmt.Sprintf(`(() => {
+		const check = (str) => {
+			const doc = new DOMParser().parseFromString(str, 'image/svg+xml');
+			const errs = doc.getElementsByTagName('parsererror').length;
+			const ed = doc.querySelectorAll('[data-editor-only="true"], .lite-editor-marker').length;
+			const hasInst = doc.documentElement.hasAttribute('data-sva-widget-instance');
+			return { errs, ed, hasInst };
+		};
+		return JSON.stringify({
+			standalone: check(%q),
+			pkgSvg: check(%q)
+		});
+	})()`, standaloneSVG, pkgSVG)))
+	var xmlAudit struct {
+		Standalone struct {
+			Errs    int  `json:"errs"`
+			Ed      int  `json:"ed"`
+			HasInst bool `json:"hasInst"`
+		} `json:"standalone"`
+		PkgSvg struct {
+			Errs    int  `json:"errs"`
+			Ed      int  `json:"ed"`
+			HasInst bool `json:"hasInst"`
+		} `json:"pkgSvg"`
+	}
+	_ = json.Unmarshal([]byte(xmlAuditJSON), &xmlAudit)
+	rec(9, "Audit: Valid XML & 0 editor-only markers",
+		xmlAudit.Standalone.Errs == 0 && xmlAudit.Standalone.Ed == 0 && xmlAudit.PkgSvg.Errs == 0 && xmlAudit.PkgSvg.Ed == 0 && xmlAudit.PkgSvg.HasInst,
+		fmt.Sprintf("standalone(errs=%d, ed=%d), pkgSvg(errs=%d, ed=%d, hasInst=%v)",
+			xmlAudit.Standalone.Errs, xmlAudit.Standalone.Ed, xmlAudit.PkgSvg.Errs, xmlAudit.PkgSvg.Ed, xmlAudit.PkgSvg.HasInst))
 
 	// =========================================================================
 	// Standalone SVG: Rect, Circle(rx=17), Ellipse pingpong, Burst(4x0.25s + 1.2s pause)
@@ -376,6 +410,28 @@ func main() {
 		inPause == "hidden" && whilePaused && afterResumeVis == "visible",
 		fmt.Sprintf("inPause=%s, whileSuspended=%v, afterResume=%s", inPause, whilePaused, afterResumeVis))
 
+	// Also open pkgSVG (motion-v2.svg WITH data-sva-widget-instance) directly as standalone SVG and verify burst/pause/restart runs!
+	if _, err := chromedp.Run(ctx, chromedp.Navigate("file:///tmp/motion-v2-pkg/motion-v2/motion-v2.svg")); err != nil {
+		log.Fatal("nav pkgSvg:", err)
+	}
+	var pkgBurst []string
+	for i := 0; i < 16; i++ {
+		v, _ := chromedp.Run(ctx, chromedp.Evaluate[string](`getComputedStyle(document.querySelector('[data-lite-id$="4"] .lite-payload')).visibility`))
+		pkgBurst = append(pkgBurst, v)
+		_, _ = chromedp.Run(ctx, chromedp.Sleep(180*time.Millisecond))
+	}
+	pkgSawHide, pkgSawResume := false, false
+	for _, v := range pkgBurst {
+		if v == "hidden" {
+			pkgSawHide = true
+		} else if pkgSawHide && v == "visible" {
+			pkgSawResume = true
+		}
+	}
+	rec(10, "Audit: Pkg SVG standalone burst/pause/restart",
+		pkgSawHide && pkgSawResume,
+		fmt.Sprintf("sawHide=%v, resumed=%v", pkgSawHide, pkgSawResume))
+
 	_ = demoHTML
 	fmt.Println("==================================================================")
 	for _, c := range checks {
@@ -384,5 +440,5 @@ func main() {
 			os.Exit(1)
 		}
 	}
-	fmt.Println(">>> ALL 8 STAGE 16D-A SIMPLIFICATION, BURST & GEOMETRY CHECKS PASS <<<")
+	fmt.Println(">>> ALL 10 STAGE 16D-A AUDIT, MOTION, BURST & GEOMETRY CHECKS PASS <<<")
 }

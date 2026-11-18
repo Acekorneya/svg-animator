@@ -1196,6 +1196,7 @@
       }
 
       if (svgEl && typeof svgEl.addEventListener === 'function') {
+        svgEl.setAttribute('data-sva-runtime-managed', '1');
         svgEl.addEventListener('animationend', (e) => {
           const node = e && e.target;
           if (!node || !node.getAttribute) return;

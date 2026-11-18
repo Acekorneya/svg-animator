@@ -30,6 +30,11 @@
       const svgRoot = xmlDoc.documentElement;
       const XLINK_NS = 'http://www.w3.org/1999/xlink';
 
+      // Strip editor-only selection/guide markers from exported standalone SVG
+      xmlDoc.querySelectorAll('[data-editor-only="true"]').forEach((el) => {
+        if (el.parentNode) el.parentNode.removeChild(el);
+      });
+
       if (!svgRoot.hasAttribute('xmlns:xlink')) {
         svgRoot.setAttribute('xmlns:xlink', XLINK_NS);
       }
