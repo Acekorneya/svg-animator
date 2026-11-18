@@ -208,6 +208,18 @@
         return `${attr}=${q}${timing}${q}`;
       });
 
+      // Remap @keyframes animation-name references inside inline style="..." attributes
+      if (Object.keys(keyframeMap).length > 0 && /\bstyle\s*=/i.test(tagAttrs)) {
+        tagAttrs = tagAttrs.replace(/\bstyle\s*=\s*(["'])([^"']*)\1/gi, (match, q, styleVal) => {
+          let updatedStyle = styleVal;
+          for (const [oldKF, newKF] of Object.entries(keyframeMap)) {
+            const reInlineAnim = new RegExp(`(\\b(?:animation|animation-name)\\s*:\\s*[^;]*?)\\b${escapeRegex(oldKF)}\\b`, 'g');
+            updatedStyle = updatedStyle.replace(reInlineAnim, `$1${newKF}`);
+          }
+          return `style=${q}${updatedStyle}${q}`;
+        });
+      }
+
       return `<${tagName}${tagAttrs}>`;
     });
 
@@ -626,17 +638,13 @@
           gfx.style.opacity = String(num);
           gfx.setAttribute('opacity', String(num));
         } else if (isLite) {
+          el.setAttribute('opacity', String(num));
+          if (el.style) el.style.opacity = String(num);
           el.querySelectorAll('.lite-payload').forEach(c => {
-            c.setAttribute('opacity', String(num));
-            if (c.getAttribute('stroke') && c.getAttribute('stroke') !== 'none') {
-              c.setAttribute('stroke-opacity', String(num));
-            }
+            c.removeAttribute('opacity');
+            c.removeAttribute('stroke-opacity');
             if (c.style) {
-              c.style.opacity = String(num);
-              if (typeof c.style.setProperty === 'function') {
-                c.style.setProperty('--sva-base-op', String(num));
-                c.style.setProperty('--sva-flash-int', String(num));
-              }
+              c.style.opacity = '';
             }
           });
         } else {
@@ -703,9 +711,10 @@
           el.querySelectorAll('.lite-flash-anim, .sva-lite-flash-anim').forEach(node => {
             node.setAttribute('data-trigger-nonce', String(value));
             if (node.style) {
+              const prevAnim = node.style.animationName || '';
               node.style.animationName = 'none';
               try { void node.getBoundingClientRect(); } catch (e) {}
-              node.style.animationName = '';
+              node.style.animationName = prevAnim;
             }
           });
         }
@@ -764,11 +773,16 @@
           const parts = String(ratioStr).split(':');
           const lPart = Math.max(0.1, parseFloat(parts[0]) || 1);
           const gPart = Math.max(0.1, parseFloat(parts[1]) || 3);
-          const unit = 1000 / segs;
-          const dashLen = Math.round((unit * (lPart / (lPart + gPart))) * 100) / 100;
-          const gapLen = Math.round((unit * (gPart / (lPart + gPart))) * 100) / 100;
+          const unit = Math.round((1000 / segs) * 1000) / 1000;
+          const dashLen = Math.round((unit * (lPart / (lPart + gPart))) * 1000) / 1000;
+          const gapLen = Math.round((unit - dashLen) * 1000) / 1000;
           el.querySelectorAll('.lite-payload').forEach(node => {
             node.setAttribute('stroke-dasharray', `${dashLen} ${gapLen}`);
+            if (node.style && typeof node.style.setProperty === 'function') {
+              node.style.setProperty('--sva-unit', `${unit}px`);
+              node.style.setProperty('--sva-dash', `${dashLen}px`);
+              node.style.setProperty('--sva-gap', `${gapLen}px`);
+            }
           });
         }
         break;
@@ -777,9 +791,21 @@
         if (el) {
           const dir = String(value).toLowerCase() === 'ccw' ? 'ccw' : 'cw';
           el.querySelectorAll('.lite-payload').forEach(node => {
-            if (!node.classList) return;
-            node.classList.remove('sva-lite-trace-cw', 'sva-lite-trace-ccw', 'sva-lite-trace-cw-fade', 'sva-lite-trace-ccw-fade', 'sva-lite-trace-cw-fadegrow', 'sva-lite-trace-ccw-fadegrow');
-            node.classList.add(`sva-lite-trace-${dir}`);
+            const curAnim = (node.style && node.style.animationName) || '';
+            const pfxMatch = curAnim.match(/^(.*__)sva-lite-trace-/);
+            const pfx = pfxMatch ? pfxMatch[1] : '';
+            const entryExit = node.getAttribute('data-entry-exit') || 'none';
+            const suffix = entryExit === 'fade' ? '-fade' : (entryExit === 'grow' ? '-grow' : (entryExit === 'fade-grow' ? '-fadegrow' : ''));
+            const newTraceName = `${pfx}sva-lite-trace-${dir}${suffix}`;
+            if (node.classList) {
+              Array.from(node.classList).forEach(cls => {
+                if (cls.includes('sva-lite-trace-')) node.classList.remove(cls);
+              });
+              node.classList.add(newTraceName);
+            }
+            if (node.style) {
+              node.style.animationName = newTraceName;
+            }
             node.setAttribute('data-direction', dir);
           });
         }
@@ -792,7 +818,7 @@
           el.querySelectorAll('.lite-payload').forEach(node => {
             node.setAttribute('data-start-offset', String(pct));
             if (node.style && typeof node.style.setProperty === 'function') {
-              node.style.setProperty('--sva-start-offset', String(offsetUnits));
+              node.style.setProperty('--sva-start-offset', `${offsetUnits}px`);
             }
           });
         }
@@ -803,9 +829,19 @@
           const raw = String(value).toLowerCase();
           const mode = raw === 'pingpong' ? 'pingpong' : (raw === 'once' ? 'once' : 'loop');
           el.querySelectorAll('.lite-payload').forEach(node => {
+            const curAnim = (node.style && node.style.animationName) || '';
+            const pfxMatch = curAnim.match(/^(.*__)sva-lite-trace-/);
+            const pfx = pfxMatch ? pfxMatch[1] : '';
             if (node.classList) {
-              node.classList.remove('sva-lite-mode-loop', 'sva-lite-mode-pingpong', 'sva-lite-mode-once');
-              node.classList.add(`sva-lite-mode-${mode}`);
+              Array.from(node.classList).forEach(cls => {
+                if (cls.includes('sva-lite-mode-')) node.classList.remove(cls);
+              });
+              node.classList.add(`${pfx}sva-lite-mode-${mode}`);
+            }
+            if (node.style) {
+              node.style.animationIterationCount = mode === 'once' ? '1' : 'infinite';
+              node.style.animationDirection = mode === 'pingpong' ? 'alternate' : 'normal';
+              node.style.animationFillMode = mode === 'once' ? 'forwards' : 'none';
             }
             node.setAttribute('data-playback-mode', mode);
           });

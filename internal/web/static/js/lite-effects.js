@@ -209,36 +209,54 @@ window.LiteEffects = {
     if (this.list.length === 0) return '';
     return `<style>
 @keyframes sva-lite-trace-cw {
-  from { stroke-dashoffset: var(--sva-start-offset, 0); }
-  to { stroke-dashoffset: calc(var(--sva-start-offset, 0) - 1000); }
+  from { stroke-dashoffset: var(--sva-start-offset, 0px); }
+  to { stroke-dashoffset: calc(var(--sva-start-offset, 0px) - 1000px); }
 }
 @keyframes sva-lite-trace-ccw {
-  from { stroke-dashoffset: var(--sva-start-offset, 0); }
-  to { stroke-dashoffset: calc(var(--sva-start-offset, 0) + 1000); }
+  from { stroke-dashoffset: var(--sva-start-offset, 0px); }
+  to { stroke-dashoffset: calc(var(--sva-start-offset, 0px) + 1000px); }
 }
 @keyframes sva-lite-trace-cw-fade {
-  0% { stroke-dashoffset: var(--sva-start-offset, 0); opacity: 0; }
-  12%, 88% { opacity: var(--sva-base-op, 0.9); }
-  100% { stroke-dashoffset: calc(var(--sva-start-offset, 0) - 1000); opacity: 0; }
+  0% { stroke-dashoffset: var(--sva-start-offset, 0px); opacity: 0; }
+  15%, 85% { opacity: 1; }
+  100% { stroke-dashoffset: calc(var(--sva-start-offset, 0px) - 1000px); opacity: 0; }
 }
 @keyframes sva-lite-trace-ccw-fade {
-  0% { stroke-dashoffset: var(--sva-start-offset, 0); opacity: 0; }
-  12%, 88% { opacity: var(--sva-base-op, 0.9); }
-  100% { stroke-dashoffset: calc(var(--sva-start-offset, 0) + 1000); opacity: 0; }
+  0% { stroke-dashoffset: var(--sva-start-offset, 0px); opacity: 0; }
+  15%, 85% { opacity: 1; }
+  100% { stroke-dashoffset: calc(var(--sva-start-offset, 0px) + 1000px); opacity: 0; }
+}
+@keyframes sva-lite-trace-cw-grow {
+  0% { stroke-dasharray: 0px var(--sva-unit, 500px); stroke-dashoffset: var(--sva-start-offset, 0px); }
+  22% { stroke-dasharray: var(--sva-dash, 125px) var(--sva-gap, 375px); stroke-dashoffset: var(--sva-start-offset, 0px); }
+  78% { stroke-dasharray: var(--sva-dash, 125px) var(--sva-gap, 375px); stroke-dashoffset: calc(var(--sva-start-offset, 0px) - (1000px - var(--sva-dash, 125px))); }
+  100% { stroke-dasharray: 0px var(--sva-unit, 500px); stroke-dashoffset: calc(var(--sva-start-offset, 0px) - 1000px); }
+}
+@keyframes sva-lite-trace-ccw-grow {
+  0% { stroke-dasharray: 0px var(--sva-unit, 500px); stroke-dashoffset: var(--sva-start-offset, 0px); }
+  22% { stroke-dasharray: var(--sva-dash, 125px) var(--sva-gap, 375px); stroke-dashoffset: calc(var(--sva-start-offset, 0px) + var(--sva-dash, 125px)); }
+  78% { stroke-dasharray: var(--sva-dash, 125px) var(--sva-gap, 375px); stroke-dashoffset: calc(var(--sva-start-offset, 0px) + 1000px); }
+  100% { stroke-dasharray: 0px var(--sva-unit, 500px); stroke-dashoffset: calc(var(--sva-start-offset, 0px) + 1000px); }
 }
 @keyframes sva-lite-trace-cw-fadegrow {
-  0% { stroke-dashoffset: var(--sva-start-offset, 0); opacity: 0; stroke-width: 0.5px; }
-  15%, 85% { opacity: var(--sva-base-op, 0.9); stroke-width: var(--sva-base-sw, 2.5px); }
-  100% { stroke-dashoffset: calc(var(--sva-start-offset, 0) - 1000); opacity: 0; stroke-width: 0.5px; }
+  0% { stroke-dasharray: 0px var(--sva-unit, 500px); stroke-dashoffset: var(--sva-start-offset, 0px); opacity: 0; }
+  18% { opacity: 1; }
+  22% { stroke-dasharray: var(--sva-dash, 125px) var(--sva-gap, 375px); stroke-dashoffset: var(--sva-start-offset, 0px); opacity: 1; }
+  78% { stroke-dasharray: var(--sva-dash, 125px) var(--sva-gap, 375px); stroke-dashoffset: calc(var(--sva-start-offset, 0px) - (1000px - var(--sva-dash, 125px))); opacity: 1; }
+  82% { opacity: 1; }
+  100% { stroke-dasharray: 0px var(--sva-unit, 500px); stroke-dashoffset: calc(var(--sva-start-offset, 0px) - 1000px); opacity: 0; }
 }
 @keyframes sva-lite-trace-ccw-fadegrow {
-  0% { stroke-dashoffset: var(--sva-start-offset, 0); opacity: 0; stroke-width: 0.5px; }
-  15%, 85% { opacity: var(--sva-base-op, 0.9); stroke-width: var(--sva-base-sw, 2.5px); }
-  100% { stroke-dashoffset: calc(var(--sva-start-offset, 0) + 1000); opacity: 0; stroke-width: 0.5px; }
+  0% { stroke-dasharray: 0px var(--sva-unit, 500px); stroke-dashoffset: var(--sva-start-offset, 0px); opacity: 0; }
+  18% { opacity: 1; }
+  22% { stroke-dasharray: var(--sva-dash, 125px) var(--sva-gap, 375px); stroke-dashoffset: calc(var(--sva-start-offset, 0px) + var(--sva-dash, 125px)); opacity: 1; }
+  78% { stroke-dasharray: var(--sva-dash, 125px) var(--sva-gap, 375px); stroke-dashoffset: calc(var(--sva-start-offset, 0px) + 1000px); opacity: 1; }
+  82% { opacity: 1; }
+  100% { stroke-dasharray: 0px var(--sva-unit, 500px); stroke-dashoffset: calc(var(--sva-start-offset, 0px) + 1000px); opacity: 0; }
 }
 @keyframes sva-lite-pulse {
-  0%, 100% { transform: scale(var(--sva-pulse-min, 0.85)); opacity: calc(var(--sva-base-op, 0.9) * (1 - var(--sva-pulse-amp, 0.55))); }
-  50% { transform: scale(var(--sva-pulse-max, 1.15)); opacity: var(--sva-base-op, 0.9); }
+  0%, 100% { transform: scale(var(--sva-pulse-min, 0.85)); opacity: calc(1 - var(--sva-pulse-amp, 0.55)); }
+  50% { transform: scale(var(--sva-pulse-max, 1.15)); opacity: 1; }
 }
 @keyframes sva-lite-flash {
   0% { opacity: 0; transform: scale(0.85); }
@@ -252,6 +270,8 @@ window.LiteEffects = {
 .sva-lite-trace-ccw { animation-name: sva-lite-trace-ccw; }
 .sva-lite-trace-cw-fade { animation-name: sva-lite-trace-cw-fade; }
 .sva-lite-trace-ccw-fade { animation-name: sva-lite-trace-ccw-fade; }
+.sva-lite-trace-cw-grow { animation-name: sva-lite-trace-cw-grow; }
+.sva-lite-trace-ccw-grow { animation-name: sva-lite-trace-ccw-grow; }
 .sva-lite-trace-cw-fadegrow { animation-name: sva-lite-trace-cw-fadegrow; }
 .sva-lite-trace-ccw-fadegrow { animation-name: sva-lite-trace-ccw-fadegrow; }
 .sva-lite-mode-loop { animation-iteration-count: infinite; animation-direction: normal; }
@@ -260,6 +280,7 @@ window.LiteEffects = {
 .sva-lite-pulse-anim {
   transform-box: fill-box;
   transform-origin: center;
+  will-change: transform, opacity;
   animation-name: sva-lite-pulse;
   animation-timing-function: ease-in-out;
   animation-iteration-count: infinite;
@@ -267,6 +288,7 @@ window.LiteEffects = {
 .sva-lite-flash-anim {
   transform-box: fill-box;
   transform-origin: center;
+  will-change: transform, opacity;
   animation-name: sva-lite-flash;
   animation-timing-function: ease-out;
   animation-fill-mode: both;
@@ -393,19 +415,27 @@ window.LiteEffects = {
       const entryExit = le.entryExit || 'none';
       const traceClass = entryExit === 'fade'
         ? `sva-lite-trace-${dir}-fade`
-        : (entryExit === 'fade-grow' ? `sva-lite-trace-${dir}-fadegrow` : `sva-lite-trace-${dir}`);
+        : (entryExit === 'grow'
+          ? `sva-lite-trace-${dir}-grow`
+          : (entryExit === 'fade-grow' ? `sva-lite-trace-${dir}-fadegrow` : `sva-lite-trace-${dir}`));
       const mode = le.playbackMode === 'pingpong' ? 'pingpong' : (le.playbackMode === 'once' ? 'once' : 'loop');
       const modeClass = `sva-lite-mode-${mode}`;
       const startOffsetUnits = -((Number(le.startOffset) || 0) / 100) * 1000;
-      const styleStr = `animation-name:${traceClass};animation-duration:${dur}s;--sva-base-dur:${dur}s;--sva-base-op:${opacity};--sva-base-sw:${sw}px;--sva-start-offset:${startOffsetUnits};`;
+      const unitUnits = Math.round((1000 / segs) * 1000) / 1000;
+      const dashUnits = dashInfo.dashLen;
+      const gapUnits = Math.round((unitUnits - dashUnits) * 1000) / 1000;
+      const iterCss = mode === 'once' ? '1' : 'infinite';
+      const dirCss = mode === 'pingpong' ? 'alternate' : 'normal';
+      const fillCss = mode === 'once' ? 'forwards' : 'none';
+      const styleStr = `animation-name:${traceClass};animation-duration:${dur}s;animation-iteration-count:${iterCss};animation-direction:${dirCss};animation-fill-mode:${fillCss};--sva-base-dur:${dur}s;--sva-base-sw:${sw}px;--sva-unit:${unitUnits}px;--sva-dash:${dashUnits}px;--sva-gap:${gapUnits}px;--sva-start-offset:${startOffsetUnits}px;`;
 
       let shapeMarkup = '';
       let guideMarkup = '';
       let hitMarkup = '';
       const variant = le.variant || 'rounded';
-      const payloadAttrs = `class="lite-payload sva-lite-tracer-anim ${traceClass} ${modeClass}" data-semantic-role="payload" data-playback-mode="${mode}" pathLength="1000" fill="none" stroke="${color}" stroke-width="${sw}" stroke-opacity="${opacity}" stroke-dasharray="${dashArray}" stroke-linecap="${linecap}" style="${styleStr}" pointer-events="none"`;
+      const payloadAttrs = `class="lite-payload sva-lite-tracer-anim ${traceClass} ${modeClass}" data-semantic-role="payload" data-direction="${dir}" data-entry-exit="${entryExit}" data-playback-mode="${mode}" pathLength="1000" fill="none" stroke="${color}" stroke-width="${sw}" stroke-dasharray="${dashArray}" stroke-linecap="${linecap}" style="${styleStr}" pointer-events="none"`;
       const hitAttrs = `class="lite-hit-target" data-semantic-role="hit-target" fill="transparent" stroke="transparent" stroke-width="${Math.max(16, sw + 12)}" pointer-events="stroke" style="cursor:pointer;"`;
-      const guideAttrs = `class="lite-guide-track" fill="none" stroke="${color}" stroke-width="${Math.max(1, sw * 0.55).toFixed(2)}" stroke-opacity="${(opacity * 0.22).toFixed(2)}" pointer-events="none"`;
+      const guideAttrs = `class="lite-guide-track" fill="none" stroke="${color}" stroke-width="${Math.max(1, sw * 0.55).toFixed(2)}" stroke-opacity="0.22" pointer-events="none"`;
       const editorGuideAttrs = `fill="none" stroke="${color}" stroke-width="1" stroke-opacity="0.25" stroke-dasharray="4 4" pointer-events="none"`;
 
       if (variant === 'circle') {
@@ -430,7 +460,7 @@ window.LiteEffects = {
           : `<g class="lite-editor-marker" data-editor-only="true"><rect x="${x.toFixed(2)}" y="${y.toFixed(2)}" width="${w.toFixed(2)}" height="${h.toFixed(2)}" rx="${cornerR}" ${editorGuideAttrs} /></g>`;
       }
 
-      return `<g ${baseAttrs} data-lite-segments="${segs}" data-lite-ratio="${this.escapeXML(le.lineGapRatio || '1:3')}">${hitMarkup}${guideMarkup}${shapeMarkup}</g>`;
+      return `<g ${baseAttrs} style="opacity:${opacity};" data-lite-segments="${segs}" data-lite-ratio="${this.escapeXML(le.lineGapRatio || '1:3')}">${hitMarkup}${guideMarkup}${shapeMarkup}</g>`;
     }
 
     if (le.kind === 'pulse') {
@@ -442,11 +472,11 @@ window.LiteEffects = {
       const isRing = variant === 'ring';
       const fillVal = isRing ? 'none' : color;
       const strokeVal = isRing ? color : 'none';
-      const styleStr = `animation-duration:${period}s;--sva-base-dur:${period}s;--sva-base-op:${opacity};--sva-pulse-amp:${amp};--sva-pulse-min:${minScale};--sva-pulse-max:${maxScale};`;
+      const styleStr = `animation-duration:${period}s;--sva-base-dur:${period}s;--sva-pulse-amp:${amp};--sva-pulse-min:${minScale};--sva-pulse-max:${maxScale};`;
       const payloadAttrs = `class="lite-payload sva-lite-pulse-anim" data-semantic-role="payload" data-pulse-min="${minScale}" data-pulse-max="${maxScale}" fill="${fillVal}" stroke="${strokeVal}" stroke-width="${isRing ? sw : 0}" style="${styleStr}" pointer-events="none"`;
       const hitMarkup = `<rect class="lite-hit-target" data-semantic-role="hit-target" x="${x.toFixed(2)}" y="${y.toFixed(2)}" width="${w.toFixed(2)}" height="${h.toFixed(2)}" fill="transparent" pointer-events="all" style="cursor:pointer;" />`;
       const shapeMarkup = this._buildShapeGeometry(variant, cx, cy, w, h, payloadAttrs);
-      return `<g ${baseAttrs}>${hitMarkup}${shapeMarkup}</g>`;
+      return `<g ${baseAttrs} style="opacity:${opacity};">${hitMarkup}${shapeMarkup}</g>`;
     }
 
     if (le.kind === 'flash') {
@@ -463,7 +493,7 @@ window.LiteEffects = {
       const markerCross = `<circle cx="${cx.toFixed(2)}" cy="${cy.toFixed(2)}" r="3" fill="${color}" fill-opacity="0.75" pointer-events="none" />`;
       const editorMarker = `<g class="lite-editor-marker" data-editor-only="true" pointer-events="none">${markerShape}${markerCross}</g>`;
       const shapeMarkup = this._buildShapeGeometry(variant, cx, cy, w, h, payloadAttrs);
-      return `<g ${baseAttrs}>${hitMarkup}${editorMarker}${shapeMarkup}</g>`;
+      return `<g ${baseAttrs} style="opacity:${opacity};">${hitMarkup}${editorMarker}${shapeMarkup}</g>`;
     }
 
     return '';

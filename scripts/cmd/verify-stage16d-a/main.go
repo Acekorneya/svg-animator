@@ -520,7 +520,7 @@ func main() {
 	}
 	_ = json.Unmarshal([]byte(s14JSON), &s14)
 	record(14, "Tracer Modes, Offset & Grouping Compat",
-		s14.HasGuide && s14.HasAnim && s14.Dash == "125 125" && s14.HasPingPong && s14.StartOff == "-250" && s14.GrpOk,
+		s14.HasGuide && s14.HasAnim && s14.Dash == "125 125" && s14.HasPingPong && s14.StartOff == "-250px" && s14.GrpOk,
 		fmt.Sprintf("guide=%v, anim=%v(%q dur=%s hasStyle=%v cls=%q), pingpong=%v, startOffset=%s, groupMove=%v",
 			s14.HasGuide, s14.HasAnim, s14.AnimName, s14.AnimDur, s14.HasStyle, s14.Cls, s14.HasPingPong, s14.StartOff, s14.GrpOk))
 

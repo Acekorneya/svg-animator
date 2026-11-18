@@ -357,7 +357,7 @@ func (s *Scene) UpdateLiteEffect(id StringID, patch map[string]any) (LiteEffect,
 	if v, ok := patch["playbackMode"].(string); ok && (v == "loop" || v == "pingpong" || v == "once") {
 		existing.PlaybackMode = v
 	}
-	if v, ok := patch["entryExit"].(string); ok && (v == "none" || v == "fade" || v == "fade-grow") {
+	if v, ok := patch["entryExit"].(string); ok && (v == "none" || v == "fade" || v == "grow" || v == "fade-grow") {
 		existing.EntryExit = v
 	}
 	if v, ok := toFloat(patch["speed"]); ok && v > 0 {
