@@ -2756,15 +2756,19 @@ function getObjectPropValue(type, id, prop) {
         case 'segments': return le.segments !== undefined ? le.segments : 2;
         case 'lineGapRatio': return le.lineGapRatio || '1:3';
         case 'direction': return le.direction || 'cw';
-        case 'startOffset': return le.startOffset !== undefined ? le.startOffset : 0;
         case 'playbackMode': return le.playbackMode || 'loop';
+        case 'burstCycles': return le.burstCycles !== undefined ? le.burstCycles : 0;
+        case 'pauseSeconds': return le.pauseSeconds !== undefined ? le.pauseSeconds : 0;
+        case 'pauseVisibility': return le.pauseVisibility || 'hide';
         case 'showGuide': return le.showGuide !== false;
         case 'scale': return le.maxScale !== undefined ? le.maxScale : 1.15;
         case 'period': return le.period !== undefined ? le.period : 1.8;
         case 'intensity': return le.intensity !== undefined ? le.intensity : (le.kind === 'flash' ? 0.75 : 0.85);
+        case 'armThickness': return le.armThickness !== undefined ? le.armThickness : 3.0;
         case 'trigger': return 0;
         case 'duration': return Math.round((Number(le.dur) || 0.10) * 1000);
         case 'repeat': return Boolean(le.repeat);
+        case 'repeatInterval': return le.repeatInterval !== undefined ? le.repeatInterval : 2.0;
       }
     }
   }
@@ -2827,12 +2831,13 @@ window.renderWidgetPropertyCards = function(containerEl, sel, statusMsgEl) {
   let propDefs = getDrawerWidgetPropDefs(sel.type);
   if (sel.type === 'lite' && liteKind) {
     propDefs = propDefs.filter((p) => {
-      if (['strokeWidth', 'segments', 'lineGapRatio', 'direction', 'startOffset', 'playbackMode', 'showGuide'].includes(p.prop)) {
+      if (['strokeWidth', 'segments', 'lineGapRatio', 'direction', 'playbackMode', 'burstCycles', 'pauseSeconds', 'pauseVisibility', 'showGuide'].includes(p.prop)) {
         return liteKind === 'perimeter-tracer';
       }
       if (['scale', 'period'].includes(p.prop)) return liteKind === 'pulse';
-      if (['trigger', 'duration', 'repeat'].includes(p.prop)) return liteKind === 'flash';
+      if (['trigger', 'duration', 'repeat', 'repeatInterval'].includes(p.prop)) return liteKind === 'flash';
       if (p.prop === 'intensity') return liteKind === 'pulse' || liteKind === 'flash';
+      if (p.prop === 'armThickness') return (liteKind === 'pulse' || liteKind === 'flash');
       if (p.prop === 'speed') return liteKind === 'perimeter-tracer' || liteKind === 'pulse';
       return true;
     });
@@ -4533,6 +4538,9 @@ document.addEventListener('DOMContentLoaded', () => {
       const svgContainer = document.getElementById('svgContainer');
       if (svgContainer) {
         svgContainer.innerHTML = window.buildFullSVG(state);
+        if (window.LiteEffects && typeof window.LiteEffects.bindBurstSchedulers === 'function') {
+          window.LiteEffects.bindBurstSchedulers(svgContainer);
+        }
       }
       if (window.TimelinePlayer && typeof window.TimelinePlayer.onSceneRedrawn === 'function') {
         window.TimelinePlayer.onSceneRedrawn();

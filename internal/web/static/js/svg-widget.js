@@ -886,13 +886,110 @@
         }
         break;
       }
-      case 'repeat': {
+      case 'repeat':
+      case 'repeatInterval': {
         if (el) {
-          const rep = value === true || value === 'true' || value === 1 || value === '1';
           el.querySelectorAll('.lite-payload').forEach(node => {
-            node.setAttribute('data-repeat', rep ? 'true' : 'false');
+            if (property === 'repeat') {
+              const rep = value === true || value === 'true' || value === 1 || value === '1';
+              node.setAttribute('data-repeat', rep ? 'true' : 'false');
+            } else {
+              const iv = Math.max(0.2, Math.min(60, parseFloat(value) || 2.0));
+              node.setAttribute('data-repeat-interval', String(iv));
+            }
+            const rep = node.getAttribute('data-repeat') === 'true';
+            const iv = Math.max(0.2, parseFloat(node.getAttribute('data-repeat-interval') || '2.0') || 2.0);
+            const durMs = parseFloat(node.getAttribute('data-flash-duration-ms') || '100') || 100;
+            const durSec = durMs / 1000;
+            if (rep) {
+              const pauseSec = Math.max(0.05, iv - durSec);
+              node.setAttribute('data-burst-cycles', '1');
+              node.setAttribute('data-pause-seconds', pauseSec.toFixed(3));
+              node.setAttribute('data-pause-visibility', 'hide');
+              if (node.style) {
+                node.style.animationIterationCount = '1';
+                if (property === 'repeat') {
+                  const prevAnim = node.style.animationName || '';
+                  node.style.animationName = 'none';
+                  try { void node.getBoundingClientRect(); } catch (e) {}
+                  node.style.visibility = '';
+                  node.style.animationName = prevAnim;
+                }
+              }
+            } else {
+              node.removeAttribute('data-burst-cycles');
+              node.removeAttribute('data-pause-seconds');
+              node.removeAttribute('data-burst-paused');
+              if (node.style) {
+                node.style.animationIterationCount = '1';
+                node.style.visibility = '';
+              }
+            }
+          });
+        }
+        break;
+      }
+      case 'burstCycles':
+      case 'pauseSeconds':
+      case 'pauseVisibility': {
+        if (el) {
+          el.querySelectorAll('.lite-payload').forEach(node => {
+            if (property === 'burstCycles') {
+              const cyc = Math.max(0, Math.min(100, parseInt(value, 10) || 0));
+              node.setAttribute('data-burst-cycles', String(cyc));
+            } else if (property === 'pauseSeconds') {
+              const pSec = Math.max(0, Math.min(300, parseFloat(value) || 0));
+              node.setAttribute('data-pause-seconds', String(pSec));
+            } else {
+              const vis = String(value).toLowerCase() === 'hold' ? 'hold' : 'hide';
+              node.setAttribute('data-pause-visibility', vis);
+            }
+            const cyc = parseInt(node.getAttribute('data-burst-cycles') || '0', 10) || 0;
+            const pSec = parseFloat(node.getAttribute('data-pause-seconds') || '0') || 0;
+            const mode = node.getAttribute('data-playback-mode') || 'loop';
+            const hasBurst = mode !== 'once' && cyc > 0 && pSec > 0;
             if (node.style) {
-              node.style.animationIterationCount = rep ? 'infinite' : '1';
+              node.style.animationIterationCount = mode === 'once' ? '1' : (hasBurst ? String(cyc) : 'infinite');
+              node.style.animationFillMode = (mode === 'once' || hasBurst) ? 'forwards' : 'none';
+              if (!hasBurst) {
+                node.removeAttribute('data-burst-paused');
+                node.style.visibility = '';
+              }
+            }
+          });
+        }
+        break;
+      }
+      case 'armThickness': {
+        if (el) {
+          const thick = Math.max(1, Math.min(20, parseFloat(value) || 3));
+          el.querySelectorAll('.lite-payload').forEach(node => {
+            node.setAttribute('data-arm-thickness', String(thick));
+            if (typeof node.getBBox === 'function') {
+              try {
+                const bb = node.getBBox();
+                const cx = bb.x + bb.width / 2;
+                const cy = bb.y + bb.height / 2;
+                const rx = bb.width / 2;
+                const ry = bb.height / 2;
+                if (rx > 0 && ry > 0) {
+                  if (node.tagName && node.tagName.toLowerCase() === 'path') {
+                    const ha = Math.max(0.5, Math.min(rx * 0.9, ry * 0.9, thick / 2));
+                    const d = `M ${(cx - ha).toFixed(2)},${(cy - ry).toFixed(2)} L ${(cx + ha).toFixed(2)},${(cy - ry).toFixed(2)} L ${(cx + ha).toFixed(2)},${(cy - ha).toFixed(2)} L ${(cx + rx).toFixed(2)},${(cy - ha).toFixed(2)} L ${(cx + rx).toFixed(2)},${(cy + ha).toFixed(2)} L ${(cx + ha).toFixed(2)},${(cy + ha).toFixed(2)} L ${(cx + ha).toFixed(2)},${(cy + ry).toFixed(2)} L ${(cx - ha).toFixed(2)},${(cy + ry).toFixed(2)} L ${(cx - ha).toFixed(2)},${(cy + ha).toFixed(2)} L ${(cx - rx).toFixed(2)},${(cy + ha).toFixed(2)} L ${(cx - rx).toFixed(2)},${(cy - ha).toFixed(2)} L ${(cx - ha).toFixed(2)},${(cy - ha).toFixed(2)} Z`;
+                    node.setAttribute('d', d);
+                  } else if (node.tagName && node.tagName.toLowerCase() === 'polygon') {
+                    const pts = [];
+                    const waist = Math.max(0.5, Math.min(rx * 0.45, ry * 0.45, thick * 0.65));
+                    for (let i = 0; i < 8; i++) {
+                      const ang = (Math.PI / 4) * i - Math.PI / 2;
+                      const radX = i % 2 === 0 ? rx : waist;
+                      const radY = i % 2 === 0 ? ry : waist;
+                      pts.push(`${(cx + Math.cos(ang) * radX).toFixed(2)},${(cy + Math.sin(ang) * radY).toFixed(2)}`);
+                    }
+                    node.setAttribute('points', pts.join(' '));
+                  }
+                }
+              } catch (e) {}
             }
           });
         }
@@ -1082,6 +1179,44 @@
         });
       }
 
+      const burstTimers = new Set();
+      function clearBurstTimers() {
+        burstTimers.forEach((tid) => clearTimeout(tid));
+        burstTimers.clear();
+      }
+
+      function restartBurstNode(node) {
+        if (!node || !node.style || handle.isDestroyed) return;
+        node.removeAttribute('data-burst-paused');
+        const prevAnim = node.style.animationName || '';
+        node.style.animationName = 'none';
+        try { void node.getBoundingClientRect(); } catch (e) {}
+        node.style.visibility = '';
+        node.style.animationName = prevAnim;
+      }
+
+      if (svgEl && typeof svgEl.addEventListener === 'function') {
+        svgEl.addEventListener('animationend', (e) => {
+          const node = e && e.target;
+          if (!node || !node.getAttribute) return;
+          const cyc = parseInt(node.getAttribute('data-burst-cycles') || '0', 10);
+          const pSec = parseFloat(node.getAttribute('data-pause-seconds') || '0');
+          if (!(cyc > 0 && pSec > 0)) return;
+          const vis = node.getAttribute('data-pause-visibility') || 'hide';
+          if (vis === 'hide' && node.style) {
+            node.style.visibility = 'hidden';
+          }
+          node.setAttribute('data-burst-paused', '1');
+          if (isSuspended) return;
+          const tid = setTimeout(() => {
+            burstTimers.delete(tid);
+            if (isSuspended || handle.isDestroyed) return;
+            restartBurstNode(node);
+          }, Math.max(10, pSec * 1000));
+          burstTimers.add(tid);
+        });
+      }
+
       function applySuspensionState() {
         const shouldSuspend = isPaused || isReducedMotion || (visibilityAware && !isVisible);
         if (shouldSuspend === isSuspended) return;
@@ -1091,6 +1226,13 @@
           else wrapper.classList.remove('sva-suspended');
         }
         setSMILSuspended(svgEl, isSuspended);
+        if (isSuspended) {
+          clearBurstTimers();
+        } else if (svgEl && typeof svgEl.querySelectorAll === 'function') {
+          svgEl.querySelectorAll('[data-burst-paused="1"]').forEach((node) => {
+            restartBurstNode(node);
+          });
+        }
         if (typeof handle !== 'undefined' && handle._emit) {
           handle._emit('suspensionChange', {
             instanceId: handle.instanceId,
@@ -1190,6 +1332,7 @@
           if (handle.isDestroyed) return handle;
           isPaused = false;
           if (wrapper && wrapper.classList && typeof wrapper.classList.remove === 'function') wrapper.classList.remove('sva-paused');
+          applySuspensionState();
           if (svgEl && typeof svgEl.unpauseAnimations === 'function') {
             try { svgEl.unpauseAnimations(); } catch (e) {}
           }
@@ -1207,6 +1350,7 @@
           if (handle.isDestroyed) return handle;
           isPaused = true;
           if (wrapper && wrapper.classList && typeof wrapper.classList.add === 'function') wrapper.classList.add('sva-paused');
+          applySuspensionState();
           if (svgEl && typeof svgEl.pauseAnimations === 'function') {
             try { svgEl.pauseAnimations(); } catch (e) {}
           }
@@ -1322,6 +1466,7 @@
 
         // Unmount & destruction
         unmount() {
+          clearBurstTimers();
           if (visibilityObserver) {
             try { visibilityObserver.disconnect(); } catch (e) {}
             visibilityObserver = null;

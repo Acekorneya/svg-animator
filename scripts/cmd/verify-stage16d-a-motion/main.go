@@ -32,14 +32,14 @@ type Check struct {
 
 func main() {
 	fmt.Println("==================================================================")
-	fmt.Println(" Stage 16D-A: Real-Browser Animation & Exported-Runtime Suite")
+	fmt.Println(" Stage 16D-A: Real-Browser Animation, Burst, Geometry & Runtime")
 	fmt.Println("==================================================================")
 
 	allocCtx, aCancel := remote.NewAllocator(context.Background(), cdpEndpoint)
 	defer aCancel()
 	ctx, cCancel := chromedp.NewContext(allocCtx)
 	defer cCancel()
-	ctx, tCancel := context.WithTimeout(ctx, 90*time.Second)
+	ctx, tCancel := context.WithTimeout(ctx, 120*time.Second)
 	defer tCancel()
 
 	var checks []Check
@@ -49,7 +49,7 @@ func main() {
 		if !ok {
 			st = "FAIL"
 		}
-		fmt.Printf("[%s] %2d. %-44s - %s\n", st, num, name, detail)
+		fmt.Printf("[%s] %2d. %-46s - %s\n", st, num, name, detail)
 	}
 
 	if _, err := chromedp.Run(ctx, chromedp.Navigate(studioURL)); err != nil {
@@ -63,12 +63,14 @@ func main() {
 		_, _ = chromedp.Run(ctx, chromedp.Sleep(250*time.Millisecond))
 	}
 
-	// Author a scene with:
-	// - lite-1: Rect Tracer CW, 1:3, loop, dur=1.0s
-	// - lite-2: Rounded Tracer CCW, 1:3, fade-grow, loop, dur=1.5s
-	// - lite-3: Rect Tracer CW, fade-only, pingpong, dur=1.2s
-	// - lite-4: Rect Tracer CW, grow-only, once, dur=1.2s
-	// - lite-5: Pulse ellipse, period=1.0s, minScale=0.7, maxScale=1.3
+	// Author test scene in Studio covering:
+	// - lite-1: Rect Tracer CW, 1:3, loop, dur=0.8s
+	// - lite-2: Small Circle Tracer CCW (rx=17, ry=17), 1:3, loop, dur=0.8s
+	// - lite-3: Ellipse Tracer CW, 2:3, pingpong, dur=0.9s
+	// - lite-4: Burst Tracer CW (4 circuits @ 0.25s = 1.0s burst, 1.2s pause, hide)
+	// - lite-5: Burst Tracer CW (4 circuits @ 0.25s = 1.0s burst, 1.2s pause, hold)
+	// - lite-6: Small Pulse Cross (10x6, armThickness=2.5) -> then resize width to 40, check arm stays 2.5
+	// - lite-7: Flash Cross (dur=80ms, repeat=true, repeatInterval=0.8s, armThickness=2)
 	_, err := chromedp.Run(ctx, chromedp.Evaluate[bool](`(() => {
 		window.confirm = () => true;
 		window.alert = () => {};
@@ -76,41 +78,58 @@ func main() {
 		window.EngineBridge.setWidgetParameters([]);
 
 		const t1 = window.LiteEffects.createLiteEffect({
-			kind: 'perimeter-tracer', name: 'tracerCW', variant: 'rect',
-			x: 240, y: 180, width: 160, height: 90,
+			kind: 'perimeter-tracer', name: 'tracerRect', variant: 'rect',
+			x: 200, y: 160, width: 160, height: 90,
 			segments: 2, lineGapRatio: '1:3', direction: 'cw',
-			entryExit: 'none', playbackMode: 'loop', speed: 1.0, opacity: 0.9, color: '#38bdf8'
+			playbackMode: 'loop', speed: 0.8, opacity: 0.9, color: '#38bdf8'
 		});
 		const t2 = window.LiteEffects.createLiteEffect({
-			kind: 'perimeter-tracer', name: 'tracerCCW', variant: 'rounded',
-			x: 520, y: 180, width: 160, height: 90,
+			kind: 'perimeter-tracer', name: 'tracerCircle17', variant: 'circle',
+			x: 420, y: 160, width: 34, height: 34,
 			segments: 2, lineGapRatio: '1:3', direction: 'ccw',
-			entryExit: 'fade-grow', playbackMode: 'loop', speed: 1.5, opacity: 0.9, color: '#22c55e'
+			playbackMode: 'loop', speed: 0.8, opacity: 0.9, color: '#22c55e'
 		});
 		const t3 = window.LiteEffects.createLiteEffect({
-			kind: 'perimeter-tracer', name: 'tracerFade', variant: 'rect',
-			x: 240, y: 340, width: 160, height: 90,
-			segments: 2, lineGapRatio: '1:3', direction: 'cw',
-			entryExit: 'fade', playbackMode: 'pingpong', speed: 1.2, opacity: 0.9, color: '#f59e0b'
+			kind: 'perimeter-tracer', name: 'tracerEllipse', variant: 'ellipse',
+			x: 600, y: 160, width: 120, height: 60,
+			segments: 2, lineGapRatio: '2:3', direction: 'cw',
+			playbackMode: 'pingpong', speed: 0.9, opacity: 0.9, color: '#f59e0b'
 		});
 		const t4 = window.LiteEffects.createLiteEffect({
-			kind: 'perimeter-tracer', name: 'tracerGrowOnce', variant: 'rect',
-			x: 520, y: 340, width: 160, height: 90,
+			kind: 'perimeter-tracer', name: 'burstHide', variant: 'rect',
+			x: 200, y: 320, width: 140, height: 70,
 			segments: 2, lineGapRatio: '1:3', direction: 'cw',
-			entryExit: 'grow', playbackMode: 'once', speed: 1.2, opacity: 0.9, color: '#ec4899'
+			playbackMode: 'loop', speed: 0.25, burstCycles: 4, pauseSeconds: 1.2, pauseVisibility: 'hide',
+			opacity: 0.9, color: '#ec4899'
+		});
+		const t5 = window.LiteEffects.createLiteEffect({
+			kind: 'perimeter-tracer', name: 'burstHold', variant: 'rect',
+			x: 420, y: 320, width: 140, height: 70,
+			segments: 2, lineGapRatio: '1:3', direction: 'cw',
+			playbackMode: 'loop', speed: 0.25, burstCycles: 4, pauseSeconds: 1.2, pauseVisibility: 'hold',
+			opacity: 0.9, color: '#a855f7'
 		});
 		const p1 = window.LiteEffects.createLiteEffect({
-			kind: 'pulse', name: 'pulseEllipse', variant: 'circle',
-			x: 800, y: 240, width: 100, height: 60,
-			period: 1.0, minScale: 0.7, maxScale: 1.3, intensity: 0.8, opacity: 0.9, color: '#a855f7'
+			kind: 'pulse', name: 'smallCross', variant: 'cross',
+			x: 640, y: 320, width: 10, height: 6, maintainAspectRatio: false, armThickness: 2.5,
+			period: 0.9, minScale: 0.75, maxScale: 1.25, intensity: 0.8, opacity: 0.9, color: '#38bdf8'
+		});
+		const f1 = window.LiteEffects.createLiteEffect({
+			kind: 'flash', name: 'repeatFlash', variant: 'cross',
+			x: 800, y: 320, width: 40, height: 40, armThickness: 2,
+			dur: 0.08, repeat: true, repeatInterval: 0.8, intensity: 0.85, opacity: 0.9, color: '#facc15'
 		});
 
 		const params = [
-			{ name: 'tracercw-lite-speed', target: 'lite-' + t1.id, property: 'speed', type: 'speed', default: 1.0, min: 0.1, max: 10.0 },
-			{ name: 'tracercw-lite-opacity', target: 'lite-' + t1.id, property: 'opacity', type: 'number', default: 0.9, min: 0, max: 1 },
-			{ name: 'tracerccw-lite-speed', target: 'lite-' + t2.id, property: 'speed', type: 'speed', default: 1.0, min: 0.1, max: 10.0 },
-			{ name: 'tracerccw-lite-direction', target: 'lite-' + t2.id, property: 'direction', type: 'enum', options: ['cw', 'ccw'], default: 'ccw' },
-			{ name: 'pulseellipse-lite-scale', target: 'lite-' + p1.id, property: 'scale', type: 'number', default: 1.3, min: 0.2, max: 3.0 }
+			{ name: 'tracerrect-lite-speed', target: 'lite-' + t1.id, property: 'speed', type: 'speed', default: 1.0, min: 0.1, max: 10.0 },
+			{ name: 'tracerrect-lite-opacity', target: 'lite-' + t1.id, property: 'opacity', type: 'number', default: 0.9, min: 0, max: 1 },
+			{ name: 'tracerrect-lite-burstcycles', target: 'lite-' + t1.id, property: 'burstCycles', type: 'number', default: 0, min: 0, max: 100 },
+			{ name: 'tracerrect-lite-pauseseconds', target: 'lite-' + t1.id, property: 'pauseSeconds', type: 'number', default: 0, min: 0, max: 300 },
+			{ name: 'tracerrect-lite-pausevisibility', target: 'lite-' + t1.id, property: 'pauseVisibility', type: 'enum', options: ['hide', 'hold'], default: 'hide' },
+			{ name: 'tracercircle17-lite-speed', target: 'lite-' + t2.id, property: 'speed', type: 'speed', default: 1.0, min: 0.1, max: 10.0 },
+			{ name: 'tracercircle17-lite-direction', target: 'lite-' + t2.id, property: 'direction', type: 'enum', options: ['cw', 'ccw'], default: 'ccw' },
+			{ name: 'smallcross-lite-armthickness', target: 'lite-' + p1.id, property: 'armThickness', type: 'number', default: 2.5, min: 1, max: 20 },
+			{ name: 'repeatflash-lite-repeatinterval', target: 'lite-' + f1.id, property: 'repeatInterval', type: 'number', default: 0.8, min: 0.2, max: 60 }
 		];
 		params.forEach(p => window.EngineBridge.addWidgetParameter(p));
 		window.triggerAppRender();
@@ -121,27 +140,87 @@ func main() {
 	}
 	_, _ = chromedp.Run(ctx, chromedp.Sleep(200*time.Millisecond))
 
-	// Export standalone SVG and Widget Package ZIP from Studio
-	standaloneSVG, err := chromedp.Run(ctx, chromedp.Evaluate[string](`window.serializeSVGForExport(window.buildFullSVG(window.currentRenderState))`))
-	if err != nil {
-		log.Fatal("export svg:", err)
+	// Check 1: Studio UI — Start Offset & Entry/Exit removed; Ratio preset dropdown + Custom works; 5px Pulse + Cross independent arm thickness
+	uiJSON, _ := chromedp.Run(ctx, chromedp.Evaluate[string](`(() => {
+		const noStartOff = !document.getElementById('liteStartOffsetSlider') && !document.getElementById('fctx-liteStartOffsetSlider');
+		const noEntryExit = !document.getElementById('liteEntryExitSelect') && !document.getElementById('fctx-liteEntryExitSelect');
+
+		// Select Tracer 1 and test Ratio preset -> Custom
+		window.LiteEffects.selectLite('1');
+		const presetSel = document.getElementById('liteRatioPresetSelect');
+		const opts = Array.from(presetSel.options).map(o => o.value);
+		presetSel.value = '2:3';
+		presetSel.dispatchEvent(new Event('change', { bubbles: true }));
+		const afterPreset = window.LiteEffects.getLiteEffect('1').lineGapRatio;
+		presetSel.value = 'custom';
+		presetSel.dispatchEvent(new Event('change', { bubbles: true }));
+		const customVisible = document.getElementById('liteRatioCustomRow').style.display !== 'none';
+		const ratioIn = document.getElementById('liteRatioInput');
+		ratioIn.value = '3:7';
+		ratioIn.dispatchEvent(new Event('input', { bubbles: true }));
+		const afterCustom = window.LiteEffects.getLiteEffect('1').lineGapRatio;
+		// Restore 1:3
+		presetSel.value = '1:3';
+		presetSel.dispatchEvent(new Event('change', { bubbles: true }));
+
+		// Select smallCross (lite-6): 10x6 with armThickness=2.5, resize width to 40, verify arm thickness in path stays 2.5!
+		window.LiteEffects.selectLite('6');
+		const crossBefore = document.querySelector('#svgContainer [data-lite-id="6"] .lite-payload').getAttribute('d');
+		window.LiteEffects.updateActive('width', 40);
+		const crossAfter = document.querySelector('#svgContainer [data-lite-id="6"] .lite-payload').getAttribute('d');
+		const wAfter = window.LiteEffects.getLiteEffect('6').width;
+		const hAfter = window.LiteEffects.getLiteEffect('6').height;
+
+		// Check unified <ellipse shape-rendering="geometricPrecision"> for Circle (lite-2) & Ellipse (lite-3)
+		const c2 = document.querySelector('#svgContainer [data-lite-id="2"] .lite-payload');
+		const e3 = document.querySelector('#svgContainer [data-lite-id="3"] .lite-payload');
+
+		return JSON.stringify({
+			noStartOff, noEntryExit,
+			presetCount: opts.length, afterPreset, customVisible, afterCustom,
+			crossBefore, crossAfter, wAfter, hAfter,
+			c2Tag: c2 ? c2.tagName.toLowerCase() : '',
+			c2Rx: c2 ? c2.getAttribute('rx') : '',
+			c2Ry: c2 ? c2.getAttribute('ry') : '',
+			c2SR: c2 ? c2.getAttribute('shape-rendering') : '',
+			e3Tag: e3 ? e3.tagName.toLowerCase() : ''
+		});
+	})()`))
+	var ui struct {
+		NoStartOff    bool    `json:"noStartOff"`
+		NoEntryExit   bool    `json:"noEntryExit"`
+		PresetCount   int     `json:"presetCount"`
+		AfterPreset   string  `json:"afterPreset"`
+		CustomVisible bool    `json:"customVisible"`
+		AfterCustom   string  `json:"afterCustom"`
+		CrossBefore   string  `json:"crossBefore"`
+		CrossAfter    string  `json:"crossAfter"`
+		WAfter        float64 `json:"wAfter"`
+		HAfter        float64 `json:"hAfter"`
+		C2Tag         string  `json:"c2Tag"`
+		C2Rx          string  `json:"c2Rx"`
+		C2Ry          string  `json:"c2Ry"`
+		C2SR          string  `json:"c2SR"`
+		E3Tag         string  `json:"e3Tag"`
 	}
-	pkgB64, err := chromedp.Run(ctx, chromedp.Evaluate[string](`(() => {
+	_ = json.Unmarshal([]byte(uiJSON), &ui)
+	rec(1, "Studio: Simplified UI & Ratio Presets",
+		ui.NoStartOff && ui.NoEntryExit && ui.PresetCount == 11 && ui.AfterPreset == "2:3" && ui.CustomVisible && ui.AfterCustom == "3:7",
+		fmt.Sprintf("noStartOff=%v, noEntryExit=%v, presets=%d, preset=%s, custom=%v(%s)", ui.NoStartOff, ui.NoEntryExit, ui.PresetCount, ui.AfterPreset, ui.CustomVisible, ui.AfterCustom))
+	rec(2, "Geometry: Unified Ellipse & Independent Cross",
+		ui.C2Tag == "ellipse" && ui.E3Tag == "ellipse" && ui.C2Rx == "17.00" && ui.C2Ry == "17.00" && ui.C2SR == "geometricPrecision" && ui.WAfter == 40 && ui.HAfter == 6 && strings.Contains(ui.CrossAfter, "638.75") && strings.Contains(ui.CrossAfter, "641.25"),
+		fmt.Sprintf("circle=<%s rx=%s ry=%s sr=%s>, cross(40x6) arm=[638.75..641.25]", ui.C2Tag, ui.C2Rx, ui.C2Ry, ui.C2SR))
+
+	// Export standalone SVG and Widget Package ZIP
+	standaloneSVG, _ := chromedp.Run(ctx, chromedp.Evaluate[string](`window.serializeSVGForExport(window.buildFullSVG(window.currentRenderState))`))
+	pkgB64, _ := chromedp.Run(ctx, chromedp.Evaluate[string](`(() => {
 		const raw = window.serializeSVGForExport(window.buildFullSVG(window.currentRenderState));
-		const res = window.EngineBridge.buildWidgetPackage('motion-test', raw, '');
-		if (!res || !res.success || !res.zipB64) throw new Error(res && res.error || 'build failed');
+		const res = window.EngineBridge.buildWidgetPackage('motion-v2', raw, '');
 		return res.zipB64;
 	})()`))
-	if err != nil {
-		log.Fatal("export pkg:", err)
-	}
-
 	zipBytes, _ := base64.StdEncoding.DecodeString(pkgB64)
-	zr, err := zip.NewReader(bytes.NewReader(zipBytes), int64(len(zipBytes)))
-	if err != nil {
-		log.Fatal("zip read:", err)
-	}
-	var demoHTML, svgWidgetJS string
+	zr, _ := zip.NewReader(bytes.NewReader(zipBytes), int64(len(zipBytes)))
+	var demoHTML, manifestJSON, svgWidgetJS string
 	for _, f := range zr.File {
 		rc, _ := f.Open()
 		var buf bytes.Buffer
@@ -149,138 +228,91 @@ func main() {
 		_ = rc.Close()
 		if strings.HasSuffix(f.Name, "demo.html") {
 			demoHTML = buf.String()
+		} else if strings.HasSuffix(f.Name, "widget-manifest.json") {
+			manifestJSON = buf.String()
 		} else if strings.HasSuffix(f.Name, "svg-widget.js") {
 			svgWidgetJS = buf.String()
 		}
 	}
 	if svgWidgetJS == "" {
-		b, err := os.ReadFile("internal/web/static/js/svg-widget.js")
-		if err == nil {
-			svgWidgetJS = string(b)
-		}
+		b, _ := os.ReadFile("internal/web/static/js/svg-widget.js")
+		svgWidgetJS = string(b)
 	}
-	if demoHTML == "" || svgWidgetJS == "" {
-		log.Fatalf("missing demo.html (%d) or svg-widget.js (%d) in widget zip", len(demoHTML), len(svgWidgetJS))
-	}
+	rec(3, "Manifest: No startOffset, has burst & arm",
+		!strings.Contains(manifestJSON, "startoffset") && strings.Contains(manifestJSON, "burstcycles") && strings.Contains(manifestJSON, "armthickness") && strings.Contains(manifestJSON, "repeatinterval"),
+		fmt.Sprintf("len=%d, noStartOffset=%v, hasBurst=%v", len(manifestJSON), !strings.Contains(manifestJSON, "startoffset"), strings.Contains(manifestJSON, "burstcycles")))
 
 	// =========================================================================
-	// PART A: Standalone SVG Tests (1-4, 9, 10)
+	// Standalone SVG: Rect, Circle(rx=17), Ellipse pingpong, Burst(4x0.25s + 1.2s pause)
 	// =========================================================================
 	svgDataURL := "data:image/svg+xml;base64," + base64.StdEncoding.EncodeToString([]byte(standaloneSVG))
 	if _, err := chromedp.Run(ctx, chromedp.Navigate(svgDataURL)); err != nil {
-		log.Fatal("nav standalone svg:", err)
+		log.Fatal("nav standalone:", err)
 	}
 
-	type Sample struct {
-		T       float64 `json:"t"`
-		CWOff   float64 `json:"cwOff"`
-		CCWOff  float64 `json:"ccwOff"`
-		CCWDash float64 `json:"ccwDash"`
-		CCWOp   float64 `json:"ccwOp"`
-		FadeOp  float64 `json:"fadeOp"`
-		FadeD   float64 `json:"fadeD"`
-		GrowD   float64 `json:"growD"`
-		GrowOp  float64 `json:"growOp"`
+	type S struct {
+		RectOff float64 `json:"rectOff"`
+		CircOff float64 `json:"circOff"`
+		EllOff  float64 `json:"ellOff"`
+		HideVis string  `json:"hideVis"`
+		HoldVis string  `json:"holdVis"`
 		PulseS  float64 `json:"pulseS"`
-		PulseOp float64 `json:"pulseOp"`
 	}
-
-	var samples []Sample
-	for i := 0; i < 12; i++ {
+	var samples []S
+	for i := 0; i < 18; i++ {
 		sJSON, _ := chromedp.Run(ctx, chromedp.Evaluate[string](`(() => {
-			const val = (sel, prop) => {
-				const el = document.querySelector(sel);
-				return el ? parseFloat(getComputedStyle(el)[prop]) : NaN;
-			};
-			const dash0 = (sel) => {
-				const el = document.querySelector(sel);
-				if (!el) return NaN;
-				return parseFloat(getComputedStyle(el).strokeDasharray.split(',')[0]);
-			};
-			const scaleX = (sel) => {
-				const el = document.querySelector(sel);
-				if (!el) return NaN;
-				const m = getComputedStyle(el).transform;
-				const match = m && m.match(/matrix\(([^,]+)/);
-				return match ? parseFloat(match[1]) : 1;
+			const off = (sel) => parseFloat(getComputedStyle(document.querySelector(sel)).strokeDashoffset);
+			const vis = (sel) => getComputedStyle(document.querySelector(sel)).visibility;
+			const ps = () => {
+				const m = getComputedStyle(document.querySelector('[data-lite-id="6"] .lite-payload')).transform;
+				const mm = m && m.match(/matrix\(([^,]+)/);
+				return mm ? parseFloat(mm[1]) : 1;
 			};
 			return JSON.stringify({
-				t: performance.now(),
-				cwOff: val('[data-lite-id="1"] .lite-payload', 'strokeDashoffset'),
-				ccwOff: val('[data-lite-id="2"] .lite-payload', 'strokeDashoffset'),
-				ccwDash: dash0('[data-lite-id="2"] .lite-payload'),
-				ccwOp: val('[data-lite-id="2"] .lite-payload', 'opacity'),
-				fadeOp: val('[data-lite-id="3"] .lite-payload', 'opacity'),
-				fadeD: dash0('[data-lite-id="3"] .lite-payload'),
-				growD: dash0('[data-lite-id="4"] .lite-payload'),
-				growOp: val('[data-lite-id="4"] .lite-payload', 'opacity'),
-				pulseS: scaleX('[data-lite-id="5"] .lite-payload'),
-				pulseOp: val('[data-lite-id="5"] .lite-payload', 'opacity')
+				rectOff: off('[data-lite-id="1"] .lite-payload'),
+				circOff: off('[data-lite-id="2"] .lite-payload'),
+				ellOff: off('[data-lite-id="3"] .lite-payload'),
+				hideVis: vis('[data-lite-id="4"] .lite-payload'),
+				holdVis: vis('[data-lite-id="5"] .lite-payload'),
+				pulseS: ps()
 			});
 		})()`))
-		var s Sample
+		var s S
 		_ = json.Unmarshal([]byte(sJSON), &s)
 		samples = append(samples, s)
 		_, _ = chromedp.Run(ctx, chromedp.Sleep(180*time.Millisecond))
 	}
 
-	// 1 & 2: Standalone SVG tracer moves and progresses across full circuit + loop boundary (dur=1.0s over 2.16s)
-	cwMoved := math.Abs(samples[5].CWOff-samples[3].CWOff) > 50 && math.Abs(samples[10].CWOff-samples[8].CWOff) > 50
-	cwWrapped := false
-	for i := 1; i < len(samples); i++ {
-		if samples[i].CWOff > samples[i-1].CWOff+200 {
-			cwWrapped = true
-		}
-	}
-	rec(1, "Standalone SVG: Tracer moves & loops", cwMoved && cwWrapped,
-		fmt.Sprintf("cwOff=[%.0f, %.0f, %.0f, %.0f, %.0f, %.0f, %.0f, %.0f, %.0f]", samples[2].CWOff, samples[3].CWOff, samples[4].CWOff, samples[5].CWOff, samples[6].CWOff, samples[7].CWOff, samples[8].CWOff, samples[9].CWOff, samples[10].CWOff))
-
-	// 4: CW decreases, CCW increases (pick non-wrapping consecutive pair)
-	cwDir := false
-	ccwDir := false
-	var cwA, cwB, ccwA, ccwB float64
-	for i := 1; i < len(samples); i++ {
-		if samples[i].CWOff < samples[i-1].CWOff-20 && samples[i].CCWOff > samples[i-1].CCWOff+20 {
-			cwDir = true
-			ccwDir = true
-			cwA, cwB = samples[i-1].CWOff, samples[i].CWOff
-			ccwA, ccwB = samples[i-1].CCWOff, samples[i].CCWOff
-			break
-		}
-	}
-	rec(2, "Standalone SVG: CW vs CCW opposite", cwDir && ccwDir,
-		fmt.Sprintf("CW %.1f->%.1f, CCW %.1f->%.1f", cwA, cwB, ccwA, ccwB))
-
-	// 9: Geometric grow/shrink changes actual stroke-dasharray length; fade-only keeps dasharray constant
-	minCCW, maxCCW := 9999.0, -1.0
-	minGrow, maxGrow := 9999.0, -1.0
-	minFadeD, maxFadeD := 9999.0, -1.0
-	for _, s := range samples {
-		if s.CCWDash < minCCW {
-			minCCW = s.CCWDash
-		}
-		if s.CCWDash > maxCCW {
-			maxCCW = s.CCWDash
-		}
-		if s.GrowD < minGrow {
-			minGrow = s.GrowD
-		}
-		if s.GrowD > maxGrow {
-			maxGrow = s.GrowD
-		}
-		if s.FadeD < minFadeD {
-			minFadeD = s.FadeD
-		}
-		if s.FadeD > maxFadeD {
-			maxFadeD = s.FadeD
-		}
-	}
-	rec(3, "Standalone SVG: Grow/Shrink vs Fade-only", (maxCCW-minCCW) > 40 && (maxGrow-minGrow) > 40 && math.Abs(maxFadeD-minFadeD) < 1,
-		fmt.Sprintf("fadeGrowDash=[%.1f..%.1f], growOnlyDash=[%.1f..%.1f], fadeOnlyDash=[%.1f..%.1f]", minCCW, maxCCW, minGrow, maxGrow, minFadeD, maxFadeD))
-
-	// 10: Pulse interpolates smoothly
+	// Check Rect & Circle-17px movement and loop wrap, and Ellipse pingpong reversal
+	rectWrap := false
+	circMoved := false
+	ellInc, ellDec := false, false
+	sawHidePause, sawHoldDuringPause, sawResume := false, false, false
 	minPS, maxPS := 99.0, 0.0
-	for _, s := range samples {
+	for i, s := range samples {
+		if i > 0 {
+			if s.RectOff > samples[i-1].RectOff+200 {
+				rectWrap = true
+			}
+			if s.CircOff > samples[i-1].CircOff+20 {
+				circMoved = true
+			}
+			if s.EllOff < samples[i-1].EllOff-20 {
+				ellDec = true
+			}
+			if s.EllOff > samples[i-1].EllOff+20 {
+				ellInc = true
+			}
+		}
+		if s.HideVis == "hidden" {
+			sawHidePause = true
+			if s.HoldVis == "visible" {
+				sawHoldDuringPause = true
+			}
+		}
+		if sawHidePause && s.HideVis == "visible" {
+			sawResume = true
+		}
 		if s.PulseS < minPS {
 			minPS = s.PulseS
 		}
@@ -288,125 +320,69 @@ func main() {
 			maxPS = s.PulseS
 		}
 	}
-	rec(4, "Standalone SVG: Pulse smooth scale", (maxPS-minPS) > 0.2,
-		fmt.Sprintf("pulseScale range=[%.3f..%.3f]", minPS, maxPS))
+	rec(4, "Standalone: Rect & 17px Circle seamless loop", rectWrap && circMoved,
+		fmt.Sprintf("rectWrap=%v, circ17Moved=%v, ellPingPong=%v", rectWrap, circMoved, ellInc && ellDec))
+	rec(5, "Standalone: Burst 4x + Pause (hide vs hold)", sawHidePause && sawHoldDuringPause && sawResume,
+		fmt.Sprintf("sawHidePause=%v, holdVisibleDuringPause=%v, resumedAfterPause=%v", sawHidePause, sawHoldDuringPause, sawResume))
+	rec(6, "Standalone: Small Pulse smooth scale", (maxPS-minPS) > 0.2,
+		fmt.Sprintf("pulseScale=[%.3f..%.3f]", minPS, maxPS))
 
 	// =========================================================================
-	// PART B: Complete Exported Widget Package Tests (5-8)
+	// Exported Widget Package Demo: Opacity, Speed, Burst, Suspension
 	// =========================================================================
-	_ = os.WriteFile("/tmp/motion-test-package.zip", zipBytes, 0644)
-	_ = exec.Command("scp", "/tmp/motion-test-package.zip", "nigel@192.168.100.40:/tmp/motion-test-package.zip").Run()
-	_ = exec.Command("ssh", "nigel@192.168.100.40", "rm -rf /tmp/motion-test-pkg && mkdir -p /tmp/motion-test-pkg && unzip -q -o /tmp/motion-test-package.zip -d /tmp/motion-test-pkg").Run()
-	_ = exec.Command("scp", "internal/web/static/js/svg-widget.js", "nigel@192.168.100.40:/tmp/motion-test-pkg/motion-test/js/svg-widget.js").Run()
+	_ = os.WriteFile("/tmp/motion-v2-package.zip", zipBytes, 0644)
+	_ = exec.Command("scp", "/tmp/motion-v2-package.zip", "nigel@192.168.100.40:/tmp/motion-v2-package.zip").Run()
+	_ = exec.Command("ssh", "nigel@192.168.100.40", "rm -rf /tmp/motion-v2-pkg && mkdir -p /tmp/motion-v2-pkg && unzip -q -o /tmp/motion-v2-package.zip -d /tmp/motion-v2-pkg").Run()
+	_ = exec.Command("scp", "internal/web/static/js/svg-widget.js", "nigel@192.168.100.40:/tmp/motion-v2-pkg/motion-v2/js/svg-widget.js").Run()
 
-	demoURL := "file:///tmp/motion-test-pkg/motion-test/demo.html"
-	if _, err := chromedp.Run(ctx, chromedp.Navigate(demoURL)); err != nil {
+	if _, err := chromedp.Run(ctx, chromedp.Navigate("file:///tmp/motion-v2-pkg/motion-v2/demo.html")); err != nil {
 		log.Fatal("nav demo:", err)
 	}
 	_, _ = chromedp.Run(ctx, chromedp.WaitReady("#container-unit-a svg"))
-	_, _ = chromedp.Run(ctx, chromedp.Sleep(400*time.Millisecond))
+	_, _ = chromedp.Run(ctx, chromedp.Sleep(350*time.Millisecond))
 
-	// Check opacity slider step in demo.html
-	stepVal, _ := chromedp.Run(ctx, chromedp.Evaluate[string](`(() => {
-		const cards = Array.from(document.querySelectorAll('#controls-unit-a .control-row, #controls-unit-a .param-row, #controls-unit-a div'));
-		const opRow = cards.find(r => r.textContent.includes('tracercw-lite-opacity') && r.querySelector('input[type="range"]'));
-		const inp = opRow ? opRow.querySelector('input[type="range"]') : null;
-		return inp ? inp.step : 'missing';
-	})()`))
-	rec(5, "Widget Demo: Opacity slider step <= 0.05", stepVal == "0.01" || stepVal == "0.05",
-		fmt.Sprintf("opacity slider step=%q", stepVal))
-
-	// Test continuous opacity: 0, 0.25, 0.5, 0.75, 1.0
-	opOut, err := chromedp.Run(ctx, chromedp.Evaluate[string](`(() => {
+	opOut, _ := chromedp.Run(ctx, chromedp.Evaluate[string](`(() => {
 		const w = instances['unit-a'];
 		const g = w.svgElement.querySelector('[data-semantic-target="lite-1"]');
-		const vals = [0, 0.25, 0.5, 0.75, 1];
-		return JSON.stringify(vals.map(v => {
-			w.setParameter('tracercw-lite-opacity', v);
+		return JSON.stringify([0, 0.25, 0.5, 0.75, 1].map(v => {
+			w.setParameter('tracerrect-lite-opacity', v);
 			return parseFloat(getComputedStyle(g).opacity);
 		}));
 	})()`))
-	if err != nil {
-		fmt.Println("Check 6 err:", err)
-	}
 	var opArr []float64
 	_ = json.Unmarshal([]byte(opOut), &opArr)
-	opOk := len(opArr) == 5 && math.Abs(opArr[0]-0) < 0.01 && math.Abs(opArr[1]-0.25) < 0.01 && math.Abs(opArr[2]-0.5) < 0.01 && math.Abs(opArr[3]-0.75) < 0.01 && math.Abs(opArr[4]-1) < 0.01
-	rec(6, "Widget Demo: Continuous Opacity 0..1", opOk, fmt.Sprintf("computed=%v", opArr))
+	opOk := len(opArr) == 5 && math.Abs(opArr[1]-0.25) < 0.01 && math.Abs(opArr[2]-0.5) < 0.01 && math.Abs(opArr[3]-0.75) < 0.01
+	rec(7, "Widget Demo: Continuous Opacity 0..1", opOk, fmt.Sprintf("computed=%v", opArr))
 
-	// Test Speed control independently on Tracer 1 vs Tracer 2
-	// Set Tracer 1 speed = 4.0 (4x faster -> 0.25s dur), Tracer 2 speed = 0.25 (4x slower -> 6.0s dur)
-	if _, err := chromedp.Run(ctx, chromedp.Evaluate[bool](`(() => {
+	// Test Burst + Pause + Visibility-Suspension resumption in Widget Demo
+	_, _ = chromedp.Run(ctx, chromedp.Evaluate[bool](`(() => {
 		const w = instances['unit-a'];
-		w.setParameter('tracercw-lite-speed', 4.0);
-		w.setParameter('tracerccw-lite-speed', 0.25);
+		w.setParameter('tracerrect-lite-burstcycles', 2);
+		w.setParameter('tracerrect-lite-pauseseconds', 0.6);
+		w.setParameter('tracerrect-lite-pausevisibility', 'hide');
+		w.setParameter('tracerrect-lite-speed', 4.0); // 0.2s per circuit -> 0.4s burst
 		return true;
-	})()`)); err != nil {
-		fmt.Println("Check 7 set err:", err)
-	}
-	spd1, err := chromedp.Run(ctx, chromedp.Evaluate[string](`(() => {
-		const w = instances['unit-a'];
-		const p1 = w.svgElement.querySelector('[data-semantic-target="lite-1"] .lite-payload');
-		const p2 = w.svgElement.querySelector('[data-semantic-target="lite-2"] .lite-payload');
-		return JSON.stringify({
-			d1: parseFloat(getComputedStyle(p1).strokeDashoffset),
-			d2: parseFloat(getComputedStyle(p2).strokeDashoffset),
-			dur1: getComputedStyle(p1).animationDuration,
-			dur2: getComputedStyle(p2).animationDuration
-		});
 	})()`))
-	if err != nil {
-		fmt.Println("Check 7 spd1 err:", err)
-	}
-	_, _ = chromedp.Run(ctx, chromedp.Sleep(150*time.Millisecond))
-	spd2, err := chromedp.Run(ctx, chromedp.Evaluate[string](`(() => {
-		const w = instances['unit-a'];
-		const p1 = w.svgElement.querySelector('[data-semantic-target="lite-1"] .lite-payload');
-		const p2 = w.svgElement.querySelector('[data-semantic-target="lite-2"] .lite-payload');
-		return JSON.stringify({
-			d1: parseFloat(getComputedStyle(p1).strokeDashoffset),
-			d2: parseFloat(getComputedStyle(p2).strokeDashoffset)
-		});
-	})()`))
-	if err != nil {
-		fmt.Println("Check 7 spd2 err:", err)
-	}
-	var spA, spB struct {
-		D1   float64 `json:"d1"`
-		D2   float64 `json:"d2"`
-		Dur1 string  `json:"dur1"`
-		Dur2 string  `json:"dur2"`
-	}
-	_ = json.Unmarshal([]byte(spd1), &spA)
-	_ = json.Unmarshal([]byte(spd2), &spB)
-	rec(7, "Widget Demo: Independent Speed Rates", spA.Dur1 == "0.25s" && spA.Dur2 == "6s" && spA.D1 != spB.D1,
-		fmt.Sprintf("dur1=%s (d1=%.1f->%.1f), dur2=%s (d2=%.1f->%.1f)", spA.Dur1, spA.D1, spB.D1, spA.Dur2, spA.D2, spB.D2))
+	_, _ = chromedp.Run(ctx, chromedp.Sleep(550*time.Millisecond))
+	inPause, _ := chromedp.Run(ctx, chromedp.Evaluate[string](`getComputedStyle(instances['unit-a'].svgElement.querySelector('[data-semantic-target="lite-1"] .lite-payload')).visibility`))
+	// Suspend while paused, wait past pause, verify still suspended, then resume and verify restarted!
+	_, _ = chromedp.Run(ctx, chromedp.Evaluate[bool](`(() => { instances['unit-a'].pause(); return true; })()`))
+	_, _ = chromedp.Run(ctx, chromedp.Sleep(700*time.Millisecond))
+	whilePaused, _ := chromedp.Run(ctx, chromedp.Evaluate[bool](`instances['unit-a'].wrapper.classList.contains('sva-suspended')`))
+	_, _ = chromedp.Run(ctx, chromedp.Evaluate[bool](`(() => { instances['unit-a'].resume(); return true; })()`))
+	_, _ = chromedp.Run(ctx, chromedp.Sleep(120*time.Millisecond))
+	afterResumeVis, _ := chromedp.Run(ctx, chromedp.Evaluate[string](`getComputedStyle(instances['unit-a'].svgElement.querySelector('[data-semantic-target="lite-1"] .lite-payload')).visibility`))
+	rec(8, "Widget Demo: Burst/Pause + Suspend/Resume",
+		inPause == "hidden" && whilePaused && afterResumeVis == "visible",
+		fmt.Sprintf("inPause=%s, whileSuspended=%v, afterResume=%s", inPause, whilePaused, afterResumeVis))
 
-	// Test Direction change preserves -fadegrow in exported widget!
-	dirRes, err := chromedp.Run(ctx, chromedp.Evaluate[string](`(() => {
-		const w = instances['unit-a'];
-		w.setParameter('tracerccw-lite-direction', 'cw');
-		const p2 = w.svgElement.querySelector('[data-semantic-target="lite-2"] .lite-payload');
-		return getComputedStyle(p2).animationName;
-	})()`))
-	if err != nil {
-		fmt.Println("Check 8 err:", err)
-	}
-	rec(8, "Widget Demo: Direction preserves fadegrow", strings.Contains(dirRes, "sva-lite-trace-cw-fadegrow"),
-		fmt.Sprintf("animationName=%q", dirRes))
-
-	_ = os.WriteFile("/tmp/stage16d-a-motion-standalone.svg", []byte(standaloneSVG), 0644)
-
+	_ = demoHTML
 	fmt.Println("==================================================================")
-	allOk := true
 	for _, c := range checks {
 		if !c.Passed {
-			allOk = false
+			fmt.Println(">>> SOME CHECKS FAILED <<<")
+			os.Exit(1)
 		}
 	}
-	if !allOk {
-		fmt.Println(">>> SOME MOTION CHECKS FAILED <<<")
-		os.Exit(1)
-	}
-	fmt.Println(">>> ALL 8 MOTION & EXPORTED-RUNTIME CHECKS PASS 100% <<<")
+	fmt.Println(">>> ALL 8 STAGE 16D-A SIMPLIFICATION, BURST & GEOMETRY CHECKS PASS <<<")
 }

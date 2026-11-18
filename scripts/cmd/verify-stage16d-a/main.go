@@ -272,7 +272,7 @@ func main() {
 		const circEl = document.querySelector('#svgContainer [data-lite-id="1"] .lite-payload');
 		const circCX = parseFloat(circEl.getAttribute('cx'));
 		const circCY = parseFloat(circEl.getAttribute('cy'));
-		const circR = parseFloat(circEl.getAttribute('r'));
+		const circR = parseFloat(circEl.getAttribute('rx') || circEl.getAttribute('r'));
 
 		// Switch back to rounded for subsequent tests
 		vSel.value = 'rounded';
@@ -453,15 +453,15 @@ func main() {
 		s12.W == 90 && s12.H == 50 && s12.MinS == 0.75 && s12.MaxS == 1.35 && s12.BboxW == 90 && s12.BboxH == 50 && s12.Pts != "",
 		fmt.Sprintf("diamond %gx%g, min=%.2f, max=%.2f, pts=%q", s12.W, s12.H, s12.MinS, s12.MaxS, s12.Pts))
 
-	// Scenario 14: Verify animated perimeter preview, guide boundary, ping-pong mode, and independent speed/startOffset
+	// Scenario 14: Verify animated perimeter preview, guide boundary, ping-pong mode, and burstCycles
 	_, _ = chromedp.Run(taskCtx, chromedp.Evaluate[bool](`(() => {
 		window.AppCoordinator.selectObject('lite', '1');
 		const pmSel = document.getElementById('litePlaybackModeSelect');
 		pmSel.value = 'pingpong';
 		pmSel.dispatchEvent(new Event('change', { bubbles: true }));
-		const offIn = document.getElementById('liteStartOffsetNum');
-		offIn.value = '25';
-		offIn.dispatchEvent(new Event('input', { bubbles: true }));
+		const bcIn = document.getElementById('liteBurstCyclesNum');
+		bcIn.value = '4';
+		bcIn.dispatchEvent(new Event('input', { bubbles: true }));
 		return true;
 	})()`))
 	_ = runVoid(taskCtx, chromedp.Sleep(150*time.Millisecond))
@@ -476,12 +476,15 @@ func main() {
 		const hasStyle = Boolean(document.querySelector('#svgContainer style'));
 		const hasAnim = Boolean(pay && animName.includes('sva-lite-trace'));
 		const hasPingPong = pay ? pay.classList.contains('sva-lite-mode-pingpong') : false;
-		const startOff = pay ? pay.style.getPropertyValue('--sva-start-offset').trim() : '';
+		const burstCyc = window.LiteEffects.getLiteEffect('1').burstCycles;
 
-		// Restore loop mode for export test
+		// Restore loop mode and continuous burst=0 for export test
 		const pmSel = document.getElementById('litePlaybackModeSelect');
 		pmSel.value = 'loop';
 		pmSel.dispatchEvent(new Event('change', { bubbles: true }));
+		const bcIn = document.getElementById('liteBurstCyclesNum');
+		bcIn.value = '0';
+		bcIn.dispatchEvent(new Event('input', { bubbles: true }));
 
 		// Verify grouping compatibility: group lite-1 and lite-4, move, and ungroup
 		window.AppCoordinator.setMultiSelection([{ type: 'lite', id: '1' }, { type: 'lite', id: '4' }]);
@@ -502,7 +505,7 @@ func main() {
 			hasAnim,
 			dash,
 			hasPingPong,
-			startOff,
+			burstCyc,
 			grpOk: Boolean(grp && grpMoved && xAfterGrpMove > 280)
 		});
 	})()`))
@@ -515,14 +518,14 @@ func main() {
 		HasAnim     bool   `json:"hasAnim"`
 		Dash        string `json:"dash"`
 		HasPingPong bool   `json:"hasPingPong"`
-		StartOff    string `json:"startOff"`
+		BurstCyc    int    `json:"burstCyc"`
 		GrpOk       bool   `json:"grpOk"`
 	}
 	_ = json.Unmarshal([]byte(s14JSON), &s14)
-	record(14, "Tracer Modes, Offset & Grouping Compat",
-		s14.HasGuide && s14.HasAnim && s14.Dash == "125 125" && s14.HasPingPong && s14.StartOff == "-250px" && s14.GrpOk,
-		fmt.Sprintf("guide=%v, anim=%v(%q dur=%s hasStyle=%v cls=%q), pingpong=%v, startOffset=%s, groupMove=%v",
-			s14.HasGuide, s14.HasAnim, s14.AnimName, s14.AnimDur, s14.HasStyle, s14.Cls, s14.HasPingPong, s14.StartOff, s14.GrpOk))
+	record(14, "Tracer Modes, Burst & Grouping Compat",
+		s14.HasGuide && s14.HasAnim && s14.Dash == "125 125" && s14.HasPingPong && s14.BurstCyc == 4 && s14.GrpOk,
+		fmt.Sprintf("guide=%v, anim=%v(%q dur=%s hasStyle=%v cls=%q), pingpong=%v, burstCycles=%d, groupMove=%v",
+			s14.HasGuide, s14.HasAnim, s14.AnimName, s14.AnimDur, s14.HasStyle, s14.Cls, s14.HasPingPong, s14.BurstCyc, s14.GrpOk))
 
 	// Scenario 15: Verify colour picker and eyedropper button + sampling
 	_ = runVoid(taskCtx,
@@ -579,7 +582,7 @@ func main() {
 		toggleCard('speed');
 		toggleCard('strokeWidth');
 		toggleCard('playbackMode');
-		toggleCard('startOffset');
+		toggleCard('burstCycles');
 		toggleCard('showGuide');
 
 		window.AppCoordinator.selectObject('lite', '3');
@@ -662,7 +665,7 @@ func main() {
 		wA.setParameter('bordera-lite-speed', 2.5);
 		wA.setParameter('bordera-lite-strokewidth', 5);
 		wA.setParameter('bordera-lite-playbackmode', 'pingpong');
-		wA.setParameter('bordera-lite-startoffset', 40);
+		wA.setParameter('bordera-lite-burstcycles', 4);
 		wA.setParameter('bordera-lite-showguide', false);
 		wA.setParameter('heartbeat-lite-scale', 1.65);
 		wA.setParameter('alert-lite-duration', 240);
@@ -672,7 +675,7 @@ func main() {
 		const strokeA = pay1A?.getAttribute('stroke') || '';
 		const swA = pay1A?.getAttribute('stroke-width') || '';
 		const modeA = pay1A?.getAttribute('data-playback-mode') || '';
-		const offA = pay1A?.getAttribute('data-start-offset') || '';
+		const burstA = pay1A?.getAttribute('data-burst-cycles') || '';
 		const guideVisA = wA.svgElement.querySelector('[data-semantic-target="lite-1"] .lite-guide-track')?.getAttribute('visibility') || '';
 		const animNameA = pay1A ? getComputedStyle(pay1A).animationName : '';
 		const strokeB = wB.svgElement.querySelector('[data-semantic-target="lite-1"] .lite-payload')?.getAttribute('stroke') || '';
@@ -680,13 +683,13 @@ func main() {
 		const durA = wA.svgElement.querySelector('[data-semantic-target="lite-3"] .lite-payload')?.getAttribute('data-flash-duration-ms') || '';
 		const trigA = wA.svgElement.querySelector('[data-semantic-target="lite-3"] .lite-payload')?.getAttribute('data-trigger-nonce') || '';
 		const hasEditorMarker = Boolean(wA.svgElement.querySelector('.lite-editor-marker'));
-		return JSON.stringify({ strokeA, swA, modeA, offA, guideVisA, animNameA, strokeB, scaleA, durA, trigA, hasEditorMarker });
+		return JSON.stringify({ strokeA, swA, modeA, burstA, guideVisA, animNameA, strokeB, scaleA, durA, trigA, hasEditorMarker });
 	})()`))
 	var s18 struct {
 		StrokeA         string `json:"strokeA"`
 		SwA             string `json:"swA"`
 		ModeA           string `json:"modeA"`
-		OffA            string `json:"offA"`
+		BurstA          string `json:"burstA"`
 		GuideVisA       string `json:"guideVisA"`
 		AnimNameA       string `json:"animNameA"`
 		StrokeB         string `json:"strokeB"`
@@ -703,7 +706,7 @@ func main() {
 	}
 	consumerOK, _ := chromedp.Run(taskCtx, chromedp.Evaluate[bool](`document.querySelectorAll('#stage-host-a svg, #stage-host-b svg, #stage-host-c svg').length === 3`))
 	record(18, "Export & Independent Consumer Control",
-		expData.Success && s18.StrokeA == "#ef4444" && s18.SwA == "5" && s18.ModeA == "pingpong" && s18.OffA == "40" && s18.GuideVisA == "hidden" && strings.Contains(s18.AnimNameA, "sva-lite-trace") && s18.StrokeB == "#38bdf8" && s18.ScaleA == "1.65" && s18.DurA == "240" && s18.TrigA == "1" && !s18.HasEditorMarker && consumerOK,
+		expData.Success && s18.StrokeA == "#ef4444" && s18.SwA == "5" && s18.ModeA == "pingpong" && s18.BurstA == "4" && s18.GuideVisA == "hidden" && strings.Contains(s18.AnimNameA, "sva-lite-trace") && s18.StrokeB == "#38bdf8" && s18.ScaleA == "1.65" && s18.DurA == "240" && s18.TrigA == "1" && !s18.HasEditorMarker && consumerOK,
 		fmt.Sprintf("strokeA=%s, swA=%s, modeA=%s, anim=%s, strokeB=%s, scaleA=%s, durA=%sms, trigA=%s, stage16c=%v",
 			s18.StrokeA, s18.SwA, s18.ModeA, s18.AnimNameA, s18.StrokeB, s18.ScaleA, s18.DurA, s18.TrigA, consumerOK))
 

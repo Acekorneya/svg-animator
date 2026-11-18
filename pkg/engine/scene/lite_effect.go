@@ -59,8 +59,8 @@ func ComputePerimeterDash(segments int, ratio string) (float64, float64) {
 	l, g := ParseLineGapRatio(ratio)
 	unit := 1000.0 / float64(segments)
 	totalParts := l + g
-	dashLen := math.Round((unit*(l/totalParts))*100) / 100
-	gapLen := math.Round((unit*(g/totalParts))*100) / 100
+	dashLen := math.Round((unit*(l/totalParts))*1000) / 1000
+	gapLen := math.Round((unit-dashLen)*1000) / 1000
 	return dashLen, gapLen
 }
 
@@ -86,6 +86,15 @@ func ValidateLiteEffect(l *LiteEffect) error {
 		}
 		if l.PlaybackMode != "" && l.PlaybackMode != "loop" && l.PlaybackMode != "pingpong" && l.PlaybackMode != "once" {
 			return fmt.Errorf("unsupported perimeter-tracer playbackMode %q", l.PlaybackMode)
+		}
+		if l.BurstCycles < 0 || l.BurstCycles > 100 {
+			return errors.New("burstCycles must be between 0 and 100")
+		}
+		if l.PauseSeconds < 0 || l.PauseSeconds > 300 {
+			return errors.New("pauseSeconds must be between 0 and 300")
+		}
+		if l.PauseVisibility != "" && l.PauseVisibility != "hide" && l.PauseVisibility != "hold" {
+			return fmt.Errorf("unsupported pauseVisibility %q", l.PauseVisibility)
 		}
 	}
 	if l.Kind == "pulse" {
@@ -223,6 +232,9 @@ func applyLiteEffectDefaults(l *LiteEffect) {
 			sg := true
 			l.ShowGuide = &sg
 		}
+		if l.PauseVisibility == "" {
+			l.PauseVisibility = "hide"
+		}
 	case "pulse":
 		if l.Variant == "" {
 			l.Variant = "circle"
@@ -239,6 +251,9 @@ func applyLiteEffectDefaults(l *LiteEffect) {
 		if l.MaxScale <= 0 {
 			l.MaxScale = 1.15
 		}
+		if l.ArmThickness <= 0 {
+			l.ArmThickness = 3.0
+		}
 		if l.MaintainAspectRatio == nil {
 			mar := true
 			l.MaintainAspectRatio = &mar
@@ -250,8 +265,14 @@ func applyLiteEffectDefaults(l *LiteEffect) {
 		if l.Duration <= 0 {
 			l.Duration = 0.10 // 100 ms default brief flash
 		}
+		if l.RepeatInterval <= 0 {
+			l.RepeatInterval = 2.0 // 2.0s interval between flashes when Repeat=true
+		}
 		if l.Period <= 0 {
-			l.Period = 3.0 // gentle repeating interval if Repeat=true
+			l.Period = l.RepeatInterval
+		}
+		if l.ArmThickness <= 0 {
+			l.ArmThickness = 3.0
 		}
 		if l.Intensity <= 0 {
 			l.Intensity = 0.75 // avoid high-contrast jarring default
@@ -359,6 +380,21 @@ func (s *Scene) UpdateLiteEffect(id StringID, patch map[string]any) (LiteEffect,
 	}
 	if v, ok := patch["entryExit"].(string); ok && (v == "none" || v == "fade" || v == "grow" || v == "fade-grow") {
 		existing.EntryExit = v
+	}
+	if v, ok := toFloat(patch["burstCycles"]); ok {
+		existing.BurstCycles = int(math.Max(0, math.Min(100, math.Round(v))))
+	}
+	if v, ok := toFloat(patch["pauseSeconds"]); ok {
+		existing.PauseSeconds = math.Max(0, math.Min(300, v))
+	}
+	if v, ok := patch["pauseVisibility"].(string); ok && (v == "hide" || v == "hold") {
+		existing.PauseVisibility = v
+	}
+	if v, ok := toFloat(patch["armThickness"]); ok && v > 0 {
+		existing.ArmThickness = math.Max(1, math.Min(20, v))
+	}
+	if v, ok := toFloat(patch["repeatInterval"]); ok && v > 0 {
+		existing.RepeatInterval = math.Max(0.2, math.Min(60, v))
 	}
 	if v, ok := toFloat(patch["speed"]); ok && v > 0 {
 		existing.Speed = v

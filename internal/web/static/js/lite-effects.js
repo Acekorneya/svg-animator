@@ -58,12 +58,18 @@ window.LiteEffects = {
       if (le.maintainAspectRatio === undefined || le.maintainAspectRatio === null) {
         le.maintainAspectRatio = (le.variant === 'circle');
       }
+      if (le.burstCycles === undefined || le.burstCycles === null) le.burstCycles = 0;
+      if (le.pauseSeconds === undefined || le.pauseSeconds === null) le.pauseSeconds = 0;
+      if (!le.pauseVisibility) le.pauseVisibility = 'hide';
     } else if (le.kind === 'pulse') {
       if (!le.minScale || le.minScale <= 0) le.minScale = 0.85;
       if (!le.maxScale || le.maxScale <= 0) le.maxScale = 1.15;
+      if (!le.armThickness || le.armThickness <= 0) le.armThickness = 3;
       if (le.maintainAspectRatio === undefined || le.maintainAspectRatio === null) le.maintainAspectRatio = true;
     } else if (le.kind === 'flash') {
       if (!le.dur || le.dur <= 0) le.dur = 0.10;
+      if (!le.repeatInterval || le.repeatInterval <= 0) le.repeatInterval = Number(le.period) > 0 ? Number(le.period) : 2.0;
+      if (!le.armThickness || le.armThickness <= 0) le.armThickness = 3;
       if (le.maintainAspectRatio === undefined || le.maintainAspectRatio === null) le.maintainAspectRatio = true;
     }
     return le;
@@ -216,44 +222,6 @@ window.LiteEffects = {
   from { stroke-dashoffset: var(--sva-start-offset, 0px); }
   to { stroke-dashoffset: calc(var(--sva-start-offset, 0px) + 1000px); }
 }
-@keyframes sva-lite-trace-cw-fade {
-  0% { stroke-dashoffset: var(--sva-start-offset, 0px); opacity: 0; }
-  15%, 85% { opacity: 1; }
-  100% { stroke-dashoffset: calc(var(--sva-start-offset, 0px) - 1000px); opacity: 0; }
-}
-@keyframes sva-lite-trace-ccw-fade {
-  0% { stroke-dashoffset: var(--sva-start-offset, 0px); opacity: 0; }
-  15%, 85% { opacity: 1; }
-  100% { stroke-dashoffset: calc(var(--sva-start-offset, 0px) + 1000px); opacity: 0; }
-}
-@keyframes sva-lite-trace-cw-grow {
-  0% { stroke-dasharray: 0px var(--sva-unit, 500px); stroke-dashoffset: var(--sva-start-offset, 0px); }
-  22% { stroke-dasharray: var(--sva-dash, 125px) var(--sva-gap, 375px); stroke-dashoffset: var(--sva-start-offset, 0px); }
-  78% { stroke-dasharray: var(--sva-dash, 125px) var(--sva-gap, 375px); stroke-dashoffset: calc(var(--sva-start-offset, 0px) - (1000px - var(--sva-dash, 125px))); }
-  100% { stroke-dasharray: 0px var(--sva-unit, 500px); stroke-dashoffset: calc(var(--sva-start-offset, 0px) - 1000px); }
-}
-@keyframes sva-lite-trace-ccw-grow {
-  0% { stroke-dasharray: 0px var(--sva-unit, 500px); stroke-dashoffset: var(--sva-start-offset, 0px); }
-  22% { stroke-dasharray: var(--sva-dash, 125px) var(--sva-gap, 375px); stroke-dashoffset: calc(var(--sva-start-offset, 0px) + var(--sva-dash, 125px)); }
-  78% { stroke-dasharray: var(--sva-dash, 125px) var(--sva-gap, 375px); stroke-dashoffset: calc(var(--sva-start-offset, 0px) + 1000px); }
-  100% { stroke-dasharray: 0px var(--sva-unit, 500px); stroke-dashoffset: calc(var(--sva-start-offset, 0px) + 1000px); }
-}
-@keyframes sva-lite-trace-cw-fadegrow {
-  0% { stroke-dasharray: 0px var(--sva-unit, 500px); stroke-dashoffset: var(--sva-start-offset, 0px); opacity: 0; }
-  18% { opacity: 1; }
-  22% { stroke-dasharray: var(--sva-dash, 125px) var(--sva-gap, 375px); stroke-dashoffset: var(--sva-start-offset, 0px); opacity: 1; }
-  78% { stroke-dasharray: var(--sva-dash, 125px) var(--sva-gap, 375px); stroke-dashoffset: calc(var(--sva-start-offset, 0px) - (1000px - var(--sva-dash, 125px))); opacity: 1; }
-  82% { opacity: 1; }
-  100% { stroke-dasharray: 0px var(--sva-unit, 500px); stroke-dashoffset: calc(var(--sva-start-offset, 0px) - 1000px); opacity: 0; }
-}
-@keyframes sva-lite-trace-ccw-fadegrow {
-  0% { stroke-dasharray: 0px var(--sva-unit, 500px); stroke-dashoffset: var(--sva-start-offset, 0px); opacity: 0; }
-  18% { opacity: 1; }
-  22% { stroke-dasharray: var(--sva-dash, 125px) var(--sva-gap, 375px); stroke-dashoffset: calc(var(--sva-start-offset, 0px) + var(--sva-dash, 125px)); opacity: 1; }
-  78% { stroke-dasharray: var(--sva-dash, 125px) var(--sva-gap, 375px); stroke-dashoffset: calc(var(--sva-start-offset, 0px) + 1000px); opacity: 1; }
-  82% { opacity: 1; }
-  100% { stroke-dasharray: 0px var(--sva-unit, 500px); stroke-dashoffset: calc(var(--sva-start-offset, 0px) + 1000px); opacity: 0; }
-}
 @keyframes sva-lite-pulse {
   0%, 100% { transform: scale(var(--sva-pulse-min, 0.85)); opacity: calc(1 - var(--sva-pulse-amp, 0.55)); }
   50% { transform: scale(var(--sva-pulse-max, 1.15)); opacity: 1; }
@@ -268,12 +236,6 @@ window.LiteEffects = {
 }
 .sva-lite-trace-cw { animation-name: sva-lite-trace-cw; }
 .sva-lite-trace-ccw { animation-name: sva-lite-trace-ccw; }
-.sva-lite-trace-cw-fade { animation-name: sva-lite-trace-cw-fade; }
-.sva-lite-trace-ccw-fade { animation-name: sva-lite-trace-ccw-fade; }
-.sva-lite-trace-cw-grow { animation-name: sva-lite-trace-cw-grow; }
-.sva-lite-trace-ccw-grow { animation-name: sva-lite-trace-ccw-grow; }
-.sva-lite-trace-cw-fadegrow { animation-name: sva-lite-trace-cw-fadegrow; }
-.sva-lite-trace-ccw-fadegrow { animation-name: sva-lite-trace-ccw-fadegrow; }
 .sva-lite-mode-loop { animation-iteration-count: infinite; animation-direction: normal; }
 .sva-lite-mode-pingpong { animation-iteration-count: infinite; animation-direction: alternate; }
 .sva-lite-mode-once { animation-iteration-count: 1; animation-direction: normal; animation-fill-mode: forwards; }
@@ -309,8 +271,8 @@ window.LiteEffects = {
     let cy = Number(le.y) || 180;
     const isTracer = le.kind === 'perimeter-tracer';
     const defDim = isTracer ? 140 : ((Number(le.radius) || 28) * 2);
-    let w = Math.max(12, Number(le.width) || defDim);
-    let h = Math.max(12, Number(le.height) || (isTracer ? 80 : defDim));
+    let w = Math.max(5, Number(le.width) || defDim);
+    let h = Math.max(5, Number(le.height) || (isTracer ? 80 : defDim));
     if (isTracer && le.variant === 'circle') {
       h = w;
     }
@@ -347,36 +309,33 @@ window.LiteEffects = {
     };
   },
 
-  _buildShapeGeometry(variant, cx, cy, w, h, extraAttrs) {
+  _buildShapeGeometry(variant, cx, cy, w, h, extraAttrs, armThickness = 3) {
     const rx = w / 2;
     const ry = h / 2;
     if (variant === 'square' || variant === 'rect') {
-      return `<rect x="${(cx - rx).toFixed(2)}" y="${(cy - ry).toFixed(2)}" width="${w.toFixed(2)}" height="${h.toFixed(2)}" rx="3" ${extraAttrs} />`;
+      return `<rect x="${(cx - rx).toFixed(2)}" y="${(cy - ry).toFixed(2)}" width="${w.toFixed(2)}" height="${h.toFixed(2)}" rx="3" shape-rendering="geometricPrecision" ${extraAttrs} />`;
     }
     if (variant === 'diamond') {
       const pts = `${cx.toFixed(2)},${(cy - ry).toFixed(2)} ${(cx + rx).toFixed(2)},${cy.toFixed(2)} ${cx.toFixed(2)},${(cy + ry).toFixed(2)} ${(cx - rx).toFixed(2)},${cy.toFixed(2)}`;
-      return `<polygon points="${pts}" ${extraAttrs} />`;
+      return `<polygon points="${pts}" shape-rendering="geometricPrecision" ${extraAttrs} />`;
     }
     if (variant === 'cross') {
-      const armX = Math.max(1.2, rx * 0.14);
-      const armY = Math.max(1.2, ry * 0.14);
-      const d = `M ${(cx - armX).toFixed(2)},${(cy - ry).toFixed(2)} L ${(cx + armX).toFixed(2)},${(cy - ry).toFixed(2)} L ${(cx + armX).toFixed(2)},${(cy - armY).toFixed(2)} L ${(cx + rx).toFixed(2)},${(cy - armY).toFixed(2)} L ${(cx + rx).toFixed(2)},${(cy + armY).toFixed(2)} L ${(cx + armX).toFixed(2)},${(cy + armY).toFixed(2)} L ${(cx + armX).toFixed(2)},${(cy + ry).toFixed(2)} L ${(cx - armX).toFixed(2)},${(cy + ry).toFixed(2)} L ${(cx - armX).toFixed(2)},${(cy + armY).toFixed(2)} L ${(cx - rx).toFixed(2)},${(cy + armY).toFixed(2)} L ${(cx - rx).toFixed(2)},${(cy - armY).toFixed(2)} L ${(cx - armX).toFixed(2)},${(cy - armY).toFixed(2)} Z`;
-      return `<path d="${d}" ${extraAttrs} />`;
+      const halfArm = Math.max(0.5, Math.min(rx * 0.9, ry * 0.9, (Number(armThickness) || 3) / 2));
+      const d = `M ${(cx - halfArm).toFixed(2)},${(cy - ry).toFixed(2)} L ${(cx + halfArm).toFixed(2)},${(cy - ry).toFixed(2)} L ${(cx + halfArm).toFixed(2)},${(cy - halfArm).toFixed(2)} L ${(cx + rx).toFixed(2)},${(cy - halfArm).toFixed(2)} L ${(cx + rx).toFixed(2)},${(cy + halfArm).toFixed(2)} L ${(cx + halfArm).toFixed(2)},${(cy + halfArm).toFixed(2)} L ${(cx + halfArm).toFixed(2)},${(cy + ry).toFixed(2)} L ${(cx - halfArm).toFixed(2)},${(cy + ry).toFixed(2)} L ${(cx - halfArm).toFixed(2)},${(cy + halfArm).toFixed(2)} L ${(cx - rx).toFixed(2)},${(cy + halfArm).toFixed(2)} L ${(cx - rx).toFixed(2)},${(cy - halfArm).toFixed(2)} L ${(cx - halfArm).toFixed(2)},${(cy - halfArm).toFixed(2)} Z`;
+      return `<path d="${d}" shape-rendering="geometricPrecision" ${extraAttrs} />`;
     }
     if (variant === 'star') {
       const pts = [];
+      const waist = Math.max(0.5, Math.min(rx * 0.45, ry * 0.45, (Number(armThickness) || 3) * 0.65));
       for (let i = 0; i < 8; i++) {
         const ang = (Math.PI / 4) * i - Math.PI / 2;
-        const radX = i % 2 === 0 ? rx : rx * 0.22;
-        const radY = i % 2 === 0 ? ry : ry * 0.22;
+        const radX = i % 2 === 0 ? rx : waist;
+        const radY = i % 2 === 0 ? ry : waist;
         pts.push(`${(cx + Math.cos(ang) * radX).toFixed(2)},${(cy + Math.sin(ang) * radY).toFixed(2)}`);
       }
-      return `<polygon points="${pts.join(' ')}" ${extraAttrs} />`;
+      return `<polygon points="${pts.join(' ')}" shape-rendering="geometricPrecision" ${extraAttrs} />`;
     }
-    if (Math.abs(w - h) > 0.5) {
-      return `<ellipse cx="${cx.toFixed(2)}" cy="${cy.toFixed(2)}" rx="${rx.toFixed(2)}" ry="${ry.toFixed(2)}" ${extraAttrs} />`;
-    }
-    return `<circle cx="${cx.toFixed(2)}" cy="${cy.toFixed(2)}" r="${rx.toFixed(2)}" ${extraAttrs} />`;
+    return `<ellipse cx="${cx.toFixed(2)}" cy="${cy.toFixed(2)}" rx="${rx.toFixed(2)}" ry="${ry.toFixed(2)}" shape-rendering="geometricPrecision" ${extraAttrs} />`;
   },
 
   renderLiteElement(le) {
@@ -412,45 +371,37 @@ window.LiteEffects = {
       const linecap = le.segmentStyle === 'rounded' ? 'round' : 'butt';
       const dur = Math.max(0.2, Number(le.speed) || 3.0);
       const dir = le.direction === 'ccw' ? 'ccw' : 'cw';
-      const entryExit = le.entryExit || 'none';
-      const traceClass = entryExit === 'fade'
-        ? `sva-lite-trace-${dir}-fade`
-        : (entryExit === 'grow'
-          ? `sva-lite-trace-${dir}-grow`
-          : (entryExit === 'fade-grow' ? `sva-lite-trace-${dir}-fadegrow` : `sva-lite-trace-${dir}`));
+      const traceClass = `sva-lite-trace-${dir}`;
       const mode = le.playbackMode === 'pingpong' ? 'pingpong' : (le.playbackMode === 'once' ? 'once' : 'loop');
       const modeClass = `sva-lite-mode-${mode}`;
       const startOffsetUnits = -((Number(le.startOffset) || 0) / 100) * 1000;
-      const unitUnits = Math.round((1000 / segs) * 1000) / 1000;
-      const dashUnits = dashInfo.dashLen;
-      const gapUnits = Math.round((unitUnits - dashUnits) * 1000) / 1000;
-      const iterCss = mode === 'once' ? '1' : 'infinite';
+      const burstCycles = Math.max(0, Math.round(Number(le.burstCycles) || 0));
+      const pauseSeconds = Math.max(0, Number(le.pauseSeconds) || 0);
+      const pauseVisibility = le.pauseVisibility === 'hold' ? 'hold' : 'hide';
+      const hasBurst = mode !== 'once' && burstCycles > 0 && pauseSeconds > 0;
+      const iterCss = mode === 'once' ? '1' : (hasBurst ? String(burstCycles) : 'infinite');
       const dirCss = mode === 'pingpong' ? 'alternate' : 'normal';
-      const fillCss = mode === 'once' ? 'forwards' : 'none';
-      const styleStr = `animation-name:${traceClass};animation-duration:${dur}s;animation-iteration-count:${iterCss};animation-direction:${dirCss};animation-fill-mode:${fillCss};--sva-base-dur:${dur}s;--sva-base-sw:${sw}px;--sva-unit:${unitUnits}px;--sva-dash:${dashUnits}px;--sva-gap:${gapUnits}px;--sva-start-offset:${startOffsetUnits}px;`;
+      const fillCss = (mode === 'once' || hasBurst) ? 'forwards' : 'none';
+      const styleStr = `animation-name:${traceClass};animation-duration:${dur}s;animation-iteration-count:${iterCss};animation-direction:${dirCss};animation-fill-mode:${fillCss};--sva-base-dur:${dur}s;--sva-start-offset:${startOffsetUnits}px;`;
 
       let shapeMarkup = '';
       let guideMarkup = '';
       let hitMarkup = '';
       const variant = le.variant || 'rounded';
-      const payloadAttrs = `class="lite-payload sva-lite-tracer-anim ${traceClass} ${modeClass}" data-semantic-role="payload" data-direction="${dir}" data-entry-exit="${entryExit}" data-playback-mode="${mode}" pathLength="1000" fill="none" stroke="${color}" stroke-width="${sw}" stroke-dasharray="${dashArray}" stroke-linecap="${linecap}" style="${styleStr}" pointer-events="none"`;
+      const burstAttrs = hasBurst ? ` data-burst-cycles="${burstCycles}" data-pause-seconds="${pauseSeconds}" data-pause-visibility="${pauseVisibility}"` : '';
+      const payloadAttrs = `class="lite-payload sva-lite-tracer-anim ${traceClass} ${modeClass}" data-semantic-role="payload" data-direction="${dir}" data-playback-mode="${mode}"${burstAttrs} pathLength="1000" fill="none" stroke="${color}" stroke-width="${sw}" stroke-dasharray="${dashArray}" stroke-linecap="${linecap}" shape-rendering="geometricPrecision" style="${styleStr}" pointer-events="none"`;
       const hitAttrs = `class="lite-hit-target" data-semantic-role="hit-target" fill="transparent" stroke="transparent" stroke-width="${Math.max(16, sw + 12)}" pointer-events="stroke" style="cursor:pointer;"`;
-      const guideAttrs = `class="lite-guide-track" fill="none" stroke="${color}" stroke-width="${Math.max(1, sw * 0.55).toFixed(2)}" stroke-opacity="0.22" pointer-events="none"`;
+      const guideAttrs = `class="lite-guide-track" fill="none" stroke="${color}" stroke-width="${Math.max(1, sw * 0.55).toFixed(2)}" stroke-opacity="0.22" shape-rendering="geometricPrecision" pointer-events="none"`;
       const editorGuideAttrs = `fill="none" stroke="${color}" stroke-width="1" stroke-opacity="0.25" stroke-dasharray="4 4" pointer-events="none"`;
 
-      if (variant === 'circle') {
-        const crR = Math.max(6, rx);
-        shapeMarkup = `<circle cx="${cx.toFixed(2)}" cy="${cy.toFixed(2)}" r="${crR.toFixed(2)}" ${payloadAttrs} />`;
-        hitMarkup = `<circle cx="${cx.toFixed(2)}" cy="${cy.toFixed(2)}" r="${crR.toFixed(2)}" ${hitAttrs} />`;
+      if (variant === 'circle' || variant === 'ellipse') {
+        const erx = variant === 'circle' ? Math.max(2.5, rx) : rx;
+        const ery = variant === 'circle' ? Math.max(2.5, rx) : ry;
+        shapeMarkup = `<ellipse cx="${cx.toFixed(2)}" cy="${cy.toFixed(2)}" rx="${erx.toFixed(2)}" ry="${ery.toFixed(2)}" ${payloadAttrs} />`;
+        hitMarkup = `<ellipse cx="${cx.toFixed(2)}" cy="${cy.toFixed(2)}" rx="${erx.toFixed(2)}" ry="${ery.toFixed(2)}" ${hitAttrs} />`;
         guideMarkup = le.showGuide !== false
-          ? `<circle cx="${cx.toFixed(2)}" cy="${cy.toFixed(2)}" r="${crR.toFixed(2)}" ${guideAttrs} />`
-          : `<g class="lite-editor-marker" data-editor-only="true"><circle cx="${cx.toFixed(2)}" cy="${cy.toFixed(2)}" r="${crR.toFixed(2)}" ${editorGuideAttrs} /></g>`;
-      } else if (variant === 'ellipse') {
-        shapeMarkup = `<ellipse cx="${cx.toFixed(2)}" cy="${cy.toFixed(2)}" rx="${rx.toFixed(2)}" ry="${ry.toFixed(2)}" ${payloadAttrs} />`;
-        hitMarkup = `<ellipse cx="${cx.toFixed(2)}" cy="${cy.toFixed(2)}" rx="${rx.toFixed(2)}" ry="${ry.toFixed(2)}" ${hitAttrs} />`;
-        guideMarkup = le.showGuide !== false
-          ? `<ellipse cx="${cx.toFixed(2)}" cy="${cy.toFixed(2)}" rx="${rx.toFixed(2)}" ry="${ry.toFixed(2)}" ${guideAttrs} />`
-          : `<g class="lite-editor-marker" data-editor-only="true"><ellipse cx="${cx.toFixed(2)}" cy="${cy.toFixed(2)}" rx="${rx.toFixed(2)}" ry="${ry.toFixed(2)}" ${editorGuideAttrs} /></g>`;
+          ? `<ellipse cx="${cx.toFixed(2)}" cy="${cy.toFixed(2)}" rx="${erx.toFixed(2)}" ry="${ery.toFixed(2)}" ${guideAttrs} />`
+          : `<g class="lite-editor-marker" data-editor-only="true"><ellipse cx="${cx.toFixed(2)}" cy="${cy.toFixed(2)}" rx="${erx.toFixed(2)}" ry="${ery.toFixed(2)}" ${editorGuideAttrs} /></g>`;
       } else {
         const cornerR = variant === 'rounded' ? Math.min(cr, rx, ry) : 0;
         shapeMarkup = `<rect x="${x.toFixed(2)}" y="${y.toFixed(2)}" width="${w.toFixed(2)}" height="${h.toFixed(2)}" rx="${cornerR}" ${payloadAttrs} />`;
@@ -468,6 +419,7 @@ window.LiteEffects = {
       const amp = Math.max(0.1, Math.min(1, Number(le.intensity) || 0.85));
       const minScale = Math.max(0.2, Math.min(2.0, Number(le.minScale) || 0.85));
       const maxScale = Math.max(minScale, Math.min(3.0, Number(le.maxScale) || 1.15));
+      const armThickness = Math.max(1, Math.min(20, Number(le.armThickness) || 3));
       const variant = le.variant || 'circle';
       const isRing = variant === 'ring';
       const fillVal = isRing ? 'none' : color;
@@ -475,39 +427,104 @@ window.LiteEffects = {
       const styleStr = `animation-duration:${period}s;--sva-base-dur:${period}s;--sva-pulse-amp:${amp};--sva-pulse-min:${minScale};--sva-pulse-max:${maxScale};`;
       const payloadAttrs = `class="lite-payload sva-lite-pulse-anim" data-semantic-role="payload" data-pulse-min="${minScale}" data-pulse-max="${maxScale}" fill="${fillVal}" stroke="${strokeVal}" stroke-width="${isRing ? sw : 0}" style="${styleStr}" pointer-events="none"`;
       const hitMarkup = `<rect class="lite-hit-target" data-semantic-role="hit-target" x="${x.toFixed(2)}" y="${y.toFixed(2)}" width="${w.toFixed(2)}" height="${h.toFixed(2)}" fill="transparent" pointer-events="all" style="cursor:pointer;" />`;
-      const shapeMarkup = this._buildShapeGeometry(variant, cx, cy, w, h, payloadAttrs);
+      const shapeMarkup = this._buildShapeGeometry(variant, cx, cy, w, h, payloadAttrs, armThickness);
       return `<g ${baseAttrs} style="opacity:${opacity};">${hitMarkup}${shapeMarkup}</g>`;
     }
 
     if (le.kind === 'flash') {
       const dur = Math.max(0.02, Math.min(1.5, Number(le.dur) || 0.10));
       const durMs = Math.round(dur * 1000);
+      const repeatInterval = Math.max(0.2, Math.min(60, Number(le.repeatInterval) || Number(le.period) || 2.0));
       const intensity = Math.max(0.1, Math.min(1, Number(le.intensity) || 0.75));
+      const armThickness = Math.max(1, Math.min(20, Number(le.armThickness) || 3));
       const variant = le.variant || 'diamond';
-      const iterCount = le.repeat ? 'infinite' : '1';
-      const styleStr = `animation-duration:${dur}s;animation-iteration-count:${iterCount};--sva-base-dur:${dur}s;--sva-flash-int:${intensity};`;
-      const payloadAttrs = `class="lite-payload lite-flash-anim sva-lite-flash-anim" data-semantic-role="payload" data-trigger-nonce="${le.triggerNonce || 0}" data-flash-duration-ms="${durMs}" fill="${color}" style="${styleStr}" pointer-events="none"`;
+      const hasRepeatSched = Boolean(le.repeat);
+      const pauseSec = hasRepeatSched ? Math.max(0.05, repeatInterval - dur) : 0;
+      const schedAttrs = hasRepeatSched
+        ? ` data-burst-cycles="1" data-pause-seconds="${pauseSec.toFixed(3)}" data-pause-visibility="hide" data-repeat-interval="${repeatInterval}"`
+        : '';
+      const styleStr = `animation-duration:${dur}s;animation-iteration-count:1;--sva-base-dur:${dur}s;--sva-flash-int:${intensity};`;
+      const payloadAttrs = `class="lite-payload lite-flash-anim sva-lite-flash-anim" data-semantic-role="payload" data-trigger-nonce="${le.triggerNonce || 0}" data-flash-duration-ms="${durMs}" data-repeat="${hasRepeatSched ? 'true' : 'false'}"${schedAttrs} fill="${color}" style="${styleStr}" pointer-events="none"`;
       const hitMarkup = `<rect class="lite-hit-target" data-semantic-role="hit-target" x="${x.toFixed(2)}" y="${y.toFixed(2)}" width="${w.toFixed(2)}" height="${h.toFixed(2)}" fill="transparent" pointer-events="all" style="cursor:pointer;" />`;
       const markerAttrs = `fill="none" stroke="${color}" stroke-opacity="0.58" stroke-width="1.4" stroke-dasharray="4 3" pointer-events="none"`;
-      const markerShape = this._buildShapeGeometry(variant, cx, cy, w, h, markerAttrs);
+      const markerShape = this._buildShapeGeometry(variant, cx, cy, w, h, markerAttrs, armThickness);
       const markerCross = `<circle cx="${cx.toFixed(2)}" cy="${cy.toFixed(2)}" r="3" fill="${color}" fill-opacity="0.75" pointer-events="none" />`;
       const editorMarker = `<g class="lite-editor-marker" data-editor-only="true" pointer-events="none">${markerShape}${markerCross}</g>`;
-      const shapeMarkup = this._buildShapeGeometry(variant, cx, cy, w, h, payloadAttrs);
+      const shapeMarkup = this._buildShapeGeometry(variant, cx, cy, w, h, payloadAttrs, armThickness);
       return `<g ${baseAttrs} style="opacity:${opacity};">${hitMarkup}${editorMarker}${shapeMarkup}</g>`;
     }
 
     return '';
   },
 
+  getLiteBurstScript() {
+    const needsBurstScript = this.list.some((le) =>
+      (le.kind === 'perimeter-tracer' && Number(le.burstCycles) > 0 && Number(le.pauseSeconds) > 0 && le.playbackMode !== 'once') ||
+      (le.kind === 'flash' && Boolean(le.repeat))
+    );
+    if (!needsBurstScript) return '';
+    return `\n<script type="application/ecmascript"><![CDATA[
+(function(){
+  var cs=document.currentScript;
+  var s=(cs&&(cs.ownerSVGElement||(cs.closest&&cs.closest('svg'))))||document.documentElement;
+  if(!s||s.hasAttribute('data-sva-widget-instance'))return;
+  var nodes=s.querySelectorAll('[data-burst-cycles]');
+  for(var i=0;i<nodes.length;i++){(function(n){
+    n.addEventListener('animationend',function(){
+      var cyc=parseInt(n.getAttribute('data-burst-cycles')||'0',10);
+      var pSec=parseFloat(n.getAttribute('data-pause-seconds')||'0');
+      if(!(cyc>0&&pSec>0))return;
+      var vis=n.getAttribute('data-pause-visibility')||'hide';
+      if(vis==='hide')n.style.visibility='hidden';
+      setTimeout(function(){
+        var anim=n.style.animationName||'';
+        n.style.animationName='none';
+        try{void n.getBoundingClientRect();}catch(_){}
+        n.style.visibility='';
+        n.style.animationName=anim;
+      },Math.max(10,pSec*1000));
+    });
+  })(nodes[i]);}
+})();
+]]></script>`;
+  },
+
   injectIntoSVG(svgString) {
     if (!svgString || this.list.length === 0) return svgString;
     const defs = this.getLiteDefs();
     const elements = this.list.map((le) => this.renderLiteElement(le)).join('\n');
-    const block = `\n${defs}\n<g id="lite-effects-layer" class="lite-effects-layer">\n${elements}\n</g>\n`;
+    const burstScript = this.getLiteBurstScript();
+    const block = `\n${defs}\n<g id="lite-effects-layer" class="lite-effects-layer">\n${elements}\n</g>${burstScript}\n`;
     if (svgString.includes('<!-- INJECT_CAMERA_RIG_ELEMENTS -->')) {
       return svgString.replace('<!-- INJECT_CAMERA_RIG_ELEMENTS -->', block + '<!-- INJECT_CAMERA_RIG_ELEMENTS -->');
     }
     return svgString.replace('</svg>', block + '</svg>');
+  },
+
+  bindBurstSchedulers(container) {
+    if (!container || typeof container.querySelectorAll !== 'function') return;
+    if (this._studioBurstTimers) {
+      this._studioBurstTimers.forEach((t) => clearTimeout(t));
+    }
+    this._studioBurstTimers = [];
+    container.querySelectorAll('[data-burst-cycles]').forEach((node) => {
+      node.addEventListener('animationend', () => {
+        const cyc = parseInt(node.getAttribute('data-burst-cycles') || '0', 10);
+        const pSec = parseFloat(node.getAttribute('data-pause-seconds') || '0');
+        if (!(cyc > 0 && pSec > 0)) return;
+        const vis = node.getAttribute('data-pause-visibility') || 'hide';
+        if (vis === 'hide') node.style.visibility = 'hidden';
+        const tid = setTimeout(() => {
+          if (!node.isConnected) return;
+          const prev = node.style.animationName || '';
+          node.style.animationName = 'none';
+          try { void node.getBoundingClientRect(); } catch (_) {}
+          node.style.visibility = '';
+          node.style.animationName = prev;
+        }, Math.max(10, pSec * 1000));
+        this._studioBurstTimers.push(tid);
+      });
+    });
   },
 
   triggerFlash(id) {
@@ -604,24 +621,41 @@ window.LiteEffects = {
     bindPair('liteOpacity', 'opacity');
     bindPair('liteWidth', 'width', true);
     bindPair('liteHeight', 'height', true);
+    bindPair('liteArmThickness', 'armThickness');
     bindField('liteLockAspectChk', 'maintainAspectRatio', false, true);
     bindField('liteShowGuideChk', 'showGuide', false, true);
     bindPair('liteCornerRadius', 'cornerRadius', true);
     bindPair('liteStrokeWidth', 'strokeWidth');
     bindPair('liteSegments', 'segments', true);
+    const ratioPresetSel = document.getElementById('liteRatioPresetSelect');
+    if (ratioPresetSel) {
+      ratioPresetSel.addEventListener('change', (e) => {
+        const val = e.target.value;
+        const customRow = document.getElementById('liteRatioCustomRow');
+        if (val === 'custom') {
+          if (customRow) customRow.style.display = '';
+        } else {
+          if (customRow) customRow.style.display = 'none';
+          this.updateActive('lineGapRatio', val);
+          if (window.AppCoordinator) window.AppCoordinator.recordHistoryImmediate();
+        }
+      });
+    }
     bindField('liteRatioInput', 'lineGapRatio');
     bindField('liteDirectionSelect', 'direction');
     bindField('litePlaybackModeSelect', 'playbackMode');
-    bindField('liteEntryExitSelect', 'entryExit');
     bindField('liteStyleSelect', 'segmentStyle');
     bindPair('liteSpeed', 'speed');
-    bindPair('liteStartOffset', 'startOffset', true);
+    bindField('liteBurstCyclesNum', 'burstCycles', true);
+    bindField('litePauseSecondsNum', 'pauseSeconds', true);
+    bindField('litePauseVisibilitySelect', 'pauseVisibility');
     bindPair('liteMinScale', 'minScale');
     bindPair('liteMaxScale', 'maxScale');
     bindPair('litePeriod', 'period');
     bindPair('liteIntensity', 'intensity');
     bindPair('liteFlashDur', 'durationMs', true);
     bindField('liteRepeatChk', 'repeat', false, true);
+    bindPair('liteFlashRepeatInterval', 'repeatInterval');
     bindField('liteVisibleChk', 'visible', false, true);
   },
 
@@ -697,13 +731,13 @@ window.LiteEffects = {
       if (isCircleTracer || existing.width === existing.height) {
         patch.height = value;
       } else if (existing.width > 0 && existing.height > 0) {
-        patch.height = Math.max(12, Math.round(value * (existing.height / existing.width)));
+        patch.height = Math.max(5, Math.round(value * (existing.height / existing.width)));
       }
     } else if (key === 'height' && lockAspect) {
       if (isCircleTracer || existing.width === existing.height) {
         patch.width = value;
       } else if (existing.width > 0 && existing.height > 0) {
-        patch.width = Math.max(12, Math.round(value * (existing.width / existing.height)));
+        patch.width = Math.max(5, Math.round(value * (existing.width / existing.height)));
       }
     } else if (key === 'variant' && existing.kind === 'perimeter-tracer' && value === 'circle') {
       patch.height = existing.width || 140;
@@ -783,33 +817,44 @@ window.LiteEffects = {
     setPair('liteOpacity', le.opacity != null ? le.opacity : 0.9);
     setPair('liteWidth', Math.round(Number(le.width) || (le.kind === 'perimeter-tracer' ? 140 : 56)));
     setPair('liteHeight', Math.round(Number(le.height) || (le.kind === 'perimeter-tracer' ? 80 : 56)));
+    setPair('liteArmThickness', le.armThickness != null ? le.armThickness : 3);
     setChk('liteLockAspectChk', le.kind === 'perimeter-tracer' && le.variant === 'circle' ? true : Boolean(le.maintainAspectRatio));
     setChk('liteShowGuideChk', le.showGuide !== false);
     setPair('liteCornerRadius', Math.round(Number(le.cornerRadius != null ? le.cornerRadius : 10)));
     setPair('liteStrokeWidth', le.strokeWidth || 2.5);
     setPair('liteSegments', le.segments || 2);
-    setVal('liteRatioInput', le.lineGapRatio || '1:3');
+    const ratioVal = le.lineGapRatio || '1:3';
+    const knownRatios = ['1:1', '1:2', '1:3', '1:4', '1:5', '1:6', '2:1', '2:3', '3:1', '3:2'];
+    const isKnownRatio = knownRatios.includes(ratioVal);
+    setVal('liteRatioPresetSelect', isKnownRatio ? ratioVal : 'custom');
+    setVal('liteRatioInput', ratioVal);
+    const customRow = document.getElementById('liteRatioCustomRow');
+    if (customRow) customRow.style.display = isKnownRatio ? 'none' : '';
     setVal('liteDirectionSelect', le.direction || 'cw');
     setVal('litePlaybackModeSelect', le.playbackMode || 'loop');
-    setVal('liteEntryExitSelect', le.entryExit || 'none');
     setVal('liteStyleSelect', le.segmentStyle || 'rounded');
     setPair('liteSpeed', le.speed || 3.0);
-    setPair('liteStartOffset', Math.round(Number(le.startOffset) || 0));
+    setVal('liteBurstCyclesNum', Math.round(Number(le.burstCycles) || 0));
+    setVal('litePauseSecondsNum', Number(le.pauseSeconds) || 0);
+    setVal('litePauseVisibilitySelect', le.pauseVisibility || 'hide');
     setPair('liteMinScale', le.minScale != null ? le.minScale : 0.85);
     setPair('liteMaxScale', le.maxScale != null ? le.maxScale : 1.15);
     setPair('litePeriod', le.period || 1.8);
     setPair('liteIntensity', le.intensity != null ? le.intensity : (le.kind === 'flash' ? 0.75 : 0.85));
     setPair('liteFlashDur', durMs);
     setChk('liteRepeatChk', le.repeat);
+    setPair('liteFlashRepeatInterval', le.repeatInterval || 2.0);
     setChk('liteVisibleChk', le.visible !== false);
 
     const tracerGroup = document.getElementById('liteTracerGroup');
     const cornerRow = document.getElementById('liteCornerRadiusRow');
+    const armRow = document.getElementById('liteArmThicknessRow');
     const pulseGroup = document.getElementById('litePulseGroup');
     const flashGroup = document.getElementById('liteFlashGroup');
     const intensityRow = document.getElementById('liteIntensityRow');
     if (tracerGroup) tracerGroup.style.display = le.kind === 'perimeter-tracer' ? 'block' : 'none';
     if (cornerRow) cornerRow.style.display = (le.kind === 'perimeter-tracer' && le.variant === 'rounded') ? '' : 'none';
+    if (armRow) armRow.style.display = ((le.kind === 'pulse' || le.kind === 'flash') && (le.variant === 'cross' || le.variant === 'star')) ? '' : 'none';
     if (pulseGroup) pulseGroup.style.display = le.kind === 'pulse' ? 'block' : 'none';
     if (flashGroup) flashGroup.style.display = le.kind === 'flash' ? 'block' : 'none';
     if (intensityRow) intensityRow.style.display = (le.kind === 'pulse' || le.kind === 'flash') ? '' : 'none';

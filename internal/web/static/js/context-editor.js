@@ -473,30 +473,41 @@ window.FloatingPropertiesEditor = {
         this._setPair('fctx-liteOpacity', le.opacity !== undefined ? le.opacity : 0.9);
         this._setPair('fctx-liteWidth', Math.round(Number(le.width) || (le.kind === 'perimeter-tracer' ? 140 : 56)));
         this._setPair('fctx-liteHeight', Math.round(Number(le.height) || (le.kind === 'perimeter-tracer' ? 80 : 56)));
+        this._setPair('fctx-liteArmThickness', le.armThickness !== undefined ? le.armThickness : 3);
         this._setChk('fctx-liteLockAspectChk', le.kind === 'perimeter-tracer' && le.variant === 'circle' ? true : Boolean(le.maintainAspectRatio));
         this._setChk('fctx-liteShowGuideChk', le.showGuide !== false);
         this._setPair('fctx-liteCornerRadius', Math.round(Number(le.cornerRadius != null ? le.cornerRadius : 10)));
         this._setPair('fctx-liteStrokeWidth', le.strokeWidth !== undefined ? le.strokeWidth : 2.5);
         this._setPair('fctx-liteSegments', le.segments !== undefined ? le.segments : 2);
-        this._setVal('fctx-liteRatioInput', le.lineGapRatio || '1:3');
+        const fctxRatio = le.lineGapRatio || '1:3';
+        const knownRatios = ['1:1', '1:2', '1:3', '1:4', '1:5', '1:6', '2:1', '2:3', '3:1', '3:2'];
+        const isKnown = knownRatios.includes(fctxRatio);
+        this._setVal('fctx-liteRatioPresetSelect', isKnown ? fctxRatio : 'custom');
+        this._setVal('fctx-liteRatioInput', fctxRatio);
+        const fctxCustomRow = document.getElementById('fctx-liteRatioCustomRow');
+        if (fctxCustomRow) fctxCustomRow.style.display = isKnown ? 'none' : '';
         this._setVal('fctx-liteDirectionSelect', le.direction || 'cw');
         this._setVal('fctx-litePlaybackModeSelect', le.playbackMode || 'loop');
-        this._setVal('fctx-liteEntryExitSelect', le.entryExit || 'none');
         this._setPair('fctx-liteSpeed', le.speed !== undefined ? le.speed : 3.0);
-        this._setPair('fctx-liteStartOffset', Math.round(Number(le.startOffset) || 0));
+        this._setVal('fctx-liteBurstCyclesNum', Math.round(Number(le.burstCycles) || 0));
+        this._setVal('fctx-litePauseSecondsNum', Number(le.pauseSeconds) || 0);
+        this._setVal('fctx-litePauseVisibilitySelect', le.pauseVisibility || 'hide');
         this._setPair('fctx-liteMinScale', le.minScale !== undefined ? le.minScale : 0.85);
         this._setPair('fctx-liteMaxScale', le.maxScale !== undefined ? le.maxScale : 1.15);
         this._setPair('fctx-litePeriod', le.period !== undefined ? le.period : 1.8);
         this._setPair('fctx-liteFlashDur', durMs);
         this._setChk('fctx-liteRepeatChk', le.repeat);
+        this._setPair('fctx-liteFlashRepeatInterval', le.repeatInterval !== undefined ? le.repeatInterval : 2.0);
 
         const tg = document.getElementById('fctx-liteTracerGroup');
         const crRow = document.getElementById('fctx-liteCornerRadiusRow');
+        const armRow = document.getElementById('fctx-liteArmThicknessRow');
         const pg = document.getElementById('fctx-litePulseGroup');
         const fg = document.getElementById('fctx-liteFlashGroup');
         const trigBtn = document.getElementById('fctx-btnTriggerLiteFlash');
         if (tg) tg.style.display = le.kind === 'perimeter-tracer' ? 'block' : 'none';
         if (crRow) crRow.style.display = (le.kind === 'perimeter-tracer' && le.variant === 'rounded') ? '' : 'none';
+        if (armRow) armRow.style.display = ((le.kind === 'pulse' || le.kind === 'flash') && (le.variant === 'cross' || le.variant === 'star')) ? '' : 'none';
         if (pg) pg.style.display = le.kind === 'pulse' ? 'block' : 'none';
         if (fg) fg.style.display = le.kind === 'flash' ? 'block' : 'none';
         if (trigBtn) trigBtn.style.display = le.kind === 'flash' ? 'inline-block' : 'none';
@@ -1264,15 +1275,16 @@ window.FloatingPropertiesEditor = {
       ['fctx-liteOpacity', 'opacity', false],
       ['fctx-liteWidth', 'width', true],
       ['fctx-liteHeight', 'height', true],
+      ['fctx-liteArmThickness', 'armThickness', false],
       ['fctx-liteCornerRadius', 'cornerRadius', true],
       ['fctx-liteStrokeWidth', 'strokeWidth', false],
       ['fctx-liteSegments', 'segments', true],
       ['fctx-liteSpeed', 'speed', false],
-      ['fctx-liteStartOffset', 'startOffset', true],
       ['fctx-liteMinScale', 'minScale', false],
       ['fctx-liteMaxScale', 'maxScale', false],
       ['fctx-litePeriod', 'period', false],
-      ['fctx-liteFlashDur', 'durationMs', true]
+      ['fctx-liteFlashDur', 'durationMs', true],
+      ['fctx-liteFlashRepeatInterval', 'repeatInterval', false]
     ];
     litePairs.forEach(([baseId, prop, isInt]) => {
       const slider = document.getElementById(baseId + 'Slider');
@@ -1314,10 +1326,26 @@ window.FloatingPropertiesEditor = {
     bindLiteSimple('fctx-liteColorPicker', 'color', 'input');
     bindLiteSimple('fctx-liteLockAspectChk', 'maintainAspectRatio', 'change', true);
     bindLiteSimple('fctx-liteShowGuideChk', 'showGuide', 'change', true);
+    const fctxRatioPreset = document.getElementById('fctx-liteRatioPresetSelect');
+    if (fctxRatioPreset) {
+      fctxRatioPreset.addEventListener('change', (e) => {
+        const val = e.target.value;
+        const customRow = document.getElementById('fctx-liteRatioCustomRow');
+        if (val === 'custom') {
+          if (customRow) customRow.style.display = '';
+        } else {
+          if (customRow) customRow.style.display = 'none';
+          updateLiteAndSync('lineGapRatio', val);
+          if (window.AppCoordinator) window.AppCoordinator.recordHistoryImmediate();
+        }
+      });
+    }
     bindLiteSimple('fctx-liteRatioInput', 'lineGapRatio', 'input');
     bindLiteSimple('fctx-liteDirectionSelect', 'direction', 'change');
     bindLiteSimple('fctx-litePlaybackModeSelect', 'playbackMode', 'change');
-    bindLiteSimple('fctx-liteEntryExitSelect', 'entryExit', 'change');
+    bindLiteSimple('fctx-liteBurstCyclesNum', 'burstCycles', 'input');
+    bindLiteSimple('fctx-litePauseSecondsNum', 'pauseSeconds', 'input');
+    bindLiteSimple('fctx-litePauseVisibilitySelect', 'pauseVisibility', 'change');
     bindLiteSimple('fctx-liteRepeatChk', 'repeat', 'change', true);
 
     const btnTriggerLiteFlash = document.getElementById('fctx-btnTriggerLiteFlash');

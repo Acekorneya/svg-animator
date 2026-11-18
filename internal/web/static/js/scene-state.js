@@ -521,7 +521,10 @@
           }
 
           let svgString = window.Effects.build(state);
-          const layerMarkup = '\n<defs>\n' + defs + '</defs>\n<g id="scene-layers" class="scene-layers ripples-layer glows-layer flows-layer images-layer nodes-layer">\n' + elements + '</g>\n';
+          const liteBurstScript = (window.LiteEffects && typeof window.LiteEffects.getLiteBurstScript === 'function')
+            ? window.LiteEffects.getLiteBurstScript()
+            : '';
+          const layerMarkup = '\n<defs>\n' + defs + '</defs>\n<g id="scene-layers" class="scene-layers ripples-layer glows-layer flows-layer images-layer nodes-layer">\n' + elements + '</g>' + liteBurstScript + '\n';
           return svgString.replace('<!-- INJECT_CAMERA_RIG_ELEMENTS -->', layerMarkup + '<!-- INJECT_CAMERA_RIG_ELEMENTS -->');
         }
       }

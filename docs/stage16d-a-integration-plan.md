@@ -231,6 +231,36 @@ Go Engine (Authoritative: pkg/engine/scene, geometry, protocol, sva)
 
 ---
 
+## I. Animation Simplification, Timing Controls, Geometry Refinement & Rendering Assessment (WP12–WP16)
+
+### 1. Real-Browser Benchmark & Comparison Findings (2026-11-18)
+Measured on the target Linux host (`HeadlessChrome/155.0.0.0`, SwiftShader software renderer, 2 vCPUs) over 2.2s windows:
+
+| Case | Frames | FPS | Mean (ms) | P95 (ms) | Max (ms) | Main-Thread Task (ms) | RecalcStyle (ms) |
+|---|---:|---:|---:|---:|---:|---:|---:|
+| **1. Existing Flow (SMIL `stroke-dashoffset`)** | 61 | 29.8 | 33.61 | 50.00 | 66.60 | 77.51 | 3.41 |
+| **2. Lite Tracer CSS (`px` keyframes, 17px circle)** | 67 | 32.2 | 31.09 | 50.00 | 50.10 | ~0 | ~0 |
+| **3. Lite Tracer SMIL (`<animate>`, 17px circle)** | 64 | 31.0 | 32.29 | 50.00 | 83.20 | 1.75 | 1.73 |
+| **4. Lite Pulse CSS (`transform` + `will-change`)** | 65 | 31.7 | 31.54 | 33.40 | 50.00 | ~0 | 0.29 |
+| **5. Lite Pulse SMIL (`<animateTransform>`)** | 61 | 29.3 | 34.15 | 50.00 | 66.70 | 33.29 | ~0 |
+
+- **Hardware limitations:** HeadlessChrome on SwiftShader software rendering caps composite/rAF around ~30–32 FPS in this container; raw GPU hardware metrics are not exposed by CDP.
+- **Conclusion:** Native CSS `@keyframes` with explicit `px` units (`0px` to `±1000px` in `pathLength="1000"` space) + `shape-rendering="geometricPrecision"` + `will-change: transform, opacity` achieves lower main-thread cost and tighter max frame times than SMIL on this host, while keeping standalone SVG export zero-JS for continuous animations.
+- **Root causes of prior visual issues:**
+  1. Small circles/ellipses (`rx=17, ry=17`) and thin strokes lacked `shape-rendering="geometricPrecision"`, causing sub-pixel snapping; unifying `circle` and `ellipse` to `<ellipse shape-rendering="geometricPrecision">` ensures identical smooth curve rendering.
+  2. Fade and geometric grow/shrink modes introduced visual timing artefacts and were deferred per owner direction.
+  3. `Cross` arms previously scaled proportionally (`0.14 * rx` / `0.14 * ry`), thickening arms when overall width/height increased.
+  4. `Flash` repeat previously looped at `dur` (turning a `100ms` flash into a continuous rapid strobe instead of a brief flash separated by `repeatInterval` seconds).
+
+### 2. Simplification & Refinement Work Packages (WP12–WP16)
+- **WP12 (Tracer Simplification & Line:Gap Presets):** Remove `startOffset` and `entryExit` fade/fade-grow controls from Studio UI and `ObjectPropertyCatalog["lite"]` (preserving backward-compatible Go struct fields and `svg-widget.js` fallback handling). Replace freeform ratio input with 10 presets (`1:1`, `1:2`, `1:3`, `1:4`, `1:5`, `1:6`, `2:1`, `2:3`, `3:1`, `3:2`) + `Custom`. Unify Tracer `circle` & `ellipse` to `<ellipse shape-rendering="geometricPrecision">`.
+- **WP13 (Burst/Pause Scheduling):** Add `BurstCycles` (`0` = continuous, `1..100`), `PauseSeconds` (`0..300`), and `PauseVisibility` (`"hide"` / `"hold"`). Use native CSS `animation-iteration-count: N` + `animationend` + `setTimeout` (cleared automatically on `IntersectionObserver` suspension) — zero per-frame JS loops and zero mid-burst restarts.
+- **WP14 (Pulse & Flash Geometry + Flash Repeat Interval):** Lower min width/height to `5` SVG units; add independent `ArmThickness` (`1..20`, default `3`) for `cross` and `star`; add `RepeatInterval` (`0.2..60s`, default `2.0s`) for Flash so `dur` (`ms`) remains a brief flash event while `repeatInterval` sets the gap between flashes.
+- **WP15 (Exported Widget Catalog & Runtime):** Update `ObjectPropertyCatalog["lite"]`, `app.js` kind filtering, `svg-widget.js` runtime handlers + burst/pause + flash interval + visibility-suspension timer cleanup.
+- **WP16 (Real-Browser Verification, Docs, BookStack & Deploy):** Expand automated real-browser verification for all new behaviours, re-run `go test ./...`, `regression-harness.js`, `verify-stage16d-a`, and `verify-stage16d-a-motion`, update BookStack `466`, deploy to Kiwiberry, and stop for human visual acceptance.
+
+---
+
 ## G. Session Recovery Instructions
 
 If a new Antigravity session resumes this task:

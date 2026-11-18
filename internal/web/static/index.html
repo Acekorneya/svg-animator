@@ -1206,15 +1206,22 @@
                   <div class="inspector-prop-row">
                     <label for="liteWidthSlider">Width (px)</label>
                     <div class="slider-row">
-                      <input type="range" id="liteWidthSlider" min="16" max="800" step="2" value="140">
-                      <input type="number" class="num-input" id="liteWidthNum" min="12" max="1200" step="1" value="140">
+                      <input type="range" id="liteWidthSlider" min="5" max="800" step="1" value="140">
+                      <input type="number" class="num-input" id="liteWidthNum" min="5" max="1200" step="1" value="140">
                     </div>
                   </div>
                   <div class="inspector-prop-row">
                     <label for="liteHeightSlider">Height (px)</label>
                     <div class="slider-row">
-                      <input type="range" id="liteHeightSlider" min="16" max="800" step="2" value="80">
-                      <input type="number" class="num-input" id="liteHeightNum" min="12" max="1200" step="1" value="80">
+                      <input type="range" id="liteHeightSlider" min="5" max="800" step="1" value="80">
+                      <input type="number" class="num-input" id="liteHeightNum" min="5" max="1200" step="1" value="80">
+                    </div>
+                  </div>
+                  <div class="inspector-prop-row" id="liteArmThicknessRow" style="display: none;">
+                    <label for="liteArmThicknessSlider">Arm Thick (px)</label>
+                    <div class="slider-row">
+                      <input type="range" id="liteArmThicknessSlider" min="1" max="20" step="0.5" value="3">
+                      <input type="number" class="num-input" id="liteArmThicknessNum" min="1" max="20" step="0.5" value="3">
                     </div>
                   </div>
                   <div class="inspector-prop-row" id="liteLockAspectRow">
@@ -1250,7 +1257,23 @@
                     </div>
                   </div>
                   <div class="inspector-prop-row">
-                    <label for="liteRatioInput">Line:Gap Ratio</label>
+                    <label for="liteRatioPresetSelect">Line:Gap Ratio</label>
+                    <select id="liteRatioPresetSelect">
+                      <option value="1:1">1:1</option>
+                      <option value="1:2">1:2</option>
+                      <option value="1:3" selected>1:3</option>
+                      <option value="1:4">1:4</option>
+                      <option value="1:5">1:5</option>
+                      <option value="1:6">1:6</option>
+                      <option value="2:1">2:1</option>
+                      <option value="2:3">2:3</option>
+                      <option value="3:1">3:1</option>
+                      <option value="3:2">3:2</option>
+                      <option value="custom">Custom...</option>
+                    </select>
+                  </div>
+                  <div class="inspector-prop-row" id="liteRatioCustomRow" style="display: none;">
+                    <label for="liteRatioInput">Custom Ratio</label>
                     <input type="text" id="liteRatioInput" value="1:3" placeholder="e.g. 1:3" class="text-field-input">
                   </div>
                   <div class="inspector-prop-row">
@@ -1269,15 +1292,6 @@
                     </select>
                   </div>
                   <div class="inspector-prop-row">
-                    <label for="liteEntryExitSelect">Entry / Exit</label>
-                    <select id="liteEntryExitSelect">
-                      <option value="none">None</option>
-                      <option value="fade">Fade In / Out</option>
-                      <option value="grow">Grow / Shrink (Tunnel)</option>
-                      <option value="fade-grow">Fade &amp; Grow/Shrink</option>
-                    </select>
-                  </div>
-                  <div class="inspector-prop-row">
                     <label for="liteStyleSelect">Segment Style</label>
                     <select id="liteStyleSelect">
                       <option value="rounded">Rounded</option>
@@ -1293,11 +1307,19 @@
                     </div>
                   </div>
                   <div class="inspector-prop-row">
-                    <label for="liteStartOffsetSlider">Start Offset (%)</label>
-                    <div class="slider-row">
-                      <input type="range" id="liteStartOffsetSlider" min="0" max="100" step="5" value="0">
-                      <input type="number" class="num-input" id="liteStartOffsetNum" min="0" max="100" step="1" value="0">
-                    </div>
+                    <label for="liteBurstCyclesNum" title="0 = continuous (no pause)">Burst Cycles</label>
+                    <input type="number" class="num-input" id="liteBurstCyclesNum" min="0" max="100" step="1" value="0" title="Circuits per burst (0 = continuous)">
+                  </div>
+                  <div class="inspector-prop-row">
+                    <label for="litePauseSecondsNum">Pause (s)</label>
+                    <input type="number" class="num-input" id="litePauseSecondsNum" min="0" max="300" step="0.5" value="0" title="Pause duration in seconds between bursts">
+                  </div>
+                  <div class="inspector-prop-row">
+                    <label for="litePauseVisibilitySelect">During Pause</label>
+                    <select id="litePauseVisibilitySelect">
+                      <option value="hide">Hide Segments</option>
+                      <option value="hold">Hold Stationary</option>
+                    </select>
                   </div>
                 </div>
 
@@ -1342,8 +1364,15 @@
                     </div>
                   </div>
                   <div class="inspector-prop-row">
-                    <label for="liteRepeatChk">Repeat Interval</label>
+                    <label for="liteRepeatChk">Repeat</label>
                     <input type="checkbox" id="liteRepeatChk">
+                  </div>
+                  <div class="inspector-prop-row" id="liteFlashRepeatIntervalRow">
+                    <label for="liteFlashRepeatIntervalSlider">Interval (s)</label>
+                    <div class="slider-row">
+                      <input type="range" id="liteFlashRepeatIntervalSlider" min="0.2" max="30" step="0.1" value="2.0">
+                      <input type="number" class="num-input" id="liteFlashRepeatIntervalNum" min="0.2" max="60" step="0.1" value="2.0">
+                    </div>
                   </div>
                   <div class="inspector-prop-row">
                     <label>Test Trigger</label>
@@ -2378,15 +2407,22 @@
             <div class="floating-prop-row">
               <label for="fctx-liteWidthSlider">Width</label>
               <div class="slider-row">
-                <input type="range" id="fctx-liteWidthSlider" min="16" max="800" step="2" value="140">
-                <input type="number" class="num-input" id="fctx-liteWidthNum" min="12" max="1200" step="1" value="140">
+                <input type="range" id="fctx-liteWidthSlider" min="5" max="800" step="1" value="140">
+                <input type="number" class="num-input" id="fctx-liteWidthNum" min="5" max="1200" step="1" value="140">
               </div>
             </div>
             <div class="floating-prop-row">
               <label for="fctx-liteHeightSlider">Height</label>
               <div class="slider-row">
-                <input type="range" id="fctx-liteHeightSlider" min="16" max="600" step="2" value="80">
-                <input type="number" class="num-input" id="fctx-liteHeightNum" min="12" max="1200" step="1" value="80">
+                <input type="range" id="fctx-liteHeightSlider" min="5" max="600" step="1" value="80">
+                <input type="number" class="num-input" id="fctx-liteHeightNum" min="5" max="1200" step="1" value="80">
+              </div>
+            </div>
+            <div class="floating-prop-row" id="fctx-liteArmThicknessRow" style="display: none;">
+              <label for="fctx-liteArmThicknessSlider">Arm Thick</label>
+              <div class="slider-row">
+                <input type="range" id="fctx-liteArmThicknessSlider" min="1" max="20" step="0.5" value="3">
+                <input type="number" class="num-input" id="fctx-liteArmThicknessNum" min="1" max="20" step="0.5" value="3">
               </div>
             </div>
             <div class="floating-prop-row" id="fctx-liteLockAspectRow">
@@ -2421,7 +2457,23 @@
               </div>
             </div>
             <div class="floating-prop-row">
-              <label for="fctx-liteRatioInput">Ratio</label>
+              <label for="fctx-liteRatioPresetSelect">Ratio</label>
+              <select id="fctx-liteRatioPresetSelect" class="full-select">
+                <option value="1:1">1:1</option>
+                <option value="1:2">1:2</option>
+                <option value="1:3" selected>1:3</option>
+                <option value="1:4">1:4</option>
+                <option value="1:5">1:5</option>
+                <option value="1:6">1:6</option>
+                <option value="2:1">2:1</option>
+                <option value="2:3">2:3</option>
+                <option value="3:1">3:1</option>
+                <option value="3:2">3:2</option>
+                <option value="custom">Custom...</option>
+              </select>
+            </div>
+            <div class="floating-prop-row" id="fctx-liteRatioCustomRow" style="display: none;">
+              <label for="fctx-liteRatioInput">Custom</label>
               <input type="text" id="fctx-liteRatioInput" class="text-field-input" value="1:3" placeholder="e.g. 1:3">
             </div>
             <div class="floating-prop-row">
@@ -2440,15 +2492,6 @@
               </select>
             </div>
             <div class="floating-prop-row">
-              <label for="fctx-liteEntryExitSelect">Entry/Exit</label>
-              <select id="fctx-liteEntryExitSelect" class="full-select">
-                <option value="none">None</option>
-                <option value="fade">Fade In / Out</option>
-                <option value="grow">Grow / Shrink (Tunnel)</option>
-                <option value="fade-grow">Fade &amp; Grow/Shrink</option>
-              </select>
-            </div>
-            <div class="floating-prop-row">
               <label for="fctx-liteSpeedSlider">Speed (s)</label>
               <div class="slider-row">
                 <input type="range" id="fctx-liteSpeedSlider" min="0.2" max="30" step="0.1" value="3.0">
@@ -2456,11 +2499,19 @@
               </div>
             </div>
             <div class="floating-prop-row">
-              <label for="fctx-liteStartOffsetSlider">Offset (%)</label>
-              <div class="slider-row">
-                <input type="range" id="fctx-liteStartOffsetSlider" min="0" max="100" step="5" value="0">
-                <input type="number" class="num-input" id="fctx-liteStartOffsetNum" min="0" max="100" step="1" value="0">
-              </div>
+              <label for="fctx-liteBurstCyclesNum">Burst</label>
+              <input type="number" class="num-input" id="fctx-liteBurstCyclesNum" min="0" max="100" step="1" value="0">
+            </div>
+            <div class="floating-prop-row">
+              <label for="fctx-litePauseSecondsNum">Pause (s)</label>
+              <input type="number" class="num-input" id="fctx-litePauseSecondsNum" min="0" max="300" step="0.5" value="0">
+            </div>
+            <div class="floating-prop-row">
+              <label for="fctx-litePauseVisibilitySelect">On Pause</label>
+              <select id="fctx-litePauseVisibilitySelect" class="full-select">
+                <option value="hide">Hide Segments</option>
+                <option value="hold">Hold Stationary</option>
+              </select>
             </div>
           </div>
           <div id="fctx-litePulseGroup" style="display: none;">
@@ -2497,6 +2548,13 @@
             <div class="floating-prop-row">
               <label for="fctx-liteRepeatChk">Repeat</label>
               <input type="checkbox" id="fctx-liteRepeatChk">
+            </div>
+            <div class="floating-prop-row">
+              <label for="fctx-liteFlashRepeatIntervalSlider">Interval (s)</label>
+              <div class="slider-row">
+                <input type="range" id="fctx-liteFlashRepeatIntervalSlider" min="0.2" max="30" step="0.1" value="2.0">
+                <input type="number" class="num-input" id="fctx-liteFlashRepeatIntervalNum" min="0.2" max="60" step="0.1" value="2.0">
+              </div>
             </div>
           </div>
         </div>

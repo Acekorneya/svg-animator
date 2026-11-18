@@ -461,11 +461,16 @@ type LiteEffect struct {
 	StartOffset  float64        `json:"startOffset,omitempty"`  // 0..100 percent
 	Direction           string         `json:"direction,omitempty"`           // "cw" | "ccw"
 	PlaybackMode        string         `json:"playbackMode,omitempty"`        // "loop" | "pingpong" | "once"
-	EntryExit           string         `json:"entryExit,omitempty"`           // "none" | "fade" | "fade-grow"
+	EntryExit           string         `json:"entryExit,omitempty"`           // legacy backward-compat ("none")
+	BurstCycles         int            `json:"burstCycles,omitempty"`         // 0 = continuous, 1..100 = circuits per burst
+	PauseSeconds        float64        `json:"pauseSeconds,omitempty"`        // pause duration in seconds between bursts
+	PauseVisibility     string         `json:"pauseVisibility,omitempty"`     // "hide" | "hold"
 	Speed               float64        `json:"speed,omitempty"`               // circuit duration in seconds or multiplier
-	Period       float64        `json:"period,omitempty"`       // pulse period or flash repeat interval in seconds
-	Duration     float64        `json:"dur,omitempty"`          // flash brief duration in seconds
-	Intensity    float64        `json:"intensity,omitempty"`    // pulse/flash peak amplitude (0..1)
+	Period              float64        `json:"period,omitempty"`              // pulse period in seconds
+	Duration            float64        `json:"dur,omitempty"`                 // flash brief duration in seconds
+	RepeatInterval      float64        `json:"repeatInterval,omitempty"`      // flash repeat interval in seconds
+	Intensity           float64        `json:"intensity,omitempty"`           // pulse/flash peak amplitude (0..1)
+	ArmThickness        float64        `json:"armThickness,omitempty"`        // cross/star arm thickness in SVG units (1..20)
 	Repeat              bool           `json:"repeat,omitempty"`              // flash repeating interval toggle
 	TriggerNonce        int64          `json:"triggerNonce,omitempty"`        // flash single-shot trigger counter
 	OriginMode          string         `json:"originMode,omitempty"`          // "center" (migrates legacy top-left tracers on load)
