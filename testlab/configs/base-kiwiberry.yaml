@@ -1,0 +1,33 @@
+version: 1
+
+browser:
+  engine: chromium
+  headless: true
+  cdp_endpoint: http://127.0.0.1:9222
+  host_bind_ip: 192.168.100.47
+  process_cpu_host: nigel@192.168.100.40
+  viewport_width: 1366
+  viewport_height: 900
+
+execution:
+  warmup_seconds: 1.0
+  duration_seconds: 2.0
+  repetitions: 2
+  random_seed: 12345
+  alternate_method_order: true
+
+measurements:
+  - process_cpu
+  - frame_timing
+  - long_tasks
+  - rendering_activity
+  - memory
+  - animation_correctness
+
+output:
+  samples: true
+  screenshots: true
+  raw_results: true
+  html_report: true
+  markdown_report: true
+  decision_report: true

@@ -9,6 +9,7 @@ bin/
 # Test and coverage artifacts
 *.test
 *.out
+testlab/results/
 
 # Editor / workspace files
 .vscode/

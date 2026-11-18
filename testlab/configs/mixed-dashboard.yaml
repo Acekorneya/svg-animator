@@ -1,0 +1,54 @@
+inherits: base-kiwiberry.yaml
+
+test:
+  name: mixed-dashboard
+  description: Deterministic mixed-effect dashboard workload (35% tracers, 25% pulse, 15% flash, 15% flow, 10% static gauges)
+
+instances:
+  counts: [100, 250]
+  isolation: independent-svg-roots
+
+effects:
+  - family: perimeter-tracer
+    methods: [css, smil, javascript-raf]
+    shapes: [rectangle, circle]
+    sizes:
+      small: [40, 40]
+      medium: [120, 80]
+    speeds:
+      medium: 2.5
+  - family: pulse
+    methods: [css, smil, javascript-raf]
+    pulse_modes: [scale-opacity]
+    pulse_amplitudes: [0.2]
+    sizes:
+      small: [30, 30]
+    speeds:
+      medium: 1.5
+  - family: flash
+    methods: [css, smil, javascript-raf]
+    flash_modes: [repeating]
+    flash_duration_ms: 120
+    flash_interval_s: 1.2
+    sizes:
+      small: [36, 36]
+  - family: flow
+    methods: [smil, css, javascript-raf]
+    shapes: [straight, curved]
+    speeds:
+      medium: 2.0
+
+mixture:
+  name: mixed-dashboard
+  methods: [css, smil, javascript-raf]
+  weights:
+    perimeter-tracer: 35
+    pulse: 25
+    flash: 15
+    flow: 15
+    static-gauge: 10
+
+workloads:
+  - name: dashboard
+    visible_count: 9
+    suspend_offscreen: true

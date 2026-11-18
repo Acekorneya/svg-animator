@@ -1,0 +1,39 @@
+inherits: base-kiwiberry.yaml
+
+test:
+  name: pulse-flash-flow-comparison
+  description: Compare Pulse (opacity-only, scale-only, scale-opacity), Flash (single-shot, repeating, staggered), and Flow (Studio SMIL reference vs CSS/rAF)
+
+instances:
+  counts: [50, 100]
+  isolation: independent-svg-roots
+
+effects:
+  - family: pulse
+    methods: [css, smil, javascript-raf]
+    shapes: [circle, ellipse, diamond]
+    pulse_modes: [opacity-only, scale-only, scale-opacity]
+    pulse_amplitudes: [0.15, 0.30]
+    sizes:
+      small: [24, 24]
+      medium: [70, 50]
+    speeds:
+      fast: 0.9
+      medium: 1.8
+  - family: flash
+    methods: [css, smil, javascript-raf]
+    shapes: [diamond, cross]
+    flash_modes: [repeating, staggered]
+    flash_duration_ms: 100
+    flash_interval_s: 1.0
+    sizes:
+      small: [28, 28]
+  - family: flow
+    methods: [smil, css, javascript-raf]
+    shapes: [straight, curved]
+    speeds:
+      medium: 2.0
+
+workloads:
+  - name: all-active
+    visibility: all
