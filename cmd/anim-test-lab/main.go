@@ -147,7 +147,7 @@ func main() {
 		addr := fs.String("addr", ":8093", "Listen address")
 		_ = fs.Parse(os.Args[2:])
 		fmt.Printf("Serving Animation Test Lab outputs from %s on http://0.0.0.0%s\n", *dir, *addr)
-		log.Fatal(http.ListenAndServe(*addr, http.FileServer(http.Dir(*dir))))
+		log.Fatal(http.ListenAndServe(*addr, animlab.NewResultsServer(*dir)))
 
 	default:
 		usage()
