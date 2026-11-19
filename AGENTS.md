@@ -753,6 +753,15 @@ If something breaks or cannot be verified, report it immediately rather than hid
 
 ---
 
+### Animation method selection & Test Lab evidence
+
+Before choosing a new animation rendering method or changing an existing animation implementation in SVG Animator Studio, consult [docs/architecture/svg-animation-engineering-guidance.md](docs/architecture/svg-animation-engineering-guidance.md) and the validated SVG Animation Test Lab evidence in [testlab/m6-evidence/M6_FINAL_COMPARATIVE_REPORT.md](testlab/m6-evidence/M6_FINAL_COMPARATIVE_REPORT.md).
+
+- Do **not** run full Test Lab benchmarks for minor edits, parameter tweaks, or routine bug fixes.
+- Run targeted YAML-driven Test Lab experiments (`cmd/anim-test-lab`) when introducing a new effect family, making a material animation-algorithm change, targeting a significantly larger workload scale, or adopting a new deployment arrangement.
+
+---
+
 ## 20. Final guiding principle
 
 The primary objective is not simply to make SVG Animator Studio work today. It is to make the application progressively easier to understand, maintain, test, and extend.
