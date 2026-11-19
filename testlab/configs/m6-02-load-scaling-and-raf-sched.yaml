@@ -1,0 +1,41 @@
+version: 1
+inherits: base-kiwiberry.yaml
+test:
+  name: m6-02-load-scaling-and-raf-sched
+  description: M6 Study 2 — Population scaling (50, 100, 250, 500) and shared vs per-instance RAF scheduling.
+
+execution:
+  warmup_seconds: 0.4
+  duration_seconds: 1.8
+  repetitions: 3
+  order_strategy: alternating
+
+instances:
+  counts: [50, 100, 250, 500]
+  isolation: independent-svg-roots
+
+effects:
+  - family: perimeter-tracer
+    methods: [css, smil, javascript-raf]
+    raf_scheduling: shared
+    shapes: [rectangle]
+    sizes:
+      small: [50, 40]
+    speeds:
+      medium: 2.0
+    segment_counts: [2]
+    line_gap_ratios: ["25:75"]
+  - family: perimeter-tracer
+    methods: [javascript-raf]
+    raf_scheduling: per-instance
+    shapes: [rectangle]
+    sizes:
+      small: [50, 40]
+    speeds:
+      medium: 2.0
+    segment_counts: [2]
+    line_gap_ratios: ["25:75"]
+
+workloads:
+  - name: all-active
+    visibility: all

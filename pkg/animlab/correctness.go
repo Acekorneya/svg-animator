@@ -769,10 +769,12 @@ func evaluateStage16CWidgetsCorrectness(ctx context.Context, s TestRunSpec) Corr
 			const wrap = svg ? svg.closest('[data-sva-widget-instance], .sva-widget-wrapper, .lab-widget-mount') : null;
 			return (wrap && (wrap.getAttribute('data-sva-widget-instance') || wrap.id)) || (svg && svg.id) || '';
 		}).filter(Boolean));
+		const innerAnimCount = svgs.length > 0 ? svgs[0].querySelectorAll('animate, animateMotion, animateTransform').length : 0;
 		return JSON.stringify({
 			instCount: insts.length,
 			svgCount: svgs.length,
 			uniqueIds: ids.size,
+			innerAnimCount,
 			vis: typeof window.__labVisibleCount === 'number' ? window.__labVisibleCount : insts.length,
 			susp: typeof window.__labSuspendedCount === 'number' ? window.__labSuspendedCount : 0
 		});

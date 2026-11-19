@@ -1,0 +1,65 @@
+version: 1
+inherits: base-kiwiberry.yaml
+test:
+  name: m6-01-baseline-all-families
+  description: M6 Study 1 — Baseline comparison across all 5 dynamic effect families and static/data-driven gauges (N=100, 3 reps, alternating order).
+
+execution:
+  warmup_seconds: 0.5
+  duration_seconds: 2.0
+  repetitions: 3
+  order_strategy: alternating
+
+instances:
+  counts: [100]
+  isolation: independent-svg-roots
+
+effects:
+  - family: perimeter-tracer
+    methods: [css, smil, javascript-raf, clip-reveal]
+    shapes: [rectangle, circle]
+    sizes:
+      medium: [100, 60]
+    speeds:
+      medium: 2.0
+    segment_counts: [2]
+    line_gap_ratios: ["25:75"]
+  - family: pulse
+    methods: [css, smil, javascript-raf]
+    shapes: [circle, diamond]
+    pulse_modes: [scale-opacity]
+    sizes:
+      small: [36, 36]
+    speeds:
+      medium: 1.5
+  - family: flash
+    methods: [css, smil, javascript-raf]
+    shapes: [star]
+    flash_modes: [repeating]
+    flash_duration_ms: 140
+    flash_interval_s: 1.0
+    sizes:
+      small: [36, 36]
+  - family: flow-line
+    methods: [css, smil, javascript-raf]
+    shapes: [straight, curved]
+    sizes:
+      medium: [100, 40]
+    speeds:
+      medium: 1.6
+  - family: flow-particle
+    methods: [css, smil, javascript-raf]
+    shapes: [curved]
+    sizes:
+      medium: [100, 40]
+    speeds:
+      medium: 1.6
+  - family: static-gauge
+    methods: [static, data-driven]
+    shapes: [circle]
+    sizes:
+      small: [40, 40]
+
+workloads:
+  - name: all-active
+    visibility: all

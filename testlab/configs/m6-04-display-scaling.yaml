@@ -1,0 +1,52 @@
+version: 1
+inherits: base-kiwiberry.yaml
+test:
+  name: m6-04-display-scaling
+  description: M6 Study 4 — Display scaling (0.5x, 1x, 2x, 4x) comparing viewBox, css-transform, and authored-size.
+
+execution:
+  warmup_seconds: 0.4
+  duration_seconds: 1.8
+  repetitions: 3
+  order_strategy: alternating
+
+instances:
+  counts: [50]
+  isolation: independent-svg-roots
+
+effects:
+  - family: perimeter-tracer
+    methods: [css, smil, javascript-raf]
+    shapes: [rectangle, circle]
+    sizes:
+      base: [100, 60]
+    speeds:
+      medium: 1.8
+    segment_counts: [2]
+    line_gap_ratios: ["25:75"]
+
+workloads:
+  - name: scale-0.5x-viewbox
+    display_scale: 0.5
+    scaling_mode: viewbox
+  - name: scale-1.0x-native
+    display_scale: 1.0
+    scaling_mode: native
+  - name: scale-2.0x-viewbox
+    display_scale: 2.0
+    scaling_mode: viewbox
+  - name: scale-4.0x-viewbox
+    display_scale: 4.0
+    scaling_mode: viewbox
+  - name: scale-2.0x-css-transform
+    display_scale: 2.0
+    scaling_mode: css-transform
+  - name: scale-4.0x-css-transform
+    display_scale: 4.0
+    scaling_mode: css-transform
+  - name: scale-2.0x-authored
+    display_scale: 2.0
+    scaling_mode: authored-size
+  - name: scale-4.0x-authored
+    display_scale: 4.0
+    scaling_mode: authored-size

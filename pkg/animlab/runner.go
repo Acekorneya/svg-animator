@@ -52,6 +52,8 @@ type ScenarioReport struct {
 	Method               string             `json:"method"`
 	SchedulingStrategy   string             `json:"schedulingStrategy,omitempty"`
 	WorkloadName         string             `json:"workloadName"`
+	DisplayScale         float64            `json:"displayScale,omitempty"`
+	ScalingMode          string             `json:"scalingMode,omitempty"`
 	Count                int                `json:"count"`
 	Isolation            string             `json:"isolation"`
 	NonEquivalent        bool               `json:"nonEquivalent,omitempty"`
@@ -172,6 +174,8 @@ func RunSuite(cfg *Config, outDir, filterTest string) (*LabResults, error) {
 			Method:             s.Method,
 			SchedulingStrategy: s.SchedulingStrategy,
 			WorkloadName:       s.WorkloadName,
+			DisplayScale:       s.DisplayScale,
+			ScalingMode:        s.ScalingMode,
 			Count:              s.Count,
 			Isolation:          s.Isolation,
 			NonEquivalent:      s.NonEquivalent,

@@ -1,0 +1,20 @@
+=== M1 ===
+[PASS] NC-08: fault=SUSPENSION_LEAK reason=1 suspended instance(s) continued animating: nc08-10(idx=10,delta=233.40)
+
+SUMMARY: 23/23 checks passed (0 failed)
+=== M2 ===
+[PASS] NC-09: unavailHostCPU=<nil> status=partial deadPIDerr=owned browser root PID 99999999 terminated or unreadable
+
+SUMMARY: 8/8 M2 checks passed (0 failed)
+=== M3 ===
+[PASS] AT-M3-06: domCount250=250 tag=ellipse dur=0.900
+
+SUMMARY: 6/6 M3 checks passed (0 failed)
+=== M4 ===
+[PASS] AT-M4-09: reps=3 domMin=2862 domMax=2862 spread=0
+
+SUMMARY: 9/9 M4 checks passed (0 failed)
+=== M5 ===
+[PASS] AT-M5-11: samplesErr=<nil> catErr=<nil>
+
+SUMMARY: 11/11 M5 checks passed (0 failed)

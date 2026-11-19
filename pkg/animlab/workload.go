@@ -18,6 +18,8 @@ type TestRunSpec struct {
 	VariationTag       string
 	WorkloadName       string
 	WorkloadVisibility string
+	DisplayScale       float64
+	ScalingMode        string
 	Count              int
 	Isolation          string // "independent-svg-roots" | "shared-scene" | "shared-svg-scene" | "shared-dt-scene" | "stage16c-widgets"
 	VisibleCount       int
@@ -308,12 +310,29 @@ func ExpandScenarios(cfg *Config) []TestRunSpec {
 							unsup = true
 						}
 						runID := fmt.Sprintf("%s__%s__%s__n%d", v.eff.Family, method, wl.Name, count)
+						if method == "javascript-raf" && v.eff.RAFScheduling == "per-instance" {
+							runID = fmt.Sprintf("%s__%s-per-instance__%s__n%d", v.eff.Family, method, wl.Name, count)
+						}
 						if v.tag != "" {
 							runID = fmt.Sprintf("%s__%s__%s__%s__n%d", v.eff.Family, v.tag, method, wl.Name, count)
 						}
 						visCount := wl.VisibleCount
 						if wl.Visibility == "offscreen" {
 							visCount = 0
+						}
+						dScale := wl.DisplayScale
+						if dScale <= 0 {
+							dScale = 1.0
+						}
+						sMode := wl.ScalingMode
+						if sMode == "" {
+							sMode = "native"
+						}
+						if sMode == "authored-size" && dScale != 1.0 {
+							for k := range instances {
+								instances[k].Width = int(math.Round(float64(instances[k].Width) * dScale))
+								instances[k].Height = int(math.Round(float64(instances[k].Height) * dScale))
+							}
 						}
 						specs = append(specs, TestRunSpec{
 							RunID:              runID,
@@ -324,6 +343,8 @@ func ExpandScenarios(cfg *Config) []TestRunSpec {
 							VariationTag:       v.tag,
 							WorkloadName:       wl.Name,
 							WorkloadVisibility: wl.Visibility,
+							DisplayScale:       dScale,
+							ScalingMode:        sMode,
 							Count:              count,
 							Isolation:          cfg.Instances.Isolation,
 							VisibleCount:       visCount,
@@ -777,6 +798,15 @@ func BuildTestPageHTML(spec TestRunSpec) string {
 		if offscreenSpacer != "" {
 			bodyBuf.WriteString(offscreenSpacer)
 		}
+		dScale := spec.DisplayScale
+		if dScale <= 0 {
+			dScale = 1.0
+		}
+		dispW := int(math.Round(float64(cellW) * dScale))
+		dispH := int(math.Round(float64(cellH) * dScale))
+		if spec.ScalingMode == "" || spec.ScalingMode == "native" || spec.ScalingMode == "authored-size" {
+			dispW, dispH = cellW, cellH
+		}
 		for i, inst := range spec.Instances {
 			gen := reg[inst.Family]
 			if gen == nil {
@@ -789,10 +819,22 @@ func BuildTestPageHTML(spec TestRunSpec) string {
 			if re.JSDriver != "" {
 				jsBuf.WriteString(re.JSDriver + "\n")
 			}
+			svgW, svgH := cellW, cellH
+			svgStyle := ""
+			wrapOpen, wrapClose := "", ""
+			if spec.ScalingMode == "viewbox" {
+				svgW, svgH = dispW, dispH
+			} else if spec.ScalingMode == "css-transform" {
+				wrapOpen = fmt.Sprintf(`<div style="width:%dpx;height:%dpx;overflow:hidden;">`, dispW, dispH)
+				wrapClose = `</div>`
+				svgStyle = fmt.Sprintf(` style="transform:scale(%.4f);transform-origin:top left;"`, dScale)
+			}
 			bodyBuf.WriteString(fmt.Sprintf(
-				`<div class="lab-card" data-lab-idx="%d"><div class="lab-meta">#%d %s (%s/%s)</div><svg id="%s" class="lab-svg-root" xmlns="http://www.w3.org/2000/svg" width="%d" height="%d" viewBox="0 0 %d %d">%s</svg></div>`,
-				i, i+1, inst.Family, inst.Method, inst.Shape, inst.ID, cellW, cellH, cellW, cellH, re.SVGInner))
+				`<div class="lab-card" data-lab-idx="%d"><div class="lab-meta">#%d %s (%s/%s %.2fx %s)</div>%s<svg id="%s" class="lab-svg-root" xmlns="http://www.w3.org/2000/svg" width="%d" height="%d" viewBox="0 0 %d %d"%s>%s</svg>%s</div>`,
+				i, i+1, inst.Family, inst.Method, inst.Shape, dScale, spec.ScalingMode, wrapOpen, inst.ID, svgW, svgH, cellW, cellH, svgStyle, re.SVGInner, wrapClose))
 		}
+		cellW = dispW
+		cellH = dispH
 	}
 
 	visHeightCSS := ""

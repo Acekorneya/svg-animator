@@ -1,0 +1,7 @@
+[PASS] AT-M6-01: scenarios=124 trials=330 families=8
+[PASS] AT-M6-02: clip-reveal & shared-scene SMIL suspension failed correctness and excluded from rankings
+[PASS] AT-M6-03: scales=8
+[PASS] AT-M6-04: counts50_100_250_500=true arrangements=map[independent-svg-roots:true shared-dt-scene:true stage16c-widgets:true]
+[PASS] AT-M6-05: trace=true spec2=true histPreserved=true
+
+SUMMARY: 5/5 M6 checks passed (0 failed)

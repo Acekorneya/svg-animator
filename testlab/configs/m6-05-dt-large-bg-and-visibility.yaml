@@ -1,0 +1,42 @@
+version: 1
+inherits: base-kiwiberry.yaml
+test:
+  name: m6-05-dt-large-bg-and-visibility
+  description: M6 Study 5 — Shared Digital Twin scene with large 2560x1440 flattened background and visibility suspension.
+
+scene:
+  width: 2560
+  height: 1440
+  background:
+    file: fixtures/dt-building-bg-large.png
+    fit: contain
+    static: true
+
+execution:
+  warmup_seconds: 0.4
+  duration_seconds: 1.8
+  repetitions: 3
+  order_strategy: alternating
+
+instances:
+  counts: [100, 250]
+  isolation: shared-dt-scene
+
+effects:
+  - family: perimeter-tracer
+    methods: [css, smil, javascript-raf]
+    shapes: [rectangle]
+    sizes:
+      window: [80, 40]
+    speeds:
+      medium: 2.0
+    segment_counts: [2]
+    line_gap_ratios: ["25:75"]
+
+workloads:
+  - name: all-active
+    visibility: all
+  - name: vis-20-suspended
+    visibility: dashboard
+    visible_count: 20
+    suspend_offscreen: true

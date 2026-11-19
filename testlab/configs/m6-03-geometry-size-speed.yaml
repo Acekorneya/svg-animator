@@ -1,0 +1,44 @@
+version: 1
+inherits: base-kiwiberry.yaml
+test:
+  name: m6-03-geometry-size-speed
+  description: M6 Study 3 — Isolated geometry, physical size, speed, and pulse mode studies at N=100.
+
+execution:
+  warmup_seconds: 0.4
+  duration_seconds: 1.8
+  repetitions: 2
+  order_strategy: alternating
+
+instances:
+  counts: [100]
+  isolation: independent-svg-roots
+
+effects:
+  - family: perimeter-tracer
+    methods: [css, smil, javascript-raf]
+    variation_strategy: isolated
+    shapes: [rectangle, rounded-rectangle, circle, ellipse]
+    sizes:
+      small: [40, 30]
+      medium: [100, 60]
+      large: [160, 100]
+    speeds:
+      fast: 0.8
+      medium: 2.0
+      slow: 4.0
+    segment_counts: [1, 2, 4]
+    line_gap_ratios: ["1:3", "1:1"]
+  - family: pulse
+    methods: [css, smil, javascript-raf]
+    variation_strategy: isolated
+    shapes: [circle]
+    sizes:
+      medium: [50, 50]
+    speeds:
+      medium: 1.5
+    pulse_modes: [scale-opacity, opacity-only, scale-only]
+
+workloads:
+  - name: all-active
+    visibility: all

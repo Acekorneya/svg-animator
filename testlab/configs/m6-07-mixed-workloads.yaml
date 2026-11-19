@@ -1,0 +1,72 @@
+version: 1
+inherits: base-kiwiberry.yaml
+test:
+  name: m6-07-mixed-workloads
+  description: M6 Study 7 — Representative mixed workloads (tracers, pulse, flash, flow-line, flow-particle, static-gauge) with visibility suspension.
+
+execution:
+  warmup_seconds: 0.4
+  duration_seconds: 2.0
+  repetitions: 3
+  order_strategy: alternating
+
+instances:
+  counts: [100]
+  isolation: independent-svg-roots
+
+effects:
+  - family: perimeter-tracer
+    methods: [css, smil, javascript-raf]
+    shapes: [rectangle, circle]
+    sizes:
+      small: [50, 40]
+    speeds:
+      medium: 2.0
+  - family: pulse
+    methods: [css, smil, javascript-raf]
+    shapes: [circle]
+    sizes:
+      small: [30, 30]
+    speeds:
+      medium: 1.5
+  - family: flash
+    methods: [css, smil, javascript-raf]
+    shapes: [star]
+    flash_modes: [repeating]
+    flash_duration_ms: 140
+    flash_interval_s: 1.0
+    sizes:
+      small: [30, 30]
+  - family: flow-line
+    methods: [css, smil, javascript-raf]
+    shapes: [straight, curved]
+    sizes:
+      small: [80, 30]
+    speeds:
+      medium: 1.6
+  - family: flow-particle
+    methods: [css, smil, javascript-raf]
+    shapes: [curved]
+    sizes:
+      small: [80, 30]
+    speeds:
+      medium: 1.6
+
+mixture:
+  name: m6-mixed-dashboard
+  methods: [css, smil, javascript-raf]
+  weights:
+    perimeter-tracer: 35
+    pulse: 25
+    flash: 15
+    flow-line: 10
+    flow-particle: 5
+    static-gauge: 10
+
+workloads:
+  - name: all-active
+    visibility: all
+  - name: vis-12-suspended
+    visibility: dashboard
+    visible_count: 12
+    suspend_offscreen: true

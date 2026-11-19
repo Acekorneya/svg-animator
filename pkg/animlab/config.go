@@ -116,10 +116,12 @@ type MixtureConfig struct {
 }
 
 type WorkloadSpec struct {
-	Name             string `yaml:"name" json:"name"`
-	Visibility       string `yaml:"visibility,omitempty" json:"visibility,omitempty"` // "all" | "dashboard"
-	VisibleCount     int    `yaml:"visible_count,omitempty" json:"visible_count,omitempty"`
-	SuspendOffscreen bool   `yaml:"suspend_offscreen,omitempty" json:"suspend_offscreen,omitempty"`
+	Name             string  `yaml:"name" json:"name"`
+	Visibility       string  `yaml:"visibility,omitempty" json:"visibility,omitempty"` // "all" | "dashboard" | "offscreen"
+	VisibleCount     int     `yaml:"visible_count,omitempty" json:"visible_count,omitempty"`
+	SuspendOffscreen bool    `yaml:"suspend_offscreen,omitempty" json:"suspend_offscreen,omitempty"`
+	DisplayScale     float64 `yaml:"display_scale,omitempty" json:"display_scale,omitempty"` // e.g. 0.5, 1.0, 2.0, 4.0
+	ScalingMode      string  `yaml:"scaling_mode,omitempty" json:"scaling_mode,omitempty"`   // "native" | "viewbox" | "css-transform" | "authored-size"
 }
 
 type OutputConfig struct {
@@ -643,6 +645,12 @@ func ValidateConfig(cfg *Config) error {
 		}
 		if wl.VisibleCount < 0 {
 			return fmt.Errorf("workloads[%d].visible_count cannot be negative, got %d", i, wl.VisibleCount)
+		}
+		if wl.DisplayScale < 0 {
+			return fmt.Errorf("workloads[%d].display_scale cannot be negative, got %v", i, wl.DisplayScale)
+		}
+		if wl.ScalingMode != "" && wl.ScalingMode != "native" && wl.ScalingMode != "viewbox" && wl.ScalingMode != "css-transform" && wl.ScalingMode != "authored-size" {
+			return fmt.Errorf("workloads[%d].scaling_mode must be 'native', 'viewbox', 'css-transform', or 'authored-size', got %q", i, wl.ScalingMode)
 		}
 	}
 
