@@ -345,35 +345,49 @@ func WriteDecisionReports(cfg *Config, res *LabResults, outDir string) error {
 		list := byFamily[fam]
 		// Group by method
 		type agg struct {
-			method   string
-			runs     int
-			passed   int
-			fpsSum   float64
-			taskSum  float64
-			cpuSum   float64
-			lims     []string
+			method        string
+			runs          int
+			passed        int
+			nonEquivalent int
+			unsupported   int
+			fpsSum        float64
+			taskSum       float64
+			cpuSum        float64
+			lims          []string
+			limSeen       map[string]bool
 		}
 		mAgg := map[string]*agg{}
 		for _, s := range list {
 			a, ok := mAgg[s.Method]
 			if !ok {
-				a = &agg{method: s.Method}
+				a = &agg{method: s.Method, limSeen: map[string]bool{}}
 				mAgg[s.Method] = a
 			}
 			a.runs++
 			if s.CorrectnessPassed {
 				a.passed++
 			}
+			if s.NonEquivalent {
+				a.nonEquivalent++
+			}
+			if s.Unsupported {
+				a.unsupported++
+			}
 			a.fpsSum += s.AvgFPS
 			a.taskSum += s.AvgTaskMs
 			a.cpuSum += s.AvgProcessCPUSec
-			a.lims = append(a.lims, s.Limitations...)
+			for _, l := range s.Limitations {
+				if !a.limSeen[l] {
+					a.limSeen[l] = true
+					a.lims = append(a.lims, l)
+				}
+			}
 		}
 
-		// Rank only methods that passed 100% of correctness checks
+		// Rank only equivalent, supported methods that passed 100% of correctness checks
 		var candidates []*agg
 		for _, a := range mAgg {
-			if a.passed == a.runs && a.method != "static" {
+			if a.passed == a.runs && a.nonEquivalent == 0 && a.unsupported == 0 && a.method != "static" {
 				candidates = append(candidates, a)
 			}
 		}

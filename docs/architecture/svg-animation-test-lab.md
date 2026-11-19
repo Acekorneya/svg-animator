@@ -46,6 +46,16 @@ Every run directory preserves:
 - `resolved-config.yaml` — Exact resolved YAML configuration (after `inherits` & `presets` expansion).
 - `raw-results.json` — Machine-readable trial & aggregate metrics.
 - `report.md` & `report.html` — Human-readable comparison tables.
-- `decision-<family>.md` — Evidence-based per-effect assessment and recommendation (methods failing motion-correctness checks are never ranked as winners).
-- `catalogue/index.html` & `samples/*.svg` — Interactive visual sample catalogue.
+- `decision-<family>.md` — Evidence-based per-effect assessment and recommendation (methods failing correctness checks, or marked `NonEquivalent` / `Unsupported`, are never ranked as winners).
+- `catalogue/index.html` & `samples/*.svg` — Interactive visual sample catalogue (standalone `javascript-raf` and `data-driven` `.svg` samples embed an SVG-safe `<script type="application/ecmascript">` block so they play when opened directly).
 - `screenshots/*.png` — Real Chromium screenshots of each scenario.
+
+---
+
+## 5. Milestone 1 — Correctness & Comparison Fairness
+
+- **Effect Families:** `flow` is split into `flow-line` (stroke-dashoffset line flow) and `flow-particle` (distinct moving particle via SMIL `<animateMotion>`, CSS `offset-path`, or JS RAF `getPointAtLength`). Legacy `flow` in YAML is rejected with a migration error.
+- **RAF Scheduling:** `effects[].raf_scheduling` supports `"shared"` (default) and `"per-instance"`, recorded in `ScenarioReport.SchedulingStrategy`.
+- **Two-Level Verification (`pkg/animlab/correctness.go`):**
+  - **Level A (Whole-Population):** Inspects all `N` `.lab-payload` elements for count, unique IDs, animation attachment, offscreen suspension, and per-instance motion (`PARTIAL_POPULATION_FAILURE`, `STATIONARY`, `SUSPENSION_LEAK`).
+  - **Level B (Detailed Temporal Sampling):** Samples deterministic subset `[0, N/4, N/2, 3*N/4, N-1]` at `30ms`–`60ms` cadence to verify tracer direction/speed/loop continuity (`WRONG_DIRECTION`, `WRONG_SPEED`, `LOOP_DISCONTINUITY`), pulse mode exclusivity (`MODE_MISMATCH`, `WRONG_AMPLITUDE`), flash pulse detection (`MISSED_FLASH`, `STUCK_ACTIVE`), `data-driven` gauge updates, and scroll-into-view resumption (`RESUMPTION_FAILED`).

@@ -32,7 +32,12 @@ effects:
     flash_interval_s: 1.2
     sizes:
       small: [36, 36]
-  - family: flow
+  - family: flow-line
+    methods: [smil, css, javascript-raf]
+    shapes: [straight, curved]
+    speeds:
+      medium: 2.0
+  - family: flow-particle
     methods: [smil, css, javascript-raf]
     shapes: [straight, curved]
     speeds:
@@ -45,7 +50,8 @@ mixture:
     perimeter-tracer: 35
     pulse: 25
     flash: 15
-    flow: 15
+    flow-line: 10
+    flow-particle: 5
     static-gauge: 10
 
 workloads:

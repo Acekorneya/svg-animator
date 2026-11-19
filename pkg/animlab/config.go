@@ -68,6 +68,7 @@ type EffectSpec struct {
 	FlashModes      []string           `yaml:"flash_modes,omitempty" json:"flash_modes,omitempty"`           // single-shot | repeating | concurrent | staggered
 	FlashDurationMs int                `yaml:"flash_duration_ms,omitempty" json:"flash_duration_ms,omitempty"`
 	FlashIntervalS  float64            `yaml:"flash_interval_s,omitempty" json:"flash_interval_s,omitempty"`
+	RAFScheduling   string             `yaml:"raf_scheduling,omitempty" json:"raf_scheduling,omitempty"`     // "shared" (default) | "per-instance"
 }
 
 type MixtureConfig struct {
@@ -304,7 +305,7 @@ func defaultShapesForFamily(fam string) []string {
 		return []string{"circle", "ellipse", "rectangle", "diamond"}
 	case "flash":
 		return []string{"diamond", "cross", "star"}
-	case "flow":
+	case "flow-line", "flow-particle":
 		return []string{"straight", "curved"}
 	default:
 		return []string{"circle"}
@@ -392,9 +393,15 @@ func ValidateConfig(cfg *Config) error {
 
 	reg := DefaultRegistry()
 	for i, e := range cfg.Effects {
+		if e.Family == "flow" {
+			return fmt.Errorf("effects[%d]: family 'flow' has been split into 'flow-line' and 'flow-particle' for visual equivalence; please update your YAML", i)
+		}
 		gen, ok := reg[e.Family]
 		if !ok {
 			return fmt.Errorf("effects[%d]: unknown family %q", i, e.Family)
+		}
+		if e.RAFScheduling != "" && e.RAFScheduling != "shared" && e.RAFScheduling != "per-instance" {
+			return fmt.Errorf("effects[%d] (%s): raf_scheduling must be 'shared' or 'per-instance', got %q", i, e.Family, e.RAFScheduling)
 		}
 		if len(e.Methods) == 0 {
 			return fmt.Errorf("effects[%d] (%s): at least one rendering method is required", i, e.Family)
@@ -422,6 +429,9 @@ func ValidateConfig(cfg *Config) error {
 		}
 		totalW := 0.0
 		for fam, w := range cfg.Mixture.Weights {
+			if fam == "flow" {
+				return errors.New("mixture.weights: family 'flow' has been split into 'flow-line' and 'flow-particle'; please update your YAML")
+			}
 			if _, ok := reg[fam]; !ok {
 				return fmt.Errorf("mixture.weights: unknown effect family %q", fam)
 			}

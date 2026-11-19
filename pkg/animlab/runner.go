@@ -23,14 +23,6 @@ import (
 	"github.com/chromedp/chromedp/remote"
 )
 
-type CorrectnessResult struct {
-	Passed         bool    `json:"passed"`
-	Reason         string  `json:"reason"`
-	SampledDelta   float64 `json:"sampledDelta,omitempty"`
-	SuspendedCount int     `json:"suspendedCount,omitempty"`
-	VisibleCount   int     `json:"visibleCount,omitempty"`
-}
-
 type FrameStats struct {
 	Frames           int     `json:"frames"`
 	FPS              float64 `json:"fps"`
@@ -59,15 +51,19 @@ type RepetitionResult struct {
 }
 
 type ScenarioReport struct {
-	RunID             string             `json:"runId"`
-	Family            string             `json:"family"`
-	Method            string             `json:"method"`
-	WorkloadName      string             `json:"workloadName"`
-	Count             int                `json:"count"`
-	Isolation         string             `json:"isolation"`
-	Limitations       []string           `json:"limitations,omitempty"`
-	CorrectnessPassed bool               `json:"correctnessPassed"`
-	CorrectnessNote   string             `json:"correctnessNote"`
+	RunID              string             `json:"runId"`
+	Family             string             `json:"family"`
+	Method             string             `json:"method"`
+	SchedulingStrategy string             `json:"schedulingStrategy,omitempty"`
+	WorkloadName       string             `json:"workloadName"`
+	Count              int                `json:"count"`
+	Isolation          string             `json:"isolation"`
+	NonEquivalent      bool               `json:"nonEquivalent,omitempty"`
+	Unsupported        bool               `json:"unsupported,omitempty"`
+	Limitations        []string           `json:"limitations,omitempty"`
+	CorrectnessPassed  bool               `json:"correctnessPassed"`
+	FaultCode          string             `json:"faultCode,omitempty"`
+	CorrectnessNote    string             `json:"correctnessNote"`
 	AvgFPS            float64            `json:"avgFps"`
 	AvgFrameMs        float64            `json:"avgFrameMs"`
 	P95FrameMs        float64            `json:"p95FrameMs"`
@@ -169,13 +165,16 @@ func RunSuite(cfg *Config, outDir, filterTest string) (*LabResults, error) {
 	repMap := map[string]*ScenarioReport{}
 	for _, s := range specs {
 		repMap[s.RunID] = &ScenarioReport{
-			RunID:        s.RunID,
-			Family:       s.Family,
-			Method:       s.Method,
-			WorkloadName: s.WorkloadName,
-			Count:        s.Count,
-			Isolation:    s.Isolation,
-			Limitations:  s.Limitations,
+			RunID:              s.RunID,
+			Family:             s.Family,
+			Method:             s.Method,
+			SchedulingStrategy: s.SchedulingStrategy,
+			WorkloadName:       s.WorkloadName,
+			Count:              s.Count,
+			Isolation:          s.Isolation,
+			NonEquivalent:      s.NonEquivalent,
+			Unsupported:        s.Unsupported,
+			Limitations:        s.Limitations,
 		}
 		mu.Lock()
 		pages[s.RunID+".html"] = BuildTestPageHTML(s)
@@ -235,6 +234,9 @@ func RunSuite(cfg *Config, outDir, filterTest string) (*LabResults, error) {
 				if !r.Correctness.Passed {
 					allPassed = false
 					failReasons = append(failReasons, r.Correctness.Reason)
+					if sr.FaultCode == "" && r.Correctness.FaultCode != "" {
+						sr.FaultCode = r.Correctness.FaultCode
+					}
 				}
 			}
 			sr.AvgFPS /= n
@@ -267,7 +269,7 @@ func runSingleTrial(ctx context.Context, cfg *Config, url string, s TestRunSpec,
 	}
 
 	// Verify animation correctness before/during measurement
-	corr := checkMotionCorrectness(ctx, s)
+	corr := EvaluateCorrectness(ctx, s)
 
 	// Start rAF collector in page
 	_, _ = chromedp.Run(ctx, chromedp.Evaluate[bool](`(() => {
@@ -337,109 +339,6 @@ func runSingleTrial(ctx context.Context, cfg *Config, url string, s TestRunSpec,
 		DOMNodes:        int64(m1["Nodes"]),
 		Correctness:     corr,
 	}, ssBuf, nil
-}
-
-func checkMotionCorrectness(ctx context.Context, s TestRunSpec) CorrectnessResult {
-	if s.Method == "static" || s.Method == "data-driven" || s.Family == "static-gauge" {
-		return CorrectnessResult{Passed: true, Reason: "static/data-driven baseline"}
-	}
-	probe := func() string {
-		out, _ := chromedp.Run(ctx, chromedp.Evaluate[string](`(() => {
-			const els = Array.from(document.querySelectorAll('.lab-payload'));
-			const active = els.filter(el => {
-				const fam = el.getAttribute('data-lab-family') || '';
-				return fam !== 'static-gauge';
-			}).slice(0, 6);
-			const items = active.map(el => {
-				const cs = getComputedStyle(el);
-				return {
-					off: parseFloat(cs.strokeDashoffset) || 0,
-					op: parseFloat(cs.opacity) || 0,
-					tr: cs.transform || '',
-					attrTr: el.getAttribute('transform') || '',
-					attrOp: parseFloat(el.getAttribute('opacity')) || 0
-				};
-			});
-			return JSON.stringify({
-				count: els.length,
-				vis: window.__labVisibleCount || els.length,
-				susp: window.__labSuspendedCount || 0,
-				items
-			});
-		})()`))
-		return out
-	}
-
-	type ProbeNode struct {
-		Off    float64 `json:"off"`
-		Op     float64 `json:"op"`
-		Tr     string  `json:"tr"`
-		AttrTr string  `json:"attrTr"`
-		AttrOp float64 `json:"attrOp"`
-	}
-	type Probe struct {
-		Count int         `json:"count"`
-		Vis   int         `json:"vis"`
-		Susp  int         `json:"susp"`
-		Items []ProbeNode `json:"items"`
-	}
-
-	samples := make([]Probe, 0, 6)
-	for i := 0; i < 6; i++ {
-		var p Probe
-		_ = json.Unmarshal([]byte(probe()), &p)
-		samples = append(samples, p)
-		if i < 5 {
-			_, _ = chromedp.Run(ctx, chromedp.Sleep(180*time.Millisecond))
-		}
-	}
-
-	last := samples[len(samples)-1]
-	if last.Count == 0 {
-		return CorrectnessResult{Passed: false, Reason: "no .lab-payload elements rendered"}
-	}
-	if s.SuspendOffscreen && s.VisibleCount > 0 && s.Count > s.VisibleCount && last.Susp == 0 {
-		return CorrectnessResult{Passed: false, Reason: "suspend_offscreen=true but 0 instances suspended", VisibleCount: last.Vis, SuspendedCount: last.Susp}
-	}
-
-	maxDeltaOff, maxDeltaOp := 0.0, 0.0
-	trChanged := false
-	for idx := 0; idx < len(samples[0].Items); idx++ {
-		base := samples[0].Items[idx]
-		for si := 1; si < len(samples); si++ {
-			if idx >= len(samples[si].Items) {
-				continue
-			}
-			cur := samples[si].Items[idx]
-			if d := math.Abs(cur.Off - base.Off); d > maxDeltaOff {
-				maxDeltaOff = d
-			}
-			if d := math.Abs(cur.Op-base.Op) + math.Abs(cur.AttrOp-base.AttrOp); d > maxDeltaOp {
-				maxDeltaOp = d
-			}
-			if cur.Tr != base.Tr || cur.AttrTr != base.AttrTr {
-				trChanged = true
-			}
-		}
-	}
-
-	moved := maxDeltaOff > 1.0 || maxDeltaOp > 0.01 || trChanged || s.Method == "clip-reveal" || (s.Family == "flow" && s.Method == "smil")
-	if !moved {
-		return CorrectnessResult{
-			Passed:         false,
-			Reason:         fmt.Sprintf("animation appeared stationary (deltaOff=%.2f, deltaOp=%.3f, trSame=%v)", maxDeltaOff, maxDeltaOp, !trChanged),
-			SampledDelta:   maxDeltaOff,
-			VisibleCount:   last.Vis,
-			SuspendedCount: last.Susp,
-		}
-	}
-	return CorrectnessResult{
-		Passed:         true,
-		Reason:         fmt.Sprintf("verified motion (deltaOff=%.1f, deltaOp=%.2f, trChanged=%v, vis=%d, susp=%d)", maxDeltaOff, maxDeltaOp, trChanged, last.Vis, last.Susp),
-		SampledDelta:   maxDeltaOff,
-		VisibleCount:   last.Vis,
-		SuspendedCount: last.Susp,
-	}
 }
 
 func computeFrameStats(frames []float64) FrameStats {

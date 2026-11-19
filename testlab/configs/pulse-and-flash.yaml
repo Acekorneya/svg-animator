@@ -28,7 +28,12 @@ effects:
     flash_interval_s: 1.0
     sizes:
       small: [28, 28]
-  - family: flow
+  - family: flow-line
+    methods: [smil, css, javascript-raf]
+    shapes: [straight, curved]
+    speeds:
+      medium: 2.0
+  - family: flow-particle
     methods: [smil, css, javascript-raf]
     shapes: [straight, curved]
     speeds:

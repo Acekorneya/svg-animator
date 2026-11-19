@@ -9,24 +9,44 @@ import (
 
 // TestRunSpec is a single concrete test scenario expanded from YAML.
 type TestRunSpec struct {
-	RunID            string
-	Family           string
-	Method           string
-	WorkloadName     string
-	Count            int
-	Isolation        string // "independent-svg-roots" | "shared-scene"
-	VisibleCount     int
-	SuspendOffscreen bool
-	IsMixture        bool
-	Seed             int64
-	Instances        []InstanceParams
-	Limitations      []string
+	RunID              string
+	Family             string
+	Method             string
+	SchedulingStrategy string
+	WorkloadName       string
+	Count              int
+	Isolation          string // "independent-svg-roots" | "shared-scene"
+	VisibleCount       int
+	SuspendOffscreen   bool
+	IsMixture          bool
+	NonEquivalent      bool
+	Unsupported        bool
+	Seed               int64
+	Instances          []InstanceParams
+	Limitations        []string
 }
 
 var palette = []string{"#38bdf8", "#22c55e", "#f59e0b", "#ec4899", "#a855f7", "#06b6d4"}
 
+func resolveSchedulingStrategy(eff EffectSpec, method string) string {
+	switch method {
+	case "css":
+		return "native-css"
+	case "smil":
+		return "native-smil"
+	case "javascript-raf":
+		if eff.RAFScheduling == "per-instance" {
+			return "per-instance-raf"
+		}
+		return "shared-raf"
+	case "data-driven":
+		return "data-driven-interval"
+	default:
+		return method
+	}
+}
+
 // ExpandScenarios expands a validated Config into concrete TestRunSpecs.
-// If alternate_method_order is true, repetition index can rotate method order in Runner.
 func ExpandScenarios(cfg *Config) []TestRunSpec {
 	reg := DefaultRegistry()
 	var specs []TestRunSpec
@@ -41,25 +61,35 @@ func ExpandScenarios(cfg *Config) []TestRunSpec {
 					instances := buildEffectInstances(eff, method, count, rng)
 					var lims []string
 					limSeen := map[string]bool{}
+					nonEq, unsup := false, false
 					for _, inst := range instances {
-						re := gen.Render(inst, 180, 120)
+						re := gen.Render(inst, 240, 160)
 						if re.Limitation != "" && !limSeen[re.Limitation] {
 							limSeen[re.Limitation] = true
 							lims = append(lims, re.Limitation)
 						}
+						if re.NonEquivalent {
+							nonEq = true
+						}
+						if re.Unsupported {
+							unsup = true
+						}
 					}
 					specs = append(specs, TestRunSpec{
-						RunID:            fmt.Sprintf("%s__%s__%s__n%d", eff.Family, method, wl.Name, count),
-						Family:           eff.Family,
-						Method:           method,
-						WorkloadName:     wl.Name,
-						Count:            count,
-						Isolation:        cfg.Instances.Isolation,
-						VisibleCount:     wl.VisibleCount,
-						SuspendOffscreen: wl.SuspendOffscreen,
-						Seed:             cfg.Execution.RandomSeed,
-						Instances:        instances,
-						Limitations:      lims,
+						RunID:              fmt.Sprintf("%s__%s__%s__n%d", eff.Family, method, wl.Name, count),
+						Family:             eff.Family,
+						Method:             method,
+						SchedulingStrategy: resolveSchedulingStrategy(eff, method),
+						WorkloadName:       wl.Name,
+						Count:              count,
+						Isolation:          cfg.Instances.Isolation,
+						VisibleCount:       wl.VisibleCount,
+						SuspendOffscreen:   wl.SuspendOffscreen,
+						NonEquivalent:      nonEq,
+						Unsupported:        unsup,
+						Seed:               cfg.Execution.RandomSeed,
+						Instances:          instances,
+						Limitations:        lims,
 					})
 				}
 			}
@@ -67,23 +97,26 @@ func ExpandScenarios(cfg *Config) []TestRunSpec {
 			// 2. Mixed workload scenarios (if configured)
 			if cfg.Mixture != nil {
 				for _, method := range cfg.Mixture.Methods {
-					instances := buildMixtureInstances(cfg, method, count, rng)
+					instances, lims, nonEq := buildMixtureInstances(cfg, method, count, rng)
 					mixName := cfg.Mixture.Name
 					if mixName == "" {
 						mixName = "mixed"
 					}
 					specs = append(specs, TestRunSpec{
-						RunID:            fmt.Sprintf("%s__%s__%s__n%d", mixName, method, wl.Name, count),
-						Family:           mixName,
-						Method:           method,
-						WorkloadName:     wl.Name,
-						Count:            count,
-						Isolation:        cfg.Instances.Isolation,
-						VisibleCount:     wl.VisibleCount,
-						SuspendOffscreen: wl.SuspendOffscreen,
-						IsMixture:        true,
-						Seed:             cfg.Execution.RandomSeed,
-						Instances:        instances,
+						RunID:              fmt.Sprintf("%s__%s__%s__n%d", mixName, method, wl.Name, count),
+						Family:             mixName,
+						Method:             method,
+						SchedulingStrategy: resolveSchedulingStrategy(EffectSpec{}, method),
+						WorkloadName:       wl.Name,
+						Count:              count,
+						Isolation:          cfg.Instances.Isolation,
+						VisibleCount:       wl.VisibleCount,
+						SuspendOffscreen:   wl.SuspendOffscreen,
+						IsMixture:          true,
+						NonEquivalent:      nonEq,
+						Seed:               cfg.Execution.RandomSeed,
+						Instances:          instances,
+						Limitations:        lims,
 					})
 				}
 			}
@@ -137,7 +170,6 @@ func buildEffectInstances(eff EffectSpec, method string, count int, rng *rand.Ra
 		if fm == "staggered" {
 			stagger = float64(i%8) * 0.15
 		}
-		// Add slight deterministic variation using rng so instances are genuinely independent
 		_ = rng.Intn(10)
 		out = append(out, InstanceParams{
 			ID:             fmt.Sprintf("lab_%s_%d", strings.ReplaceAll(method, "-", "_"), i+1),
@@ -156,13 +188,14 @@ func buildEffectInstances(eff EffectSpec, method string, count int, rng *rand.Ra
 			FlashDurMs:     eff.FlashDurationMs,
 			FlashIntervalS: eff.FlashIntervalS,
 			StaggerDelayS:  stagger,
+			RAFScheduling:  eff.RAFScheduling,
 			Color:          palette[i%len(palette)],
 		})
 	}
 	return out
 }
 
-func buildMixtureInstances(cfg *Config, method string, count int, rng *rand.Rand) []InstanceParams {
+func buildMixtureInstances(cfg *Config, method string, count int, rng *rand.Rand) ([]InstanceParams, []string, bool) {
 	fams := sortedMapKeys(cfg.Mixture.Weights)
 	totalW := 0.0
 	for _, f := range fams {
@@ -174,7 +207,6 @@ func buildMixtureInstances(cfg *Config, method string, count int, rng *rand.Rand
 	}
 	reg := DefaultRegistry()
 
-	// Build proportional family list, then deterministically shuffle with rng
 	assigned := make([]string, 0, count)
 	for _, f := range fams {
 		n := int((cfg.Mixture.Weights[f] / totalW) * float64(count))
@@ -186,6 +218,10 @@ func buildMixtureInstances(cfg *Config, method string, count int, rng *rand.Rand
 		assigned = append(assigned, fams[len(assigned)%len(fams)])
 	}
 	rng.Shuffle(len(assigned), func(i, j int) { assigned[i], assigned[j] = assigned[j], assigned[i] })
+
+	var lims []string
+	limSeen := map[string]bool{}
+	nonEq := false
 
 	out := make([]InstanceParams, 0, count)
 	for i, fam := range assigned {
@@ -207,20 +243,155 @@ func buildMixtureInstances(cfg *Config, method string, count int, rng *rand.Rand
 		}
 		m := method
 		if gen := reg[fam]; gen != nil && !gen.SupportsMethod(m) {
-			m = gen.SupportedMethods()[0]
+			fallback := gen.SupportedMethods()[0]
+			msg := fmt.Sprintf("mixture family %s does not support %s; substituted %s (non-equivalent)", fam, method, fallback)
+			if !limSeen[msg] {
+				limSeen[msg] = true
+				lims = append(lims, msg)
+			}
+			nonEq = true
+			m = fallback
 		}
 		one := buildEffectInstances(eff, m, 1, rng)[0]
 		one.ID = fmt.Sprintf("mix_%d", i+1)
 		out = append(out, one)
 	}
-	return out
+	return out, lims, nonEq
 }
+
+func computeCellDimensions(instances []InstanceParams) (int, int) {
+	cellW, cellH := 180, 120
+	for _, inst := range instances {
+		if inst.Width+24 > cellW {
+			cellW = inst.Width + 24
+		}
+		if inst.Height+24 > cellH {
+			cellH = inst.Height + 24
+		}
+	}
+	return cellW, cellH
+}
+
+const labSharedRuntimeJS = `
+(function(rootScope) {
+  const drivers = window.__labRafDrivers || [];
+  const dataDrivers = window.__labDataDrivers || [];
+  const suspendedSet = window.__labSuspendedSet || new Set();
+  const findPayload = (id) => {
+    const root = (rootScope && rootScope.getElementById) ? rootScope.getElementById(id) : document.getElementById(id);
+    if (!root) return { root: null, el: null };
+    return { root, el: root.querySelector('.lab-payload') || root };
+  };
+  const applyDriver = (d, elapsed) => {
+    if (!d.el) return;
+    if (d.kind === 'tracer') {
+      const p = (elapsed % d.dur) / d.dur;
+      const off = (d.dir === 'ccw' ? 1 : -1) * (p * 1000);
+      d.el.style.strokeDashoffset = off.toFixed(2) + 'px';
+    } else if (d.kind === 'pulse') {
+      const phase = (elapsed % d.dur) / d.dur;
+      const wave = 0.5 - 0.5 * Math.cos(phase * Math.PI * 2);
+      const sc = d.minS + (d.maxS - d.minS) * wave;
+      const op = d.minOp + (1 - d.minOp) * wave;
+      if (d.mode === 'opacity-only') {
+        d.el.setAttribute('opacity', op.toFixed(3));
+      } else if (d.mode === 'scale-only') {
+        d.el.setAttribute('transform', 'scale(' + sc.toFixed(4) + ')');
+      } else {
+        d.el.setAttribute('transform', 'scale(' + sc.toFixed(4) + ')');
+        d.el.setAttribute('opacity', op.toFixed(3));
+      }
+    } else if (d.kind === 'flash') {
+      const t = elapsed - (d.stagger || 0);
+      if (t < 0) {
+        d.el.setAttribute('opacity', '0');
+        return;
+      }
+      const cyc = d.single ? t : (t % d.interval);
+      if ((!d.single || t <= d.dur) && cyc <= d.dur) {
+        const u = cyc / d.dur;
+        const op = 0.95 * Math.sin(u * Math.PI);
+        const sc = u < 0.25 ? (0.85 + (1.08 - 0.85) * (u / 0.25)) : (1.08 - (1.08 - 1.0) * ((u - 0.25) / 0.75));
+        d.el.setAttribute('opacity', Math.max(0, op).toFixed(3));
+        d.el.setAttribute('transform', 'scale(' + sc.toFixed(4) + ')');
+      } else {
+        d.el.setAttribute('opacity', '0');
+        d.el.setAttribute('transform', 'scale(1)');
+      }
+    } else if (d.kind === 'particle') {
+      if (!d.pathEl) {
+        const pRoot = (rootScope && rootScope.getElementById) ? rootScope.getElementById(d.pathId) : document.getElementById(d.pathId);
+        d.pathEl = pRoot;
+        if (pRoot && typeof pRoot.getTotalLength === 'function') {
+          d.totalLen = pRoot.getTotalLength();
+        }
+      }
+      if (d.pathEl && d.totalLen > 0) {
+        const p = (elapsed % d.dur) / d.dur;
+        const pt = d.pathEl.getPointAtLength(p * d.totalLen);
+        d.el.setAttribute('cx', pt.x.toFixed(2));
+        d.el.setAttribute('cy', pt.y.toFixed(2));
+      }
+    }
+  };
+
+  const sharedList = [];
+  const perInstList = [];
+  drivers.forEach(d => {
+    const resolved = findPayload(d.id);
+    if (!resolved.el) return;
+    const item = Object.assign({ el: resolved.el }, d);
+    if (d.perInstance) perInstList.push(item);
+    else sharedList.push(item);
+  });
+
+  if (sharedList.length > 0) {
+    const startT = performance.now();
+    function stepShared(now) {
+      const elapsed = (now - startT) / 1000;
+      for (let i = 0; i < sharedList.length; i++) {
+        const d = sharedList[i];
+        if (!suspendedSet.has(d.id)) applyDriver(d, elapsed);
+      }
+      requestAnimationFrame(stepShared);
+    }
+    requestAnimationFrame(stepShared);
+  }
+
+  perInstList.forEach(d => {
+    const startT = performance.now();
+    function stepOne(now) {
+      if (!suspendedSet.has(d.id)) {
+        applyDriver(d, (now - startT) / 1000);
+      }
+      requestAnimationFrame(stepOne);
+    }
+    requestAnimationFrame(stepOne);
+  });
+
+  if (dataDrivers.length > 0) {
+    let stepIdx = 0;
+    setInterval(() => {
+      stepIdx++;
+      for (let i = 0; i < dataDrivers.length; i++) {
+        const dd = dataDrivers[i];
+        if (suspendedSet.has(dd.id)) continue;
+        const r = findPayload(dd.id);
+        if (r.el) {
+          const v = 25 + ((dd.baseVal + stepIdx * 11 + i * 7) % 70);
+          r.el.setAttribute('stroke-dasharray', v + ' 100');
+        }
+      }
+    }, 300);
+  }
+})(typeof document !== 'undefined' ? document : null);
+`
 
 // BuildTestPageHTML generates the self-contained HTML harness page for a TestRunSpec.
 func BuildTestPageHTML(spec TestRunSpec) string {
 	reg := DefaultRegistry()
 	var cssBuf, bodyBuf, jsBuf strings.Builder
-	const cellW, cellH = 180, 120
+	cellW, cellH := computeCellDimensions(spec.Instances)
 
 	if spec.Isolation == "shared-scene" {
 		cols := 6
@@ -271,12 +442,11 @@ func BuildTestPageHTML(spec TestRunSpec) string {
 
 	visHeightCSS := ""
 	if spec.VisibleCount > 0 {
-		// Force a scrollable container showing ~VisibleCount cards in 3 columns
 		rowsVis := (spec.VisibleCount + 2) / 3
 		if rowsVis < 1 {
 			rowsVis = 1
 		}
-		visHeightCSS = fmt.Sprintf("#labGrid { max-height: %dpx; overflow-y: auto; }", rowsVis*164)
+		visHeightCSS = fmt.Sprintf("#labGrid { max-height: %dpx; overflow-y: auto; }", rowsVis*(cellH+44))
 	}
 
 	return fmt.Sprintf(`<!DOCTYPE html>
@@ -286,7 +456,7 @@ func BuildTestPageHTML(spec TestRunSpec) string {
 <title>SVG Animation Test Lab — %s</title>
 <style>
   body { margin: 0; padding: 12px; background: #0d1117; color: #c9d1d9; font-family: system-ui, sans-serif; }
-  #labGrid { display: grid; grid-template-columns: repeat(3, 196px); gap: 10px; }
+  #labGrid { display: grid; grid-template-columns: repeat(3, %dpx); gap: 10px; }
   .lab-card { background: #161b22; border: 1px solid #30363d; border-radius: 6px; padding: 6px; }
   .lab-meta { font-size: 11px; color: #8b949e; margin-bottom: 4px; white-space: nowrap; overflow: hidden; text-overflow: ellipsis; }
   .lab-card.lab-suspended, .lab-card.lab-suspended * { animation-play-state: paused !important; }
@@ -295,11 +465,13 @@ func BuildTestPageHTML(spec TestRunSpec) string {
 </style>
 </head>
 <body>
-<div id="labHeader" style="font-size:12px;margin-bottom:8px;color:#8b949e;">Run: %s | Instances: %d | Isolation: %s | Workload: %s</div>
+<div id="labHeader" style="font-size:12px;margin-bottom:8px;color:#8b949e;">Run: %s | Instances: %d | Isolation: %s | Scheduling: %s | Workload: %s</div>
 <div id="labGrid">%s</div>
 <script>
 window.__labRafDrivers = [];
+window.__labDataDrivers = [];
 window.__labLongTasks = [];
+window.__labSuspendedSet = new Set();
 window.__labSuspendedCount = 0;
 window.__labVisibleCount = %d;
 if (typeof PerformanceObserver !== 'undefined') {
@@ -314,7 +486,7 @@ if (typeof PerformanceObserver !== 'undefined') {
 %s
 (function() {
   const suspendOffscreen = %v;
-  const suspendedSet = new Set();
+  const suspendedSet = window.__labSuspendedSet;
   if (suspendOffscreen && typeof IntersectionObserver !== 'undefined') {
     const rootEl = document.getElementById('labGrid');
     const io = new IntersectionObserver((entries) => {
@@ -337,64 +509,53 @@ if (typeof PerformanceObserver !== 'undefined') {
     }, { root: rootEl, threshold: 0.01 });
     document.querySelectorAll('.lab-card').forEach(c => io.observe(c));
   }
-
-  // Unified JS rAF driver for javascript-raf method comparisons
-  if (window.__labRafDrivers.length > 0) {
-    const startT = performance.now();
-    const resolved = window.__labRafDrivers.map(d => {
-      const root = document.getElementById(d.id);
-      const el = root ? (root.querySelector('.lab-payload') || root) : null;
-      return Object.assign({ el }, d);
-    }).filter(d => d.el);
-    function step(now) {
-      const elapsed = (now - startT) / 1000;
-      for (let i = 0; i < resolved.length; i++) {
-        const d = resolved[i];
-        if (suspendedSet.has(d.id)) continue;
-        if (d.kind === 'tracer') {
-          const p = (elapsed %% d.dur) / d.dur;
-          const off = (d.dir === 'ccw' ? 1 : -1) * (p * 1000);
-          d.el.style.strokeDashoffset = off.toFixed(2) + 'px';
-        } else if (d.kind === 'pulse') {
-          const phase = (elapsed %% d.dur) / d.dur;
-          const wave = 0.5 - 0.5 * Math.cos(phase * Math.PI * 2);
-          const sc = d.minS + (d.maxS - d.minS) * wave;
-          const op = d.minOp + (1 - d.minOp) * wave;
-          d.el.setAttribute('transform', 'scale(' + sc.toFixed(4) + ')');
-          d.el.setAttribute('opacity', op.toFixed(3));
-        } else if (d.kind === 'flash') {
-          const t = Math.max(0, elapsed - (d.stagger || 0));
-          const cyc = d.single ? t : (t %% d.interval);
-          const op = (!d.single || t <= d.dur) && cyc <= d.dur ? Math.sin((cyc / d.dur) * Math.PI) : 0;
-          d.el.setAttribute('opacity', Math.max(0, op).toFixed(3));
-        }
-      }
-      requestAnimationFrame(step);
-    }
-    requestAnimationFrame(step);
-  }
 })();
+%s
 </script>
 </body>
-</html>`, spec.RunID, visHeightCSS, cssBuf.String(), spec.RunID, spec.Count, spec.Isolation, spec.WorkloadName, bodyBuf.String(), spec.Count, jsBuf.String(), spec.SuspendOffscreen, spec.Count)
+</html>`, spec.RunID, cellW+16, visHeightCSS, cssBuf.String(), spec.RunID, spec.Count, spec.Isolation, spec.SchedulingStrategy, spec.WorkloadName, bodyBuf.String(), spec.Count, jsBuf.String(), spec.SuspendOffscreen, spec.Count, labSharedRuntimeJS)
 }
 
-// BuildStandaloneSampleSVG generates a clean standalone SVG sample for a single InstanceParams.
+// BuildStandaloneSampleSVG generates a clean standalone SVG sample for a single InstanceParams,
+// embedding a self-contained script driver for javascript-raf / data-driven samples (F-A01).
 func BuildStandaloneSampleSVG(p InstanceParams) string {
 	reg := DefaultRegistry()
 	gen := reg[p.Family]
 	if gen == nil {
 		return ""
 	}
-	const w, h = 220, 140
+	w, h := computeCellDimensions([]InstanceParams{p})
+	if w < 220 {
+		w = 220
+	}
+	if h < 140 {
+		h = 140
+	}
 	re := gen.Render(p, w, h)
 	style := ""
 	if re.CSS != "" {
 		style = fmt.Sprintf("\n  <style>\n%s\n  </style>", re.CSS)
 	}
+	script := ""
+	if re.JSDriver != "" {
+		script = fmt.Sprintf(`
+  <script type="application/ecmascript"><![CDATA[
+(function(){
+  var cs = document.currentScript;
+  var svg = (cs && (cs.ownerSVGElement || (cs.closest && cs.closest('svg')))) || document.documentElement;
+  if (!svg || svg.__labRafStarted) return;
+  svg.__labRafStarted = true;
+  window.__labRafDrivers = window.__labRafDrivers || [];
+  window.__labDataDrivers = window.__labDataDrivers || [];
+  window.__labSuspendedSet = window.__labSuspendedSet || new Set();
+  %s
+  %s
+})();
+]]></script>`, re.JSDriver, labSharedRuntimeJS)
+	}
 	return fmt.Sprintf(`<?xml version="1.0" encoding="UTF-8"?>
 <svg id="%s" xmlns="http://www.w3.org/2000/svg" width="%d" height="%d" viewBox="0 0 %d %d">%s
   <rect width="%d" height="%d" fill="#0d1117" rx="8" />
-  %s
-</svg>`, p.ID, w, h, w, h, style, w, h, re.SVGInner)
+  %s%s
+</svg>`, p.ID, w, h, w, h, style, w, h, re.SVGInner, script)
 }
