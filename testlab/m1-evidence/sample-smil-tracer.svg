@@ -1,0 +1,5 @@
+<?xml version="1.0" encoding="UTF-8"?>
+<svg id="standalone-smil" xmlns="http://www.w3.org/2000/svg" width="220" height="140" viewBox="0 0 220 140">
+  <rect width="220" height="140" fill="#0d1117" rx="8" />
+  <rect x="70.00" y="30.00" width="80.00" height="80.00" class="lab-guide" fill="none" stroke="#38bdf8" stroke-width="1.2" stroke-opacity="0.22" shape-rendering="geometricPrecision" /><rect x="70.00" y="30.00" width="80.00" height="80.00" class="lab-payload" data-lab-family="perimeter-tracer" data-lab-method="smil" data-lab-dir="cw" data-lab-dur="1.500" data-lab-segs="2" pathLength="1000" fill="none" stroke="#38bdf8" stroke-width="2.5" stroke-dasharray="125.000 375.000" stroke-linecap="round" shape-rendering="geometricPrecision"><animate attributeName="stroke-dashoffset" from="0" to="-1000" dur="1.500s" repeatCount="indefinite" /></rect>
+</svg>

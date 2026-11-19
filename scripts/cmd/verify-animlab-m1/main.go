@@ -32,7 +32,10 @@ func main() {
 	if bindIP == "" {
 		bindIP = "192.168.100.47"
 	}
-	evidenceDir := "/tmp/m1-evidence"
+	evidenceDir := os.Getenv("ANIMLAB_EVIDENCE_DIR")
+	if evidenceDir == "" {
+		evidenceDir = filepath.Join("testlab", "m1-evidence")
+	}
 	_ = os.MkdirAll(evidenceDir, 0755)
 
 	var (
@@ -105,6 +108,7 @@ func main() {
 				Shape: "rect", Width: 80, Height: 80, Speed: 1.5, Segments: 2, LineGapRatio: "25:75", Direction: "cw", Color: "#38bdf8",
 			}
 			svg := animlab.BuildStandaloneSampleSVG(inst)
+			_ = os.WriteFile(filepath.Join(evidenceDir, "sample-"+method+"-tracer.svg"), []byte(svg), 0644)
 			u := setPage("at01-"+method+".svg", "image/svg+xml; charset=utf-8", svg)
 			if _, err := chromedp.Run(ctx, chromedp.Navigate(u)); err != nil {
 				allOK = false

@@ -1,0 +1,131 @@
+<?xml version="1.0" encoding="UTF-8"?>
+<svg id="standalone-javascript-raf" xmlns="http://www.w3.org/2000/svg" width="220" height="140" viewBox="0 0 220 140">
+  <rect width="220" height="140" fill="#0d1117" rx="8" />
+  <rect x="70.00" y="30.00" width="80.00" height="80.00" class="lab-guide" fill="none" stroke="#38bdf8" stroke-width="1.2" stroke-opacity="0.22" shape-rendering="geometricPrecision" /><rect x="70.00" y="30.00" width="80.00" height="80.00" class="lab-payload" data-lab-family="perimeter-tracer" data-lab-method="javascript-raf" data-lab-dir="cw" data-lab-dur="1.500" data-lab-segs="2" pathLength="1000" fill="none" stroke="#38bdf8" stroke-width="2.5" stroke-dasharray="125.000 375.000" stroke-linecap="round" shape-rendering="geometricPrecision" />
+  <script type="application/ecmascript"><![CDATA[
+(function(){
+  var cs = document.currentScript;
+  var svg = (cs && (cs.ownerSVGElement || (cs.closest && cs.closest('svg')))) || document.documentElement;
+  if (!svg || svg.__labRafStarted) return;
+  svg.__labRafStarted = true;
+  window.__labRafDrivers = window.__labRafDrivers || [];
+  window.__labDataDrivers = window.__labDataDrivers || [];
+  window.__labSuspendedSet = window.__labSuspendedSet || new Set();
+  window.__labRafDrivers.push({ id: "standalone-javascript-raf", kind: 'tracer', dur: 1.500, dir: "cw", perInstance: false });
+  
+(function(rootScope) {
+  const drivers = window.__labRafDrivers || [];
+  const dataDrivers = window.__labDataDrivers || [];
+  const suspendedSet = window.__labSuspendedSet || new Set();
+  const findPayload = (id) => {
+    const root = (rootScope && rootScope.getElementById) ? rootScope.getElementById(id) : document.getElementById(id);
+    if (!root) return { root: null, el: null };
+    return { root, el: root.querySelector('.lab-payload') || root };
+  };
+  const applyDriver = (d, elapsed) => {
+    if (!d.el) return;
+    if (d.kind === 'tracer') {
+      const p = (elapsed % d.dur) / d.dur;
+      const off = (d.dir === 'ccw' ? 1 : -1) * (p * 1000);
+      d.el.style.strokeDashoffset = off.toFixed(2) + 'px';
+    } else if (d.kind === 'pulse') {
+      const phase = (elapsed % d.dur) / d.dur;
+      const wave = 0.5 - 0.5 * Math.cos(phase * Math.PI * 2);
+      const sc = d.minS + (d.maxS - d.minS) * wave;
+      const op = d.minOp + (1 - d.minOp) * wave;
+      if (d.mode === 'opacity-only') {
+        d.el.setAttribute('opacity', op.toFixed(3));
+      } else if (d.mode === 'scale-only') {
+        d.el.setAttribute('transform', 'scale(' + sc.toFixed(4) + ')');
+      } else {
+        d.el.setAttribute('transform', 'scale(' + sc.toFixed(4) + ')');
+        d.el.setAttribute('opacity', op.toFixed(3));
+      }
+    } else if (d.kind === 'flash') {
+      const t = elapsed - (d.stagger || 0);
+      if (t < 0) {
+        d.el.setAttribute('opacity', '0');
+        return;
+      }
+      const cyc = d.single ? t : (t % d.interval);
+      if ((!d.single || t <= d.dur) && cyc <= d.dur) {
+        const u = cyc / d.dur;
+        const op = 0.95 * Math.sin(u * Math.PI);
+        const sc = u < 0.25 ? (0.85 + (1.08 - 0.85) * (u / 0.25)) : (1.08 - (1.08 - 1.0) * ((u - 0.25) / 0.75));
+        d.el.setAttribute('opacity', Math.max(0, op).toFixed(3));
+        d.el.setAttribute('transform', 'scale(' + sc.toFixed(4) + ')');
+      } else {
+        d.el.setAttribute('opacity', '0');
+        d.el.setAttribute('transform', 'scale(1)');
+      }
+    } else if (d.kind === 'particle') {
+      if (!d.pathEl) {
+        const pRoot = (rootScope && rootScope.getElementById) ? rootScope.getElementById(d.pathId) : document.getElementById(d.pathId);
+        d.pathEl = pRoot;
+        if (pRoot && typeof pRoot.getTotalLength === 'function') {
+          d.totalLen = pRoot.getTotalLength();
+        }
+      }
+      if (d.pathEl && d.totalLen > 0) {
+        const p = (elapsed % d.dur) / d.dur;
+        const pt = d.pathEl.getPointAtLength(p * d.totalLen);
+        d.el.setAttribute('cx', pt.x.toFixed(2));
+        d.el.setAttribute('cy', pt.y.toFixed(2));
+      }
+    }
+  };
+
+  const sharedList = [];
+  const perInstList = [];
+  drivers.forEach(d => {
+    const resolved = findPayload(d.id);
+    if (!resolved.el) return;
+    const item = Object.assign({ el: resolved.el }, d);
+    if (d.perInstance) perInstList.push(item);
+    else sharedList.push(item);
+  });
+
+  if (sharedList.length > 0) {
+    const startT = performance.now();
+    function stepShared(now) {
+      const elapsed = (now - startT) / 1000;
+      for (let i = 0; i < sharedList.length; i++) {
+        const d = sharedList[i];
+        if (!suspendedSet.has(d.id)) applyDriver(d, elapsed);
+      }
+      requestAnimationFrame(stepShared);
+    }
+    requestAnimationFrame(stepShared);
+  }
+
+  perInstList.forEach(d => {
+    const startT = performance.now();
+    function stepOne(now) {
+      if (!suspendedSet.has(d.id)) {
+        applyDriver(d, (now - startT) / 1000);
+      }
+      requestAnimationFrame(stepOne);
+    }
+    requestAnimationFrame(stepOne);
+  });
+
+  if (dataDrivers.length > 0) {
+    let stepIdx = 0;
+    setInterval(() => {
+      stepIdx++;
+      for (let i = 0; i < dataDrivers.length; i++) {
+        const dd = dataDrivers[i];
+        if (suspendedSet.has(dd.id)) continue;
+        const r = findPayload(dd.id);
+        if (r.el) {
+          const v = 25 + ((dd.baseVal + stepIdx * 11 + i * 7) % 70);
+          r.el.setAttribute('stroke-dasharray', v + ' 100');
+        }
+      }
+    }, 300);
+  }
+})(typeof document !== 'undefined' ? document : null);
+
+})();
+]]></script>
+</svg>

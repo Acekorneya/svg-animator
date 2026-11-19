@@ -1,0 +1,24 @@
+[PASS] AT-M1-01: css:OK, smil:OK, javascript-raf:OK
+[PASS] AT-M1-02: cw/ccw across css/smil/raf failures=[]
+[PASS] AT-M1-03: fast=true slow=true
+[PASS] AT-M1-04: Level A (1 instances) & Level B (1 sampled) verified (vis=1, susp=0)
+[PASS] AT-M1-05: pulse 3x3 failures=[]
+[PASS] AT-M1-06: flash 120ms failures=[]
+[PASS] AT-M1-07: flow-line & flow-particle failures=[]
+[PASS] AT-M1-08: passed=true clipped=false
+[PASS] AT-M1-09: Level A (1 instances) & Level B (1 sampled) verified (vis=1, susp=0)
+[PASS] AT-M1-10: shared=true per-instance=true
+[PASS] AT-M1-11: Level A (1 instances) & Level B (1 sampled) verified (vis=1, susp=0)
+[PASS] AT-M1-12: passed=false fault=UNSUPPORTED_OR_NON_EQUIVALENT
+[PASS] AT-M1-13: passed=true susp=18 reason=Level A (24 instances) & Level B (5 sampled) verified (vis=6, susp=18)
+[PASS] AT-M1-14: Level A (100 instances) & Level B (5 sampled) verified (vis=100, susp=0)
+[PASS] NC-01: fault=STATIONARY reason=1/1 active instances stationary or missing animation (nc01(idx=0))
+[PASS] NC-02: fault=WRONG_DIRECTION reason=nc02 expected cw (negative delta) but moved +1233.3
+[PASS] NC-03: fault=WRONG_SPEED reason=nc03 speed mismatch: observed 200.3 u/s, expected 1000.0 u/s
+[PASS] NC-04: fault=LOOP_DISCONTINUITY reason=nc04 loop discontinuity at step 14: raw -635.7->-100.0 (unwrapped step -464.3)
+[PASS] NC-05: fault=MODE_MISMATCH reason=nc05 pulse opacity-only mode unexpectedly scaled (range=0.499)
+[PASS] NC-06: missed=MISSED_FLASH stuck=STUCK_ACTIVE
+[PASS] NC-07: fault=PARTIAL_POPULATION_FAILURE failing=[nc07-73(idx=73)]
+[PASS] NC-08: fault=SUSPENSION_LEAK reason=1 suspended instance(s) continued animating: nc08-10(idx=10,delta=233.27)
+
+SUMMARY: 22/22 checks passed (0 failed)
