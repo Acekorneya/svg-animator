@@ -1,0 +1,763 @@
+{
+  "timestamp": "2026-11-19T09:29:57Z",
+  "testName": "m2-full-suite",
+  "description": "M2 Measurement Integrity verification",
+  "environment": {
+    "actualViewport": {
+      "devicePixelRatio": 1,
+      "height": 720,
+      "width": 1280
+    },
+    "browserOwnership": {
+      "mode": "external-cdp-isolated-tree",
+      "rootPid": 2100,
+      "userDataDir": "/home/nigel/.config/google-chrome-headless/scoped_direDFqfu",
+      "cdpPort": 9222,
+      "clkTck": 100,
+      "host": "nigel@192.168.100.40",
+      "reason": "verified Chromium root PID 2100 (port=9222, clk_tck=100)"
+    },
+    "cdpEndpoint": "http://127.0.0.1:9222",
+    "clkTck": 100,
+    "configuredViewport": {
+      "deviceScaleFactor": 1,
+      "height": 720,
+      "width": 1280
+    },
+    "executionStrategy": "alternating",
+    "hardwareConcurrency": 2,
+    "headless": true,
+    "isSoftwareRenderer": true,
+    "measurementSpecVersion": "2.0.0",
+    "processCpuHost": "nigel@192.168.100.40",
+    "runnerOS": "linux/amd64",
+    "targetCPUCores": 2,
+    "targetCPUModel": "AMD Ryzen 7 5700X 8-Core Processor",
+    "targetMemoryMB": 7870,
+    "targetOS": "Linux 7.0.0-31-generic x86_64",
+    "userAgent": "Mozilla/5.0 (X11; Linux x86_64) AppleWebKit/537.36 (KHTML, like Gecko) HeadlessChrome/155.0.0.0 Safari/537.36",
+    "webglRenderer": "ANGLE (Google, Vulkan 1.3.0 (SwiftShader Device (Subzero) (0x0000C0DE)), SwiftShader driver)",
+    "webglVendor": "Google Inc. (Google)"
+  },
+  "metricDefinitions": {
+    "avgRafIntervalMs": {
+      "name": "avgRafIntervalMs",
+      "sourceApi": "Browser requestAnimationFrame(performance.now()) delta",
+      "unit": "ms",
+      "collectionInterval": "Every rAF callback during measurement window",
+      "scope": "Page main-thread",
+      "aggregation": "Mean per trial; Mean/StdDev across repetitions",
+      "limitations": "Reflects main-thread callback pacing, not GPU rasterization",
+      "unavailableCondition": "null / N/A if frame_timing disabled or no callbacks observed"
+    },
+    "domNodes": {
+      "name": "domNodes",
+      "sourceApi": "CDP Performance.getMetrics (Nodes) and document.querySelectorAll('*').length",
+      "unit": "count",
+      "collectionInterval": "End of measurement window",
+      "scope": "Isolated per-trial target document",
+      "aggregation": "Observed count per trial",
+      "limitations": "Should remain stable across identical isolated trials",
+      "unavailableCondition": "null / N/A if CDP metrics unavailable"
+    },
+    "jsHeapMB": {
+      "name": "jsHeapMB",
+      "sourceApi": "CDP Performance.getMetrics (JSHeapUsedSize)",
+      "unit": "MiB",
+      "collectionInterval": "End of measurement window",
+      "scope": "Target V8 isolate",
+      "aggregation": "Mean across repetitions; interpreted with GC tolerance",
+      "limitations": "Subject to normal V8 GC timing fluctuations",
+      "unavailableCondition": "null / N/A if CDP Performance.getMetrics fails"
+    },
+    "longFramesOver16ms": {
+      "name": "longFramesOver16ms",
+      "sourceApi": "Browser rAF interval \u003e 16.67 ms",
+      "unit": "count",
+      "collectionInterval": "Measurement window",
+      "scope": "Page main-thread rAF callbacks",
+      "aggregation": "Sum or mean count per trial",
+      "limitations": "Threshold 16.67 ms (60 Hz budget); distinct from \u003e 20.0 ms",
+      "unavailableCondition": "0 if no rAF intervals exceed 16.67 ms"
+    },
+    "longFramesOver20ms": {
+      "name": "longFramesOver20ms",
+      "sourceApi": "Browser rAF interval \u003e 20.0 ms",
+      "unit": "count",
+      "collectionInterval": "Measurement window",
+      "scope": "Page main-thread rAF callbacks",
+      "aggregation": "Mean count per trial",
+      "limitations": "Explicitly separates \u003e20 ms stalls from \u003e16.67 ms budget misses",
+      "unavailableCondition": "0 if no rAF intervals exceed 20.0 ms"
+    },
+    "longTasks": {
+      "name": "longTasks",
+      "sourceApi": "PerformanceObserver({ entryTypes: ['longtask'] })",
+      "unit": "count / ms",
+      "collectionInterval": "Measurement window",
+      "scope": "Page main-thread tasks \u003e 50 ms",
+      "aggregation": "Count and cumulative duration (ms)",
+      "limitations": "Only captures tasks \u003e= 50 ms on the main thread",
+      "unavailableCondition": "null / N/A if PerformanceObserver longtask is unsupported"
+    },
+    "presentedFps": {
+      "name": "presentedFps",
+      "sourceApi": "Compositor frame presentation counter (unavailable in standard headless SwiftShader CDP without tracing)",
+      "unit": "frames/sec",
+      "collectionInterval": "Measurement window",
+      "scope": "Display compositor",
+      "aggregation": "Mean across valid repetitions",
+      "limitations": "Not fabricated from rAF; requires compositor frame-sink instrumentation",
+      "unavailableCondition": "Always null / N/A in standard headless/SwiftShader CDP runs unless explicit compositor frame telemetry is available"
+    },
+    "processCpuSec": {
+      "name": "processCpuSec",
+      "sourceApi": "Linux /proc/\u003cpid\u003e/stat (utime+stime) scoped to owned Chromium PID tree via CLK_TCK",
+      "unit": "seconds",
+      "collectionInterval": "Delta across measurement window (T_end - T_start)",
+      "scope": "Owned browser root PID and its recursive subprocesses only (browser, zygote, renderer, gpu, utility)",
+      "aggregation": "Mean, StdDev, Min, Max across valid repetitions",
+      "limitations": "Requires /proc access on browser host; reflects CPU time across all threads in the owned browser tree",
+      "unavailableCondition": "Reported as null / N/A if browser PID ownership cannot be established or ProcessCPUHost is unreachable"
+    },
+    "rafHz": {
+      "name": "rafHz",
+      "sourceApi": "Browser requestAnimationFrame(performance.now()) callback delta",
+      "unit": "Hz (callbacks/sec)",
+      "collectionInterval": "Every rAF callback during measurement window (first 2 warmup callbacks discarded)",
+      "scope": "Page main-thread rAF loop",
+      "aggregation": "1000.0 / mean(intervalMs) per trial; Mean/StdDev across repetitions",
+      "limitations": "Measures main-thread rAF scheduling cadence only; MUST NOT be interpreted as visually presented or compositor FPS",
+      "unavailableCondition": "Reported as null / N/A if fewer than 2 rAF samples are captured"
+    },
+    "taskDeltaMs": {
+      "name": "taskDeltaMs",
+      "sourceApi": "CDP Performance.getMetrics (TaskDuration)",
+      "unit": "ms",
+      "collectionInterval": "Delta across measurement window",
+      "scope": "Target renderer main thread",
+      "aggregation": "Mean/StdDev across repetitions",
+      "limitations": "Renderer thread only; excludes compositor/GPU processes",
+      "unavailableCondition": "null / N/A if CDP Performance.getMetrics fails"
+    }
+  },
+  "executionOrders": [
+    [
+      "perimeter-tracer__css__all-active__n40",
+      "perimeter-tracer__smil__all-active__n40",
+      "perimeter-tracer__javascript-raf__all-active__n40"
+    ],
+    [
+      "perimeter-tracer__smil__all-active__n40",
+      "perimeter-tracer__javascript-raf__all-active__n40",
+      "perimeter-tracer__css__all-active__n40"
+    ],
+    [
+      "perimeter-tracer__javascript-raf__all-active__n40",
+      "perimeter-tracer__css__all-active__n40",
+      "perimeter-tracer__smil__all-active__n40"
+    ]
+  ],
+  "scenarios": [
+    {
+      "runId": "perimeter-tracer__css__all-active__n40",
+      "family": "perimeter-tracer",
+      "method": "css",
+      "schedulingStrategy": "native-css",
+      "workloadName": "all-active",
+      "count": 40,
+      "isolation": "independent-svg-roots",
+      "correctnessPassed": true,
+      "correctnessNote": "Level A (40 instances) \u0026 Level B (5 sampled) verified (vis=40, susp=0)",
+      "validRepetitions": 3,
+      "totalRepetitions": 3,
+      "avgRafHz": 60.00191609743666,
+      "avgRafIntervalMs": 16.666134435723645,
+      "p95RafIntervalMs": 16.733333333333576,
+      "presentedFps": null,
+      "avgProcessCpuSec": 0.6099999999993694,
+      "avgTaskMs": 82.32566666666668,
+      "avgScriptMs": 6.859333333333335,
+      "avgLayoutMs": 0,
+      "avgRecalcMs": 19.284333333333333,
+      "avgHeapMB": 0.9554773966471354,
+      "domNodes": 277,
+      "longTasks": 0,
+      "rafHzStats": {
+        "n": 3,
+        "mean": 60.00191609743666,
+        "stdDev": 0.0006609328882037282,
+        "min": 60.001153868343614,
+        "max": 60.00233018758011,
+        "median": 60.00226423638627
+      },
+      "rafIntervalStats": {
+        "n": 3,
+        "mean": 16.666134435723645,
+        "stdDev": 0.0001835818979347065,
+        "min": 16.666019417475727,
+        "max": 16.666346153846156,
+        "median": 16.66603773584906
+      },
+      "processCpuStats": {
+        "n": 3,
+        "mean": 0.6099999999993694,
+        "stdDev": 0.03999999999996362,
+        "min": 0.569999999999709,
+        "max": 0.6499999999996362,
+        "median": 0.6099999999987631
+      },
+      "taskMsStats": {
+        "n": 3,
+        "mean": 82.32566666666668,
+        "stdDev": 18.237564566940776,
+        "min": 67.025,
+        "max": 102.50700000000002,
+        "median": 77.44500000000001
+      },
+      "actualViewportWidth": 1280,
+      "actualViewportHeight": 720,
+      "devicePixelRatio": 1,
+      "repetitions": [
+        {
+          "repetition": 1,
+          "orderIndex": 1,
+          "status": "valid",
+          "processCpuSec": 0.6499999999996362,
+          "ownedPidCount": 16,
+          "frames": {
+            "frames": 106,
+            "rafHz": 60.00226423638627,
+            "avgRafIntervalMs": 16.66603773584906,
+            "p95RafIntervalMs": 16.700000000000273,
+            "maxRafIntervalMs": 16.799999999999727,
+            "longFramesOver16ms": 67,
+            "longFramesOver20ms": 0,
+            "longFramesOver50ms": 0
+          },
+          "presentedFps": null,
+          "presentedFpsNote": "N/A: compositor presented-frame counter unavailable in standard headless/SwiftShader CDP",
+          "longTaskCount": 0,
+          "longTaskMs": 0,
+          "taskDeltaMs": 102.50700000000002,
+          "scriptDeltaMs": 11.664000000000001,
+          "layoutDeltaMs": 0,
+          "recalcDeltaMs": 22.966,
+          "layoutCountDelta": 0,
+          "jsHeapMB": 0.9537353515625,
+          "domNodes": 277,
+          "actualViewportWidth": 1280,
+          "actualViewportHeight": 720,
+          "devicePixelRatio": 1,
+          "correctness": {
+            "passed": true,
+            "reason": "Level A (40 instances) \u0026 Level B (5 sampled) verified (vis=40, susp=0)",
+            "levelAPassed": true,
+            "levelBPassed": true,
+            "sampledDelta": 244.46699999999998,
+            "visibleCount": 40,
+            "checkedIndices": [
+              0,
+              10,
+              20,
+              30,
+              39
+            ]
+          }
+        },
+        {
+          "repetition": 2,
+          "orderIndex": 3,
+          "status": "valid",
+          "processCpuSec": 0.6099999999987631,
+          "ownedPidCount": 16,
+          "frames": {
+            "frames": 103,
+            "rafHz": 60.00233018758011,
+            "avgRafIntervalMs": 16.666019417475727,
+            "p95RafIntervalMs": 16.700000000000273,
+            "maxRafIntervalMs": 16.800000000000182,
+            "longFramesOver16ms": 65,
+            "longFramesOver20ms": 0,
+            "longFramesOver50ms": 0
+          },
+          "presentedFps": null,
+          "presentedFpsNote": "N/A: compositor presented-frame counter unavailable in standard headless/SwiftShader CDP",
+          "longTaskCount": 0,
+          "longTaskMs": 0,
+          "taskDeltaMs": 77.44500000000001,
+          "scriptDeltaMs": 4.638999999999999,
+          "layoutDeltaMs": 0,
+          "recalcDeltaMs": 17.956,
+          "layoutCountDelta": 0,
+          "jsHeapMB": 0.9587059020996094,
+          "domNodes": 278,
+          "actualViewportWidth": 1280,
+          "actualViewportHeight": 720,
+          "devicePixelRatio": 1,
+          "correctness": {
+            "passed": true,
+            "reason": "Level A (40 instances) \u0026 Level B (5 sampled) verified (vis=40, susp=0)",
+            "levelAPassed": true,
+            "levelBPassed": true,
+            "sampledDelta": 233.267,
+            "visibleCount": 40,
+            "checkedIndices": [
+              0,
+              10,
+              20,
+              30,
+              39
+            ]
+          }
+        },
+        {
+          "repetition": 3,
+          "orderIndex": 2,
+          "status": "valid",
+          "processCpuSec": 0.569999999999709,
+          "ownedPidCount": 16,
+          "frames": {
+            "frames": 104,
+            "rafHz": 60.001153868343614,
+            "avgRafIntervalMs": 16.666346153846156,
+            "p95RafIntervalMs": 16.800000000000182,
+            "maxRafIntervalMs": 16.800000000000182,
+            "longFramesOver16ms": 63,
+            "longFramesOver20ms": 0,
+            "longFramesOver50ms": 0
+          },
+          "presentedFps": null,
+          "presentedFpsNote": "N/A: compositor presented-frame counter unavailable in standard headless/SwiftShader CDP",
+          "longTaskCount": 0,
+          "longTaskMs": 0,
+          "taskDeltaMs": 67.025,
+          "scriptDeltaMs": 4.275,
+          "layoutDeltaMs": 0,
+          "recalcDeltaMs": 16.930999999999994,
+          "layoutCountDelta": 0,
+          "jsHeapMB": 0.9539909362792969,
+          "domNodes": 277,
+          "actualViewportWidth": 1280,
+          "actualViewportHeight": 720,
+          "devicePixelRatio": 1,
+          "correctness": {
+            "passed": true,
+            "reason": "Level A (40 instances) \u0026 Level B (5 sampled) verified (vis=40, susp=0)",
+            "levelAPassed": true,
+            "levelBPassed": true,
+            "sampledDelta": 244.40000000000003,
+            "visibleCount": 40,
+            "checkedIndices": [
+              0,
+              10,
+              20,
+              30,
+              39
+            ]
+          }
+        }
+      ]
+    },
+    {
+      "runId": "perimeter-tracer__smil__all-active__n40",
+      "family": "perimeter-tracer",
+      "method": "smil",
+      "schedulingStrategy": "native-smil",
+      "workloadName": "all-active",
+      "count": 40,
+      "isolation": "independent-svg-roots",
+      "correctnessPassed": true,
+      "correctnessNote": "Level A (40 instances) \u0026 Level B (5 sampled) verified (vis=40, susp=0)",
+      "validRepetitions": 3,
+      "totalRepetitions": 3,
+      "avgRafHz": 60.00154597475578,
+      "avgRafIntervalMs": 16.66623724172268,
+      "p95RafIntervalMs": 16.73333333333373,
+      "presentedFps": null,
+      "avgProcessCpuSec": 0.6266666666670062,
+      "avgTaskMs": 177.33366666666666,
+      "avgScriptMs": 1.8236666666666668,
+      "avgLayoutMs": 0,
+      "avgRecalcMs": 86.89533333333331,
+      "avgHeapMB": 0.9588063557942709,
+      "domNodes": 317,
+      "longTasks": 0,
+      "rafHzStats": {
+        "n": 3,
+        "mean": 60.00154597475578,
+        "stdDev": 0.0006791482278418326,
+        "min": 60.001153868343614,
+        "max": 60.00233018758011,
+        "median": 60.001153868343614
+      },
+      "rafIntervalStats": {
+        "n": 3,
+        "mean": 16.66623724172268,
+        "stdDev": 0.00018864133142116894,
+        "min": 16.666019417475727,
+        "max": 16.666346153846156,
+        "median": 16.666346153846156
+      },
+      "processCpuStats": {
+        "n": 3,
+        "mean": 0.6266666666670062,
+        "stdDev": 0.015275252316654424,
+        "min": 0.6100000000005821,
+        "max": 0.6400000000012369,
+        "median": 0.6299999999991996
+      },
+      "taskMsStats": {
+        "n": 3,
+        "mean": 177.33366666666666,
+        "stdDev": 20.869125936016886,
+        "min": 154.13700000000003,
+        "max": 194.585,
+        "median": 183.27899999999997
+      },
+      "actualViewportWidth": 1280,
+      "actualViewportHeight": 720,
+      "devicePixelRatio": 1,
+      "repetitions": [
+        {
+          "repetition": 1,
+          "orderIndex": 2,
+          "status": "valid",
+          "processCpuSec": 0.6100000000005821,
+          "ownedPidCount": 16,
+          "frames": {
+            "frames": 104,
+            "rafHz": 60.001153868343614,
+            "avgRafIntervalMs": 16.666346153846156,
+            "p95RafIntervalMs": 16.700000000000728,
+            "maxRafIntervalMs": 16.800000000000182,
+            "longFramesOver16ms": 65,
+            "longFramesOver20ms": 0,
+            "longFramesOver50ms": 0
+          },
+          "presentedFps": null,
+          "presentedFpsNote": "N/A: compositor presented-frame counter unavailable in standard headless/SwiftShader CDP",
+          "longTaskCount": 0,
+          "longTaskMs": 0,
+          "taskDeltaMs": 194.585,
+          "scriptDeltaMs": 3.101,
+          "layoutDeltaMs": 0,
+          "recalcDeltaMs": 92.90999999999997,
+          "layoutCountDelta": 0,
+          "jsHeapMB": 0.958709716796875,
+          "domNodes": 317,
+          "actualViewportWidth": 1280,
+          "actualViewportHeight": 720,
+          "devicePixelRatio": 1,
+          "correctness": {
+            "passed": true,
+            "reason": "Level A (40 instances) \u0026 Level B (5 sampled) verified (vis=40, susp=0)",
+            "levelAPassed": true,
+            "levelBPassed": true,
+            "sampledDelta": 244.46699999999998,
+            "visibleCount": 40,
+            "checkedIndices": [
+              0,
+              10,
+              20,
+              30,
+              39
+            ]
+          }
+        },
+        {
+          "repetition": 2,
+          "orderIndex": 1,
+          "status": "valid",
+          "processCpuSec": 0.6400000000012369,
+          "ownedPidCount": 16,
+          "frames": {
+            "frames": 103,
+            "rafHz": 60.00233018758011,
+            "avgRafIntervalMs": 16.666019417475727,
+            "p95RafIntervalMs": 16.800000000000182,
+            "maxRafIntervalMs": 16.800000000000182,
+            "longFramesOver16ms": 60,
+            "longFramesOver20ms": 0,
+            "longFramesOver50ms": 0
+          },
+          "presentedFps": null,
+          "presentedFpsNote": "N/A: compositor presented-frame counter unavailable in standard headless/SwiftShader CDP",
+          "longTaskCount": 0,
+          "longTaskMs": 0,
+          "taskDeltaMs": 183.27899999999997,
+          "scriptDeltaMs": 1.297,
+          "layoutDeltaMs": 0,
+          "recalcDeltaMs": 84.85999999999999,
+          "layoutCountDelta": 0,
+          "jsHeapMB": 0.958953857421875,
+          "domNodes": 317,
+          "actualViewportWidth": 1280,
+          "actualViewportHeight": 720,
+          "devicePixelRatio": 1,
+          "correctness": {
+            "passed": true,
+            "reason": "Level A (40 instances) \u0026 Level B (5 sampled) verified (vis=40, susp=0)",
+            "levelAPassed": true,
+            "levelBPassed": true,
+            "sampledDelta": 244.4,
+            "visibleCount": 40,
+            "checkedIndices": [
+              0,
+              10,
+              20,
+              30,
+              39
+            ]
+          }
+        },
+        {
+          "repetition": 3,
+          "orderIndex": 3,
+          "status": "valid",
+          "processCpuSec": 0.6299999999991996,
+          "ownedPidCount": 16,
+          "frames": {
+            "frames": 104,
+            "rafHz": 60.001153868343614,
+            "avgRafIntervalMs": 16.666346153846156,
+            "p95RafIntervalMs": 16.700000000000273,
+            "maxRafIntervalMs": 16.800000000000182,
+            "longFramesOver16ms": 67,
+            "longFramesOver20ms": 0,
+            "longFramesOver50ms": 0
+          },
+          "presentedFps": null,
+          "presentedFpsNote": "N/A: compositor presented-frame counter unavailable in standard headless/SwiftShader CDP",
+          "longTaskCount": 0,
+          "longTaskMs": 0,
+          "taskDeltaMs": 154.13700000000003,
+          "scriptDeltaMs": 1.0730000000000002,
+          "layoutDeltaMs": 0,
+          "recalcDeltaMs": 82.916,
+          "layoutCountDelta": 0,
+          "jsHeapMB": 0.9587554931640625,
+          "domNodes": 317,
+          "actualViewportWidth": 1280,
+          "actualViewportHeight": 720,
+          "devicePixelRatio": 1,
+          "correctness": {
+            "passed": true,
+            "reason": "Level A (40 instances) \u0026 Level B (5 sampled) verified (vis=40, susp=0)",
+            "levelAPassed": true,
+            "levelBPassed": true,
+            "sampledDelta": 244.466,
+            "visibleCount": 40,
+            "checkedIndices": [
+              0,
+              10,
+              20,
+              30,
+              39
+            ]
+          }
+        }
+      ]
+    },
+    {
+      "runId": "perimeter-tracer__javascript-raf__all-active__n40",
+      "family": "perimeter-tracer",
+      "method": "javascript-raf",
+      "schedulingStrategy": "shared-raf",
+      "workloadName": "all-active",
+      "count": 40,
+      "isolation": "independent-svg-roots",
+      "correctnessPassed": true,
+      "correctnessNote": "Level A (40 instances) \u0026 Level B (5 sampled) verified (vis=40, susp=0)",
+      "validRepetitions": 3,
+      "totalRepetitions": 3,
+      "avgRafHz": 60.003895205100115,
+      "avgRafIntervalMs": 16.665584745224955,
+      "p95RafIntervalMs": 16.700000000000426,
+      "presentedFps": null,
+      "avgProcessCpuSec": 0.556666666666691,
+      "avgTaskMs": 79.76833333333332,
+      "avgScriptMs": 9.248000000000003,
+      "avgLayoutMs": 0,
+      "avgRecalcMs": 17.057666666666666,
+      "avgHeapMB": 0.9265467325846354,
+      "domNodes": 277,
+      "longTasks": 0,
+      "rafHzStats": {
+        "n": 3,
+        "mean": 60.003895205100115,
+        "stdDev": 0.0017762547092950226,
+        "min": 60.00233018758009,
+        "max": 60.0058258083309,
+        "median": 60.00352961938937
+      },
+      "rafIntervalStats": {
+        "n": 3,
+        "mean": 16.665584745224955,
+        "stdDev": 0.0004933357113013953,
+        "min": 16.665048543689323,
+        "max": 16.66601941747573,
+        "median": 16.665686274509806
+      },
+      "processCpuStats": {
+        "n": 3,
+        "mean": 0.556666666666691,
+        "stdDev": 0.02081665999482444,
+        "min": 0.5399999999990541,
+        "max": 0.5799999999999272,
+        "median": 0.5500000000010914
+      },
+      "taskMsStats": {
+        "n": 3,
+        "mean": 79.76833333333332,
+        "stdDev": 4.45773769229789,
+        "min": 74.71699999999998,
+        "max": 83.15099999999998,
+        "median": 81.43699999999998
+      },
+      "actualViewportWidth": 1280,
+      "actualViewportHeight": 720,
+      "devicePixelRatio": 1,
+      "repetitions": [
+        {
+          "repetition": 1,
+          "orderIndex": 3,
+          "status": "valid",
+          "processCpuSec": 0.5799999999999272,
+          "ownedPidCount": 16,
+          "frames": {
+            "frames": 103,
+            "rafHz": 60.0058258083309,
+            "avgRafIntervalMs": 16.665048543689323,
+            "p95RafIntervalMs": 16.700000000000273,
+            "maxRafIntervalMs": 16.800000000000182,
+            "longFramesOver16ms": 65,
+            "longFramesOver20ms": 0,
+            "longFramesOver50ms": 0
+          },
+          "presentedFps": null,
+          "presentedFpsNote": "N/A: compositor presented-frame counter unavailable in standard headless/SwiftShader CDP",
+          "longTaskCount": 0,
+          "longTaskMs": 0,
+          "taskDeltaMs": 83.15099999999998,
+          "scriptDeltaMs": 7.91,
+          "layoutDeltaMs": 0,
+          "recalcDeltaMs": 17.030000000000005,
+          "layoutCountDelta": 0,
+          "jsHeapMB": 0.928131103515625,
+          "domNodes": 277,
+          "actualViewportWidth": 1280,
+          "actualViewportHeight": 720,
+          "devicePixelRatio": 1,
+          "correctness": {
+            "passed": true,
+            "reason": "Level A (40 instances) \u0026 Level B (5 sampled) verified (vis=40, susp=0)",
+            "levelAPassed": true,
+            "levelBPassed": true,
+            "sampledDelta": 244.40000000000003,
+            "visibleCount": 40,
+            "checkedIndices": [
+              0,
+              10,
+              20,
+              30,
+              39
+            ]
+          }
+        },
+        {
+          "repetition": 2,
+          "orderIndex": 2,
+          "status": "valid",
+          "processCpuSec": 0.5500000000010914,
+          "ownedPidCount": 16,
+          "frames": {
+            "frames": 103,
+            "rafHz": 60.00233018758009,
+            "avgRafIntervalMs": 16.66601941747573,
+            "p95RafIntervalMs": 16.700000000000728,
+            "maxRafIntervalMs": 16.800000000000182,
+            "longFramesOver16ms": 64,
+            "longFramesOver20ms": 0,
+            "longFramesOver50ms": 0
+          },
+          "presentedFps": null,
+          "presentedFpsNote": "N/A: compositor presented-frame counter unavailable in standard headless/SwiftShader CDP",
+          "longTaskCount": 0,
+          "longTaskMs": 0,
+          "taskDeltaMs": 74.71699999999998,
+          "scriptDeltaMs": 5.9840000000000035,
+          "layoutDeltaMs": 0,
+          "recalcDeltaMs": 19.379999999999995,
+          "layoutCountDelta": 0,
+          "jsHeapMB": 0.9364738464355469,
+          "domNodes": 277,
+          "actualViewportWidth": 1280,
+          "actualViewportHeight": 720,
+          "devicePixelRatio": 1,
+          "correctness": {
+            "passed": true,
+            "reason": "Level A (40 instances) \u0026 Level B (5 sampled) verified (vis=40, susp=0)",
+            "levelAPassed": true,
+            "levelBPassed": true,
+            "sampledDelta": 244.47,
+            "visibleCount": 40,
+            "checkedIndices": [
+              0,
+              10,
+              20,
+              30,
+              39
+            ]
+          }
+        },
+        {
+          "repetition": 3,
+          "orderIndex": 1,
+          "status": "valid",
+          "processCpuSec": 0.5399999999990541,
+          "ownedPidCount": 16,
+          "frames": {
+            "frames": 102,
+            "rafHz": 60.00352961938937,
+            "avgRafIntervalMs": 16.665686274509806,
+            "p95RafIntervalMs": 16.700000000000273,
+            "maxRafIntervalMs": 16.800000000000182,
+            "longFramesOver16ms": 64,
+            "longFramesOver20ms": 0,
+            "longFramesOver50ms": 0
+          },
+          "presentedFps": null,
+          "presentedFpsNote": "N/A: compositor presented-frame counter unavailable in standard headless/SwiftShader CDP",
+          "longTaskCount": 0,
+          "longTaskMs": 0,
+          "taskDeltaMs": 81.43699999999998,
+          "scriptDeltaMs": 13.850000000000001,
+          "layoutDeltaMs": 0,
+          "recalcDeltaMs": 14.763000000000005,
+          "layoutCountDelta": 0,
+          "jsHeapMB": 0.9150352478027344,
+          "domNodes": 277,
+          "actualViewportWidth": 1280,
+          "actualViewportHeight": 720,
+          "devicePixelRatio": 1,
+          "correctness": {
+            "passed": true,
+            "reason": "Level A (40 instances) \u0026 Level B (5 sampled) verified (vis=40, susp=0)",
+            "levelAPassed": true,
+            "levelBPassed": true,
+            "sampledDelta": 244.39999999999998,
+            "visibleCount": 40,
+            "checkedIndices": [
+              0,
+              10,
+              20,
+              30,
+              39
+            ]
+          }
+        }
+      ]
+    }
+  ]
+}

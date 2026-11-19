@@ -204,3 +204,60 @@ func TestM1ConfigAndEffectInvariants(t *testing.T) {
 		t.Fatalf("expected cell dimensions >= 140 for 120x120 shape, got %dx%d", cw, ch)
 	}
 }
+
+
+func TestM2MeasurementStatsOrderingAndRanking(t *testing.T) {
+	// 1. FrameStats: 16.67ms vs 20.0ms threshold separation and RafHz naming
+	fs := computeFrameStats([]float64{16.0, 17.5, 22.0, 55.0})
+	if fs.LongFramesOver16Ms != 3 || fs.LongFramesOver20Ms != 2 || fs.LongFramesOver50Ms != 1 {
+		t.Fatalf("expected over16=3, over20=2, over50=1; got %+v", fs)
+	}
+	if fs.RafHz <= 0 || fs.AvgRafIntervalMs <= 0 {
+		t.Fatalf("expected positive RafHz and AvgRafIntervalMs, got %+v", fs)
+	}
+
+	// 2. DistributionStats
+	d := computeDistribution([]float64{10, 20, 30})
+	if d == nil || d.Mean != 20 || d.Median != 20 || d.Min != 10 || d.Max != 30 || d.StdDev <= 0 {
+		t.Fatalf("unexpected distribution: %+v", d)
+	}
+
+	// 3. Deterministic randomized & alternating ordering
+	specs := []TestRunSpec{{RunID: "a"}, {RunID: "b"}, {RunID: "c"}, {RunID: "d"}}
+	r0 := orderTrialsForRepetition(specs, ExecutionConfig{OrderStrategy: "randomized", RandomSeed: 42}, 0)
+	r0b := orderTrialsForRepetition(specs, ExecutionConfig{OrderStrategy: "randomized", RandomSeed: 42}, 0)
+	for i := range r0 {
+		if r0[i].RunID != r0b[i].RunID {
+			t.Fatalf("randomized order not deterministic for same seed")
+		}
+	}
+	a0 := orderTrialsForRepetition(specs, ExecutionConfig{OrderStrategy: "alternating"}, 0)
+	a1 := orderTrialsForRepetition(specs, ExecutionConfig{OrderStrategy: "alternating"}, 1)
+	if a0[0].RunID == a1[0].RunID {
+		t.Fatalf("alternating order did not rotate/reverse across reps")
+	}
+
+	// 4. Decision report ranking uses MEANS, not sums (F-C14)
+	tmpDir := t.TempDir()
+	res := &LabResults{
+		TestName: "rank-mean-test",
+		Scenarios: []ScenarioReport{
+			// Method "css" has 1 scenario with 10ms task (mean=10)
+			{RunID: "css-1", Family: "pulse", Method: "css", CorrectnessPassed: true, ValidRepetitions: 1, TotalRepetitions: 1, AvgRafHz: ptrFloat64(60), AvgTaskMs: ptrFloat64(10), AvgProcessCPUSec: ptrFloat64(0.10)},
+			// Method "smil" has 3 scenarios with 30ms task each (sum=90, mean=30)
+			{RunID: "smil-1", Family: "pulse", Method: "smil", CorrectnessPassed: true, ValidRepetitions: 1, TotalRepetitions: 1, AvgRafHz: ptrFloat64(60), AvgTaskMs: ptrFloat64(30), AvgProcessCPUSec: ptrFloat64(0.30)},
+			{RunID: "smil-2", Family: "pulse", Method: "smil", CorrectnessPassed: true, ValidRepetitions: 1, TotalRepetitions: 1, AvgRafHz: ptrFloat64(60), AvgTaskMs: ptrFloat64(30), AvgProcessCPUSec: ptrFloat64(0.30)},
+			{RunID: "smil-3", Family: "pulse", Method: "smil", CorrectnessPassed: true, ValidRepetitions: 1, TotalRepetitions: 1, AvgRafHz: ptrFloat64(60), AvgTaskMs: ptrFloat64(30), AvgProcessCPUSec: ptrFloat64(0.30)},
+		},
+	}
+	if err := WriteDecisionReports(&Config{}, res, tmpDir); err != nil {
+		t.Fatal(err)
+	}
+	b, err := os.ReadFile(filepath.Join(tmpDir, "decision-pulse.md"))
+	if err != nil {
+		t.Fatal(err)
+	}
+	if !strings.Contains(string(b), "**Selected Recommendation:** `css`") {
+		t.Fatalf("expected css (lower mean task/CPU) to win over smil (3 scenarios), got:\n%s", string(b))
+	}
+}

@@ -32,13 +32,14 @@ type TestMeta struct {
 }
 
 type BrowserConfig struct {
-	Engine         string `yaml:"engine" json:"engine"`
-	Headless       bool   `yaml:"headless" json:"headless"`
-	CDPEndpoint    string `yaml:"cdp_endpoint,omitempty" json:"cdp_endpoint,omitempty"`
-	HostBindIP     string `yaml:"host_bind_ip,omitempty" json:"host_bind_ip,omitempty"`
-	ProcessCPUHost string `yaml:"process_cpu_host,omitempty" json:"process_cpu_host,omitempty"`
-	ViewportWidth  int    `yaml:"viewport_width,omitempty" json:"viewport_width,omitempty"`
-	ViewportHeight int    `yaml:"viewport_height,omitempty" json:"viewport_height,omitempty"`
+	Engine            string  `yaml:"engine" json:"engine"`
+	Headless          bool    `yaml:"headless" json:"headless"`
+	CDPEndpoint       string  `yaml:"cdp_endpoint,omitempty" json:"cdp_endpoint,omitempty"`
+	HostBindIP        string  `yaml:"host_bind_ip,omitempty" json:"host_bind_ip,omitempty"`
+	ProcessCPUHost    string  `yaml:"process_cpu_host,omitempty" json:"process_cpu_host,omitempty"`
+	ViewportWidth     int     `yaml:"viewport_width,omitempty" json:"viewport_width,omitempty"`
+	ViewportHeight    int     `yaml:"viewport_height,omitempty" json:"viewport_height,omitempty"`
+	DeviceScaleFactor float64 `yaml:"device_scale_factor,omitempty" json:"device_scale_factor,omitempty"`
 }
 
 type ExecutionConfig struct {
@@ -47,6 +48,7 @@ type ExecutionConfig struct {
 	Repetitions          int     `yaml:"repetitions" json:"repetitions"`
 	RandomSeed           int64   `yaml:"random_seed" json:"random_seed"`
 	AlternateMethodOrder bool    `yaml:"alternate_method_order" json:"alternate_method_order"`
+	OrderStrategy        string  `yaml:"order_strategy,omitempty" json:"order_strategy,omitempty"` // "alternating" | "randomized" | "sequential"
 }
 
 type InstancesConfig struct {
@@ -183,6 +185,9 @@ func mergeConfigs(base, over Config) Config {
 	if over.Browser.ViewportHeight > 0 {
 		out.Browser.ViewportHeight = over.Browser.ViewportHeight
 	}
+	if over.Browser.DeviceScaleFactor > 0 {
+		out.Browser.DeviceScaleFactor = over.Browser.DeviceScaleFactor
+	}
 	if over.Execution.WarmupSeconds > 0 {
 		out.Execution.WarmupSeconds = over.Execution.WarmupSeconds
 	}
@@ -197,6 +202,9 @@ func mergeConfigs(base, over Config) Config {
 	}
 	if over.Execution.AlternateMethodOrder {
 		out.Execution.AlternateMethodOrder = true
+	}
+	if over.Execution.OrderStrategy != "" {
+		out.Execution.OrderStrategy = over.Execution.OrderStrategy
 	}
 	if len(over.Instances.Counts) > 0 {
 		out.Instances.Counts = over.Instances.Counts
@@ -246,6 +254,16 @@ func applyDefaults(cfg *Config) {
 	}
 	if cfg.Execution.RandomSeed == 0 {
 		cfg.Execution.RandomSeed = 12345
+	}
+	if cfg.Browser.DeviceScaleFactor <= 0 {
+		cfg.Browser.DeviceScaleFactor = 1.0
+	}
+	if cfg.Execution.OrderStrategy == "" {
+		if cfg.Execution.AlternateMethodOrder {
+			cfg.Execution.OrderStrategy = "alternating"
+		} else {
+			cfg.Execution.OrderStrategy = "sequential"
+		}
 	}
 	if cfg.Instances.Isolation == "" {
 		cfg.Instances.Isolation = "independent-svg-roots"

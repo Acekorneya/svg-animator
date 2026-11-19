@@ -249,6 +249,27 @@ fFam.onchange = fMet.onchange = fShp.onchange = apply;
 	return entries, nil
 }
 
+func fmtPtrFloat(p *float64, prec int) string {
+	if p == nil {
+		return "N/A"
+	}
+	return fmt.Sprintf("%.*f", prec, *p)
+}
+
+func fmtPtrInt(p *int) string {
+	if p == nil {
+		return "N/A"
+	}
+	return fmt.Sprintf("%d", *p)
+}
+
+func fmtPtrInt64(p *int64) string {
+	if p == nil {
+		return "N/A"
+	}
+	return fmt.Sprintf("%d", *p)
+}
+
 // BuildMarkdownReport builds a comprehensive Markdown comparison report.
 func BuildMarkdownReport(cfg *Config, res *LabResults) string {
 	var sb strings.Builder
@@ -257,21 +278,24 @@ func BuildMarkdownReport(cfg *Config, res *LabResults) string {
 		sb.WriteString(res.Description + "\n\n")
 	}
 	sb.WriteString(fmt.Sprintf("- **Timestamp:** `%s`\n", res.Timestamp))
-	sb.WriteString(fmt.Sprintf("- **Browser:** `%v` (`hardwareConcurrency: %v`)\n", res.Environment["userAgent"], res.Environment["hardwareConcurrency"]))
-	sb.WriteString(fmt.Sprintf("- **Execution:** warmup=`%.1fs`, duration=`%.1fs`, repetitions=`%d`, alternating=`%v`, seed=`%d`\n",
-		cfg.Execution.WarmupSeconds, cfg.Execution.DurationSeconds, cfg.Execution.Repetitions, cfg.Execution.AlternateMethodOrder, cfg.Execution.RandomSeed))
-	sb.WriteString(fmt.Sprintf("- **Note:** %v\n\n", res.Environment["gpuNote"]))
+	sb.WriteString(fmt.Sprintf("- **Browser:** `%v` (`hardwareConcurrency: %v`, `isSoftwareRenderer: %v`, `renderer: %v`)\n",
+		res.Environment["userAgent"], res.Environment["hardwareConcurrency"], res.Environment["isSoftwareRenderer"], res.Environment["webglRenderer"]))
+	sb.WriteString(fmt.Sprintf("- **Execution:** warmup=`%.1fs`, duration=`%.1fs`, repetitions=`%d`, orderStrategy=`%s`, seed=`%d`\n\n",
+		cfg.Execution.WarmupSeconds, cfg.Execution.DurationSeconds, cfg.Execution.Repetitions, cfg.Execution.OrderStrategy, cfg.Execution.RandomSeed))
 
 	sb.WriteString("## Results Matrix\n\n")
-	sb.WriteString("| Run ID | Family | Method | Workload | Count | Correctness | FPS | Avg (ms) | P95 (ms) | Chrome CPU (s) | Task (ms) | Heap (MB) | Long Tasks |\n")
-	sb.WriteString("|---|---|---|---|---:|---|---:|---:|---:|---:|---:|---:|---:|\n")
+	sb.WriteString("| Run ID | Family | Method | Workload | Count | Valid | Correctness | rAF (Hz) | Presented FPS | Avg rAF (ms) | P95 rAF (ms) | Browser CPU (s) | Task (ms) | Heap (MB) | DOM Nodes | Long Tasks |\n")
+	sb.WriteString("|---|---|---|---|---:|---:|---|---:|---:|---:|---:|---:|---:|---:|---:|---:|\n")
 	for _, s := range res.Scenarios {
 		corr := "PASS"
 		if !s.CorrectnessPassed {
 			corr = "FAIL (" + s.CorrectnessNote + ")"
 		}
-		sb.WriteString(fmt.Sprintf("| `%s` | %s | `%s` | %s | %d | %s | %.1f | %.2f | %.2f | %.3f | %.2f | %.1f | %d |\n",
-			s.RunID, s.Family, s.Method, s.WorkloadName, s.Count, corr, s.AvgFPS, s.AvgFrameMs, s.P95FrameMs, s.AvgProcessCPUSec, s.AvgTaskMs, s.AvgHeapMB, s.LongTasks))
+		sb.WriteString(fmt.Sprintf("| `%s` | %s | `%s` | %s | %d | %d/%d | %s | %s | %s | %s | %s | %s | %s | %s | %s | %s |\n",
+			s.RunID, s.Family, s.Method, s.WorkloadName, s.Count, s.ValidRepetitions, s.TotalRepetitions, corr,
+			fmtPtrFloat(s.AvgRafHz, 1), fmtPtrFloat(s.PresentedFPS, 1), fmtPtrFloat(s.AvgRafIntervalMs, 2),
+			fmtPtrFloat(s.P95RafIntervalMs, 2), fmtPtrFloat(s.AvgProcessCPUSec, 3), fmtPtrFloat(s.AvgTaskMs, 2),
+			fmtPtrFloat(s.AvgHeapMB, 1), fmtPtrInt64(s.DOMNodes), fmtPtrInt(s.LongTasks)))
 	}
 	sb.WriteString("\n")
 
@@ -302,10 +326,12 @@ func BuildHTMLReport(cfg *Config, res *LabResults, samples []SampleEntry) string
 		}
 		rows.WriteString(fmt.Sprintf(`<tr>
   <td><code>%s</code></td><td>%s</td><td><code>%s</code></td><td>%s</td><td>%d</td>
-  <td>%s</td><td>%.1f</td><td>%.2f</td><td>%.2f</td><td>%.3f</td><td>%.2f</td><td>%.1f</td><td>%d</td><td>%s</td>
+  <td>%s</td><td>%s</td><td>%s</td><td>%s</td><td>%s</td><td>%s</td><td>%s</td><td>%s</td><td>%s</td>
 </tr>`, html.EscapeString(s.RunID), html.EscapeString(s.Family), html.EscapeString(s.Method),
-			html.EscapeString(s.WorkloadName), s.Count, badge, s.AvgFPS, s.AvgFrameMs, s.P95FrameMs,
-			s.AvgProcessCPUSec, s.AvgTaskMs, s.AvgHeapMB, s.LongTasks, shot))
+			html.EscapeString(s.WorkloadName), s.Count, badge,
+			fmtPtrFloat(s.AvgRafHz, 1), fmtPtrFloat(s.AvgRafIntervalMs, 2), fmtPtrFloat(s.P95RafIntervalMs, 2),
+			fmtPtrFloat(s.AvgProcessCPUSec, 3), fmtPtrFloat(s.AvgTaskMs, 2), fmtPtrFloat(s.AvgHeapMB, 1),
+			fmtPtrInt(s.LongTasks), shot))
 	}
 	catLink := ""
 	if len(samples) > 0 {
@@ -327,7 +353,7 @@ func BuildHTMLReport(cfg *Config, res *LabResults, samples []SampleEntry) string
 <h1>SVG Animation Test Lab Report — %s</h1>
 <div class="meta">%s | %s | %s</div>
 <table>
-  <thead><tr><th>Run ID</th><th>Family</th><th>Method</th><th>Workload</th><th>Count</th><th>Correctness</th><th>FPS</th><th>Avg (ms)</th><th>P95 (ms)</th><th>CPU (s)</th><th>Task (ms)</th><th>Heap (MB)</th><th>Long Tasks</th><th>Sample</th></tr></thead>
+  <thead><tr><th>Run ID</th><th>Family</th><th>Method</th><th>Workload</th><th>Count</th><th>Correctness</th><th>rAF (Hz)</th><th>Avg rAF (ms)</th><th>P95 rAF (ms)</th><th>Browser CPU (s)</th><th>Task (ms)</th><th>Heap (MB)</th><th>Long Tasks</th><th>Sample</th></tr></thead>
   <tbody>%s</tbody>
 </table>
 </body></html>`, html.EscapeString(res.TestName), html.EscapeString(res.TestName),
@@ -348,11 +374,17 @@ func WriteDecisionReports(cfg *Config, res *LabResults, outDir string) error {
 			method        string
 			runs          int
 			passed        int
+			validRuns     int
 			nonEquivalent int
 			unsupported   int
-			fpsSum        float64
-			taskSum       float64
-			cpuSum        float64
+			rafHzVals     []float64
+			taskVals      []float64
+			cpuVals       []float64
+			rafHzMean     float64
+			taskMean      float64
+			cpuMean       float64
+			hasCPU        bool
+			hasTask       bool
 			lims          []string
 			limSeen       map[string]bool
 		}
@@ -367,15 +399,24 @@ func WriteDecisionReports(cfg *Config, res *LabResults, outDir string) error {
 			if s.CorrectnessPassed {
 				a.passed++
 			}
+			if s.ValidRepetitions == s.TotalRepetitions && s.TotalRepetitions > 0 {
+				a.validRuns++
+			}
 			if s.NonEquivalent {
 				a.nonEquivalent++
 			}
 			if s.Unsupported {
 				a.unsupported++
 			}
-			a.fpsSum += s.AvgFPS
-			a.taskSum += s.AvgTaskMs
-			a.cpuSum += s.AvgProcessCPUSec
+			if s.AvgRafHz != nil {
+				a.rafHzVals = append(a.rafHzVals, *s.AvgRafHz)
+			}
+			if s.AvgTaskMs != nil {
+				a.taskVals = append(a.taskVals, *s.AvgTaskMs)
+			}
+			if s.AvgProcessCPUSec != nil {
+				a.cpuVals = append(a.cpuVals, *s.AvgProcessCPUSec)
+			}
 			for _, l := range s.Limitations {
 				if !a.limSeen[l] {
 					a.limSeen[l] = true
@@ -384,50 +425,105 @@ func WriteDecisionReports(cfg *Config, res *LabResults, outDir string) error {
 			}
 		}
 
-		// Rank only equivalent, supported methods that passed 100% of correctness checks
+		for _, a := range mAgg {
+			if d := computeDistribution(a.rafHzVals); d != nil {
+				a.rafHzMean = d.Mean
+			}
+			if d := computeDistribution(a.taskVals); d != nil {
+				a.taskMean = d.Mean
+				a.hasTask = true
+			}
+			if d := computeDistribution(a.cpuVals); d != nil {
+				a.cpuMean = d.Mean
+				a.hasCPU = true
+			}
+		}
+
+		// Rank only equivalent, supported, valid methods that passed 100% of correctness checks, using MEANS (never sums).
 		var candidates []*agg
 		for _, a := range mAgg {
-			if a.passed == a.runs && a.nonEquivalent == 0 && a.unsupported == 0 && a.method != "static" {
+			if a.passed == a.runs && a.validRuns == a.runs && a.nonEquivalent == 0 && a.unsupported == 0 && a.method != "static" {
 				candidates = append(candidates, a)
 			}
 		}
 		sort.Slice(candidates, func(i, j int) bool {
-			// Prefer higher avg FPS, then lower main-thread task duration, then lower CPU
-			if math.Abs(candidates[i].fpsSum-candidates[j].fpsSum) > 1.0 {
-				return candidates[i].fpsSum > candidates[j].fpsSum
+			// Compare means: higher rAF Hz (if meaningful > 2 Hz diff), then lower main-thread task ms, then lower owned CPU sec
+			if math.Abs(candidates[i].rafHzMean-candidates[j].rafHzMean) > 2.0 {
+				return candidates[i].rafHzMean > candidates[j].rafHzMean
 			}
-			if math.Abs(candidates[i].taskSum-candidates[j].taskSum) > 5.0 {
-				return candidates[i].taskSum < candidates[j].taskSum
+			if candidates[i].hasTask && candidates[j].hasTask && math.Abs(candidates[i].taskMean-candidates[j].taskMean) > 5.0 {
+				return candidates[i].taskMean < candidates[j].taskMean
 			}
-			return candidates[i].cpuSum < candidates[j].cpuSum
+			if candidates[i].hasCPU && candidates[j].hasCPU {
+				return candidates[i].cpuMean < candidates[j].cpuMean
+			}
+			return candidates[i].method < candidates[j].method
 		})
 
 		var sb strings.Builder
 		sb.WriteString(fmt.Sprintf("# Decision Report — `%s`\n\n", fam))
 		sb.WriteString("## 1. Tested Methods & Correctness\n\n")
-		sb.WriteString("| Method | Trials | Correctness Passed | Avg FPS | Avg Main-Thread Task (ms) | Avg Chrome CPU (s) | Limitations |\n")
+		sb.WriteString("| Method | Trials | Correctness Passed | Mean rAF (Hz) | Mean Main-Thread Task (ms) | Mean Owned Browser CPU (s) | Limitations |\n")
 		sb.WriteString("|---|---:|---:|---:|---:|---:|---|\n")
 		for _, m := range sortedMapKeys(mAgg) {
 			a := mAgg[m]
 			lim := "-"
 			if len(a.lims) > 0 {
-				lim = a.lims[0]
+				lim = strings.Join(a.lims, "; ")
 			}
-			sb.WriteString(fmt.Sprintf("| `%s` | %d | %d/%d | %.1f | %.2f | %.3f | %s |\n",
-				a.method, a.runs, a.passed, a.runs, a.fpsSum/float64(a.runs), a.taskSum/float64(a.runs), a.cpuSum/float64(a.runs), lim))
+			cpuStr := "N/A"
+			if a.hasCPU {
+				cpuStr = fmt.Sprintf("%.3f", a.cpuMean)
+			}
+			taskStr := "N/A"
+			if a.hasTask {
+				taskStr = fmt.Sprintf("%.2f", a.taskMean)
+			}
+			sb.WriteString(fmt.Sprintf("| `%s` | %d | %d/%d | %.1f | %s | %s | %s |\n",
+				a.method, a.runs, a.passed, a.runs, a.rafHzMean, taskStr, cpuStr, lim))
 		}
 		sb.WriteString("\n## 2. Assessment & Recommendation\n\n")
 		if len(candidates) == 0 {
-			sb.WriteString("- **Recommendation:** Inconclusive — no dynamic rendering method passed 100% of correctness checks.\n")
+			sb.WriteString("- **Recommendation:** Inconclusive — no equivalent, valid dynamic rendering method passed 100% of correctness checks.\n")
 		} else {
 			best := candidates[0]
-			sb.WriteString(fmt.Sprintf("- **Selected Recommendation:** `%s` (passed %d/%d correctness checks; %.1f avg FPS; %.2f ms main-thread task work; %.3f s Chrome process-tree CPU).\n",
-				best.method, best.passed, best.runs, best.fpsSum/float64(best.runs), best.taskSum/float64(best.runs), best.cpuSum/float64(best.runs)))
+			cpuDesc := "CPU N/A"
+			if best.hasCPU {
+				cpuDesc = fmt.Sprintf("%.3f s owned browser CPU", best.cpuMean)
+			}
+			taskDesc := "task N/A"
+			if best.hasTask {
+				taskDesc = fmt.Sprintf("%.2f ms main-thread task", best.taskMean)
+			}
+			indistinguishable := false
+			if len(candidates) > 1 {
+				second := candidates[1]
+				if math.Abs(best.rafHzMean-second.rafHzMean) <= 2.0 &&
+					(!best.hasTask || !second.hasTask || math.Abs(best.taskMean-second.taskMean) <= 5.0) &&
+					(!best.hasCPU || !second.hasCPU || math.Abs(best.cpuMean-second.cpuMean) <= math.Max(0.02, 0.05*best.cpuMean)) {
+					indistinguishable = true
+				}
+			}
+			if indistinguishable {
+				sb.WriteString(fmt.Sprintf("- **Selected Recommendation:** Indistinguishable within measurement margin between `%s` and `%s` (both passed correctness; `%s`: %.1f Hz rAF, %s, %s).\n",
+					best.method, candidates[1].method, best.method, best.rafHzMean, taskDesc, cpuDesc))
+			} else {
+				sb.WriteString(fmt.Sprintf("- **Selected Recommendation:** `%s` (passed %d/%d correctness checks; %.1f mean rAF Hz; %s; %s).\n",
+					best.method, best.passed, best.runs, best.rafHzMean, taskDesc, cpuDesc))
+			}
 			if len(candidates) > 1 {
 				sb.WriteString("- **Alternatives Considered:**\n")
 				for _, alt := range candidates[1:] {
-					sb.WriteString(fmt.Sprintf("  - `%s`: %.1f avg FPS, %.2f ms main-thread task, %.3f s CPU.\n",
-						alt.method, alt.fpsSum/float64(alt.runs), alt.taskSum/float64(alt.runs), alt.cpuSum/float64(alt.runs)))
+					altCPU := "N/A"
+					if alt.hasCPU {
+						altCPU = fmt.Sprintf("%.3f s CPU", alt.cpuMean)
+					}
+					altTask := "N/A"
+					if alt.hasTask {
+						altTask = fmt.Sprintf("%.2f ms task", alt.taskMean)
+					}
+					sb.WriteString(fmt.Sprintf("  - `%s`: %.1f mean rAF Hz, %s, %s.\n",
+						alt.method, alt.rafHzMean, altTask, altCPU))
 				}
 			}
 		}

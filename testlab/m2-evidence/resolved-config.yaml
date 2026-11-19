@@ -1,0 +1,60 @@
+version: 1
+test:
+    name: m2-full-suite
+    description: M2 Measurement Integrity verification
+browser:
+    engine: chromium
+    headless: true
+    cdp_endpoint: http://127.0.0.1:9222
+    host_bind_ip: 192.168.100.47
+    process_cpu_host: nigel@192.168.100.40
+    viewport_width: 1280
+    viewport_height: 720
+    device_scale_factor: 1
+execution:
+    warmup_seconds: 0.3
+    duration_seconds: 1.2
+    repetitions: 3
+    random_seed: 2026
+    alternate_method_order: false
+    order_strategy: alternating
+instances:
+    counts:
+        - 40
+    isolation: independent-svg-roots
+effects:
+    - family: perimeter-tracer
+      methods:
+        - css
+        - smil
+        - javascript-raf
+      shapes:
+        - rect
+      sizes:
+        small:
+            - 50
+            - 50
+      speeds:
+        medium: 1.5
+      segment_counts:
+        - 2
+      line_gap_ratios:
+        - 25:75
+workloads:
+    - name: all-active
+      visibility: all
+measurements:
+    - process_cpu
+    - frame_timing
+    - long_tasks
+    - rendering_activity
+    - memory
+    - animation_correctness
+output:
+    dir: testlab/m2-evidence
+    samples: false
+    screenshots: false
+    raw_results: true
+    html_report: true
+    markdown_report: true
+    decision_report: true

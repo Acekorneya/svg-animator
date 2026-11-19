@@ -59,3 +59,15 @@ Every run directory preserves:
 - **Two-Level Verification (`pkg/animlab/correctness.go`):**
   - **Level A (Whole-Population):** Inspects all `N` `.lab-payload` elements for count, unique IDs, animation attachment, offscreen suspension, and per-instance motion (`PARTIAL_POPULATION_FAILURE`, `STATIONARY`, `SUSPENSION_LEAK`).
   - **Level B (Detailed Temporal Sampling):** Samples deterministic subset `[0, N/4, N/2, 3*N/4, N-1]` at `30ms`–`60ms` cadence to verify tracer direction/speed/loop continuity (`WRONG_DIRECTION`, `WRONG_SPEED`, `LOOP_DISCONTINUITY`), pulse mode exclusivity (`MODE_MISMATCH`, `WRONG_AMPLITUDE`), flash pulse detection (`MISSED_FLASH`, `STUCK_ACTIVE`), `data-driven` gauge updates, and scroll-into-view resumption (`RESUMPTION_FAILED`).
+
+---
+
+## 6. Milestone 2 — Measurement Integrity
+
+- **Owned Browser Process-Tree CPU (`pkg/animlab/cpu_linux.go`):** Identifies the specific attached Chromium root PID (via CDP `SystemInfo.getProcessInfo` + port/cmdline verification), walks its recursive descendant PID tree on `ProcessCPUHost`, and divides `/proc/<pid>/stat` ticks by `getconf CLK_TCK`. Unrelated Chromium instances or processes are excluded; unavailable ownership yields `null` / `N/A` and marks the trial `partial`/`failed` rather than inventing `0.0`.
+- **Viewport & Per-Trial Isolation (`pkg/animlab/runner.go`):** Each trial runs in a fresh isolated tab target (`chromedp.NewContext` + `defer cancel()`), applies `viewport_width`/`viewport_height`/`device_scale_factor` via `emulation.SetDeviceMetricsOverride`, and verifies actual `window.innerWidth`/`innerHeight`/`devicePixelRatio`.
+- **Metric Semantics & Uncertainty (`pkg/animlab/metrics.go`, `pkg/animlab/report.go`):**
+  - `rafHz` (`requestAnimationFrame` callback cadence) is strictly separated from `presentedFps` (`null` / `N/A` when compositor presentation counters are unavailable).
+  - `longFramesOver16ms` (`> 16.67 ms`) is separated from `longFramesOver20ms` (`> 20.0 ms`) and `longFramesOver50ms` (`> 50.0 ms`).
+  - `MetricDefinitions` and `Environment` (WebGL renderer, `isSoftwareRenderer`, OS/CPU/RAM, `clkTck`, `browserOwnership`) are persisted in `raw-results.json`.
+  - Decision reports rank equivalent, valid, correctness-passing methods by **means** (never sums), report `N/A` for unavailable metrics, and flag results within measurement margin as indistinguishable.
