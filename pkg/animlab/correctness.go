@@ -402,7 +402,18 @@ func EvaluateCorrectness(ctx context.Context, s TestRunSpec) CorrectnessResult {
 		targetID := p0.Items[targetIdx].ID
 		_, _ = chromedp.Run(ctx, chromedp.Evaluate[string](fmt.Sprintf(`(() => {
 			const el = document.getElementById(%q);
-			if (el) el.scrollIntoView({ behavior: 'instant', block: 'center' });
+			if (el) {
+				el.scrollIntoView({ behavior: 'instant', block: 'center' });
+				const grid = document.getElementById('labGrid');
+				if (grid) {
+					const er = el.getBoundingClientRect();
+					const gr = grid.getBoundingClientRect();
+					if (er.top < gr.top || er.bottom > gr.bottom) {
+						grid.scrollTop += (er.top - gr.top) - gr.height * 0.4;
+					}
+				}
+			}
+			if (window.__labRefreshVisibility) window.__labRefreshVisibility();
 			return 'ok';
 		})()`, targetID)))
 		_, _ = chromedp.Run(ctx, chromedp.Sleep(250*time.Millisecond))

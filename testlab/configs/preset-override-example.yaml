@@ -1,0 +1,36 @@
+version: 1
+inherits: base-kiwiberry.yaml
+test:
+  name: preset-override-example
+  description: Demonstrates inheriting base-kiwiberry.yaml, overriding warmup_seconds=0, and using named presets.
+
+presets:
+  tracer_2seg:
+    family: perimeter-tracer
+    methods: [css, javascript-raf]
+    shapes: [rectangle, circle]
+    sizes:
+      medium: [90, 60]
+    speeds:
+      medium: 1.8
+    segment_counts: [2]
+    line_gap_ratios: ["25:75"]
+    directions: [cw]
+    raf_scheduling: shared
+
+execution:
+  warmup_seconds: 0
+  duration_seconds: 2.0
+  repetitions: 1
+  order_strategy: alternating
+
+instances:
+  counts: [24]
+  isolation: independent-svg-roots
+
+effects:
+  - preset: tracer_2seg
+
+workloads:
+  - name: all-active
+    visibility: all

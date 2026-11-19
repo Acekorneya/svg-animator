@@ -113,66 +113,82 @@ func GenerateVisualCatalogue(cfg *Config, outDir string, hasReport bool) ([]Samp
 		}
 		sizeKeys := sortedMapKeys(eff.Sizes)
 		speedKeys := sortedMapKeys(eff.Speeds)
+		segs := eff.SegmentCounts
+		if len(segs) == 0 || eff.Family != "perimeter-tracer" {
+			segs = []int{2}
+		}
+		ratios := eff.LineGapRatios
+		if len(ratios) == 0 || eff.Family != "perimeter-tracer" {
+			ratios = []string{"1:3"}
+		}
+		pModes := eff.PulseModes
+		if len(pModes) == 0 || eff.Family != "pulse" {
+			pModes = []string{"scale-opacity"}
+		}
+		pAmp := 0.2
+		if len(eff.PulseAmplitudes) > 0 {
+			pAmp = eff.PulseAmplitudes[0]
+		}
+		fModes := eff.FlashModes
+		if len(fModes) == 0 || eff.Family != "flash" {
+			fModes = []string{"repeating"}
+		}
 		for _, m := range eff.Methods {
 			for _, sh := range eff.Shapes {
 				for _, szK := range sizeKeys {
 					sz := eff.Sizes[szK]
 					for _, spK := range speedKeys {
-						idx++
 						sp := eff.Speeds[spK]
-						seg := 2
-						if len(eff.SegmentCounts) > 0 {
-							seg = eff.SegmentCounts[0]
+						for _, seg := range segs {
+							for _, ratio := range ratios {
+								for _, pMode := range pModes {
+									for _, fMode := range fModes {
+										idx++
+										ip := InstanceParams{
+											ID:             fmt.Sprintf("samp_%d", idx),
+											Family:         eff.Family,
+											Method:         m,
+											Shape:          sh,
+											Width:          sz[0],
+											Height:         sz[1],
+											Speed:          sp,
+											Segments:       seg,
+											LineGapRatio:   ratio,
+											Direction:      "cw",
+											PulseMode:      pMode,
+											PulseAmplitude: pAmp,
+											FlashMode:      fMode,
+											FlashDurMs:     eff.FlashDurationMs,
+											FlashIntervalS: eff.FlashIntervalS,
+											Color:          palette[(idx-1)%len(palette)],
+										}
+										re := gen.Render(ip, 220, 140)
+										svg := BuildStandaloneSampleSVG(ip)
+										tag := ""
+										if eff.Family == "pulse" {
+											tag = "__" + pMode
+										} else if eff.Family == "flash" {
+											tag = "__" + fMode
+										} else if eff.Family == "perimeter-tracer" && (len(segs) > 1 || len(ratios) > 1) {
+											tag = fmt.Sprintf("__s%d_r%s", seg, strings.ReplaceAll(ratio, ":", "x"))
+										}
+										fname := fmt.Sprintf("%s__%s__%s__%s__%s%s.svg", eff.Family, m, sh, szK, spK, tag)
+										if err := os.WriteFile(filepath.Join(sampDir, fname), []byte(svg), 0644); err != nil {
+											return nil, err
+										}
+										entries = append(entries, SampleEntry{
+											Filename:   fname,
+											Family:     eff.Family,
+											Method:     m,
+											Shape:      sh,
+											Size:       fmt.Sprintf("%s (%dx%d)", szK, sz[0], sz[1]),
+											Speed:      fmt.Sprintf("%s (%.2fs)", spK, sp),
+											Limitation: re.Limitation,
+										})
+									}
+								}
+							}
 						}
-						ratio := "1:3"
-						if len(eff.LineGapRatios) > 0 {
-							ratio = eff.LineGapRatios[0]
-						}
-						pMode := "scale-opacity"
-						if len(eff.PulseModes) > 0 {
-							pMode = eff.PulseModes[0]
-						}
-						pAmp := 0.2
-						if len(eff.PulseAmplitudes) > 0 {
-							pAmp = eff.PulseAmplitudes[0]
-						}
-						fMode := "repeating"
-						if len(eff.FlashModes) > 0 {
-							fMode = eff.FlashModes[0]
-						}
-						ip := InstanceParams{
-							ID:             fmt.Sprintf("samp_%d", idx),
-							Family:         eff.Family,
-							Method:         m,
-							Shape:          sh,
-							Width:          sz[0],
-							Height:         sz[1],
-							Speed:          sp,
-							Segments:       seg,
-							LineGapRatio:   ratio,
-							Direction:      "cw",
-							PulseMode:      pMode,
-							PulseAmplitude: pAmp,
-							FlashMode:      fMode,
-							FlashDurMs:     eff.FlashDurationMs,
-							FlashIntervalS: eff.FlashIntervalS,
-							Color:          palette[(idx-1)%len(palette)],
-						}
-						re := gen.Render(ip, 220, 140)
-						svg := BuildStandaloneSampleSVG(ip)
-						fname := fmt.Sprintf("%s__%s__%s__%s__%s.svg", eff.Family, m, sh, szK, spK)
-						if err := os.WriteFile(filepath.Join(sampDir, fname), []byte(svg), 0644); err != nil {
-							return nil, err
-						}
-						entries = append(entries, SampleEntry{
-							Filename:   fname,
-							Family:     eff.Family,
-							Method:     m,
-							Shape:      sh,
-							Size:       fmt.Sprintf("%s (%dx%d)", szK, sz[0], sz[1]),
-							Speed:      fmt.Sprintf("%s (%.2fs)", spK, sp),
-							Limitation: re.Limitation,
-						})
 					}
 				}
 			}

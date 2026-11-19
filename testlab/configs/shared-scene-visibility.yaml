@@ -1,0 +1,26 @@
+version: 1
+inherits: base-kiwiberry.yaml
+test:
+  name: shared-scene-visibility
+  description: Shared-scene SVG group visibility and off-screen suspension study.
+
+instances:
+  counts: [36]
+  isolation: shared-scene
+
+effects:
+  - family: perimeter-tracer
+    methods: [css, javascript-raf]
+    shapes: [rectangle, circle]
+    sizes:
+      small: [60, 50]
+    speeds:
+      medium: 1.5
+    segment_counts: [2]
+    line_gap_ratios: ["1:3"]
+
+workloads:
+  - name: visible-9-suspended
+    visibility: dashboard
+    visible_count: 9
+    suspend_offscreen: true

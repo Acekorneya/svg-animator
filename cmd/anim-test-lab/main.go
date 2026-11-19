@@ -50,7 +50,17 @@ func main() {
 			log.Fatalf("INVALID: %v", err)
 		}
 		specs := animlab.ExpandScenarios(cfg)
-		fmt.Printf("VALID: %s (%d scenarios expanded)\n", cfg.Test.Name, len(specs))
+		fmt.Printf("VALID: %s (%d scenarios expanded, isolation=%s, reps=%d, order=%s, viewport=%dx%d)\n",
+			cfg.Test.Name, len(specs), cfg.Instances.Isolation, cfg.Execution.Repetitions,
+			cfg.Execution.OrderStrategy, cfg.Browser.ViewportWidth, cfg.Browser.ViewportHeight)
+		for _, s := range specs {
+			extra := ""
+			if len(s.MixtureAllocation) > 0 {
+				extra = fmt.Sprintf(" alloc=%v", s.MixtureAllocation)
+			}
+			fmt.Printf("  - %-52s count=%-4d strategy=%-14s vis=%-4d suspend=%v%s\n",
+				s.RunID, s.Count, s.VariationStrategy, s.VisibleCount, s.SuspendOffscreen, extra)
+		}
 
 	case "list":
 		reg := animlab.DefaultRegistry()

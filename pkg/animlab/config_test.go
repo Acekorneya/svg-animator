@@ -261,3 +261,146 @@ func TestM2MeasurementStatsOrderingAndRanking(t *testing.T) {
 		t.Fatalf("expected css (lower mean task/CPU) to win over smil (3 scenarios), got:\n%s", string(b))
 	}
 }
+
+
+func TestM3YAMLAndScenarioGeneration(t *testing.T) {
+	dir := t.TempDir()
+
+	// 1. Unknown YAML key rejected
+	badKeyPath := filepath.Join(dir, "bad_key.yaml")
+	_ = os.WriteFile(badKeyPath, []byte("version: 1\ntest:\n  name: x\nunknown_top_key: 123\n"), 0644)
+	if _, err := LoadConfig(badKeyPath); err == nil || !strings.Contains(err.Error(), "unknown_top_key") {
+		t.Fatalf("expected unknown YAML key rejection, got %v", err)
+	}
+
+	// 2. Inheritance cycle rejected
+	cycA := filepath.Join(dir, "cyc_a.yaml")
+	cycB := filepath.Join(dir, "cyc_b.yaml")
+	_ = os.WriteFile(cycA, []byte("version: 1\ninherits: cyc_b.yaml\ntest:\n  name: a\n"), 0644)
+	_ = os.WriteFile(cycB, []byte("version: 1\ninherits: cyc_a.yaml\ntest:\n  name: b\n"), 0644)
+	if _, err := LoadConfig(cycA); err == nil || !strings.Contains(err.Error(), "cycle") {
+		t.Fatalf("expected inheritance cycle error, got %v", err)
+	}
+
+	// 3. false/0 override & complete preset copying
+	basePath := filepath.Join(dir, "base.yaml")
+	childPath := filepath.Join(dir, "child.yaml")
+	_ = os.WriteFile(basePath, []byte(`version: 1
+test:
+  name: base
+browser:
+  engine: chromium
+  headless: true
+execution:
+  warmup_seconds: 2.0
+  duration_seconds: 3.0
+  repetitions: 1
+  alternate_method_order: true
+output:
+  samples: true
+presets:
+  p_pulse:
+    family: pulse
+    methods: [css]
+    shapes: [circle]
+    pulse_modes: [opacity-only, scale-only]
+    pulse_amplitudes: [0.3]
+    raf_scheduling: per-instance
+    variation_strategy: isolated
+`), 0644)
+	_ = os.WriteFile(childPath, []byte(`version: 1
+inherits: base.yaml
+test:
+  name: child
+browser:
+  headless: false
+execution:
+  warmup_seconds: 0
+  alternate_method_order: false
+output:
+  samples: false
+instances:
+  counts: [10]
+effects:
+  - preset: p_pulse
+`), 0644)
+	cfg, err := LoadConfig(childPath)
+	if err != nil {
+		t.Fatalf("LoadConfig child failed: %v", err)
+	}
+	if cfg.Browser.Headless || cfg.Execution.WarmupSeconds != 0 || cfg.Execution.AlternateMethodOrder || cfg.Output.Samples {
+		t.Fatalf("expected false/0 overrides to take effect, got headless=%v warmup=%v alt=%v samples=%v",
+			cfg.Browser.Headless, cfg.Execution.WarmupSeconds, cfg.Execution.AlternateMethodOrder, cfg.Output.Samples)
+	}
+	if len(cfg.Effects[0].PulseModes) != 2 || cfg.Effects[0].RAFScheduling != "per-instance" || cfg.Effects[0].VariationStrategy != "isolated" {
+		t.Fatalf("expected full preset copy, got %+v", cfg.Effects[0])
+	}
+
+	// 4. Isolated variation expansion: baseline + pulse_modes[1] = 2 scenarios
+	specs := ExpandScenarios(cfg)
+	if len(specs) != 2 {
+		t.Fatalf("expected 2 isolated pulse scenarios, got %d", len(specs))
+	}
+
+	// 5. Factorial variation expansion
+	facCfg := &Config{
+		Version:   1,
+		Test:      TestMeta{Name: "fac"},
+		Browser:   BrowserConfig{Engine: "chromium"},
+		Execution: ExecutionConfig{DurationSeconds: 1, Repetitions: 1, RandomSeed: 7},
+		Instances: InstancesConfig{Counts: []int{5}, Isolation: "independent-svg-roots"},
+		Effects: []EffectSpec{{
+			Family:            "perimeter-tracer",
+			Methods:           []string{"css"},
+			VariationStrategy: "factorial",
+			Shapes:            []string{"rectangle", "circle"},
+			Sizes:             map[string][2]int{"small": {40, 40}, "large": {120, 80}},
+			Speeds:            map[string]float64{"fast": 1.0, "slow": 3.0},
+			SegmentCounts:     []int{2},
+			LineGapRatios:     []string{"1:3"},
+		}},
+		Workloads: []WorkloadSpec{{Name: "all", Visibility: "all"}},
+	}
+	applyDefaults(facCfg)
+	if err := ValidateConfig(facCfg); err != nil {
+		t.Fatal(err)
+	}
+	facSpecs := ExpandScenarios(facCfg)
+	if len(facSpecs) != 8 {
+		t.Fatalf("expected 2*2*2=8 factorial scenarios, got %d", len(facSpecs))
+	}
+
+	// 6. Mixture Hamilton allocation sums cleanly to count
+	alloc := allocateMixtureCounts(map[string]float64{
+		"perimeter-tracer": 35,
+		"pulse":            25,
+		"flash":            15,
+		"flow-line":        15,
+		"static-gauge":     10,
+	}, 10)
+	sum := 0
+	for _, v := range alloc {
+		sum += v
+	}
+	if sum != 10 {
+		t.Fatalf("expected Hamilton allocation sum=10, got %d (%v)", sum, alloc)
+	}
+
+	// 7. Unsupported dynamic method in mixture rejected
+	badMix := &Config{
+		Version:   1,
+		Test:      TestMeta{Name: "badmix"},
+		Browser:   BrowserConfig{Engine: "chromium"},
+		Execution: ExecutionConfig{DurationSeconds: 1, Repetitions: 1},
+		Instances: InstancesConfig{Counts: []int{10}, Isolation: "independent-svg-roots"},
+		Mixture: &MixtureConfig{
+			Methods: []string{"clip-reveal"},
+			Weights: map[string]float64{"pulse": 50, "perimeter-tracer": 50},
+		},
+		Workloads: []WorkloadSpec{{Name: "all", Visibility: "all"}},
+	}
+	applyDefaults(badMix)
+	if err := ValidateConfig(badMix); err == nil {
+		t.Fatalf("expected mixture unsupported method error for pulse+clip-reveal")
+	}
+}

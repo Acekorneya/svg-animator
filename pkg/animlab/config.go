@@ -1,6 +1,7 @@
 package animlab
 
 import (
+	"bytes"
 	"errors"
 	"fmt"
 	"os"
@@ -57,20 +58,22 @@ type InstancesConfig struct {
 }
 
 type EffectSpec struct {
-	Preset          string             `yaml:"preset,omitempty" json:"preset,omitempty"`
-	Family          string             `yaml:"family" json:"family"`
-	Methods         []string           `yaml:"methods" json:"methods"`
-	Shapes          []string           `yaml:"shapes,omitempty" json:"shapes,omitempty"`
-	Sizes           map[string][2]int  `yaml:"sizes,omitempty" json:"sizes,omitempty"`
-	Speeds          map[string]float64 `yaml:"speeds,omitempty" json:"speeds,omitempty"`
-	SegmentCounts   []int              `yaml:"segment_counts,omitempty" json:"segment_counts,omitempty"`
-	LineGapRatios   []string           `yaml:"line_gap_ratios,omitempty" json:"line_gap_ratios,omitempty"`
-	PulseModes      []string           `yaml:"pulse_modes,omitempty" json:"pulse_modes,omitempty"`           // opacity-only | scale-only | scale-opacity
-	PulseAmplitudes []float64          `yaml:"pulse_amplitudes,omitempty" json:"pulse_amplitudes,omitempty"` // e.g. [0.2, 0.35]
-	FlashModes      []string           `yaml:"flash_modes,omitempty" json:"flash_modes,omitempty"`           // single-shot | repeating | concurrent | staggered
-	FlashDurationMs int                `yaml:"flash_duration_ms,omitempty" json:"flash_duration_ms,omitempty"`
-	FlashIntervalS  float64            `yaml:"flash_interval_s,omitempty" json:"flash_interval_s,omitempty"`
-	RAFScheduling   string             `yaml:"raf_scheduling,omitempty" json:"raf_scheduling,omitempty"`     // "shared" (default) | "per-instance"
+	Preset            string             `yaml:"preset,omitempty" json:"preset,omitempty"`
+	Family            string             `yaml:"family" json:"family"`
+	Methods           []string           `yaml:"methods" json:"methods"`
+	VariationStrategy string             `yaml:"variation_strategy,omitempty" json:"variation_strategy,omitempty"` // "representative" (default) | "factorial" | "isolated"
+	Shapes            []string           `yaml:"shapes,omitempty" json:"shapes,omitempty"`
+	Sizes             map[string][2]int  `yaml:"sizes,omitempty" json:"sizes,omitempty"`
+	Speeds            map[string]float64 `yaml:"speeds,omitempty" json:"speeds,omitempty"`
+	SegmentCounts     []int              `yaml:"segment_counts,omitempty" json:"segment_counts,omitempty"`
+	LineGapRatios     []string           `yaml:"line_gap_ratios,omitempty" json:"line_gap_ratios,omitempty"`
+	Directions        []string           `yaml:"directions,omitempty" json:"directions,omitempty"`               // ["cw"] | ["ccw"] | ["cw", "ccw"]
+	PulseModes        []string           `yaml:"pulse_modes,omitempty" json:"pulse_modes,omitempty"`           // opacity-only | scale-only | scale-opacity
+	PulseAmplitudes   []float64          `yaml:"pulse_amplitudes,omitempty" json:"pulse_amplitudes,omitempty"` // e.g. [0.2, 0.35]
+	FlashModes        []string           `yaml:"flash_modes,omitempty" json:"flash_modes,omitempty"`           // single-shot | repeating | concurrent | staggered
+	FlashDurationMs   int                `yaml:"flash_duration_ms,omitempty" json:"flash_duration_ms,omitempty"`
+	FlashIntervalS    float64            `yaml:"flash_interval_s,omitempty" json:"flash_interval_s,omitempty"`
+	RAFScheduling     string             `yaml:"raf_scheduling,omitempty" json:"raf_scheduling,omitempty"`     // "shared" (default) | "per-instance"
 }
 
 type MixtureConfig struct {
@@ -107,47 +110,74 @@ var ValidMeasurements = map[string]bool{
 
 // LoadConfig reads, resolves inheritance/presets, applies defaults, and validates a YAML config.
 func LoadConfig(path string) (*Config, error) {
-	cfg, err := loadConfigRaw(path, 0)
+	cfg, err := loadConfigRaw(path, map[string]bool{})
 	if err != nil {
 		return nil, err
 	}
-	applyDefaults(cfg)
 	if err := resolvePresets(cfg); err != nil {
 		return nil, err
 	}
+	applyDefaults(cfg)
 	if err := ValidateConfig(cfg); err != nil {
 		return nil, err
 	}
 	return cfg, nil
 }
 
-func loadConfigRaw(path string, depth int) (*Config, error) {
-	if depth > 5 {
-		return nil, errors.New("YAML inheritance depth exceeded (possible cycle)")
+func loadConfigRaw(path string, visited map[string]bool) (*Config, error) {
+	absPath, err := filepath.Abs(path)
+	if err != nil {
+		absPath = path
 	}
+	if visited[absPath] {
+		return nil, fmt.Errorf("YAML inheritance cycle detected involving %s", path)
+	}
+	if len(visited) > 10 {
+		return nil, errors.New("YAML inheritance depth exceeded")
+	}
+	visited[absPath] = true
+	defer delete(visited, absPath)
+
 	raw, err := os.ReadFile(path)
 	if err != nil {
 		return nil, fmt.Errorf("reading config %s: %w", path, err)
 	}
 	var cfg Config
-	if err := yaml.Unmarshal(raw, &cfg); err != nil {
+	dec := yaml.NewDecoder(bytes.NewReader(raw))
+	dec.KnownFields(true)
+	if err := dec.Decode(&cfg); err != nil {
 		return nil, fmt.Errorf("parsing YAML %s: %w", path, err)
 	}
+	var rawMap map[string]any
+	_ = yaml.Unmarshal(raw, &rawMap)
+
 	if cfg.Inherits != "" {
 		basePath := cfg.Inherits
 		if !filepath.IsAbs(basePath) {
 			basePath = filepath.Join(filepath.Dir(path), basePath)
 		}
-		baseCfg, err := loadConfigRaw(basePath, depth+1)
+		baseCfg, err := loadConfigRaw(basePath, visited)
 		if err != nil {
 			return nil, fmt.Errorf("loading inherited base %s: %w", basePath, err)
 		}
-		cfg = mergeConfigs(*baseCfg, cfg)
+		cfg = mergeConfigs(*baseCfg, cfg, rawMap)
 	}
 	return &cfg, nil
 }
 
-func mergeConfigs(base, over Config) Config {
+func rawHasKey(m map[string]any, section, key string) bool {
+	if m == nil {
+		return false
+	}
+	sub, ok := m[section].(map[string]any)
+	if !ok {
+		return false
+	}
+	_, exists := sub[key]
+	return exists
+}
+
+func mergeConfigs(base, over Config, overRaw map[string]any) Config {
 	out := base
 	if over.Version != 0 {
 		out.Version = over.Version
@@ -170,6 +200,9 @@ func mergeConfigs(base, over Config) Config {
 	if over.Browser.Engine != "" {
 		out.Browser.Engine = over.Browser.Engine
 	}
+	if rawHasKey(overRaw, "browser", "headless") {
+		out.Browser.Headless = over.Browser.Headless
+	}
 	if over.Browser.CDPEndpoint != "" {
 		out.Browser.CDPEndpoint = over.Browser.CDPEndpoint
 	}
@@ -188,7 +221,7 @@ func mergeConfigs(base, over Config) Config {
 	if over.Browser.DeviceScaleFactor > 0 {
 		out.Browser.DeviceScaleFactor = over.Browser.DeviceScaleFactor
 	}
-	if over.Execution.WarmupSeconds > 0 {
+	if over.Execution.WarmupSeconds > 0 || rawHasKey(overRaw, "execution", "warmup_seconds") {
 		out.Execution.WarmupSeconds = over.Execution.WarmupSeconds
 	}
 	if over.Execution.DurationSeconds > 0 {
@@ -197,11 +230,11 @@ func mergeConfigs(base, over Config) Config {
 	if over.Execution.Repetitions > 0 {
 		out.Execution.Repetitions = over.Execution.Repetitions
 	}
-	if over.Execution.RandomSeed != 0 {
+	if over.Execution.RandomSeed != 0 || rawHasKey(overRaw, "execution", "random_seed") {
 		out.Execution.RandomSeed = over.Execution.RandomSeed
 	}
-	if over.Execution.AlternateMethodOrder {
-		out.Execution.AlternateMethodOrder = true
+	if over.Execution.AlternateMethodOrder || rawHasKey(overRaw, "execution", "alternate_method_order") {
+		out.Execution.AlternateMethodOrder = over.Execution.AlternateMethodOrder
 	}
 	if over.Execution.OrderStrategy != "" {
 		out.Execution.OrderStrategy = over.Execution.OrderStrategy
@@ -224,8 +257,26 @@ func mergeConfigs(base, over Config) Config {
 	if len(over.Measurements) > 0 {
 		out.Measurements = over.Measurements
 	}
-	if over.Output != (OutputConfig{}) {
-		out.Output = over.Output
+	if over.Output.Dir != "" {
+		out.Output.Dir = over.Output.Dir
+	}
+	if rawHasKey(overRaw, "output", "samples") {
+		out.Output.Samples = over.Output.Samples
+	}
+	if rawHasKey(overRaw, "output", "screenshots") {
+		out.Output.Screenshots = over.Output.Screenshots
+	}
+	if rawHasKey(overRaw, "output", "raw_results") {
+		out.Output.RawResults = over.Output.RawResults
+	}
+	if rawHasKey(overRaw, "output", "html_report") {
+		out.Output.HTMLReport = over.Output.HTMLReport
+	}
+	if rawHasKey(overRaw, "output", "markdown_report") {
+		out.Output.MarkdownReport = over.Output.MarkdownReport
+	}
+	if rawHasKey(overRaw, "output", "decision_report") {
+		out.Output.DecisionReport = over.Output.DecisionReport
 	}
 	return out
 }
@@ -367,6 +418,30 @@ func resolvePresets(cfg *Config) error {
 		if len(e.LineGapRatios) == 0 {
 			e.LineGapRatios = append([]string(nil), p.LineGapRatios...)
 		}
+		if len(e.Directions) == 0 {
+			e.Directions = append([]string(nil), p.Directions...)
+		}
+		if len(e.PulseModes) == 0 {
+			e.PulseModes = append([]string(nil), p.PulseModes...)
+		}
+		if len(e.PulseAmplitudes) == 0 {
+			e.PulseAmplitudes = append([]float64(nil), p.PulseAmplitudes...)
+		}
+		if len(e.FlashModes) == 0 {
+			e.FlashModes = append([]string(nil), p.FlashModes...)
+		}
+		if e.FlashDurationMs <= 0 && p.FlashDurationMs > 0 {
+			e.FlashDurationMs = p.FlashDurationMs
+		}
+		if e.FlashIntervalS <= 0 && p.FlashIntervalS > 0 {
+			e.FlashIntervalS = p.FlashIntervalS
+		}
+		if e.RAFScheduling == "" {
+			e.RAFScheduling = p.RAFScheduling
+		}
+		if e.VariationStrategy == "" {
+			e.VariationStrategy = p.VariationStrategy
+		}
 	}
 	return nil
 }
@@ -394,6 +469,9 @@ func ValidateConfig(cfg *Config) error {
 	if cfg.Execution.Repetitions < 1 {
 		return errors.New("execution.repetitions must be >= 1")
 	}
+	if cfg.Execution.OrderStrategy != "" && cfg.Execution.OrderStrategy != "sequential" && cfg.Execution.OrderStrategy != "alternating" && cfg.Execution.OrderStrategy != "randomized" {
+		return fmt.Errorf("execution.order_strategy must be 'sequential', 'alternating', or 'randomized', got %q", cfg.Execution.OrderStrategy)
+	}
 	if len(cfg.Instances.Counts) == 0 {
 		return errors.New("instances.counts must specify at least one positive integer count")
 	}
@@ -420,6 +498,14 @@ func ValidateConfig(cfg *Config) error {
 		}
 		if e.RAFScheduling != "" && e.RAFScheduling != "shared" && e.RAFScheduling != "per-instance" {
 			return fmt.Errorf("effects[%d] (%s): raf_scheduling must be 'shared' or 'per-instance', got %q", i, e.Family, e.RAFScheduling)
+		}
+		if e.VariationStrategy != "" && e.VariationStrategy != "representative" && e.VariationStrategy != "factorial" && e.VariationStrategy != "isolated" {
+			return fmt.Errorf("effects[%d] (%s): variation_strategy must be 'representative', 'factorial', or 'isolated', got %q", i, e.Family, e.VariationStrategy)
+		}
+		for _, d := range e.Directions {
+			if d != "cw" && d != "ccw" {
+				return fmt.Errorf("effects[%d] (%s): direction must be 'cw' or 'ccw', got %q", i, e.Family, d)
+			}
 		}
 		if len(e.Methods) == 0 {
 			return fmt.Errorf("effects[%d] (%s): at least one rendering method is required", i, e.Family)
@@ -464,14 +550,28 @@ func ValidateConfig(cfg *Config) error {
 		if len(cfg.Mixture.Methods) == 0 {
 			return errors.New("mixture.methods must specify at least one method")
 		}
+		for fam := range cfg.Mixture.Weights {
+			if fam == "static-gauge" {
+				continue
+			}
+			gen := reg[fam]
+			for _, m := range cfg.Mixture.Methods {
+				if !gen.SupportsMethod(m) {
+					return fmt.Errorf("mixture: family %q does not support method %q (supported: %v); silent substitution is disallowed", fam, m, gen.SupportedMethods())
+				}
+			}
+		}
 	}
 
 	for i, wl := range cfg.Workloads {
 		if strings.TrimSpace(wl.Name) == "" {
 			return fmt.Errorf("workloads[%d].name is required", i)
 		}
-		if wl.Visibility != "" && wl.Visibility != "all" && wl.Visibility != "dashboard" {
-			return fmt.Errorf("workloads[%d].visibility must be 'all' or 'dashboard', got %q", i, wl.Visibility)
+		if wl.Visibility != "" && wl.Visibility != "all" && wl.Visibility != "dashboard" && wl.Visibility != "offscreen" {
+			return fmt.Errorf("workloads[%d].visibility must be 'all', 'dashboard', or 'offscreen', got %q", i, wl.Visibility)
+		}
+		if wl.VisibleCount < 0 {
+			return fmt.Errorf("workloads[%d].visible_count cannot be negative, got %d", i, wl.VisibleCount)
 		}
 	}
 

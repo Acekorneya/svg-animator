@@ -1,0 +1,29 @@
+version: 1
+test:
+  name: yaml-only-demo
+browser:
+  engine: chromium
+  headless: true
+execution:
+  warmup_seconds: 0.2
+  duration_seconds: 1.0
+  repetitions: 1
+instances:
+  counts: [250]
+  isolation: independent-svg-roots
+effects:
+  - family: perimeter-tracer
+    methods: [css]
+    shapes: [circle]
+    sizes:
+      base: [120, 120]
+    speeds:
+      base: 0.9
+    segment_counts: [2]
+    line_gap_ratios: ["40:60"]
+    directions: [cw]
+workloads:
+  - name: all-active
+    visibility: all
+output:
+  samples: true

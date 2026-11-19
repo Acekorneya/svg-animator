@@ -1,0 +1,28 @@
+version: 1
+inherits: base-kiwiberry.yaml
+test:
+  name: isolated-speed-study
+  description: Speed-only investigation holding geometry, size, segments, and ratio constant.
+
+instances:
+  counts: [50]
+  isolation: independent-svg-roots
+
+effects:
+  - family: perimeter-tracer
+    methods: [css, smil, javascript-raf]
+    variation_strategy: isolated
+    shapes: [rounded-rectangle]
+    sizes:
+      medium: [100, 60]
+    speeds:
+      fast: 0.8
+      medium: 2.0
+      slow: 4.0
+    segment_counts: [2]
+    line_gap_ratios: ["1:3"]
+    directions: [cw]
+
+workloads:
+  - name: all-active
+    visibility: all

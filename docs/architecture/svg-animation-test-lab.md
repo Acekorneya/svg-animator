@@ -71,3 +71,20 @@ Every run directory preserves:
   - `longFramesOver16ms` (`> 16.67 ms`) is separated from `longFramesOver20ms` (`> 20.0 ms`) and `longFramesOver50ms` (`> 50.0 ms`).
   - `MetricDefinitions` and `Environment` (WebGL renderer, `isSoftwareRenderer`, OS/CPU/RAM, `clkTck`, `browserOwnership`) are persisted in `raw-results.json`.
   - Decision reports rank equivalent, valid, correctness-passing methods by **means** (never sums), report `N/A` for unavailable metrics, and flag results within measurement margin as indistinguishable.
+
+---
+
+## 7. Milestone 3 — YAML Flexibility, Variation Strategies & Shared-Scene Visibility
+
+- **Strict YAML Schema & Inheritance (`pkg/animlab/config.go`):**
+  - Unknown YAML keys are rejected via `yaml.Decoder.KnownFields(true)`.
+  - Inheritance (`inherits`) detects cycles immediately and supports `false`/`0` child overrides (`headless`, `warmup_seconds`, `alternate_method_order`, `output.*`).
+  - Named presets (`presets`) copy all effect fields (`directions`, `pulse_modes`, `pulse_amplitudes`, `flash_modes`, `flash_duration_ms`, `flash_interval_s`, `raf_scheduling`, `variation_strategy`).
+- **Variation Strategies (`pkg/animlab/workload.go`):**
+  - `representative` (default): single scenario with de-correlated per-factor shuffled index tables and per-scenario deterministic seeding.
+  - `isolated`: holds baseline constant and varies one factor at a time (`shape_*`, `size_*`, `speed_*`, `segs_*`, `ratio_*`, `pmode_*`, `fmode_*`).
+  - `factorial`: expands the full Cartesian product across configured dimensions.
+  - `validate -c <config.yaml>` previews expanded scenarios, strategies, counts, and mixture allocations.
+- **Mixed Workloads & Shared-Scene Visibility (`pkg/animlab/workload.go`):**
+  - Hamilton largest-remainder rounding (`allocateMixtureCounts`) ensures exact instance counts summing to `N` with per-family de-correlated variation. Unsupported dynamic methods in mixtures are rejected at validation time.
+  - `shared-scene` `<g class="lab-instance">` visibility is evaluated against `#labGrid` via `getBoundingClientRect()`, `scroll`, and `ResizeObserver` (no `.lab-card` dependency), suspending decorative CSS/JS-RAF off-screen without pausing `data-driven` telemetry updates.

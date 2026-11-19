@@ -1,0 +1,28 @@
+version: 1
+inherits: base-kiwiberry.yaml
+test:
+  name: isolated-size-study
+  description: Size-only investigation holding geometry, speed, segments, and ratio constant.
+
+instances:
+  counts: [50]
+  isolation: independent-svg-roots
+
+effects:
+  - family: perimeter-tracer
+    methods: [css, smil, javascript-raf]
+    variation_strategy: isolated
+    shapes: [rectangle]
+    sizes:
+      small: [40, 30]
+      medium: [100, 60]
+      large: [160, 100]
+    speeds:
+      medium: 2.0
+    segment_counts: [2]
+    line_gap_ratios: ["1:3"]
+    directions: [cw]
+
+workloads:
+  - name: all-active
+    visibility: all

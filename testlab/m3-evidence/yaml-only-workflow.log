@@ -1,0 +1,13 @@
+=== Step 1 (100 tracers) ===
+VALID: yaml-only-demo (1 scenarios expanded, isolation=independent-svg-roots, reps=1, order=sequential, viewport=1366x900)
+  - perimeter-tracer__css__all-active__n100              count=100  strategy=representative vis=0    suspend=false
+
+Visual samples & catalogue written to testlab/m3-evidence/demo-100/catalogue/index.html
+
+=== Step 2 (250 circle tracers, 0.9s, 140x90, 40:60) ===
+VALID: yaml-only-demo (1 scenarios expanded, isolation=independent-svg-roots, reps=1, order=sequential, viewport=1366x900)
+  - perimeter-tracer__css__all-active__n250              count=250  strategy=representative vis=0    suspend=false
+
+Visual samples & catalogue written to testlab/m3-evidence/demo-250/catalogue/index.html
+
+Browser DOM .lab-payload count=250 tag=ellipse data-lab-dur=0.900

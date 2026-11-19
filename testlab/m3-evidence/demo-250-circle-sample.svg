@@ -1,0 +1,9 @@
+<?xml version="1.0" encoding="UTF-8"?>
+<svg id="samp_1" xmlns="http://www.w3.org/2000/svg" width="220" height="144" viewBox="0 0 220 144">
+  <style>
+@keyframes samp_1_kf { from { stroke-dashoffset: 0px; } to { stroke-dashoffset: -1000px; } }
+#samp_1 .lab-payload { animation: samp_1_kf 0.900s linear infinite; }
+  </style>
+  <rect width="220" height="144" fill="#0d1117" rx="8" />
+  <ellipse cx="110.00" cy="72.00" rx="60.00" ry="60.00" class="lab-guide" fill="none" stroke="#38bdf8" stroke-width="1.2" stroke-opacity="0.22" shape-rendering="geometricPrecision" /><ellipse cx="110.00" cy="72.00" rx="60.00" ry="60.00" class="lab-payload" data-lab-family="perimeter-tracer" data-lab-method="css" data-lab-dir="cw" data-lab-dur="0.900" data-lab-segs="2" pathLength="1000" fill="none" stroke="#38bdf8" stroke-width="2.5" stroke-dasharray="200.000 300.000" stroke-linecap="round" shape-rendering="geometricPrecision" />
+</svg>

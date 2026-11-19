@@ -1,0 +1,7 @@
+[PASS] AT-M3-01: validated 9 YAML configs failures=[]
+[PASS] AT-M3-02: isolatedSize=9 isolatedSpeed=9 presetWarmup=0.0
+[PASS] AT-M3-03: mixCount=100 alloc=map[flash:15 flow-line:10 flow-particle:5 perimeter-tracer:35 pulse:25 static-gauge:10]
+[PASS] AT-M3-05: sharedScene=[css:vis=9,susp=27 javascript-raf:vis=9,susp=27] dataDrivenOffscreen=(susp=3,68 100->45 100)
+[PASS] AT-M3-06: domCount250=250 tag=ellipse dur=0.900
+
+SUMMARY: 5/5 M3 checks passed (0 failed)

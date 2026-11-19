@@ -2,6 +2,7 @@ package animlab
 
 import (
 	"fmt"
+	"math"
 	"math/rand"
 	"sort"
 	"strings"
@@ -13,12 +14,16 @@ type TestRunSpec struct {
 	Family             string
 	Method             string
 	SchedulingStrategy string
+	VariationStrategy  string
+	VariationTag       string
 	WorkloadName       string
+	WorkloadVisibility string
 	Count              int
 	Isolation          string // "independent-svg-roots" | "shared-scene"
 	VisibleCount       int
 	SuspendOffscreen   bool
 	IsMixture          bool
+	MixtureAllocation  map[string]int
 	NonEquivalent      bool
 	Unsupported        bool
 	Seed               int64
@@ -46,75 +51,281 @@ func resolveSchedulingStrategy(eff EffectSpec, method string) string {
 	}
 }
 
+type effectVariant struct {
+	tag string
+	eff EffectSpec
+}
+
+func cloneEffectSingle(eff EffectSpec) EffectSpec {
+	out := eff
+	out.Shapes = append([]string(nil), eff.Shapes...)
+	out.Sizes = map[string][2]int{}
+	for k, v := range eff.Sizes {
+		out.Sizes[k] = v
+	}
+	out.Speeds = map[string]float64{}
+	for k, v := range eff.Speeds {
+		out.Speeds[k] = v
+	}
+	out.SegmentCounts = append([]int(nil), eff.SegmentCounts...)
+	out.LineGapRatios = append([]string(nil), eff.LineGapRatios...)
+	out.Directions = append([]string(nil), eff.Directions...)
+	out.PulseModes = append([]string(nil), eff.PulseModes...)
+	out.PulseAmplitudes = append([]float64(nil), eff.PulseAmplitudes...)
+	out.FlashModes = append([]string(nil), eff.FlashModes...)
+	return out
+}
+
+func expandEffectVariations(eff EffectSpec) []effectVariant {
+	strat := eff.VariationStrategy
+	if strat == "" || strat == "representative" {
+		return []effectVariant{{tag: "", eff: eff}}
+	}
+
+	sizeKeys := sortedMapKeys(eff.Sizes)
+	speedKeys := sortedMapKeys(eff.Speeds)
+	segs := eff.SegmentCounts
+	if len(segs) == 0 {
+		segs = []int{2}
+	}
+	ratios := eff.LineGapRatios
+	if len(ratios) == 0 {
+		ratios = []string{"1:3"}
+	}
+	pModes := eff.PulseModes
+	if len(pModes) == 0 {
+		pModes = []string{"scale-opacity"}
+	}
+	pAmps := eff.PulseAmplitudes
+	if len(pAmps) == 0 {
+		pAmps = []float64{0.2}
+	}
+	fModes := eff.FlashModes
+	if len(fModes) == 0 {
+		fModes = []string{"repeating"}
+	}
+
+	if strat == "isolated" {
+		// Hold baseline constant (first element of each dimension), vary one factor at a time
+		baseShape := eff.Shapes[0]
+		baseSizeK := sizeKeys[0]
+		baseSpeedK := speedKeys[0]
+		baseSeg := segs[0]
+		baseRatio := ratios[0]
+		basePM := pModes[0]
+		basePA := pAmps[0]
+		baseFM := fModes[0]
+
+		makeSingle := func(sh, szK, spK string, seg int, rat, pm string, pa float64, fm string) EffectSpec {
+			v := cloneEffectSingle(eff)
+			v.Shapes = []string{sh}
+			v.Sizes = map[string][2]int{szK: eff.Sizes[szK]}
+			v.Speeds = map[string]float64{spK: eff.Speeds[spK]}
+			v.SegmentCounts = []int{seg}
+			v.LineGapRatios = []string{rat}
+			v.PulseModes = []string{pm}
+			v.PulseAmplitudes = []float64{pa}
+			v.FlashModes = []string{fm}
+			return v
+		}
+
+		var out []effectVariant
+		seen := map[string]bool{}
+		add := func(tag string, v EffectSpec) {
+			if !seen[tag] {
+				seen[tag] = true
+				out = append(out, effectVariant{tag: tag, eff: v})
+			}
+		}
+		add("baseline", makeSingle(baseShape, baseSizeK, baseSpeedK, baseSeg, baseRatio, basePM, basePA, baseFM))
+		for _, sh := range eff.Shapes[1:] {
+			add("shape_"+sh, makeSingle(sh, baseSizeK, baseSpeedK, baseSeg, baseRatio, basePM, basePA, baseFM))
+		}
+		for _, szK := range sizeKeys[1:] {
+			add("size_"+szK, makeSingle(baseShape, szK, baseSpeedK, baseSeg, baseRatio, basePM, basePA, baseFM))
+		}
+		for _, spK := range speedKeys[1:] {
+			add("speed_"+spK, makeSingle(baseShape, baseSizeK, spK, baseSeg, baseRatio, basePM, basePA, baseFM))
+		}
+		if eff.Family == "perimeter-tracer" {
+			for _, seg := range segs[1:] {
+				add(fmt.Sprintf("segs_%d", seg), makeSingle(baseShape, baseSizeK, baseSpeedK, seg, baseRatio, basePM, basePA, baseFM))
+			}
+			for _, rat := range ratios[1:] {
+				add("ratio_"+strings.ReplaceAll(rat, ":", "x"), makeSingle(baseShape, baseSizeK, baseSpeedK, baseSeg, rat, basePM, basePA, baseFM))
+			}
+		}
+		if eff.Family == "pulse" {
+			for _, pm := range pModes[1:] {
+				add("pmode_"+pm, makeSingle(baseShape, baseSizeK, baseSpeedK, baseSeg, baseRatio, pm, basePA, baseFM))
+			}
+			for _, pa := range pAmps[1:] {
+				add(fmt.Sprintf("pamp_%.2f", pa), makeSingle(baseShape, baseSizeK, baseSpeedK, baseSeg, baseRatio, basePM, pa, baseFM))
+			}
+		}
+		if eff.Family == "flash" {
+			for _, fm := range fModes[1:] {
+				add("fmode_"+fm, makeSingle(baseShape, baseSizeK, baseSpeedK, baseSeg, baseRatio, basePM, basePA, fm))
+			}
+		}
+		return out
+	}
+
+	// "factorial": full Cartesian product across relevant family dimensions
+	if eff.Family != "perimeter-tracer" {
+		segs = segs[:1]
+		ratios = ratios[:1]
+	}
+	if eff.Family != "pulse" {
+		pModes = pModes[:1]
+		pAmps = pAmps[:1]
+	}
+	if eff.Family != "flash" {
+		fModes = fModes[:1]
+	}
+
+	var out []effectVariant
+	for _, sh := range eff.Shapes {
+		for _, szK := range sizeKeys {
+			for _, spK := range speedKeys {
+				for _, seg := range segs {
+					for _, rat := range ratios {
+						for _, pm := range pModes {
+							for _, pa := range pAmps {
+								for _, fm := range fModes {
+									v := cloneEffectSingle(eff)
+									v.Shapes = []string{sh}
+									v.Sizes = map[string][2]int{szK: eff.Sizes[szK]}
+									v.Speeds = map[string]float64{spK: eff.Speeds[spK]}
+									v.SegmentCounts = []int{seg}
+									v.LineGapRatios = []string{rat}
+									v.PulseModes = []string{pm}
+									v.PulseAmplitudes = []float64{pa}
+									v.FlashModes = []string{fm}
+									parts := []string{sh, szK, spK}
+									if eff.Family == "perimeter-tracer" {
+										parts = append(parts, fmt.Sprintf("s%d", seg), "r"+strings.ReplaceAll(rat, ":", "x"))
+									} else if eff.Family == "pulse" {
+										parts = append(parts, pm, fmt.Sprintf("a%.2f", pa))
+									} else if eff.Family == "flash" {
+										parts = append(parts, fm)
+									}
+									out = append(out, effectVariant{tag: strings.Join(parts, "_"), eff: v})
+								}
+							}
+						}
+					}
+				}
+			}
+		}
+	}
+	return out
+}
+
 // ExpandScenarios expands a validated Config into concrete TestRunSpecs.
 func ExpandScenarios(cfg *Config) []TestRunSpec {
 	reg := DefaultRegistry()
 	var specs []TestRunSpec
-	rng := rand.New(rand.NewSource(cfg.Execution.RandomSeed))
 
 	for _, count := range cfg.Instances.Counts {
 		for _, wl := range cfg.Workloads {
 			// 1. Per-effect scenarios
 			for _, eff := range cfg.Effects {
-				for _, method := range eff.Methods {
-					gen := reg[eff.Family]
-					instances := buildEffectInstances(eff, method, count, rng)
-					var lims []string
-					limSeen := map[string]bool{}
-					nonEq, unsup := false, false
-					for _, inst := range instances {
-						re := gen.Render(inst, 240, 160)
-						if re.Limitation != "" && !limSeen[re.Limitation] {
-							limSeen[re.Limitation] = true
-							lims = append(lims, re.Limitation)
+				strat := eff.VariationStrategy
+				if strat == "" {
+					strat = "representative"
+				}
+				variants := expandEffectVariations(eff)
+				for _, v := range variants {
+					for _, method := range v.eff.Methods {
+						scenSeed := cfg.Execution.RandomSeed + int64(len(specs))*104729
+						rng := rand.New(rand.NewSource(scenSeed))
+						gen := reg[v.eff.Family]
+						instances := buildEffectInstances(v.eff, method, count, rng)
+						var lims []string
+						limSeen := map[string]bool{}
+						nonEq, unsup := false, false
+						for _, inst := range instances {
+							re := gen.Render(inst, 240, 160)
+							if re.Limitation != "" && !limSeen[re.Limitation] {
+								limSeen[re.Limitation] = true
+								lims = append(lims, re.Limitation)
+							}
+							if re.NonEquivalent {
+								nonEq = true
+							}
+							if re.Unsupported {
+								unsup = true
+							}
 						}
-						if re.NonEquivalent {
-							nonEq = true
+						if cfg.Instances.Isolation == "shared-scene" && method == "smil" && wl.SuspendOffscreen {
+							msg := "SMIL animations inside a single shared-scene <svg> share one SVG timeline and cannot be suspended per-<g> without globally pausing sibling elements"
+							if !limSeen[msg] {
+								limSeen[msg] = true
+								lims = append(lims, msg)
+							}
 						}
-						if re.Unsupported {
-							unsup = true
+						runID := fmt.Sprintf("%s__%s__%s__n%d", v.eff.Family, method, wl.Name, count)
+						if v.tag != "" {
+							runID = fmt.Sprintf("%s__%s__%s__%s__n%d", v.eff.Family, v.tag, method, wl.Name, count)
 						}
+						visCount := wl.VisibleCount
+						if wl.Visibility == "offscreen" {
+							visCount = 0
+						}
+						specs = append(specs, TestRunSpec{
+							RunID:              runID,
+							Family:             v.eff.Family,
+							Method:             method,
+							SchedulingStrategy: resolveSchedulingStrategy(v.eff, method),
+							VariationStrategy:  strat,
+							VariationTag:       v.tag,
+							WorkloadName:       wl.Name,
+							WorkloadVisibility: wl.Visibility,
+							Count:              count,
+							Isolation:          cfg.Instances.Isolation,
+							VisibleCount:       visCount,
+							SuspendOffscreen:   wl.SuspendOffscreen,
+							NonEquivalent:      nonEq,
+							Unsupported:        unsup,
+							Seed:               scenSeed,
+							Instances:          instances,
+							Limitations:        lims,
+						})
 					}
-					specs = append(specs, TestRunSpec{
-						RunID:              fmt.Sprintf("%s__%s__%s__n%d", eff.Family, method, wl.Name, count),
-						Family:             eff.Family,
-						Method:             method,
-						SchedulingStrategy: resolveSchedulingStrategy(eff, method),
-						WorkloadName:       wl.Name,
-						Count:              count,
-						Isolation:          cfg.Instances.Isolation,
-						VisibleCount:       wl.VisibleCount,
-						SuspendOffscreen:   wl.SuspendOffscreen,
-						NonEquivalent:      nonEq,
-						Unsupported:        unsup,
-						Seed:               cfg.Execution.RandomSeed,
-						Instances:          instances,
-						Limitations:        lims,
-					})
 				}
 			}
 
 			// 2. Mixed workload scenarios (if configured)
 			if cfg.Mixture != nil {
 				for _, method := range cfg.Mixture.Methods {
-					instances, lims, nonEq := buildMixtureInstances(cfg, method, count, rng)
+					scenSeed := cfg.Execution.RandomSeed + int64(len(specs))*104729
+					rng := rand.New(rand.NewSource(scenSeed))
+					instances, alloc, lims, nonEq := buildMixtureInstances(cfg, method, count, rng)
 					mixName := cfg.Mixture.Name
 					if mixName == "" {
 						mixName = "mixed"
+					}
+					visCount := wl.VisibleCount
+					if wl.Visibility == "offscreen" {
+						visCount = 0
 					}
 					specs = append(specs, TestRunSpec{
 						RunID:              fmt.Sprintf("%s__%s__%s__n%d", mixName, method, wl.Name, count),
 						Family:             mixName,
 						Method:             method,
 						SchedulingStrategy: resolveSchedulingStrategy(EffectSpec{}, method),
+						VariationStrategy:  "mixture",
 						WorkloadName:       wl.Name,
+						WorkloadVisibility: wl.Visibility,
 						Count:              count,
 						Isolation:          cfg.Instances.Isolation,
-						VisibleCount:       wl.VisibleCount,
+						VisibleCount:       visCount,
 						SuspendOffscreen:   wl.SuspendOffscreen,
 						IsMixture:          true,
+						MixtureAllocation:  alloc,
 						NonEquivalent:      nonEq,
-						Seed:               cfg.Execution.RandomSeed,
+						Seed:               scenSeed,
 						Instances:          instances,
 						Limitations:        lims,
 					})
@@ -134,43 +345,74 @@ func sortedMapKeys[V any](m map[string]V) []string {
 	return keys
 }
 
+// buildDecorrelatedPermutation returns a balanced, deterministically shuffled index mapping of length count over nValues,
+// avoiding modulo correlation across multiple factors (F-D04).
+func buildDecorrelatedOrder(count, nValues int, rng *rand.Rand) []int {
+	out := make([]int, count)
+	if nValues <= 1 {
+		return out
+	}
+	for i := 0; i < count; i++ {
+		out[i] = i % nValues
+	}
+	rng.Shuffle(count, func(i, j int) { out[i], out[j] = out[j], out[i] })
+	return out
+}
+
 func buildEffectInstances(eff EffectSpec, method string, count int, rng *rand.Rand) []InstanceParams {
 	sizeKeys := sortedMapKeys(eff.Sizes)
 	speedKeys := sortedMapKeys(eff.Speeds)
+
+	dirs := eff.Directions
+	if len(dirs) == 0 {
+		dirs = []string{"cw", "ccw"}
+	}
+	segs := eff.SegmentCounts
+	if len(segs) == 0 {
+		segs = []int{2}
+	}
+	ratios := eff.LineGapRatios
+	if len(ratios) == 0 {
+		ratios = []string{"1:3"}
+	}
+	pModes := eff.PulseModes
+	if len(pModes) == 0 {
+		pModes = []string{"scale-opacity"}
+	}
+	pAmps := eff.PulseAmplitudes
+	if len(pAmps) == 0 {
+		pAmps = []float64{0.2}
+	}
+	fModes := eff.FlashModes
+	if len(fModes) == 0 {
+		fModes = []string{"repeating"}
+	}
+
+	shapeIdx := buildDecorrelatedOrder(count, len(eff.Shapes), rng)
+	sizeIdx := buildDecorrelatedOrder(count, len(sizeKeys), rng)
+	speedIdx := buildDecorrelatedOrder(count, len(speedKeys), rng)
+	segIdx := buildDecorrelatedOrder(count, len(segs), rng)
+	ratioIdx := buildDecorrelatedOrder(count, len(ratios), rng)
+	dirIdx := buildDecorrelatedOrder(count, len(dirs), rng)
+	pmIdx := buildDecorrelatedOrder(count, len(pModes), rng)
+	paIdx := buildDecorrelatedOrder(count, len(pAmps), rng)
+	fmIdx := buildDecorrelatedOrder(count, len(fModes), rng)
+
 	out := make([]InstanceParams, 0, count)
 	for i := 0; i < count; i++ {
-		shape := eff.Shapes[i%len(eff.Shapes)]
-		sz := eff.Sizes[sizeKeys[i%len(sizeKeys)]]
-		spd := eff.Speeds[speedKeys[i%len(speedKeys)]]
-		seg := 2
-		if len(eff.SegmentCounts) > 0 {
-			seg = eff.SegmentCounts[i%len(eff.SegmentCounts)]
-		}
-		ratio := "1:3"
-		if len(eff.LineGapRatios) > 0 {
-			ratio = eff.LineGapRatios[i%len(eff.LineGapRatios)]
-		}
-		dir := "cw"
-		if i%2 == 1 {
-			dir = "ccw"
-		}
-		pm := "scale-opacity"
-		if len(eff.PulseModes) > 0 {
-			pm = eff.PulseModes[i%len(eff.PulseModes)]
-		}
-		pAmp := 0.2
-		if len(eff.PulseAmplitudes) > 0 {
-			pAmp = eff.PulseAmplitudes[i%len(eff.PulseAmplitudes)]
-		}
-		fm := "repeating"
-		if len(eff.FlashModes) > 0 {
-			fm = eff.FlashModes[i%len(eff.FlashModes)]
-		}
+		shape := eff.Shapes[shapeIdx[i]]
+		sz := eff.Sizes[sizeKeys[sizeIdx[i]]]
+		spd := eff.Speeds[speedKeys[speedIdx[i]]]
+		seg := segs[segIdx[i]]
+		ratio := ratios[ratioIdx[i]]
+		dir := dirs[dirIdx[i]]
+		pm := pModes[pmIdx[i]]
+		pAmp := pAmps[paIdx[i]]
+		fm := fModes[fmIdx[i]]
 		stagger := 0.0
 		if fm == "staggered" {
 			stagger = float64(i%8) * 0.15
 		}
-		_ = rng.Intn(10)
 		out = append(out, InstanceParams{
 			ID:             fmt.Sprintf("lab_%s_%d", strings.ReplaceAll(method, "-", "_"), i+1),
 			Family:         eff.Family,
@@ -195,12 +437,43 @@ func buildEffectInstances(eff EffectSpec, method string, count int, rng *rand.Ra
 	return out
 }
 
-func buildMixtureInstances(cfg *Config, method string, count int, rng *rand.Rand) ([]InstanceParams, []string, bool) {
-	fams := sortedMapKeys(cfg.Mixture.Weights)
+// allocateMixtureCounts uses Largest-Remainder (Hamilton) rounding so allocated counts sum cleanly to count (F-D07).
+func allocateMixtureCounts(weights map[string]float64, count int) map[string]int {
+	fams := sortedMapKeys(weights)
 	totalW := 0.0
 	for _, f := range fams {
-		totalW += cfg.Mixture.Weights[f]
+		totalW += weights[f]
 	}
+	type remEntry struct {
+		fam string
+		rem float64
+	}
+	alloc := make(map[string]int, len(fams))
+	rems := make([]remEntry, 0, len(fams))
+	used := 0
+	for _, f := range fams {
+		exact := (weights[f] / totalW) * float64(count)
+		fl := int(math.Floor(exact))
+		alloc[f] = fl
+		used += fl
+		rems = append(rems, remEntry{fam: f, rem: exact - float64(fl)})
+	}
+	sort.Slice(rems, func(i, j int) bool {
+		if math.Abs(rems[i].rem-rems[j].rem) > 1e-9 {
+			return rems[i].rem > rems[j].rem
+		}
+		return rems[i].fam < rems[j].fam
+	})
+	for i := 0; i < count-used && i < len(rems); i++ {
+		alloc[rems[i].fam]++
+	}
+	return alloc
+}
+
+func buildMixtureInstances(cfg *Config, method string, count int, rng *rand.Rand) ([]InstanceParams, map[string]int, []string, bool) {
+	fams := sortedMapKeys(cfg.Mixture.Weights)
+	alloc := allocateMixtureCounts(cfg.Mixture.Weights, count)
+
 	effMap := map[string]EffectSpec{}
 	for _, e := range cfg.Effects {
 		effMap[e.Family] = e
@@ -209,13 +482,9 @@ func buildMixtureInstances(cfg *Config, method string, count int, rng *rand.Rand
 
 	assigned := make([]string, 0, count)
 	for _, f := range fams {
-		n := int((cfg.Mixture.Weights[f] / totalW) * float64(count))
-		for j := 0; j < n && len(assigned) < count; j++ {
+		for j := 0; j < alloc[f]; j++ {
 			assigned = append(assigned, f)
 		}
-	}
-	for len(assigned) < count {
-		assigned = append(assigned, fams[len(assigned)%len(fams)])
 	}
 	rng.Shuffle(len(assigned), func(i, j int) { assigned[i], assigned[j] = assigned[j], assigned[i] })
 
@@ -223,8 +492,14 @@ func buildMixtureInstances(cfg *Config, method string, count int, rng *rand.Rand
 	limSeen := map[string]bool{}
 	nonEq := false
 
-	out := make([]InstanceParams, 0, count)
-	for i, fam := range assigned {
+	// Pre-build per-family de-correlated instance pools so shapes/sizes/speeds vary across the mixture (F-D07)
+	famPools := map[string][]InstanceParams{}
+	famCursor := map[string]int{}
+	for _, fam := range fams {
+		nFam := alloc[fam]
+		if nFam == 0 {
+			continue
+		}
 		eff, ok := effMap[fam]
 		if !ok {
 			eff = EffectSpec{
@@ -243,20 +518,36 @@ func buildMixtureInstances(cfg *Config, method string, count int, rng *rand.Rand
 		}
 		m := method
 		if gen := reg[fam]; gen != nil && !gen.SupportsMethod(m) {
-			fallback := gen.SupportedMethods()[0]
-			msg := fmt.Sprintf("mixture family %s does not support %s; substituted %s (non-equivalent)", fam, method, fallback)
-			if !limSeen[msg] {
-				limSeen[msg] = true
-				lims = append(lims, msg)
+			if fam == "static-gauge" {
+				msg := fmt.Sprintf("mixture family static-gauge uses declared static baseline alongside %s dynamic widgets", method)
+				if !limSeen[msg] {
+					limSeen[msg] = true
+					lims = append(lims, msg)
+				}
+				m = "static"
+			} else {
+				fallback := gen.SupportedMethods()[0]
+				msg := fmt.Sprintf("mixture family %s does not support %s; substituted %s (non-equivalent)", fam, method, fallback)
+				if !limSeen[msg] {
+					limSeen[msg] = true
+					lims = append(lims, msg)
+				}
+				nonEq = true
+				m = fallback
 			}
-			nonEq = true
-			m = fallback
 		}
-		one := buildEffectInstances(eff, m, 1, rng)[0]
+		famPools[fam] = buildEffectInstances(eff, m, nFam, rng)
+	}
+
+	out := make([]InstanceParams, 0, count)
+	for i, fam := range assigned {
+		idx := famCursor[fam]
+		famCursor[fam] = idx + 1
+		one := famPools[fam][idx]
 		one.ID = fmt.Sprintf("mix_%d", i+1)
 		out = append(out, one)
 	}
-	return out, lims, nonEq
+	return out, alloc, lims, nonEq
 }
 
 func computeCellDimensions(instances []InstanceParams) (int, int) {
@@ -375,7 +666,7 @@ const labSharedRuntimeJS = `
       stepIdx++;
       for (let i = 0; i < dataDrivers.length; i++) {
         const dd = dataDrivers[i];
-        if (suspendedSet.has(dd.id)) continue;
+        // Data/telemetry updates continue even when decorative animations are suspended off-screen
         const r = findPayload(dd.id);
         if (r.el) {
           const v = 25 + ((dd.baseVal + stepIdx * 11 + i * 7) % 70);
@@ -393,8 +684,16 @@ func BuildTestPageHTML(spec TestRunSpec) string {
 	var cssBuf, bodyBuf, jsBuf strings.Builder
 	cellW, cellH := computeCellDimensions(spec.Instances)
 
+	offscreenSpacer := ""
+	if spec.WorkloadVisibility == "offscreen" {
+		offscreenSpacer = `<div class="lab-offscreen-spacer" style="height:2200px;grid-column:1/-1;"></div>`
+	}
+
 	if spec.Isolation == "shared-scene" {
-		cols := 6
+		cols := 3
+		if spec.VisibleCount == 0 && spec.WorkloadVisibility != "offscreen" {
+			cols = 6
+		}
 		rows := (len(spec.Instances) + cols - 1) / cols
 		if rows < 1 {
 			rows = 1
@@ -419,9 +718,12 @@ func BuildTestPageHTML(spec TestRunSpec) string {
 			inner.WriteString(fmt.Sprintf(`<g id="%s" class="lab-instance" data-lab-idx="%d" transform="translate(%d,%d)">%s</g>`,
 				inst.ID, i, col*cellW, row*cellH, re.SVGInner))
 		}
-		bodyBuf.WriteString(fmt.Sprintf(`<div class="lab-shared-wrap"><svg xmlns="http://www.w3.org/2000/svg" width="%d" height="%d" viewBox="0 0 %d %d">%s</svg></div>`,
-			totalW, totalH, totalW, totalH, inner.String()))
+		bodyBuf.WriteString(fmt.Sprintf(`%s<div class="lab-shared-wrap" style="grid-column:1/-1;"><svg class="lab-shared-svg" xmlns="http://www.w3.org/2000/svg" width="%d" height="%d" viewBox="0 0 %d %d">%s</svg></div>`,
+			offscreenSpacer, totalW, totalH, totalW, totalH, inner.String()))
 	} else {
+		if offscreenSpacer != "" {
+			bodyBuf.WriteString(offscreenSpacer)
+		}
 		for i, inst := range spec.Instances {
 			gen := reg[inst.Family]
 			if gen == nil {
@@ -441,12 +743,18 @@ func BuildTestPageHTML(spec TestRunSpec) string {
 	}
 
 	visHeightCSS := ""
-	if spec.VisibleCount > 0 {
+	if spec.WorkloadVisibility == "offscreen" {
+		visHeightCSS = "#labGrid { max-height: 480px; overflow-y: auto; }"
+	} else if spec.VisibleCount > 0 {
 		rowsVis := (spec.VisibleCount + 2) / 3
 		if rowsVis < 1 {
 			rowsVis = 1
 		}
-		visHeightCSS = fmt.Sprintf("#labGrid { max-height: %dpx; overflow-y: auto; }", rowsVis*(cellH+44))
+		rowPx := cellH + 44
+		if spec.Isolation == "shared-scene" {
+			rowPx = cellH
+		}
+		visHeightCSS = fmt.Sprintf("#labGrid { max-height: %dpx; overflow-y: auto; }", rowsVis*rowPx)
 	}
 
 	return fmt.Sprintf(`<!DOCTYPE html>
@@ -459,7 +767,8 @@ func BuildTestPageHTML(spec TestRunSpec) string {
   #labGrid { display: grid; grid-template-columns: repeat(3, %dpx); gap: 10px; }
   .lab-card { background: #161b22; border: 1px solid #30363d; border-radius: 6px; padding: 6px; }
   .lab-meta { font-size: 11px; color: #8b949e; margin-bottom: 4px; white-space: nowrap; overflow: hidden; text-overflow: ellipsis; }
-  .lab-card.lab-suspended, .lab-card.lab-suspended * { animation-play-state: paused !important; }
+  .lab-card.lab-suspended, .lab-card.lab-suspended *,
+  .lab-instance.lab-suspended, .lab-instance.lab-suspended * { animation-play-state: paused !important; }
   %s
   %s
 </style>
@@ -486,9 +795,41 @@ if (typeof PerformanceObserver !== 'undefined') {
 %s
 (function() {
   const suspendOffscreen = %v;
+  const isSharedScene = %v;
+  const totalCount = %d;
   const suspendedSet = window.__labSuspendedSet;
-  if (suspendOffscreen && typeof IntersectionObserver !== 'undefined') {
-    const rootEl = document.getElementById('labGrid');
+  const rootEl = document.getElementById('labGrid');
+
+  if (!suspendOffscreen) return;
+
+  if (isSharedScene) {
+    // Shared-scene <g class="lab-instance"> visibility via bounding rect vs scroll container
+    const updateSharedVisibility = () => {
+      const rr = rootEl ? rootEl.getBoundingClientRect() : { top: 0, left: 0, bottom: window.innerHeight, right: window.innerWidth };
+      const groups = document.querySelectorAll('.lab-shared-svg .lab-instance');
+      groups.forEach(g => {
+        const r = g.getBoundingClientRect();
+        const visible = (r.bottom > rr.top + 1) && (r.top < rr.bottom - 1) && (r.right > rr.left + 1) && (r.left < rr.right - 1);
+        const id = g.id || '';
+        if (visible) {
+          g.classList.remove('lab-suspended');
+          suspendedSet.delete(id);
+        } else {
+          g.classList.add('lab-suspended');
+          suspendedSet.add(id);
+        }
+      });
+      window.__labSuspendedCount = suspendedSet.size;
+      window.__labVisibleCount = totalCount - suspendedSet.size;
+    };
+    updateSharedVisibility();
+    if (rootEl) rootEl.addEventListener('scroll', updateSharedVisibility, { passive: true });
+    window.addEventListener('scroll', updateSharedVisibility, { passive: true });
+    if (typeof ResizeObserver !== 'undefined' && rootEl) {
+      new ResizeObserver(updateSharedVisibility).observe(rootEl);
+    }
+    window.__labRefreshVisibility = updateSharedVisibility;
+  } else if (typeof IntersectionObserver !== 'undefined') {
     const io = new IntersectionObserver((entries) => {
       for (const ent of entries) {
         const card = ent.target;
@@ -505,7 +846,7 @@ if (typeof PerformanceObserver !== 'undefined') {
         }
       }
       window.__labSuspendedCount = suspendedSet.size;
-      window.__labVisibleCount = %d - suspendedSet.size;
+      window.__labVisibleCount = totalCount - suspendedSet.size;
     }, { root: rootEl, threshold: 0.01 });
     document.querySelectorAll('.lab-card').forEach(c => io.observe(c));
   }
@@ -513,7 +854,7 @@ if (typeof PerformanceObserver !== 'undefined') {
 %s
 </script>
 </body>
-</html>`, spec.RunID, cellW+16, visHeightCSS, cssBuf.String(), spec.RunID, spec.Count, spec.Isolation, spec.SchedulingStrategy, spec.WorkloadName, bodyBuf.String(), spec.Count, jsBuf.String(), spec.SuspendOffscreen, spec.Count, labSharedRuntimeJS)
+</html>`, spec.RunID, cellW+16, visHeightCSS, cssBuf.String(), spec.RunID, spec.Count, spec.Isolation, spec.SchedulingStrategy, spec.WorkloadName, bodyBuf.String(), spec.Count, jsBuf.String(), spec.SuspendOffscreen, spec.Isolation == "shared-scene", spec.Count, labSharedRuntimeJS)
 }
 
 // BuildStandaloneSampleSVG generates a clean standalone SVG sample for a single InstanceParams,
