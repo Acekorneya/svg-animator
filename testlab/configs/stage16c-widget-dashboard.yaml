@@ -1,0 +1,29 @@
+version: 1
+inherits: base-kiwiberry.yaml
+test:
+  name: stage16c-widget-dashboard
+  description: Demonstration B — Sentinel-PVE-style dashboard with 100 independent Stage 16C exported widget instances.
+
+instances:
+  counts: [100]
+  isolation: stage16c-widgets
+
+widget_runtime:
+  package_dir: demos/stage16c-widget-consumer/packages/host-monitor-v1
+  updates:
+    enabled: true
+    interval_ms: 1000
+    properties:
+      - name: hostname-node-text
+        values: ["pve01", "pve02", "pve03", "pve04"]
+      - name: status-glow-color
+        values: ["#22c55e", "#f59e0b", "#ef4444"]
+      - name: traffic-flow-speed
+        values: [0.6, 1.2, 2.4]
+      - name: nonexistent-optional-metric
+        values: [1, 2, 3]
+        optional: true
+
+workloads:
+  - name: dashboard-all
+    visibility: all

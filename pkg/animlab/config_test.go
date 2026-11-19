@@ -404,3 +404,45 @@ effects:
 		t.Fatalf("expected mixture unsupported method error for pulse+clip-reveal")
 	}
 }
+
+
+func TestM4DigitalTwinAndStage16CPackages(t *testing.T) {
+	// 1. Valid Stage 16C packages load and pass consistency checks
+	pkg1, err := LoadStage16CPackage("../../demos/stage16c-widget-consumer/packages/host-monitor-v1")
+	if err != nil {
+		t.Fatalf("LoadStage16CPackage host-monitor-v1 failed: %v", err)
+	}
+	if pkg1.Manifest.WidgetName != "host-monitor-v1" || len(pkg1.Manifest.Parameters) == 0 {
+		t.Fatalf("unexpected manifest: %+v", pkg1.Manifest)
+	}
+
+	// 2. Broken inconsistent package is rejected
+	if _, err := LoadStage16CPackage("../../demos/stage16c-widget-consumer/packages/broken-inconsistent"); err == nil {
+		t.Fatalf("expected broken-inconsistent package to fail consistency check")
+	}
+
+	// 3. Required missing property fails; optional missing property skips cleanly
+	if _, _, err := ValidateWidgetProperties(pkg1, []WidgetPropertyUpdate{
+		{Name: "nonexistent-required", Values: []any{"x"}},
+	}); err == nil {
+		t.Fatalf("expected missing required widget property to fail validation")
+	}
+	valid, skipped, err := ValidateWidgetProperties(pkg1, []WidgetPropertyUpdate{
+		{Name: "hostname-node-text", Values: []any{"pve01"}},
+		{Name: "nonexistent-optional", Values: []any{"x"}, Optional: true},
+	})
+	if err != nil || len(valid) != 1 || len(skipped) != 1 {
+		t.Fatalf("expected 1 valid + 1 skipped optional, got valid=%d skipped=%d err=%v", len(valid), len(skipped), err)
+	}
+
+	// 4. M4 YAML configs validate cleanly
+	for _, p := range []string{
+		"../../testlab/configs/dt-building-window-tracers.yaml",
+		"../../testlab/configs/stage16c-widget-dashboard.yaml",
+		"../../testlab/configs/dt-mixed-workload.yaml",
+	} {
+		if _, err := LoadConfig(p); err != nil {
+			t.Fatalf("LoadConfig(%s) failed: %v", p, err)
+		}
+	}
+}

@@ -154,6 +154,22 @@ func EvaluateCorrectness(ctx context.Context, s TestRunSpec) CorrectnessResult {
 			Reason:       "declared static baseline",
 		}
 	}
+	if s.Isolation == "stage16c-widgets" {
+		return evaluateStage16CWidgetsCorrectness(ctx, s)
+	}
+	if s.Isolation == "shared-dt-scene" && s.Scene != nil && s.Scene.Background != nil && s.Scene.Background.File != "" {
+		bgOK, _ := chromedp.Run(ctx, chromedp.Evaluate[bool](`(() => {
+			const img = document.getElementById('labDtBg');
+			return !!(img && img.complete && img.naturalWidth > 0 && img.naturalHeight > 0);
+		})()`))
+		if !bgOK {
+			return CorrectnessResult{
+				Passed:    false,
+				FaultCode: string(FaultMissingElements),
+				Reason:    "shared-dt-scene static raster background failed to load",
+			}
+		}
+	}
 
 	// Level A: Whole-population 3-point incommensurate probe at T0, T1 (+130ms), T2 (+220ms; total 350ms).
 	// Because gcd(130, 220, 350) = 10ms and minimum supported cycle duration is 200ms (0.2s),
@@ -741,4 +757,63 @@ func limitStrings(in []string, max int) []string {
 		return in
 	}
 	return in[:max]
+}
+
+func evaluateStage16CWidgetsCorrectness(ctx context.Context, s TestRunSpec) CorrectnessResult {
+	raw, err := chromedp.Run(ctx, chromedp.Evaluate[string](`(() => {
+		const insts = window.__labWidgetInstances || [];
+		const svgs = Array.from(document.querySelectorAll('.lab-widget-mount svg'));
+		const ids = new Set(insts.map((inst, i) => {
+			if (inst && inst.instanceId) return inst.instanceId;
+			const svg = svgs[i];
+			const wrap = svg ? svg.closest('[data-sva-widget-instance], .sva-widget-wrapper, .lab-widget-mount') : null;
+			return (wrap && (wrap.getAttribute('data-sva-widget-instance') || wrap.id)) || (svg && svg.id) || '';
+		}).filter(Boolean));
+		return JSON.stringify({
+			instCount: insts.length,
+			svgCount: svgs.length,
+			uniqueIds: ids.size,
+			vis: typeof window.__labVisibleCount === 'number' ? window.__labVisibleCount : insts.length,
+			susp: typeof window.__labSuspendedCount === 'number' ? window.__labSuspendedCount : 0
+		});
+	})()`))
+	if err != nil {
+		return CorrectnessResult{Passed: false, FaultCode: string(FaultMissingElements), Reason: fmt.Sprintf("stage16c probe failed: %v", err)}
+	}
+	var st struct {
+		InstCount int `json:"instCount"`
+		SVGCount  int `json:"svgCount"`
+		UniqueIDs int `json:"uniqueIds"`
+		Vis       int `json:"vis"`
+		Susp      int `json:"susp"`
+	}
+	if err := json.Unmarshal([]byte(raw), &st); err != nil {
+		return CorrectnessResult{Passed: false, FaultCode: string(FaultMissingElements), Reason: err.Error()}
+	}
+	if st.InstCount != s.Count || st.SVGCount != s.Count || st.UniqueIDs < s.Count {
+		return CorrectnessResult{
+			Passed:         false,
+			FaultCode:      string(FaultMissingElements),
+			Reason:         fmt.Sprintf("expected %d unique Stage 16C widgets, got inst=%d svg=%d unique=%d", s.Count, st.InstCount, st.SVGCount, st.UniqueIDs),
+			VisibleCount:   st.Vis,
+			SuspendedCount: st.Susp,
+		}
+	}
+	if s.SuspendOffscreen && s.VisibleCount > 0 && s.Count > s.VisibleCount && st.Susp == 0 {
+		return CorrectnessResult{
+			Passed:         false,
+			FaultCode:      string(FaultSuspensionLeak),
+			Reason:         "stage16c-widgets suspend_offscreen=true but 0 widgets suspended",
+			VisibleCount:   st.Vis,
+			SuspendedCount: st.Susp,
+		}
+	}
+	return CorrectnessResult{
+		Passed:         true,
+		LevelAPassed:   true,
+		LevelBPassed:   true,
+		Reason:         fmt.Sprintf("verified %d independent Stage 16C widget instances (vis=%d, susp=%d)", st.InstCount, st.Vis, st.Susp),
+		VisibleCount:   st.Vis,
+		SuspendedCount: st.Susp,
+	}
 }

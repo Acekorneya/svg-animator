@@ -1,0 +1,33 @@
+version: 1
+inherits: base-kiwiberry.yaml
+test:
+  name: dt-building-window-tracers
+  description: Demonstration A — Flattened static building background with 100 animated window tracers.
+
+scene:
+  width: 1280
+  height: 720
+  background:
+    file: fixtures/dt-building-bg.png
+    fit: contain
+    static: true
+
+instances:
+  counts: [100]
+  isolation: shared-dt-scene
+
+effects:
+  - family: perimeter-tracer
+    methods: [css, javascript-raf]
+    shapes: [rectangle]
+    sizes:
+      window: [88, 40]
+    speeds:
+      medium: 2.0
+    segment_counts: [2]
+    line_gap_ratios: ["25:75"]
+    directions: [cw]
+
+workloads:
+  - name: all-active
+    visibility: all

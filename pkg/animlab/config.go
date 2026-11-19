@@ -13,18 +13,51 @@ import (
 
 // Config represents the top-level YAML configuration for the SVG Animation Test Lab.
 type Config struct {
-	Version      int                    `yaml:"version" json:"version"`
-	Inherits     string                 `yaml:"inherits,omitempty" json:"inherits,omitempty"`
-	Presets      map[string]EffectSpec  `yaml:"presets,omitempty" json:"presets,omitempty"`
-	Test         TestMeta               `yaml:"test" json:"test"`
-	Browser      BrowserConfig          `yaml:"browser" json:"browser"`
-	Execution    ExecutionConfig        `yaml:"execution" json:"execution"`
-	Instances    InstancesConfig        `yaml:"instances" json:"instances"`
-	Effects      []EffectSpec           `yaml:"effects" json:"effects"`
-	Mixture      *MixtureConfig         `yaml:"mixture,omitempty" json:"mixture,omitempty"`
-	Workloads    []WorkloadSpec         `yaml:"workloads" json:"workloads"`
-	Measurements []string               `yaml:"measurements" json:"measurements"`
-	Output       OutputConfig           `yaml:"output" json:"output"`
+	Version       int                   `yaml:"version" json:"version"`
+	Inherits      string                `yaml:"inherits,omitempty" json:"inherits,omitempty"`
+	Presets       map[string]EffectSpec `yaml:"presets,omitempty" json:"presets,omitempty"`
+	Test          TestMeta              `yaml:"test" json:"test"`
+	Browser       BrowserConfig         `yaml:"browser" json:"browser"`
+	Execution     ExecutionConfig       `yaml:"execution" json:"execution"`
+	Instances     InstancesConfig       `yaml:"instances" json:"instances"`
+	Scene         *SceneConfig          `yaml:"scene,omitempty" json:"scene,omitempty"`
+	WidgetRuntime *WidgetRuntimeConfig  `yaml:"widget_runtime,omitempty" json:"widget_runtime,omitempty"`
+	Effects       []EffectSpec          `yaml:"effects" json:"effects"`
+	Mixture       *MixtureConfig        `yaml:"mixture,omitempty" json:"mixture,omitempty"`
+	Workloads     []WorkloadSpec        `yaml:"workloads" json:"workloads"`
+	Measurements  []string              `yaml:"measurements" json:"measurements"`
+	Output        OutputConfig          `yaml:"output" json:"output"`
+	ConfigDir     string                `yaml:"-" json:"-"`
+}
+
+type SceneConfig struct {
+	Width      int               `yaml:"width,omitempty" json:"width,omitempty"`
+	Height     int               `yaml:"height,omitempty" json:"height,omitempty"`
+	Background *BackgroundConfig `yaml:"background,omitempty" json:"background,omitempty"`
+	Positions  [][2]int          `yaml:"positions,omitempty" json:"positions,omitempty"`
+}
+
+type BackgroundConfig struct {
+	File   string `yaml:"file,omitempty" json:"file,omitempty"`
+	Fit    string `yaml:"fit,omitempty" json:"fit,omitempty"` // "contain" | "cover" | "fill"
+	Static bool   `yaml:"static,omitempty" json:"static,omitempty"`
+}
+
+type WidgetRuntimeConfig struct {
+	PackageDir string               `yaml:"package_dir" json:"package_dir"`
+	Updates    *WidgetUpdatesConfig `yaml:"updates,omitempty" json:"updates,omitempty"`
+}
+
+type WidgetUpdatesConfig struct {
+	Enabled    bool                   `yaml:"enabled" json:"enabled"`
+	IntervalMs int                    `yaml:"interval_ms,omitempty" json:"interval_ms,omitempty"`
+	Properties []WidgetPropertyUpdate `yaml:"properties,omitempty" json:"properties,omitempty"`
+}
+
+type WidgetPropertyUpdate struct {
+	Name     string `yaml:"name" json:"name"`
+	Values   []any  `yaml:"values" json:"values"`
+	Optional bool   `yaml:"optional,omitempty" json:"optional,omitempty"`
 }
 
 type TestMeta struct {
@@ -162,6 +195,7 @@ func loadConfigRaw(path string, visited map[string]bool) (*Config, error) {
 		}
 		cfg = mergeConfigs(*baseCfg, cfg, rawMap)
 	}
+	cfg.ConfigDir = filepath.Dir(absPath)
 	return &cfg, nil
 }
 
@@ -244,6 +278,12 @@ func mergeConfigs(base, over Config, overRaw map[string]any) Config {
 	}
 	if over.Instances.Isolation != "" {
 		out.Instances.Isolation = over.Instances.Isolation
+	}
+	if over.Scene != nil {
+		out.Scene = over.Scene
+	}
+	if over.WidgetRuntime != nil {
+		out.WidgetRuntime = over.WidgetRuntime
 	}
 	if len(over.Effects) > 0 {
 		out.Effects = over.Effects
@@ -480,11 +520,42 @@ func ValidateConfig(cfg *Config) error {
 			return fmt.Errorf("instances.counts entries must be positive integers, got %d", c)
 		}
 	}
-	if cfg.Instances.Isolation != "independent-svg-roots" && cfg.Instances.Isolation != "shared-scene" {
-		return fmt.Errorf("instances.isolation must be 'independent-svg-roots' or 'shared-scene', got %q", cfg.Instances.Isolation)
+	if cfg.Instances.Isolation != "independent-svg-roots" &&
+		cfg.Instances.Isolation != "shared-scene" &&
+		cfg.Instances.Isolation != "shared-svg-scene" &&
+		cfg.Instances.Isolation != "shared-dt-scene" &&
+		cfg.Instances.Isolation != "stage16c-widgets" {
+		return fmt.Errorf("instances.isolation must be 'independent-svg-roots', 'shared-scene', 'shared-svg-scene', 'shared-dt-scene', or 'stage16c-widgets', got %q", cfg.Instances.Isolation)
 	}
-	if len(cfg.Effects) == 0 && cfg.Mixture == nil {
-		return errors.New("at least one entry in effects or a mixture section is required")
+	if cfg.Instances.Isolation == "stage16c-widgets" {
+		if cfg.WidgetRuntime == nil || strings.TrimSpace(cfg.WidgetRuntime.PackageDir) == "" {
+			return errors.New("widget_runtime.package_dir is required when instances.isolation is 'stage16c-widgets'")
+		}
+		pkgDir := resolveAssetPath(cfg.ConfigDir, cfg.WidgetRuntime.PackageDir)
+		pkg, err := LoadStage16CPackage(pkgDir)
+		if err != nil {
+			return fmt.Errorf("widget_runtime: %w", err)
+		}
+		if cfg.WidgetRuntime.Updates != nil && len(cfg.WidgetRuntime.Updates.Properties) > 0 {
+			if _, _, err := ValidateWidgetProperties(pkg, cfg.WidgetRuntime.Updates.Properties); err != nil {
+				return fmt.Errorf("widget_runtime.updates: %w", err)
+			}
+		}
+	} else {
+		if len(cfg.Effects) == 0 && cfg.Mixture == nil {
+			return errors.New("at least one entry in effects or a mixture section is required")
+		}
+	}
+	if cfg.Scene != nil && cfg.Scene.Background != nil {
+		if cfg.Scene.Background.Fit != "" && cfg.Scene.Background.Fit != "contain" && cfg.Scene.Background.Fit != "cover" && cfg.Scene.Background.Fit != "fill" {
+			return fmt.Errorf("scene.background.fit must be 'contain', 'cover', or 'fill', got %q", cfg.Scene.Background.Fit)
+		}
+		if cfg.Scene.Background.File != "" {
+			bgPath := resolveAssetPath(cfg.ConfigDir, cfg.Scene.Background.File)
+			if _, err := os.Stat(bgPath); err != nil {
+				return fmt.Errorf("scene.background.file %q not found (resolved: %s): %w", cfg.Scene.Background.File, bgPath, err)
+			}
+		}
 	}
 
 	reg := DefaultRegistry()

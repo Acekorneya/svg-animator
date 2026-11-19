@@ -1,0 +1,60 @@
+version: 1
+inherits: base-kiwiberry.yaml
+test:
+  name: dt-mixed-workload
+  description: Mixed-effect Digital Twin overlay workload over flattened architectural background.
+
+scene:
+  width: 1280
+  height: 720
+  background:
+    file: fixtures/dt-building-bg.png
+    fit: contain
+    static: true
+
+instances:
+  counts: [50]
+  isolation: shared-dt-scene
+
+effects:
+  - family: perimeter-tracer
+    methods: [css]
+    shapes: [rectangle]
+    sizes:
+      window: [80, 40]
+    speeds:
+      medium: 2.0
+  - family: pulse
+    methods: [css]
+    shapes: [circle]
+    sizes:
+      small: [30, 30]
+    speeds:
+      medium: 1.5
+  - family: flash
+    methods: [css]
+    shapes: [star]
+    flash_modes: [repeating]
+    flash_duration_ms: 120
+    flash_interval_s: 1.2
+    sizes:
+      small: [30, 30]
+  - family: flow-line
+    methods: [css]
+    shapes: [straight]
+    speeds:
+      medium: 1.8
+
+mixture:
+  name: dt-mixed
+  methods: [css]
+  weights:
+    perimeter-tracer: 40
+    pulse: 20
+    flash: 15
+    flow-line: 15
+    static-gauge: 10
+
+workloads:
+  - name: all-active
+    visibility: all

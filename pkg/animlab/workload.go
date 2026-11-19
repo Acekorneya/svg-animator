@@ -19,7 +19,7 @@ type TestRunSpec struct {
 	WorkloadName       string
 	WorkloadVisibility string
 	Count              int
-	Isolation          string // "independent-svg-roots" | "shared-scene"
+	Isolation          string // "independent-svg-roots" | "shared-scene" | "shared-svg-scene" | "shared-dt-scene" | "stage16c-widgets"
 	VisibleCount       int
 	SuspendOffscreen   bool
 	IsMixture          bool
@@ -27,6 +27,9 @@ type TestRunSpec struct {
 	NonEquivalent      bool
 	Unsupported        bool
 	Seed               int64
+	Scene              *SceneConfig
+	WidgetRuntime      *WidgetRuntimeConfig
+	ConfigDir          string
 	Instances          []InstanceParams
 	Limitations        []string
 }
@@ -229,6 +232,43 @@ func ExpandScenarios(cfg *Config) []TestRunSpec {
 
 	for _, count := range cfg.Instances.Counts {
 		for _, wl := range cfg.Workloads {
+			// 0. Complete Stage 16C exported widget package workload (M4)
+			if cfg.Instances.Isolation == "stage16c-widgets" && cfg.WidgetRuntime != nil {
+				pkgDir := resolveAssetPath(cfg.ConfigDir, cfg.WidgetRuntime.PackageDir)
+				pkg, err := LoadStage16CPackage(pkgDir)
+				wName := "stage16c-widget"
+				var lims []string
+				if err == nil && pkg != nil {
+					wName = pkg.Manifest.WidgetName
+					if cfg.WidgetRuntime.Updates != nil && len(cfg.WidgetRuntime.Updates.Properties) > 0 {
+						_, skipped, _ := ValidateWidgetProperties(pkg, cfg.WidgetRuntime.Updates.Properties)
+						lims = append(lims, skipped...)
+					}
+				}
+				visCount := wl.VisibleCount
+				if wl.Visibility == "offscreen" {
+					visCount = 0
+				}
+				specs = append(specs, TestRunSpec{
+					RunID:              fmt.Sprintf("%s__stage16c-runtime__%s__n%d", wName, wl.Name, count),
+					Family:             wName,
+					Method:             "stage16c-runtime",
+					SchedulingStrategy: "stage16c-widget-runtime",
+					VariationStrategy:  "stage16c-package",
+					WorkloadName:       wl.Name,
+					WorkloadVisibility: wl.Visibility,
+					Count:              count,
+					Isolation:          "stage16c-widgets",
+					VisibleCount:       visCount,
+					SuspendOffscreen:   wl.SuspendOffscreen,
+					Seed:               cfg.Execution.RandomSeed,
+					WidgetRuntime:      cfg.WidgetRuntime,
+					ConfigDir:          cfg.ConfigDir,
+					Limitations:        lims,
+				})
+				continue
+			}
+
 			// 1. Per-effect scenarios
 			for _, eff := range cfg.Effects {
 				strat := eff.VariationStrategy
@@ -258,7 +298,8 @@ func ExpandScenarios(cfg *Config) []TestRunSpec {
 								unsup = true
 							}
 						}
-						if cfg.Instances.Isolation == "shared-scene" && method == "smil" && wl.SuspendOffscreen {
+						isShared := cfg.Instances.Isolation == "shared-scene" || cfg.Instances.Isolation == "shared-svg-scene" || cfg.Instances.Isolation == "shared-dt-scene"
+						if isShared && method == "smil" && wl.SuspendOffscreen {
 							msg := "SMIL animations inside a single shared-scene <svg> share one SVG timeline and cannot be suspended per-<g> without globally pausing sibling elements"
 							if !limSeen[msg] {
 								limSeen[msg] = true
@@ -290,6 +331,8 @@ func ExpandScenarios(cfg *Config) []TestRunSpec {
 							NonEquivalent:      nonEq,
 							Unsupported:        unsup,
 							Seed:               scenSeed,
+							Scene:              cfg.Scene,
+							ConfigDir:          cfg.ConfigDir,
 							Instances:          instances,
 							Limitations:        lims,
 						})
@@ -327,6 +370,8 @@ func ExpandScenarios(cfg *Config) []TestRunSpec {
 						MixtureAllocation:  alloc,
 						NonEquivalent:      nonEq,
 						Seed:               scenSeed,
+						Scene:              cfg.Scene,
+						ConfigDir:          cfg.ConfigDir,
 						Instances:          instances,
 						Limitations:        lims,
 					})
@@ -681,6 +726,12 @@ const labSharedRuntimeJS = `
 
 // BuildTestPageHTML generates the self-contained HTML harness page for a TestRunSpec.
 func BuildTestPageHTML(spec TestRunSpec) string {
+	if spec.Isolation == "stage16c-widgets" {
+		return buildStage16CWidgetsHTML(spec)
+	}
+	if spec.Isolation == "shared-dt-scene" {
+		return buildDTSceneHTML(spec)
+	}
 	reg := DefaultRegistry()
 	var cssBuf, bodyBuf, jsBuf strings.Builder
 	cellW, cellH := computeCellDimensions(spec.Instances)
@@ -690,7 +741,8 @@ func BuildTestPageHTML(spec TestRunSpec) string {
 		offscreenSpacer = `<div class="lab-offscreen-spacer" style="height:2200px;grid-column:1/-1;"></div>`
 	}
 
-	if spec.Isolation == "shared-scene" {
+	isShared := spec.Isolation == "shared-scene" || spec.Isolation == "shared-svg-scene"
+	if isShared {
 		cols := 3
 		if spec.VisibleCount == 0 && spec.WorkloadVisibility != "offscreen" {
 			cols = 6
@@ -752,7 +804,7 @@ func BuildTestPageHTML(spec TestRunSpec) string {
 			rowsVis = 1
 		}
 		rowPx := cellH + 44
-		if spec.Isolation == "shared-scene" {
+		if isShared {
 			rowPx = cellH
 		}
 		visHeightCSS = fmt.Sprintf("#labGrid { max-height: %dpx; overflow-y: auto; }", rowsVis*rowPx)
@@ -855,7 +907,7 @@ if (typeof PerformanceObserver !== 'undefined') {
 %s
 </script>
 </body>
-</html>`, spec.RunID, cellW+16, visHeightCSS, cssBuf.String(), spec.RunID, spec.Count, spec.Isolation, spec.SchedulingStrategy, spec.WorkloadName, bodyBuf.String(), spec.Count, jsBuf.String(), spec.SuspendOffscreen, spec.Isolation == "shared-scene", spec.Count, labSharedRuntimeJS)
+</html>`, spec.RunID, cellW+16, visHeightCSS, cssBuf.String(), spec.RunID, spec.Count, spec.Isolation, spec.SchedulingStrategy, spec.WorkloadName, bodyBuf.String(), spec.Count, jsBuf.String(), spec.SuspendOffscreen, isShared, spec.Count, labSharedRuntimeJS)
 }
 
 // BuildStandaloneSampleSVG generates a clean standalone SVG sample for a single InstanceParams,

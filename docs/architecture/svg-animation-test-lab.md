@@ -88,3 +88,17 @@ Every run directory preserves:
 - **Mixed Workloads & Shared-Scene Visibility (`pkg/animlab/workload.go`):**
   - Hamilton largest-remainder rounding (`allocateMixtureCounts`) ensures exact instance counts summing to `N` with per-family de-correlated variation. Unsupported dynamic methods in mixtures are rejected at validation time.
   - `shared-scene` `<g class="lab-instance">` visibility is evaluated against `#labGrid` via `getBoundingClientRect()`, `scroll`, and `ResizeObserver` (no `.lab-card` dependency), suspending decorative CSS/JS-RAF off-screen without pausing `data-driven` telemetry updates.
+
+---
+
+## 8. Milestone 4 — Realistic Digital Twin & Stage 16C Exported-Widget Workloads
+
+- **Deployment Arrangements (`instances.isolation`):**
+  - `shared-scene` / `shared-svg-scene`: many animated `<g>` objects inside one `<svg>` root.
+  - `shared-dt-scene`: one static flattened raster `<img>` background (`scene.background.file`, `fit: contain|cover|fill`, `static: true`) paired with one shared `<svg>` containing `N` independently positioned `<g class="lab-instance">` overlays. Substitute any larger architectural PNG/WebP/JPEG via `scene.background.file` in YAML without recompilation.
+  - `independent-svg-roots`: `N` separate `<svg>` root elements.
+  - `stage16c-widgets`: `N` independent instances of a genuine Studio-exported Stage 16C widget package (`widget_runtime.package_dir`, e.g. `demos/stage16c-widget-consumer/packages/host-monitor-v1`), validated for manifest/SVG consistency (`pkg/animlab/stage16c.go`), mounted via the unmodified `js/svg-widget.js` (`SVGWidget.mount`), and driven via real `setParameter()` calls from `widget_runtime.updates`.
+- **Demonstrations & Fixtures:**
+  - Lightweight architectural fixture: `testlab/fixtures/dt-building-bg.png` (`1280x720`, 12.6 KB).
+  - Demonstration A (`testlab/configs/dt-building-window-tracers.yaml`): 100 animated window tracers over flattened building background.
+  - Demonstration B (`testlab/configs/stage16c-widget-dashboard.yaml`): 100 independent `host-monitor-v1` Stage 16C widgets with per-instance `setParameter` updates.

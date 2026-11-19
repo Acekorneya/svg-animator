@@ -1,0 +1,16 @@
+=== M1 ===
+[PASS] NC-08: fault=SUSPENSION_LEAK reason=1 suspended instance(s) continued animating: nc08-10(idx=10,delta=233.29)
+
+SUMMARY: 23/23 checks passed (0 failed)
+=== M2 ===
+[Lab] Rep 1/1 (1/1): static-gauge__static__all-active__n10
+[Lab] Rep 1/1 (1/1): static-gauge__static__all-active__n10
+[FAIL] AT-M2-01: mode=external-cdp-isolated-tree rootPID=2100 ownedPIDs=16 cleanCPU=0.4100s noisyCPU=0.4000s
+[Lab] Rep 1/1 (1/1): perimeter-tracer__css__all-active__n5
+[PASS] NC-09: unavailHostCPU=<nil> status=partial deadPIDerr=owned browser root PID 99999999 terminated or unreadable
+
+SUMMARY: 7/8 M2 checks passed (1 failed)
+=== M3 ===
+[PASS] AT-M3-06: domCount250=250 tag=ellipse dur=0.900
+
+SUMMARY: 6/6 M3 checks passed (0 failed)
