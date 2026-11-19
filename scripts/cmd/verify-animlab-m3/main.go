@@ -95,7 +95,7 @@ func main() {
 	}
 
 	// =========================================================================
-	// AT-M3-02: Isolated & factorial variation + de-correlated instances
+	// AT-M3-03: Isolated & factorial variation + de-correlated instances
 	// =========================================================================
 	{
 		cfgSize, err1 := animlab.LoadConfig("testlab/configs/isolated-size-study.yaml")
@@ -108,12 +108,13 @@ func main() {
 		ok := err1 == nil && err2 == nil && err3 == nil &&
 			len(spSize) == 9 && len(spSpeed) == 9 &&
 			cfgPreset.Execution.WarmupSeconds == 0 && len(spPreset) == 2
-		record("AT-M3-02", ok, fmt.Sprintf("isolatedSize=%d isolatedSpeed=%d presetWarmup=%.1f",
-			len(spSize), len(spSpeed), cfgPreset.Execution.WarmupSeconds))
+		record("AT-M3-02", err3 == nil && cfgPreset.Execution.WarmupSeconds == 0 && len(spPreset) == 2,
+			fmt.Sprintf("presetWarmup=%.1f scenarios=%d", cfgPreset.Execution.WarmupSeconds, len(spPreset)))
+		record("AT-M3-03", ok, fmt.Sprintf("isolatedSize=%d isolatedSpeed=%d", len(spSize), len(spSpeed)))
 	}
 
 	// =========================================================================
-	// AT-M3-03 & AT-M3-04: Mixed workload exact allocation & seed reproducibility
+	// AT-M3-04: Mixed workload exact allocation & seed reproducibility
 	// =========================================================================
 	{
 		cfgMix, err := animlab.LoadConfig("testlab/configs/mixed-dashboard.yaml")
@@ -134,7 +135,7 @@ func main() {
 		}
 		repro := err == nil && mixSpec != nil && sumAlloc == mixSpec.Count &&
 			len(sp1) == len(sp2) && sp1[0].Instances[0].Shape == sp2[0].Instances[0].Shape
-		record("AT-M3-03", repro, fmt.Sprintf("mixCount=%d alloc=%v", mixSpec.Count, mixSpec.MixtureAllocation))
+		record("AT-M3-04", repro, fmt.Sprintf("mixCount=%d alloc=%v", mixSpec.Count, mixSpec.MixtureAllocation))
 	}
 
 	// =========================================================================
@@ -157,14 +158,36 @@ func main() {
 				_, _ = chromedp.Run(tCtx, chromedp.Navigate(baseURL+s.RunID+".html"))
 				_, _ = chromedp.Run(tCtx, chromedp.Sleep(250*time.Millisecond))
 				corr := animlab.EvaluateCorrectness(tCtx, s)
+				// Also verify actual DOM bounding-rect / class visibility counts match configured VisibleCount (9)
+				domVisCnt, _ := chromedp.Run(tCtx, chromedp.Evaluate[int](`(() => {
+					const rr = document.getElementById('labGrid').getBoundingClientRect();
+					return Array.from(document.querySelectorAll('.lab-shared-svg .lab-instance')).filter(g => {
+						const r = g.getBoundingClientRect();
+						return !g.classList.contains('lab-suspended') && r.bottom > rr.top + 1 && r.top < rr.bottom - 1;
+					}).length;
+				})()`))
+				domSuspCnt, _ := chromedp.Run(tCtx, chromedp.Evaluate[int](`document.querySelectorAll('.lab-shared-svg .lab-instance.lab-suspended').length`))
 				tCancel()
-				if !corr.Passed || corr.VisibleCount != 9 || corr.SuspendedCount != 27 {
+				if !corr.Passed || domVisCnt != 9 || domSuspCnt != 27 || corr.VisibleCount != 9 || corr.SuspendedCount != 27 {
 					allOK = false
-					notes = append(notes, fmt.Sprintf("%s:passed=%v,vis=%d,susp=%d(%s)",
-						s.Method, corr.Passed, corr.VisibleCount, corr.SuspendedCount, corr.Reason))
+					notes = append(notes, fmt.Sprintf("%s:passed=%v,domVis=%d,domSusp=%d(%s)",
+						s.Method, corr.Passed, domVisCnt, domSuspCnt, corr.Reason))
 				} else {
-					notes = append(notes, fmt.Sprintf("%s:vis=%d,susp=%d", s.Method, corr.VisibleCount, corr.SuspendedCount))
+					notes = append(notes, fmt.Sprintf("%s:domVis=%d,domSusp=%d", s.Method, domVisCnt, domSuspCnt))
 				}
+			}
+
+			// Verify shared-scene SMIL with suspend_offscreen=true is marked Unsupported and fails correctness
+			smilCfg := *cfgSS
+			smilCfg.Effects = append([]animlab.EffectSpec(nil), cfgSS.Effects...)
+			smilCfg.Effects[0].Methods = []string{"smil"}
+			smilSpecs := animlab.ExpandScenarios(&smilCfg)
+			smilCorr := animlab.EvaluateCorrectness(context.Background(), smilSpecs[0])
+			if !smilSpecs[0].Unsupported || smilCorr.Passed || smilCorr.FaultCode != string(animlab.FaultUnsupportedOrNonEquivalent) {
+				allOK = false
+				notes = append(notes, fmt.Sprintf("smil-shared:unsup=%v,fault=%s", smilSpecs[0].Unsupported, smilCorr.FaultCode))
+			} else {
+				notes = append(notes, "smil-shared:UNSUPPORTED_OR_NON_EQUIVALENT")
 			}
 
 			// Verify data-driven telemetry continues updating even when off-screen (suspended)

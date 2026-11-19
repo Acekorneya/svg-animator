@@ -264,6 +264,7 @@ func ExpandScenarios(cfg *Config) []TestRunSpec {
 								limSeen[msg] = true
 								lims = append(lims, msg)
 							}
+							unsup = true
 						}
 						runID := fmt.Sprintf("%s__%s__%s__n%d", v.eff.Family, method, wl.Name, count)
 						if v.tag != "" {
