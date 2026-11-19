@@ -1,0 +1,16 @@
+=== RUN   TestYAMLInheritancePresetsAndValidation
+--- PASS: TestYAMLInheritancePresetsAndValidation (0.01s)
+=== RUN   TestMixedAndSharedSceneWorkloads
+--- PASS: TestMixedAndSharedSceneWorkloads (0.00s)
+=== RUN   TestM1ConfigAndEffectInvariants
+--- PASS: TestM1ConfigAndEffectInvariants (0.00s)
+=== RUN   TestM2MeasurementStatsOrderingAndRanking
+--- PASS: TestM2MeasurementStatsOrderingAndRanking (0.00s)
+=== RUN   TestM3YAMLAndScenarioGeneration
+--- PASS: TestM3YAMLAndScenarioGeneration (0.00s)
+=== RUN   TestM4DigitalTwinAndStage16CPackages
+--- PASS: TestM4DigitalTwinAndStage16CPackages (0.00s)
+=== RUN   TestM5ResultsServerSecurityAndDiscovery
+--- PASS: TestM5ResultsServerSecurityAndDiscovery (0.00s)
+PASS
+ok  	gitea.seaoffate.net/blackgrape/svg-animator/pkg/animlab	(cached)

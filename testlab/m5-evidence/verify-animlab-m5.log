@@ -1,0 +1,13 @@
+[PASS] AT-M5-01: status=200 err=<nil>
+[PASS] AT-M5-02: m5-validated-showcase, tracer-comparison, mixed-dashboard listed
+[PASS] AT-M5-06: historical & validated badges present
+[PASS] AT-M5-07: workload & Stage 16C coverage disclosures present
+[PASS] AT-M5-05: report=200 viewMd=200 viewYaml=200 rawJson=200
+[PASS] AT-M5-10: traversal=403 rawCurl=403 dotfile=403 viewBad=400
+[PASS] AT-M5-03: compareObjectsAnimated=true
+[PASS] AT-M5-04: sideBySideRows=2
+[PASS] AT-M5-08: dtOverlays=100 stage16cWidgets=100
+[PASS] AT-M5-09: postRestartHTTP=200 ports8088_91_92_93=true
+[PASS] AT-M5-11: samplesErr=<nil> catErr=<nil>
+
+SUMMARY: 11/11 M5 checks passed (0 failed)

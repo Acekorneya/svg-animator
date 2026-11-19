@@ -102,3 +102,44 @@ Every run directory preserves:
   - Lightweight architectural fixture: `testlab/fixtures/dt-building-bg.png` (`1280x720`, 12.6 KB).
   - Demonstration A (`testlab/configs/dt-building-window-tracers.yaml`): 100 animated window tracers over flattened building background.
   - Demonstration B (`testlab/configs/stage16c-widget-dashboard.yaml`): 100 independent `host-monitor-v1` Stage 16C widgets with per-instance `setParameter` updates.
+
+---
+
+## 9. Operator Workflow & Persistent Viewer (`:8093`)
+
+1. **Where YAML files live:** `testlab/configs/` (shared base in `testlab/configs/base-kiwiberry.yaml`).
+2. **Inheritance & presets:** Use `inherits: base-kiwiberry.yaml` at the top of an experiment YAML and `presets:` for reusable effect profiles. Child fields (including `false` and `0`) override base values cleanly.
+3. **Validate configuration:**
+   ```bash
+   go run ./cmd/anim-test-lab validate -c testlab/configs/tracer-method-comparison.yaml
+   ```
+4. **Preview expanded scenarios:** `validate` prints total scenario count, `variation_strategy`, `count`, `visible_count`, `suspend_offscreen`, and mixture allocations before launching Chromium.
+5. **Generate visual samples & side-by-side catalogue:**
+   ```bash
+   go run ./cmd/anim-test-lab samples -c testlab/configs/tracer-method-comparison.yaml -out testlab/results/my-samples
+   ```
+6. **Run a benchmark:**
+   ```bash
+   go run ./cmd/anim-test-lab run -c testlab/configs/tracer-method-comparison.yaml -out testlab/results/my-run
+   ```
+7. **Regenerate reports from saved results:**
+   ```bash
+   go run ./cmd/anim-test-lab report -in testlab/results/my-run/raw-results.json
+   ```
+8. **Rerun an earlier experiment:**
+   ```bash
+   go run ./cmd/anim-test-lab rerun -dir testlab/results/my-run -out testlab/results/my-run-2
+   ```
+9. **Open results in a browser:**
+   - Persistent Kiwiberry viewer: `http://192.168.100.40:8093/`
+   - Local viewer: `go run ./cmd/anim-test-lab serve -dir testlab/results -addr :8093`
+10. **Add an exported Stage 16C widget package or background fixture:**
+    - Place raster backgrounds in `testlab/fixtures/` and reference via `scene.background.file` in YAML.
+    - Reference any Studio-exported Stage 16C package directory (`widget-manifest.json`, `<widget>.svg`, `js/svg-widget.js`) via `widget_runtime.package_dir` with `instances.isolation: stage16c-widgets`.
+
+### Kiwiberry Service Management (`anim-test-lab-viewer.service`)
+```bash
+ssh nigel@192.168.100.40 "systemctl --user status anim-test-lab-viewer.service"
+ssh nigel@192.168.100.40 "systemctl --user restart anim-test-lab-viewer.service"
+ssh nigel@192.168.100.40 "journalctl --user -u anim-test-lab-viewer.service -n 50 --no-pager"
+```

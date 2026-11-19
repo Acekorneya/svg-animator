@@ -1,6 +1,7 @@
 package animlab
 
 import (
+	"net/http/httptest"
 	"os"
 	"path/filepath"
 	"strings"
@@ -444,5 +445,62 @@ func TestM4DigitalTwinAndStage16CPackages(t *testing.T) {
 		if _, err := LoadConfig(p); err != nil {
 			t.Fatalf("LoadConfig(%s) failed: %v", p, err)
 		}
+	}
+}
+
+
+func TestM5ResultsServerSecurityAndDiscovery(t *testing.T) {
+	tmp := t.TempDir()
+	resDir := filepath.Join(tmp, "results")
+	demosDir := filepath.Join(tmp, "m4-evidence")
+	cfgDir := filepath.Join(tmp, "configs")
+	_ = os.MkdirAll(filepath.Join(resDir, "hist-exp"), 0755)
+	_ = os.MkdirAll(filepath.Join(resDir, "valid-exp", "samples"), 0755)
+	_ = os.MkdirAll(demosDir, 0755)
+	_ = os.MkdirAll(cfgDir, 0755)
+
+	_ = os.WriteFile(filepath.Join(resDir, "hist-exp", "raw-results.json"), []byte(`{"testName":"hist","environment":{},"scenarios":[]}`), 0644)
+	_ = os.WriteFile(filepath.Join(resDir, "valid-exp", "raw-results.json"), []byte(`{"testName":"valid","environment":{"measurementSpecVersion":"2.0.0"},"scenarios":[{"runId":"r1","method":"css","count":10,"isolation":"independent-svg-roots","correctnessPassed":true}]}`), 0644)
+	_ = os.WriteFile(filepath.Join(resDir, "valid-exp", "report.md"), []byte("# Valid Report\n"), 0644)
+	_ = os.WriteFile(filepath.Join(resDir, "valid-exp", "samples", "s.svg"), []byte(`<svg xmlns="http://www.w3.org/2000/svg"></svg>`), 0644)
+	_ = os.WriteFile(filepath.Join(demosDir, "demo-a-digital-twin.html"), []byte("<html>demoA</html>"), 0644)
+	_ = os.WriteFile(filepath.Join(tmp, "secret.txt"), []byte("TOP_SECRET"), 0644)
+
+	srv := NewResultsServerWithOptions(resDir, ServerOptions{DemosDir: demosDir, ConfigsDir: cfgDir})
+
+	// 1. Landing page /
+	rec := httptest.NewRecorder()
+	srv.ServeHTTP(rec, httptest.NewRequest("GET", "/", nil))
+	body := rec.Body.String()
+	if rec.Code != 200 || !strings.Contains(body, "HISTORICAL — UNVALIDATED METHODOLOGY") || !strings.Contains(body, "VALIDATED (2.0.0)") || !strings.Contains(body, "demo-a-digital-twin.html") {
+		t.Fatalf("landing page missing expected sections (code=%d): %s", rec.Code, body)
+	}
+
+	// 2. Traversal blocked
+	for _, bad := range []string{"/../secret.txt", "/valid-exp/../../secret.txt", "/.git/config"} {
+		r := httptest.NewRecorder()
+		srv.ServeHTTP(r, httptest.NewRequest("GET", bad, nil))
+		if r.Code != 403 && r.Code != 400 {
+			t.Fatalf("expected 403/400 for %s, got %d", bad, r.Code)
+		}
+	}
+
+	// 3. Inline /view works and blocks traversal
+	rView := httptest.NewRecorder()
+	srv.ServeHTTP(rView, httptest.NewRequest("GET", "/view?exp=valid-exp&file=report.md", nil))
+	if rView.Code != 200 || !strings.Contains(rView.Body.String(), "# Valid Report") {
+		t.Fatalf("inline /view failed: code=%d", rView.Code)
+	}
+	rViewBad := httptest.NewRecorder()
+	srv.ServeHTTP(rViewBad, httptest.NewRequest("GET", "/view?exp=valid-exp&file=../secret.txt", nil))
+	if rViewBad.Code != 400 {
+		t.Fatalf("expected 400 on /view traversal, got %d", rViewBad.Code)
+	}
+
+	// 4. SVG content type
+	rSVG := httptest.NewRecorder()
+	srv.ServeHTTP(rSVG, httptest.NewRequest("GET", "/valid-exp/samples/s.svg", nil))
+	if rSVG.Code != 200 || !strings.Contains(rSVG.Header().Get("Content-Type"), "image/svg+xml") {
+		t.Fatalf("expected image/svg+xml for .svg, got %d %q", rSVG.Code, rSVG.Header().Get("Content-Type"))
 	}
 }

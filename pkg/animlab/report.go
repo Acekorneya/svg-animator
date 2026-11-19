@@ -196,13 +196,15 @@ func GenerateVisualCatalogue(cfg *Config, outDir string, hasReport bool) ([]Samp
 	}
 
 	var cards strings.Builder
+	type compKey struct{ fam, shape, size, speed string }
+	compGroups := map[compKey][]SampleEntry{}
 	for _, e := range entries {
 		limBadge := ""
 		if e.Limitation != "" {
 			limBadge = fmt.Sprintf(`<div class="lim">%s</div>`, html.EscapeString(e.Limitation))
 		}
 		cards.WriteString(fmt.Sprintf(`<div class="card" data-family="%s" data-method="%s" data-shape="%s">
-  <div class="title">%s &middot; <strong>%s</strong></div>
+  <div class="title">%s &middot; <strong>%s</strong> <span class="tag-standalone">Standalone SVG</span></div>
   <div class="meta">%s | %s | %s</div>
   <object type="image/svg+xml" data="../samples/%s" width="220" height="140"></object>
   <div><a href="../samples/%s" target="_blank">Open Standalone SVG</a></div>
@@ -211,11 +213,57 @@ func GenerateVisualCatalogue(cfg *Config, outDir string, hasReport bool) ([]Samp
 			html.EscapeString(e.Family), html.EscapeString(e.Method),
 			html.EscapeString(e.Shape), html.EscapeString(e.Size), html.EscapeString(e.Speed),
 			html.EscapeString(e.Filename), html.EscapeString(e.Filename), limBadge))
+		k := compKey{e.Family, e.Shape, e.Size, e.Speed}
+		compGroups[k] = append(compGroups[k], e)
+	}
+
+	var compBuf strings.Builder
+	var cKeys []compKey
+	for k, list := range compGroups {
+		if len(list) > 1 {
+			cKeys = append(cKeys, k)
+		}
+	}
+	sort.Slice(cKeys, func(i, j int) bool {
+		a, b := cKeys[i], cKeys[j]
+		if a.fam != b.fam {
+			return a.fam < b.fam
+		}
+		if a.shape != b.shape {
+			return a.shape < b.shape
+		}
+		if a.size != b.size {
+			return a.size < b.size
+		}
+		return a.speed < b.speed
+	})
+	for idxK, k := range cKeys {
+		if idxK >= 12 {
+			break
+		}
+		list := compGroups[k]
+		sort.Slice(list, func(i, j int) bool { return list[i].Method < list[j].Method })
+		var cols strings.Builder
+		for _, e := range list {
+			lim := ""
+			if e.Limitation != "" {
+				lim = fmt.Sprintf(`<div class="lim">%s</div>`, html.EscapeString(e.Limitation))
+			}
+			cols.WriteString(fmt.Sprintf(`<div class="cmp-col">
+  <div class="cmp-m"><code>%s</code></div>
+  <object type="image/svg+xml" data="../samples/%s" width="210" height="135"></object>
+  <div><a href="../samples/%s" target="_blank">Open SVG</a></div>%s
+</div>`, html.EscapeString(e.Method), html.EscapeString(e.Filename), html.EscapeString(e.Filename), lim))
+		}
+		compBuf.WriteString(fmt.Sprintf(`<div class="cmp-row">
+  <div class="cmp-head"><strong>%s</strong> &middot; shape=<code>%s</code> &middot; size=<code>%s</code> &middot; speed=<code>%s</code></div>
+  <div class="cmp-cols">%s</div>
+</div>`, html.EscapeString(k.fam), html.EscapeString(k.shape), html.EscapeString(k.size), html.EscapeString(k.speed), cols.String()))
 	}
 
 	reportLink := ""
 	if hasReport {
-		reportLink = `<a href="../report.html" style="color:#58a6ff;margin-left:16px;">View Comparison Report &rarr;</a>`
+		reportLink = `<a href="../report.html" class="nav-pill">HTML Report</a> <a href="../report.md" class="nav-pill">Markdown Report</a> <a href="../raw-results.json" class="nav-pill">Raw JSON</a>`
 	}
 
 	catHTML := fmt.Sprintf(`<!DOCTYPE html>
@@ -223,22 +271,39 @@ func GenerateVisualCatalogue(cfg *Config, outDir string, hasReport bool) ([]Samp
 <style>
   body { margin: 0; padding: 20px; background: #0d1117; color: #c9d1d9; font-family: system-ui, sans-serif; }
   h1 { margin: 0 0 8px; font-size: 20px; }
+  h2 { margin: 18px 0 10px; font-size: 16px; color: #f0f6fc; }
+  .notice { background: #161b22; border: 1px solid #30363d; border-left: 3px solid #58a6ff; padding: 8px 12px; border-radius: 6px; font-size: 12px; color: #8b949e; margin-bottom: 12px; }
   .bar { margin: 12px 0 18px; display: flex; gap: 10px; flex-wrap: wrap; align-items: center; }
+  .nav-pill { padding: 4px 10px; background: #21262d; border: 1px solid #30363d; border-radius: 6px; font-size: 12px; }
   select { background: #161b22; color: #c9d1d9; border: 1px solid #30363d; padding: 6px 10px; border-radius: 6px; }
   .grid { display: grid; grid-template-columns: repeat(auto-fill, minmax(245px, 1fr)); gap: 14px; }
   .card { background: #161b22; border: 1px solid #30363d; border-radius: 8px; padding: 10px; }
+  .cmp-row { background: #161b22; border: 1px solid #30363d; border-radius: 8px; padding: 10px; margin-bottom: 12px; }
+  .cmp-head { font-size: 13px; margin-bottom: 8px; color: #f0f6fc; }
+  .cmp-cols { display: flex; flex-wrap: wrap; gap: 12px; }
+  .cmp-col { background: #0d1117; border: 1px solid #21262d; border-radius: 6px; padding: 8px; min-width: 215px; }
+  .cmp-m { font-size: 12px; margin-bottom: 4px; color: #58a6ff; }
+  .tag-standalone { font-size: 10px; padding: 1px 5px; background: #21262d; border-radius: 4px; color: #8b949e; margin-left: 4px; }
   .title { font-size: 13px; margin-bottom: 2px; }
   .meta { font-size: 11px; color: #8b949e; margin-bottom: 8px; }
-  .lim { margin-top: 6px; font-size: 11px; color: #f59e0b; }
+  .lim { margin-top: 6px; font-size: 11px; color: #f59e0b; max-width: 220px; }
   a { color: #58a6ff; font-size: 11px; text-decoration: none; }
 </style></head><body>
 <h1>SVG Animation Test Lab — Visual Sample Catalogue (%s)</h1>
+<div class="notice">
+  <strong>Standalone SVG Preview:</strong> Embedded via <code>&lt;object type="image/svg+xml"&gt;</code> so CSS, SMIL, and standalone <code>javascript-raf</code> SVG scripts execute directly (note: HTML <code>&lt;img&gt;</code> blocks SVG scripts). Complete Stage 16C widget-runtime demonstrations are linked separately on the Lab home page.
+</div>
 <div class="bar">
+  <a href="../../" class="nav-pill">&larr; Lab Home</a>
   <label>Family: <select id="fFam"><option value="">All</option></select></label>
   <label>Method: <select id="fMet"><option value="">All</option></select></label>
   <label>Shape: <select id="fShp"><option value="">All</option></select></label>
-  <a href="../resolved-config.yaml">resolved-config.yaml</a>%s
+  <a href="../resolved-config.yaml" class="nav-pill">Resolved YAML</a>
+  %s
 </div>
+<h2>Side-by-Side Equivalent Method Comparisons</h2>
+<div id="compareGrid">%s</div>
+<h2>All Generated Standalone Samples</h2>
 <div class="grid" id="grid">%s</div>
 <script>
 const cards = Array.from(document.querySelectorAll('.card'));
@@ -257,7 +322,7 @@ function apply() {
   });
 }
 fFam.onchange = fMet.onchange = fShp.onchange = apply;
-</script></body></html>`, html.EscapeString(cfg.Test.Name), reportLink, cards.String())
+</script></body></html>`, html.EscapeString(cfg.Test.Name), reportLink, compBuf.String(), cards.String())
 
 	if err := os.WriteFile(filepath.Join(catDir, "index.html"), []byte(catHTML), 0644); err != nil {
 		return nil, err
@@ -351,7 +416,12 @@ func BuildHTMLReport(cfg *Config, res *LabResults, samples []SampleEntry) string
 	}
 	catLink := ""
 	if len(samples) > 0 {
-		catLink = `<a href="catalogue/index.html">Open Visual Sample Catalogue &rarr;</a>`
+		catLink = `<a href="catalogue/index.html">Visual Sample Catalogue</a> &middot; `
+	}
+	navLinks := fmt.Sprintf(`<a href="../">&larr; Lab Home</a> &middot; %s<a href="resolved-config.yaml">Resolved YAML</a> &middot; <a href="raw-results.json">Raw JSON</a> &middot; <a href="report.md">Markdown Report</a>`, catLink)
+	histBanner := ""
+	if res.Environment["measurementSpecVersion"] == nil {
+		histBanner = `<div style="background:#3b1d1d;border:1px solid #f85149;color:#ffa198;padding:8px 12px;border-radius:6px;margin-bottom:12px;font-size:12px;"><strong>HISTORICAL — UNVALIDATED METHODOLOGY:</strong> Produced before M1–M4 measurement and correctness corrections.</div>`
 	}
 	return fmt.Sprintf(`<!DOCTYPE html>
 <html lang="en"><head><meta charset="utf-8" /><title>Animation Test Lab Report — %s</title>
@@ -368,12 +438,13 @@ func BuildHTMLReport(cfg *Config, res *LabResults, samples []SampleEntry) string
 </style></head><body>
 <h1>SVG Animation Test Lab Report — %s</h1>
 <div class="meta">%s | %s | %s</div>
+%s
 <table>
   <thead><tr><th>Run ID</th><th>Family</th><th>Method</th><th>Workload</th><th>Count</th><th>Correctness</th><th>rAF (Hz)</th><th>Avg rAF (ms)</th><th>P95 rAF (ms)</th><th>Browser CPU (s)</th><th>Task (ms)</th><th>Heap (MB)</th><th>Long Tasks</th><th>Sample</th></tr></thead>
   <tbody>%s</tbody>
 </table>
 </body></html>`, html.EscapeString(res.TestName), html.EscapeString(res.TestName),
-		html.EscapeString(res.Timestamp), html.EscapeString(fmt.Sprint(res.Environment["userAgent"])), catLink, rows.String())
+		html.EscapeString(res.Timestamp), html.EscapeString(fmt.Sprint(res.Environment["userAgent"])), navLinks, histBanner, rows.String())
 }
 
 // WriteDecisionReports generates one evidence-based decision report per tested effect family.

@@ -1,0 +1,26 @@
+[Unit]
+Description=SVG Animation Test Lab Results & Visual Catalogue Viewer (port 8093)
+After=network.target
+
+[Service]
+Type=simple
+WorkingDirectory=/home/nigel/anim-test-lab
+ExecStart=/home/nigel/anim-test-lab/anim-test-lab serve -dir /home/nigel/anim-test-lab/results -addr :8093
+Restart=always
+RestartSec=3
+
+[Install]
+WantedBy=default.target
+---
+● anim-test-lab-viewer.service - SVG Animation Test Lab Results & Visual Catalogue Viewer (port 8093)
+     Loaded: loaded (/home/nigel/.config/systemd/user/anim-test-lab-viewer.service; enabled; preset: enabled)
+     Active: active (running) since Thu 2026-11-19 13:54:44 GMT; 35s ago
+   Main PID: 87700 (anim-test-lab)
+      Tasks: 5 (limit: 7840)
+     Memory: 1.3M (peak: 1.7M)
+        CPU: 2ms
+     CGroup: /user.slice/user-1000.slice/user@1000.service/app.slice/anim-test-lab-viewer.service
+             └─87700 /home/nigel/anim-test-lab/anim-test-lab serve -dir /home/nigel/anim-test-lab/results -addr :8093
+
+Nov 19 13:54:44 Kiwiberry systemd[1979]: Started anim-test-lab-viewer.service - SVG Animation Test Lab Results & Visual Catalogue Viewer (port 8093).
+Nov 19 13:54:44 Kiwiberry anim-test-lab[87700]: Serving Animation Test Lab outputs from /home/nigel/anim-test-lab/results on http://0.0.0.0:8093
