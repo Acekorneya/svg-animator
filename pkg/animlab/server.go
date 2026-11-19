@@ -71,7 +71,7 @@ func NewResultsServerWithOptions(rootDir string, opts ServerOptions) http.Handle
 				http.NotFound(w, r)
 				return
 			}
-			serveScopedFile(w, r, absDemos, strings.TrimPrefix(reqPath, "/demos/"))
+			serveScopedFile(w, r, absDemos, strings.TrimPrefix(reqPath, "/demos/"), "")
 			return
 		}
 
@@ -80,11 +80,11 @@ func NewResultsServerWithOptions(rootDir string, opts ServerOptions) http.Handle
 				http.NotFound(w, r)
 				return
 			}
-			serveScopedFile(w, r, absConfigs, strings.TrimPrefix(reqPath, "/configs/"))
+			serveScopedFile(w, r, absConfigs, strings.TrimPrefix(reqPath, "/configs/"), "")
 			return
 		}
 
-		serveScopedFile(w, r, absRoot, strings.TrimPrefix(reqPath, "/"))
+		serveScopedFile(w, r, absRoot, strings.TrimPrefix(reqPath, "/"), absRoot)
 	})
 }
 
@@ -100,13 +100,14 @@ func hasUnsafePath(p string) bool {
 	return false
 }
 
-func serveScopedFile(w http.ResponseWriter, r *http.Request, baseDir, rel string) {
+func serveScopedFile(w http.ResponseWriter, r *http.Request, baseDir, rel, resultsRoot string) {
 	if baseDir == "" || hasUnsafePath(rel) {
 		http.Error(w, "forbidden", http.StatusForbidden)
 		return
 	}
 	cleanRel := filepath.Clean("/" + rel)
-	target := filepath.Join(baseDir, strings.TrimPrefix(cleanRel, "/"))
+	trimmedRel := strings.TrimPrefix(cleanRel, "/")
+	target := filepath.Join(baseDir, trimmedRel)
 	rPath, err := filepath.Rel(baseDir, target)
 	if err != nil || rPath == ".." || strings.HasPrefix(rPath, ".."+string(filepath.Separator)) {
 		http.Error(w, "forbidden", http.StatusForbidden)
@@ -120,17 +121,39 @@ func serveScopedFile(w http.ResponseWriter, r *http.Request, baseDir, rel string
 	if info.IsDir() {
 		idx := filepath.Join(target, "index.html")
 		if _, err := os.Stat(idx); err == nil {
-			http.ServeFile(w, r, idx)
+			target = idx
+			trimmedRel = filepath.Join(trimmedRel, "index.html")
+		} else {
+			http.Error(w, "directory listing disabled", http.StatusForbidden)
 			return
 		}
-		http.Error(w, "directory listing disabled", http.StatusForbidden)
-		return
 	}
-	switch strings.ToLower(filepath.Ext(target)) {
+	ext := strings.ToLower(filepath.Ext(target))
+	switch ext {
 	case ".svg":
 		w.Header().Set("Content-Type", "image/svg+xml; charset=utf-8")
 	case ".md", ".yaml", ".yml":
 		w.Header().Set("Content-Type", "text/plain; charset=utf-8")
+	case ".html":
+		if resultsRoot != "" {
+			segs := strings.SplitN(filepath.ToSlash(trimmedRel), "/", 2)
+			if len(segs) >= 1 && segs[0] != "" {
+				if meta := inspectExperiment(filepath.Join(resultsRoot, segs[0]), segs[0]); meta.Historical {
+					if raw, err := os.ReadFile(target); err == nil {
+						banner := `<div style="background:#3b1d1d;border:1px solid #f85149;color:#ffa198;padding:10px 14px;border-radius:6px;margin:12px 20px;font-family:system-ui,sans-serif;font-size:12.5px;"><strong>HISTORICAL — UNVALIDATED METHODOLOGY:</strong> Pre-correction archive (prior to M1–M4 fixes). Historical standalone <code>javascript-raf</code> samples here predated embedded script drivers and used <code>&lt;img&gt;</code> tags; inspect <a href="/" style="color:#58a6ff;">Validated Methodology Experiments</a> for live animated CSS, SMIL, and JS-RAF catalogues.</div>`
+						s := string(raw)
+						if idx := strings.Index(s, "<body>"); idx >= 0 {
+							s = s[:idx+6] + banner + s[idx+6:]
+						} else {
+							s = banner + s
+						}
+						w.Header().Set("Content-Type", "text/html; charset=utf-8")
+						_, _ = w.Write([]byte(s))
+						return
+					}
+				}
+			}
+		}
 	}
 	http.ServeFile(w, r, target)
 }

@@ -97,48 +97,132 @@ func main() {
 		Width: 1366, Height: 900, DeviceScaleFactor: 1, Mobile: false,
 	})
 
+	// Capture runtime errors inside the browser page & <object> frames
+	var consoleErrors []string
+
 	// Capture landing page screenshot
 	_, _ = chromedp.Run(ctx, chromedp.Navigate(baseURL+"/"))
 	_, _ = chromedp.Run(ctx, chromedp.Sleep(300*time.Millisecond))
 	shotLand, _ := chromedp.Run(ctx, chromedp.CaptureScreenshot())
 	_ = os.WriteFile(filepath.Join(evidenceDir, "vis-m5-01-landing.png"), shotLand, 0644)
 
-	// Open catalogue & verify CSS, SMIL, and JS-RAF animate inside <object>
+	// Verify historical catalogue injects HISTORICAL banner without modifying archived files
+	_, histBody, _ := func() (int, string, error) { c, _, b, e := httpGet(baseURL + "/tracer-comparison/catalogue/index.html"); return c, b, e }()
+	histBannerOK := strings.Contains(histBody, "HISTORICAL — UNVALIDATED METHODOLOGY")
+
+	// Open validated multi-family catalogue & verify CSS, SMIL, and JS-RAF animate inside <object>
+	// across perimeter-tracer, pulse, flash, flow-line, and flow-particle (multiple sizes & speeds)
 	_, _ = chromedp.Run(ctx, chromedp.Navigate(baseURL+"/m5-validated-showcase/catalogue/index.html"))
 	_, _ = chromedp.Run(ctx, chromedp.Sleep(500*time.Millisecond))
 	shotCat, _ := chromedp.Run(ctx, chromedp.CaptureScreenshot())
 	_ = os.WriteFile(filepath.Join(evidenceDir, "vis-m5-02-catalogue.png"), shotCat, 0644)
 
-	snap0, _ := chromedp.Run(ctx, chromedp.Evaluate[string](`(() => {
-		const objs = Array.from(document.querySelectorAll('#compareGrid object'));
-		return JSON.stringify(objs.map(o => {
-			const doc = o.contentDocument;
+	sampleProbeJS := `(() => {
+		const cards = Array.from(document.querySelectorAll('#grid .card'));
+		return JSON.stringify(cards.map(c => {
+			const obj = c.querySelector('object');
+			const doc = obj ? obj.contentDocument : null;
 			const el = doc ? doc.querySelector('.lab-payload') : null;
+			if (!el) return { file: obj ? obj.getAttribute('data') : '', missing: true };
+			const cs = getComputedStyle(el);
+			const r = el.getBoundingClientRect();
 			return {
-				data: o.getAttribute('data'),
-				method: el ? el.getAttribute('data-lab-method') : '',
-				off: el ? parseFloat(getComputedStyle(el).strokeDashoffset) || 0 : 0
+				file: obj.getAttribute('data'),
+				fam: el.getAttribute('data-lab-family') || '',
+				method: el.getAttribute('data-lab-method') || '',
+				off: parseFloat(cs.strokeDashoffset) || 0,
+				op: parseFloat(cs.opacity) || 0,
+				tr: cs.transform || '',
+				attrTr: el.getAttribute('transform') || '',
+				cx: r.left + r.width * 0.5,
+				cy: r.top + r.height * 0.5
 			};
 		}));
-	})()`))
-	_, _ = chromedp.Run(ctx, chromedp.Sleep(450*time.Millisecond))
-	snap1, _ := chromedp.Run(ctx, chromedp.Evaluate[string](`(() => {
-		const objs = Array.from(document.querySelectorAll('#compareGrid object'));
-		return JSON.stringify(objs.map(o => {
-			const doc = o.contentDocument;
-			const el = doc ? doc.querySelector('.lab-payload') : null;
-			return {
-				data: o.getAttribute('data'),
-				method: el ? el.getAttribute('data-lab-method') : '',
-				off: el ? parseFloat(getComputedStyle(el).strokeDashoffset) || 0 : 0
-			};
-		}));
-	})()`))
+	})()`
+
+	// Sample 10 frames at 90ms cadence (~900ms) so fast/medium tracer, pulse, flash, flow-line, flow-particle are all caught moving
+	var series []string
+	for k := 0; k < 10; k++ {
+		s, _ := chromedp.Run(ctx, chromedp.Evaluate[string](sampleProbeJS))
+		series = append(series, s)
+		if k < 9 {
+			_, _ = chromedp.Run(ctx, chromedp.Sleep(90*time.Millisecond))
+		}
+	}
+
+	// Verify in JS that EVERY card in #grid moved over the 900ms window
+	movedSummary, _ := chromedp.Run(ctx, chromedp.Evaluate[string](fmt.Sprintf(`(() => {
+		const series = %s.map(s => JSON.parse(s));
+		const n = series[0].length;
+		const stationary = [];
+		const byFamMethod = {};
+		for (let i = 0; i < n; i++) {
+			const base = series[0][i];
+			if (base.missing) { stationary.push(base.file + ':missing'); continue; }
+			let moved = false;
+			for (let k = 1; k < series.length; k++) {
+				const cur = series[k][i];
+				if (!cur) continue;
+				if (Math.abs(cur.off - base.off) > 1.0 ||
+					Math.abs(cur.op - base.op) > 0.02 ||
+					cur.tr !== base.tr ||
+					cur.attrTr !== base.attrTr ||
+					Math.hypot(cur.cx - base.cx, cur.cy - base.cy) > 1.0) {
+					moved = true;
+					break;
+				}
+			}
+			const key = base.fam + '/' + base.method;
+			byFamMethod[key] = (byFamMethod[key] || 0) + (moved ? 1 : 0);
+			if (!moved) stationary.push(base.file);
+		}
+		return JSON.stringify({ total: n, stationary, byFamMethod });
+	})()`, func() string {
+		var quoted []string
+		for _, s := range series {
+			quoted = append(quoted, fmt.Sprintf("%q", s))
+		}
+		return "[" + strings.Join(quoted, ",") + "]"
+	}())))
+
 	cmpCount, _ := chromedp.Run(ctx, chromedp.Evaluate[int](`document.querySelectorAll('#compareGrid .cmp-row').length`))
-	// Check that css, smil, and javascript-raf all moved between snap0 and snap1
-	animOK := snap0 != snap1 && strings.Contains(snap1, `"method":"css"`) && strings.Contains(snap1, `"method":"smil"`) && strings.Contains(snap1, `"method":"javascript-raf"`)
-	record("AT-M5-03", animOK, fmt.Sprintf("compareObjectsAnimated=%v", animOK))
-	record("AT-M5-04", cmpCount >= 1, fmt.Sprintf("sideBySideRows=%d", cmpCount))
+
+	// Also open representative Standalone SVG links directly (CSS, SMIL, and JS-RAF across pulse + tracer + flow-particle)
+	directSVGs := []string{
+		"/m5-validated-showcase/samples/perimeter-tracer__javascript-raf__rectangle__medium__fast.svg",
+		"/m5-validated-showcase/samples/perimeter-tracer__css__circle__small__medium.svg",
+		"/m5-validated-showcase/samples/pulse__javascript-raf__circle__medium__fast__scale-opacity.svg",
+		"/m5-validated-showcase/samples/pulse__smil__diamond__small__medium__scale-opacity.svg",
+		"/m5-validated-showcase/samples/flow-line__javascript-raf__curved__medium__medium.svg",
+		"/m5-validated-showcase/samples/flow-particle__javascript-raf__curved__medium__medium.svg",
+	}
+	var directFail []string
+	for _, relSVG := range directSVGs {
+		_, _ = chromedp.Run(ctx, chromedp.Navigate(baseURL+relSVG))
+		_, _ = chromedp.Run(ctx, chromedp.Sleep(150*time.Millisecond))
+		s0, _ := chromedp.Run(ctx, chromedp.Evaluate[string](`(() => {
+			const el = document.querySelector('.lab-payload');
+			if (!el) return 'missing';
+			const cs = getComputedStyle(el);
+			const r = el.getBoundingClientRect();
+			return JSON.stringify({ off: parseFloat(cs.strokeDashoffset)||0, op: parseFloat(cs.opacity)||0, tr: cs.transform||'', attrTr: el.getAttribute('transform')||'', cx: r.left+r.width/2, cy: r.top+r.height/2 });
+		})()`))
+		_, _ = chromedp.Run(ctx, chromedp.Sleep(350*time.Millisecond))
+		s1, _ := chromedp.Run(ctx, chromedp.Evaluate[string](`(() => {
+			const el = document.querySelector('.lab-payload');
+			if (!el) return 'missing';
+			const cs = getComputedStyle(el);
+			const r = el.getBoundingClientRect();
+			return JSON.stringify({ off: parseFloat(cs.strokeDashoffset)||0, op: parseFloat(cs.opacity)||0, tr: cs.transform||'', attrTr: el.getAttribute('transform')||'', cx: r.left+r.width/2, cy: r.top+r.height/2 });
+		})()`))
+		if s0 == "missing" || s1 == "missing" || s0 == s1 {
+			directFail = append(directFail, relSVG)
+		}
+	}
+
+	animOK := strings.Contains(movedSummary, `"stationary":[]`) && len(directFail) == 0 && len(consoleErrors) == 0 && histBannerOK
+	record("AT-M5-03", animOK, fmt.Sprintf("catalogue=%s directFails=%v consoleErrs=%v histBanner=%v", movedSummary, directFail, consoleErrors, histBannerOK))
+	record("AT-M5-04", cmpCount >= 4, fmt.Sprintf("sideBySideRows=%d", cmpCount))
 
 	// AT-M5-08: M4 Demonstrations A & B from /
 	_, _ = chromedp.Run(ctx, chromedp.Navigate(baseURL+"/demos/demo-a-digital-twin.html"))

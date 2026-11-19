@@ -1,5 +1,5 @@
 === RUN   TestYAMLInheritancePresetsAndValidation
---- PASS: TestYAMLInheritancePresetsAndValidation (0.01s)
+--- PASS: TestYAMLInheritancePresetsAndValidation (0.00s)
 === RUN   TestMixedAndSharedSceneWorkloads
 --- PASS: TestMixedAndSharedSceneWorkloads (0.00s)
 === RUN   TestM1ConfigAndEffectInvariants
@@ -13,4 +13,4 @@
 === RUN   TestM5ResultsServerSecurityAndDiscovery
 --- PASS: TestM5ResultsServerSecurityAndDiscovery (0.00s)
 PASS
-ok  	gitea.seaoffate.net/blackgrape/svg-animator/pkg/animlab	(cached)
+ok  	gitea.seaoffate.net/blackgrape/svg-animator/pkg/animlab	0.013s

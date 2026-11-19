@@ -4,8 +4,8 @@
 [PASS] AT-M5-07: workload & Stage 16C coverage disclosures present
 [PASS] AT-M5-05: report=200 viewMd=200 viewYaml=200 rawJson=200
 [PASS] AT-M5-10: traversal=403 rawCurl=403 dotfile=403 viewBad=400
-[PASS] AT-M5-03: compareObjectsAnimated=true
-[PASS] AT-M5-04: sideBySideRows=2
+[PASS] AT-M5-03: catalogue={"total":60,"stationary":[],"byFamMethod":{"perimeter-tracer/css":8,"perimeter-tracer/smil":8,"perimeter-tracer/javascript-raf":8,"pulse/css":8,"pulse/smil":8,"pulse/javascript-raf":8,"flash/css":1,"flash/smil":1,"flash/javascript-raf":1,"flow-line/css":2,"flow-line/smil":2,"flow-line/javascript-raf":2,"flow-particle/css":1,"flow-particle/smil":1,"flow-particle/javascript-raf":1}} directFails=[] consoleErrs=[] histBanner=true
+[PASS] AT-M5-04: sideBySideRows=12
 [PASS] AT-M5-08: dtOverlays=100 stage16cWidgets=100
 [PASS] AT-M5-09: postRestartHTTP=200 ports8088_91_92_93=true
 [PASS] AT-M5-11: samplesErr=<nil> catErr=<nil>
