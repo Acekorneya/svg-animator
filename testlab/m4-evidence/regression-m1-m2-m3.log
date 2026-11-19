@@ -1,16 +1,22 @@
 === M1 ===
-[PASS] NC-08: fault=SUSPENSION_LEAK reason=1 suspended instance(s) continued animating: nc08-10(idx=10,delta=233.29)
+[PASS] NC-08: fault=SUSPENSION_LEAK reason=1 suspended instance(s) continued animating: nc08-10(idx=10,delta=233.27)
 
 SUMMARY: 23/23 checks passed (0 failed)
 === M2 ===
-[Lab] Rep 1/1 (1/1): static-gauge__static__all-active__n10
-[Lab] Rep 1/1 (1/1): static-gauge__static__all-active__n10
-[FAIL] AT-M2-01: mode=external-cdp-isolated-tree rootPID=2100 ownedPIDs=16 cleanCPU=0.4100s noisyCPU=0.4000s
-[Lab] Rep 1/1 (1/1): perimeter-tracer__css__all-active__n5
+[PASS] AT-M2-01: mode=external-cdp-isolated-tree rootPID=2100 ownedPIDs=16 burnPID=84324 burnCPU=3.15s inOwnedTree=false cleanCPU=0.3700s noisyCPU=0.3700s
+[PASS] AT-M2-02: A=1024x768@1.0 B=1440x900@2.0
+[PASS] AT-M2-03: maxDomNodeSpreadAcrossReps=0
+[PASS] AT-M2-04: orders=[[perimeter-tracer__css__all-active__n40 perimeter-tracer__smil__all-active__n40 perimeter-tracer__javascript-raf__all-active__n40] [perimeter-tracer__smil__all-active__n40 perimeter-tracer__javascript-raf__all-active__n40 perimeter-tracer__css__all-active__n40] [perimeter-tracer__javascript-raf__all-active__n40 perimeter-tracer__css__all-active__n40 perimeter-tracer__smil__all-active__n40]]
+[PASS] AT-M2-05: rafHz=60.0 presentedFps=<nil> defs=10
+[PASS] AT-M2-06: renderer=ANGLE (Google, Vulkan 1.3.0 (SwiftShader Device (Subzero) (0x0000C0DE)), SwiftShader driver) sw=true targetOS=Linux 7.0.0-31-generic x86_64 clkTck=100
+[PASS] AT-M2-07: mean-based decision report & N/A Presented FPS verified
 [PASS] NC-09: unavailHostCPU=<nil> status=partial deadPIDerr=owned browser root PID 99999999 terminated or unreadable
-
-SUMMARY: 7/8 M2 checks passed (1 failed)
+SUMMARY: 8/8 M2 checks passed (0 failed)
 === M3 ===
 [PASS] AT-M3-06: domCount250=250 tag=ellipse dur=0.900
 
 SUMMARY: 6/6 M3 checks passed (0 failed)
+=== M4 ===
+[PASS] AT-M4-09: reps=3 domMin=2862 domMax=2862 spread=0
+
+SUMMARY: 9/9 M4 checks passed (0 failed)

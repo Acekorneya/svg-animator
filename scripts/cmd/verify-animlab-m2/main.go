@@ -8,6 +8,7 @@ import (
 	"os"
 	"os/exec"
 	"path/filepath"
+	"strconv"
 	"strings"
 	"time"
 
@@ -105,25 +106,48 @@ func main() {
 		if err != nil {
 			record("AT-M2-01", false, fmt.Sprintf("clean RunSuite err: %v", err))
 		} else {
-			// Start an unrelated CPU-burning chrome-named python/shell process on Kiwiberry
+			ownMap, _ := resClean.Environment["browserOwnership"].(animlab.BrowserOwnership)
+			// Start an unrelated CPU-burning process with 'chrome' in its cmdline on Kiwiberry
 			burnCmd := exec.Command("ssh", "-o", "BatchMode=yes", cpuHost,
-				"python3 -c 'import time; t=time.time()+4.0; x=0\nwhile time.time()<t: x+=1' --unrelated-chrome-load >/dev/null 2>&1 & echo $!")
+				"python3 -c 'import time; t=time.time()+8.0; x=0\nwhile time.time()<t: x+=1' --unrelated-chrome-load >/dev/null 2>&1 & echo $!")
 			burnOut, _ := burnCmd.Output()
 			burnPID := strings.TrimSpace(string(burnOut))
 
 			resNoisy, err2 := animlab.RunSuite(cfg, evidenceDir, "")
+
+			var burnCPU float64
+			inOwnedTree := false
 			if burnPID != "" {
-				_ = exec.Command("ssh", "-o", "BatchMode=yes", cpuHost, "kill -9 "+burnPID+" 2>/dev/null || true").Run()
+				// Sample burnPID's actual OS CPU time and verify it is NOT in ownMap.RootPID's descendant tree
+				probeScript := fmt.Sprintf(`
+BP=%s; ROOT=%d; CLK=%d
+CPU=$(sed 's/.*) //' "/proc/$BP/stat" 2>/dev/null | awk -v c="$CLK" '{printf "%%.4f", ($12+$13)/c}')
+IN=$(ps -eo pid=,ppid= | awk -v root="$ROOT" -v target="$BP" '
+  { pid=$1; ppid=$2; ch[ppid]=ch[ppid]" "pid }
+  END {
+    q[1]=root; h=1; t=1; seen[root]=1; found=0;
+    while(h<=t){ cur=q[h++]; if(cur==target) found=1; n=split(ch[cur],a," "); for(i=1;i<=n;i++) if(a[i]!=""&&!seen[a[i]]){ seen[a[i]]=1; q[++t]=a[i]; } }
+    print found;
+  }')
+echo "$CPU|$IN"
+kill -9 "$BP" 2>/dev/null || true
+`, burnPID, ownMap.RootPID, ownMap.ClkTck)
+				pOut, _ := exec.Command("ssh", "-o", "BatchMode=yes", cpuHost, probeScript).Output()
+				parts := strings.Split(strings.TrimSpace(string(pOut)), "|")
+				if len(parts) == 2 {
+					burnCPU, _ = strconv.ParseFloat(parts[0], 64)
+					inOwnedTree = parts[1] == "1"
+				}
 			}
 			if err2 != nil {
 				record("AT-M2-01", false, fmt.Sprintf("noisy RunSuite err: %v", err2))
 			} else {
-				ownMap, _ := resClean.Environment["browserOwnership"].(animlab.BrowserOwnership)
 				cClean := resClean.Scenarios[0].AvgProcessCPUSec
 				cNoisy := resNoisy.Scenarios[0].AvgProcessCPUSec
 				pids := resClean.Scenarios[0].Repetitions[0].OwnedPIDCount
 				ok := ownMap.Mode == "external-cdp-isolated-tree" && ownMap.RootPID > 0 && pids >= 2 &&
-					cClean != nil && cNoisy != nil && *cNoisy < 0.35
+					!inOwnedTree && burnCPU >= 0.80 &&
+					cClean != nil && cNoisy != nil && math.Abs(*cNoisy-*cClean) < burnCPU*0.4
 				c1, c2 := -1.0, -1.0
 				if cClean != nil {
 					c1 = *cClean
@@ -131,8 +155,8 @@ func main() {
 				if cNoisy != nil {
 					c2 = *cNoisy
 				}
-				record("AT-M2-01", ok, fmt.Sprintf("mode=%s rootPID=%d ownedPIDs=%d cleanCPU=%.4fs noisyCPU=%.4fs",
-					ownMap.Mode, ownMap.RootPID, pids, c1, c2))
+				record("AT-M2-01", ok, fmt.Sprintf("mode=%s rootPID=%d ownedPIDs=%d burnPID=%s burnCPU=%.2fs inOwnedTree=%v cleanCPU=%.4fs noisyCPU=%.4fs",
+					ownMap.Mode, ownMap.RootPID, pids, burnPID, burnCPU, inOwnedTree, c1, c2))
 			}
 		}
 	}
