@@ -382,6 +382,18 @@ func main() {
 	}
 
 	// =========================================================================
+	// AT-M1-15: 350ms cycle aliasing regression test (must PASS, not STATIONARY)
+	// =========================================================================
+	{
+		inst := animlab.InstanceParams{
+			ID: "tr-350ms", Family: "perimeter-tracer", Method: "css",
+			Shape: "rect", Width: 60, Height: 60, Speed: 0.35, Segments: 2, LineGapRatio: "25:75", Direction: "cw", Color: "#38bdf8",
+		}
+		c := runSpec(makeSpec("at15-350ms-cycle", "perimeter-tracer", "css", []animlab.InstanceParams{inst}))
+		record("AT-M1-15", c.Passed && c.LevelAPassed, c.Reason)
+	}
+
+	// =========================================================================
 	// NEGATIVE CONTROLS NC-01 .. NC-08
 	// =========================================================================
 

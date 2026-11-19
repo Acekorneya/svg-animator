@@ -155,7 +155,9 @@ func EvaluateCorrectness(ctx context.Context, s TestRunSpec) CorrectnessResult {
 		}
 	}
 
-	// Level A: Whole-population probe at T0 and T1 (+350ms)
+	// Level A: Whole-population 3-point incommensurate probe at T0, T1 (+130ms), T2 (+220ms; total 350ms).
+	// Because gcd(130, 220, 350) = 10ms and minimum supported cycle duration is 200ms (0.2s),
+	// no valid periodic animation can complete an integer number of cycles across all three intervals.
 	p0, err := runPopulationProbe(ctx)
 	if err != nil {
 		return CorrectnessResult{
@@ -172,7 +174,7 @@ func EvaluateCorrectness(ctx context.Context, s TestRunSpec) CorrectnessResult {
 		}
 	}
 
-	_, _ = chromedp.Run(ctx, chromedp.Sleep(350*time.Millisecond))
+	_, _ = chromedp.Run(ctx, chromedp.Sleep(130*time.Millisecond))
 	p1, err := runPopulationProbe(ctx)
 	if err != nil || len(p1.Items) != len(p0.Items) {
 		return CorrectnessResult{
@@ -182,13 +184,23 @@ func EvaluateCorrectness(ctx context.Context, s TestRunSpec) CorrectnessResult {
 		}
 	}
 
-	if s.SuspendOffscreen && s.VisibleCount > 0 && s.Count > s.VisibleCount && p1.Susp == 0 {
+	_, _ = chromedp.Run(ctx, chromedp.Sleep(220*time.Millisecond))
+	p2, err := runPopulationProbe(ctx)
+	if err != nil || len(p2.Items) != len(p0.Items) {
+		return CorrectnessResult{
+			Passed:    false,
+			FaultCode: string(FaultMissingElements),
+			Reason:    "population probe T2 failed or element count changed",
+		}
+	}
+
+	if s.SuspendOffscreen && s.VisibleCount > 0 && s.Count > s.VisibleCount && p2.Susp == 0 {
 		return CorrectnessResult{
 			Passed:         false,
 			FaultCode:      string(FaultSuspensionLeak),
 			Reason:         "suspend_offscreen=true but 0 instances suspended",
-			VisibleCount:   p1.Vis,
-			SuspendedCount: p1.Susp,
+			VisibleCount:   p2.Vis,
+			SuspendedCount: p2.Susp,
 		}
 	}
 
@@ -203,6 +215,7 @@ func EvaluateCorrectness(ctx context.Context, s TestRunSpec) CorrectnessResult {
 	for i := 0; i < len(p0.Items); i++ {
 		a := p0.Items[i]
 		b := p1.Items[i]
+		c := p2.Items[i]
 		if seenIDs[a.ID] {
 			return CorrectnessResult{
 				Passed:           false,
@@ -217,12 +230,12 @@ func EvaluateCorrectness(ctx context.Context, s TestRunSpec) CorrectnessResult {
 			continue
 		}
 
-		delta := instanceDelta(a, b)
+		delta := math.Max(instanceDelta(a, b), math.Max(instanceDelta(a, c), instanceDelta(b, c)))
 		if delta > maxDelta {
 			maxDelta = delta
 		}
 
-		if a.Suspended || b.Suspended {
+		if a.Suspended || b.Suspended || c.Suspended {
 			suspendedIndices = append(suspendedIndices, i)
 			if delta > 0.05 {
 				leakedSuspended = append(leakedSuspended, fmt.Sprintf("%s(idx=%d,delta=%.2f)", a.ID, a.Idx, delta))
@@ -249,8 +262,8 @@ func EvaluateCorrectness(ctx context.Context, s TestRunSpec) CorrectnessResult {
 			Passed:           false,
 			FaultCode:        string(FaultSuspensionLeak),
 			Reason:           fmt.Sprintf("%d suspended instance(s) continued animating: %s", len(leakedSuspended), strings.Join(limitStrings(leakedSuspended, 5), ", ")),
-			VisibleCount:     p1.Vis,
-			SuspendedCount:   p1.Susp,
+			VisibleCount:     p2.Vis,
+			SuspendedCount:   p2.Susp,
 			FailingInstances: limitStrings(leakedSuspended, 10),
 		}
 	}
@@ -265,8 +278,8 @@ func EvaluateCorrectness(ctx context.Context, s TestRunSpec) CorrectnessResult {
 			FaultCode:        string(fc),
 			Reason:           fmt.Sprintf("%d/%d active instances stationary or missing animation (%s)", len(frozenActive), len(activeIndices), strings.Join(limitStrings(frozenActive, 5), ", ")),
 			SampledDelta:     maxDelta,
-			VisibleCount:     p1.Vis,
-			SuspendedCount:   p1.Susp,
+			VisibleCount:     p2.Vis,
+			SuspendedCount:   p2.Susp,
 			FailingInstances: limitStrings(frozenActive, 10),
 		}
 	}
