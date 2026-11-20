@@ -11531,6 +11531,79 @@ async function runHarness() {
   window.EngineBridge.setWidgetParameters([]);
   console.log('[HARNESS] Scenario 88 PASS: Stage 16D-A Visibility-Aware Animation & Low-Load Effects verified.');
 
+  // =========================================================================
+  // SCENARIO 89: Stage 16D-B-M1 Flow Lite Multi-Point Path, Per-Section Bends,
+  //              Independent Tunnel/Abrupt Endpoints & Widget Controls
+  // =========================================================================
+  console.log('\n[HARNESS] Testing Scenario 89: Stage 16D-B-M1 Flow Lite Multi-Point Path, Endpoints & Widget Controls...');
+  {
+    const fl = window.LiteEffects.createLiteEffect({
+      name: 'mainPipe',
+      kind: 'flow-lite',
+      variant: 'dashed',
+      points: [
+        { x: 12, y: 50 },
+        { x: 38, y: 50 },
+        { x: 65, y: 24 },
+        { x: 88, y: 50 }
+      ],
+      bends: [0, 45, -35],
+      dashLength: 24,
+      gapLength: 16,
+      strokeWidth: 4,
+      segmentStyle: 'rounded',
+      startMode: 'tunnel',
+      endMode: 'abrupt',
+      direction: 'forward',
+      playbackMode: 'loop',
+      speed: 1.8,
+      delay: 0.3,
+      endDelay: 0.5
+    });
+    assert.strictEqual(fl.kind, 'flow-lite', 'W16DB-01: Flow Lite kind preserved');
+    assert.strictEqual(fl.points.length, 4, 'W16DB-02: 4 waypoints preserved');
+    assert.strictEqual(fl.bends.length, 3, 'W16DB-03: 3 per-section bends preserved');
+    assert.strictEqual(fl.bends[1], 45, 'W16DB-04: Section 1 positive bend preserved');
+    assert.strictEqual(fl.bends[2], -35, 'W16DB-05: Section 2 negative bend preserved');
+    assert.strictEqual(fl.startMode, 'tunnel', 'W16DB-06: Independent startMode tunnel preserved');
+    assert.strictEqual(fl.endMode, 'abrupt', 'W16DB-07: Independent endMode abrupt preserved');
+    assert.strictEqual(fl.delay, 0.3, 'W16DB-08: Start delay preserved');
+    assert.strictEqual(fl.endDelay, 0.5, 'W16DB-09: End delay preserved');
+
+    // Add and drop waypoint via LiteEffects API
+    window.LiteEffects.selectLite(fl.id);
+    window.LiteEffects.selectWaypoint(1);
+    const afterAdd = window.LiteEffects.addWaypointToActive();
+    assert.strictEqual(afterAdd.points.length, 5, 'W16DB-10: addWaypointToActive inserts intermediate point');
+    assert.strictEqual(afterAdd.bends.length, 4, 'W16DB-11: bends array resized to N-1');
+    const afterDrop = window.LiteEffects.dropWaypointFromActive();
+    assert.strictEqual(afterDrop.points.length, 4, 'W16DB-12: dropWaypointFromActive removes active point');
+    assert.strictEqual(afterDrop.bends.length, 3, 'W16DB-13: bends array resized back to 3');
+
+    // Render SVG markup and verify per-segment <use>, <clipPath>, and @keyframes
+    const rendered = window.LiteEffects.renderLiteElement(afterDrop);
+    assert(rendered.includes('data-lite-kind="flow-lite"'), 'W16DB-14: Rendered group has data-lite-kind="flow-lite"');
+    assert(rendered.includes('data-flow-start-mode="tunnel"'), 'W16DB-15: Rendered group has data-flow-start-mode="tunnel"');
+    assert(rendered.includes('data-flow-end-mode="abrupt"'), 'W16DB-16: Rendered group has data-flow-end-mode="abrupt"');
+    assert(rendered.includes('<use href="#lite-flow-track-'), 'W16DB-17: Rendered markup uses per-segment <use> instances');
+    assert(rendered.includes(' Q '), 'W16DB-18: Multi-point path includes quadratic Bezier curved sections');
+
+    // Project serialization round-trip preserves Flow Lite
+    const serialized = window.ProjectManager.serializeStudioState();
+    window.ProjectManager.resetToNewProject();
+    assert.strictEqual(window.LiteEffects.getAllLiteEffects().length, 0, 'W16DB-19: Reset clears Flow Lite');
+    window.ProjectManager.applyStudioState(serialized);
+    const restored = window.LiteEffects.getLiteEffect(fl.id);
+    assert(restored && restored.kind === 'flow-lite', 'W16DB-20: Flow Lite restored from serialized state');
+    assert.strictEqual(restored.points.length, 4, 'W16DB-21: Flow Lite points restored');
+    assert.strictEqual(restored.bends[1], 45, 'W16DB-22: Flow Lite section bends restored');
+    assert.strictEqual(restored.endMode, 'abrupt', 'W16DB-23: Flow Lite endMode restored');
+
+    window.ProjectManager.resetToNewProject();
+    window.EngineBridge.setWidgetParameters([]);
+  }
+  console.log('[HARNESS] Scenario 89 PASS: Stage 16D-B-M1 Flow Lite Multi-Point Path, Endpoints & Widget Controls verified.');
+
   console.log('[HARNESS] REG-03 PASS: Stage 3, 4, 5, 6, 7, 8, 9, 11, 12, 13, 14, 15 & 16 non-destructive cropping, background extraction, image baking, dedicated crop clip & snip workspace, object-local clipping, unified layer management, independent image objects, persistent groups, duplication, copy/paste with flow remapping, multi-selection, alignment, distribution, colour tools, selection retention, notifications, naming sync, history(50), schema 1.2.0, .sva packaging, background photo restoration, SVG compilation, export payload builders, collision-free widgets, external runtime parameters, and Go WASM engines verified.');
 }
 

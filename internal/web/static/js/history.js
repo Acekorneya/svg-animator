@@ -165,6 +165,13 @@ window.HistoryManager = {
           ripplesCounter: window.Ripples ? window.Ripples.counter : 0
         };
 
+    const liteState = (window.LiteEffects && typeof window.LiteEffects.getState === 'function')
+      ? window.LiteEffects.getState()
+      : {
+          liteEffects: window.LiteEffects ? window.LiteEffects.list : [],
+          liteEffectsCounter: window.LiteEffects ? window.LiteEffects.counter : 0
+        };
+
     const imageState = (window.ImageObjects && typeof window.ImageObjects.getState === 'function')
       ? window.ImageObjects.getState()
       : {
@@ -217,6 +224,8 @@ window.HistoryManager = {
       glowsCounter: glowState.glowsCounter,
       ripples: rippleState.ripples,
       ripplesCounter: rippleState.ripplesCounter,
+      liteEffects: liteState.liteEffects,
+      liteEffectsCounter: liteState.liteEffectsCounter,
       groups: groupsList,
       groupsCounter: groupsCounter,
       images: imageState.images,
@@ -397,6 +406,18 @@ window.HistoryManager = {
         } else {
           window.ImageObjects.list = data.images || [];
           window.ImageObjects.counter = data.imagesCounter || 0;
+        }
+      }
+
+      if (window.LiteEffects) {
+        if (typeof window.LiteEffects.setState === 'function') {
+          window.LiteEffects.setState({
+            liteEffects: data.liteEffects || [],
+            liteEffectsCounter: data.liteEffectsCounter || 0
+          });
+        } else {
+          window.LiteEffects.list = data.liteEffects || [];
+          window.LiteEffects.counter = data.liteEffectsCounter || 0;
         }
       }
 

@@ -1,5 +1,5 @@
 === M1 ===
-[PASS] NC-08: fault=SUSPENSION_LEAK reason=1 suspended instance(s) continued animating: nc08-10(idx=10,delta=233.33)
+[PASS] NC-08: fault=SUSPENSION_LEAK reason=1 suspended instance(s) continued animating: nc08-10(idx=10,delta=244.47)
 
 SUMMARY: 23/23 checks passed (0 failed)
 === M2 ===

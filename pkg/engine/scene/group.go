@@ -5,6 +5,8 @@ import (
 	"fmt"
 	"math"
 	"strconv"
+
+	"gitea.seaoffate.net/blackgrape/svg-animator/pkg/engine/geometry"
 )
 
 // GroupMember represents an object instance member in a persistent group.
@@ -506,8 +508,15 @@ func (s *Scene) MoveGroup(groupID StringID, deltaX float64, deltaY float64) erro
 	for _, m := range grp.Members {
 		if m.Type == SelectionLite {
 			if le, exists := s.liteEffects[m.ID]; exists {
-				le.X = math.Round((le.X+deltaXPx)*100.0) / 100.0
-				le.Y = math.Round((le.Y+deltaYPx)*100.0) / 100.0
+				if le.Kind == "flow-lite" && len(le.Points) > 0 {
+					for i := range le.Points {
+						le.Points[i].X = math.Round((le.Points[i].X+deltaX)*1000.0) / 1000.0
+						le.Points[i].Y = math.Round((le.Points[i].Y+deltaY)*1000.0) / 1000.0
+					}
+				} else {
+					le.X = math.Round((le.X+deltaXPx)*100.0) / 100.0
+					le.Y = math.Round((le.Y+deltaYPx)*100.0) / 100.0
+				}
 				s.liteEffects[m.ID] = le
 			}
 		}
@@ -605,23 +614,32 @@ func (s *Scene) ComputeGroupBounds(groupID StringID, canvasW, canvasH float64) (
 		case SelectionLite:
 			if le, exists := s.liteEffects[m.ID]; exists {
 				MigrateLegacyLiteEffect(&le)
-				w := le.Width
-				if w <= 0 {
-					w = 56
+				if le.Kind == "flow-lite" && len(le.Points) >= 2 {
+					bounds, _ := geometry.ComputeFlowLiteBounds(le.Points, le.Bends, le.Curvature, canvasW, canvasH)
+					minX = math.Min(minX, (bounds.MinX/canvasW)*100.0)
+					maxX = math.Max(maxX, (bounds.MaxX/canvasW)*100.0)
+					minY = math.Min(minY, (bounds.MinY/canvasH)*100.0)
+					maxY = math.Max(maxY, (bounds.MaxY/canvasH)*100.0)
+					count++
+				} else {
+					w := le.Width
+					if w <= 0 {
+						w = 56
+					}
+					h := le.Height
+					if h <= 0 {
+						h = 56
+					}
+					cxPct := (le.X / canvasW) * 100.0
+					cyPct := (le.Y / canvasH) * 100.0
+					hwPct := (w / 2.0 / canvasW) * 100.0
+					hhPct := (h / 2.0 / canvasH) * 100.0
+					minX = math.Min(minX, cxPct-hwPct)
+					maxX = math.Max(maxX, cxPct+hwPct)
+					minY = math.Min(minY, cyPct-hhPct)
+					maxY = math.Max(maxY, cyPct+hhPct)
+					count++
 				}
-				h := le.Height
-				if h <= 0 {
-					h = 56
-				}
-				cxPct := (le.X / canvasW) * 100.0
-				cyPct := (le.Y / canvasH) * 100.0
-				hwPct := (w / 2.0 / canvasW) * 100.0
-				hhPct := (h / 2.0 / canvasH) * 100.0
-				minX = math.Min(minX, cxPct-hwPct)
-				maxX = math.Max(maxX, cxPct+hwPct)
-				minY = math.Min(minY, cyPct-hhPct)
-				maxY = math.Max(maxY, cyPct+hhPct)
-				count++
 			}
 		}
 	}

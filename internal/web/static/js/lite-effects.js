@@ -12,6 +12,7 @@
 window.LiteEffects = {
   list: [],
   activeId: null,
+  activePointIndex: 0,
   counter: 0,
   _initialized: false,
 
@@ -71,6 +72,40 @@ window.LiteEffects = {
       if (!le.repeatInterval || le.repeatInterval <= 0) le.repeatInterval = Number(le.period) > 0 ? Number(le.period) : 2.0;
       if (!le.armThickness || le.armThickness <= 0) le.armThickness = 3;
       if (le.maintainAspectRatio === undefined || le.maintainAspectRatio === null) le.maintainAspectRatio = true;
+    } else if (le.kind === 'flow-lite') {
+      if (!le.variant) le.variant = 'dashed';
+      if (!Array.isArray(le.points) || le.points.length < 2) {
+        le.points = [
+          { x: 25, y: 50 },
+          { x: 75, y: 50 }
+        ];
+      } else {
+        le.points = le.points.map((p) => ({ x: Number(p.x) || 0, y: Number(p.y) || 0 }));
+      }
+      if (!Array.isArray(le.bends) || le.bends.length !== le.points.length - 1) {
+        const nextBends = new Array(Math.max(1, le.points.length - 1)).fill(0);
+        if (Array.isArray(le.bends)) {
+          for (let i = 0; i < nextBends.length && i < le.bends.length; i++) {
+            nextBends[i] = Math.max(-100, Math.min(100, Number(le.bends[i]) || 0));
+          }
+        }
+        le.bends = nextBends;
+      }
+      le.curvature = Math.max(-100, Math.min(100, Number(le.curvature) || 0));
+      if (!le.dashLength || le.dashLength <= 0) le.dashLength = le.variant === 'single' ? 36 : 18;
+      if (!le.gapLength || le.gapLength <= 0) le.gapLength = 14;
+      if (!le.dotSize || le.dotSize <= 0) le.dotSize = 5;
+      if (!le.strokeWidth || le.strokeWidth <= 0) le.strokeWidth = 3;
+      if (!le.segmentStyle) le.segmentStyle = 'rounded';
+      if (!le.startMode) le.startMode = 'tunnel';
+      if (!le.endMode) le.endMode = 'tunnel';
+      if (!le.direction || le.direction === 'cw') le.direction = 'forward';
+      else if (le.direction === 'ccw') le.direction = 'reverse';
+      if (!le.playbackMode) le.playbackMode = 'loop';
+      if (!le.speed || le.speed <= 0) le.speed = 2.0;
+      le.delay = Math.max(0, Math.min(60, Number(le.delay) || 0));
+      le.endDelay = Math.max(0, Math.min(60, Number(le.endDelay) || 0));
+      if (le.showGuide === undefined || le.showGuide === null) le.showGuide = true;
     }
     return le;
   },
@@ -87,12 +122,16 @@ window.LiteEffects = {
   createLiteEffect(initialProps = {}) {
     const kind = initialProps.kind || 'perimeter-tracer';
     const isTracer = kind === 'perimeter-tracer';
+    const isFlowLite = kind === 'flow-lite';
     const defaultW = isTracer ? 140 : 56;
     const defaultH = isTracer ? 80 : 56;
+    const defaultVariant = isFlowLite
+      ? 'dashed'
+      : (isTracer ? 'rounded' : (kind === 'flash' ? 'diamond' : 'circle'));
     const payload = Object.assign({
       kind,
       originMode: 'center',
-      variant: isTracer ? 'rounded' : (kind === 'flash' ? 'diamond' : 'circle'),
+      variant: defaultVariant,
       x: 240,
       y: 180,
       width: defaultW,
@@ -101,22 +140,33 @@ window.LiteEffects = {
       cornerRadius: 10,
       color: kind === 'flash' ? '#f59e0b' : (kind === 'pulse' ? '#22c55e' : '#38bdf8'),
       opacity: 0.9,
-      strokeWidth: 2.5,
+      strokeWidth: isFlowLite ? 3.0 : 2.5,
       segments: 2,
       lineGapRatio: '1:3',
       segmentStyle: 'rounded',
       startOffset: 0,
-      direction: 'cw',
-      speed: 3.0,
+      direction: isFlowLite ? 'forward' : 'cw',
+      playbackMode: 'loop',
+      speed: isFlowLite ? 2.0 : 3.0,
       period: kind === 'flash' ? 3.0 : 1.8,
       dur: 0.10,
       intensity: kind === 'flash' ? 0.75 : 0.85,
       minScale: 0.85,
       maxScale: 1.15,
-      maintainAspectRatio: !isTracer,
+      maintainAspectRatio: !isTracer && !isFlowLite,
       showGuide: true,
       repeat: false,
       triggerNonce: 0,
+      points: isFlowLite ? [{ x: 25, y: 50 }, { x: 75, y: 50 }] : undefined,
+      bends: isFlowLite ? [0] : undefined,
+      curvature: 0,
+      dashLength: 18,
+      gapLength: 14,
+      dotSize: 5,
+      startMode: 'tunnel',
+      endMode: 'tunnel',
+      delay: 0,
+      endDelay: 0,
       visible: true
     }, initialProps);
 
@@ -298,6 +348,17 @@ window.LiteEffects = {
 
   getBoundingBox(le) {
     if (!le) return { cx: 0, cy: 0, x: 0, y: 0, width: 0, height: 0 };
+    if (le.kind === 'flow-lite') {
+      const geom = this._computeFlowLiteGeometry(le);
+      return {
+        cx: geom.minX + geom.width / 2,
+        cy: geom.minY + geom.height / 2,
+        x: geom.minX,
+        y: geom.minY,
+        width: Math.max(12, geom.width),
+        height: Math.max(12, geom.height)
+      };
+    }
     const g = this._resolveGeometry(le);
     return {
       cx: g.cx,
@@ -306,6 +367,276 @@ window.LiteEffects = {
       y: g.y,
       width: g.w,
       height: g.h
+    };
+  },
+
+  _computeFlowLiteGeometry(le, leadIn = 0, leadOut = 0) {
+    const cw = (window.Stage && window.Stage.canvasWidth) || 1280;
+    const ch = (window.Stage && window.Stage.canvasHeight) || 720;
+    const rawPts = (Array.isArray(le.points) && le.points.length >= 2)
+      ? le.points
+      : [{ x: 25, y: 50 }, { x: 75, y: 50 }];
+    const pts = rawPts.map((p) => ({
+      x: ((Number(p.x) || 0) / 100) * cw,
+      y: ((Number(p.y) || 0) / 100) * ch
+    }));
+    const bends = Array.isArray(le.bends) ? le.bends : [];
+    const globalCurv = Number(le.curvature) || 0;
+
+    const sections = [];
+    let totalLen = 0;
+    let minX = pts[0].x;
+    let maxX = pts[0].x;
+    let minY = pts[0].y;
+    let maxY = pts[0].y;
+
+    for (let i = 0; i < pts.length - 1; i++) {
+      const p1 = pts[i];
+      const p2 = pts[i + 1];
+      const rawB = Number(bends[i]) || 0;
+      const effBend = Math.max(-100, Math.min(100, rawB + globalCurv));
+      const dx = p2.x - p1.x;
+      const dy = p2.y - p1.y;
+      const dist = Math.hypot(dx, dy);
+      let ctrl = { x: (p1.x + p2.x) / 2, y: (p1.y + p2.y) / 2 };
+      let curved = false;
+      let secLen = dist;
+
+      if (Math.abs(effBend) >= 0.01 && dist > 1e-4) {
+        curved = true;
+        const nx = -dy / dist;
+        const ny = dx / dist;
+        const offset = dist * (effBend / 100) * 0.5;
+        ctrl = {
+          x: (p1.x + p2.x) / 2 + nx * offset,
+          y: (p1.y + p2.y) / 2 + ny * offset
+        };
+        secLen = 0;
+        let prev = p1;
+        const steps = 24;
+        for (let s = 1; s <= steps; s++) {
+          const t = s / steps;
+          const u = 1 - t;
+          const cur = {
+            x: u * u * p1.x + 2 * u * t * ctrl.x + t * t * p2.x,
+            y: u * u * p1.y + 2 * u * t * ctrl.y + t * t * p2.y
+          };
+          secLen += Math.hypot(cur.x - prev.x, cur.y - prev.y);
+          if (cur.x < minX) minX = cur.x;
+          if (cur.x > maxX) maxX = cur.x;
+          if (cur.y < minY) minY = cur.y;
+          if (cur.y > maxY) maxY = cur.y;
+          prev = cur;
+        }
+      } else {
+        if (p2.x < minX) minX = p2.x;
+        if (p2.x > maxX) maxX = p2.x;
+        if (p2.y < minY) minY = p2.y;
+        if (p2.y > maxY) maxY = p2.y;
+      }
+      sections.push({ p1, p2, ctrl, curved, length: secLen });
+      totalLen += secLen;
+    }
+
+    // Start tangent t0 and end tangent tL
+    let t0 = { x: 1, y: 0 };
+    if (sections.length > 0) {
+      const s0 = sections[0];
+      const vx = s0.curved ? (s0.ctrl.x - s0.p1.x) : (s0.p2.x - s0.p1.x);
+      const vy = s0.curved ? (s0.ctrl.y - s0.p1.y) : (s0.p2.y - s0.p1.y);
+      const m = Math.hypot(vx, vy) || 1;
+      t0 = { x: vx / m, y: vy / m };
+    }
+    let tL = { x: 1, y: 0 };
+    if (sections.length > 0) {
+      const sLast = sections[sections.length - 1];
+      const vx = sLast.curved ? (sLast.p2.x - sLast.ctrl.x) : (sLast.p2.x - sLast.p1.x);
+      const vy = sLast.curved ? (sLast.p2.y - sLast.ctrl.y) : (sLast.p2.y - sLast.p1.y);
+      const m = Math.hypot(vx, vy) || 1;
+      tL = { x: vx / m, y: vy / m };
+    }
+
+    const p0 = pts[0];
+    const pLast = pts[pts.length - 1];
+    const parts = [];
+    if (leadIn > 0) {
+      const pre = { x: p0.x - t0.x * leadIn, y: p0.y - t0.y * leadIn };
+      parts.push(`M ${pre.x.toFixed(2)} ${pre.y.toFixed(2)} L ${p0.x.toFixed(2)} ${p0.y.toFixed(2)}`);
+    } else {
+      parts.push(`M ${p0.x.toFixed(2)} ${p0.y.toFixed(2)}`);
+    }
+    for (const sec of sections) {
+      if (sec.curved) {
+        parts.push(`Q ${sec.ctrl.x.toFixed(2)} ${sec.ctrl.y.toFixed(2)} ${sec.p2.x.toFixed(2)} ${sec.p2.y.toFixed(2)}`);
+      } else {
+        parts.push(`L ${sec.p2.x.toFixed(2)} ${sec.p2.y.toFixed(2)}`);
+      }
+    }
+    if (leadOut > 0) {
+      const post = { x: pLast.x + tL.x * leadOut, y: pLast.y + tL.y * leadOut };
+      parts.push(`L ${post.x.toFixed(2)} ${post.y.toFixed(2)}`);
+    }
+
+    return {
+      pathD: parts.join(' '),
+      totalLen: Math.max(1, totalLen),
+      p0,
+      pLast,
+      t0,
+      tL,
+      pts,
+      sections,
+      minX,
+      minY,
+      maxX,
+      maxY,
+      width: maxX - minX,
+      height: maxY - minY
+    };
+  },
+
+  _buildFlowLiteOverhangMaskD(pt, tang, r, isStart) {
+    const dir = isStart ? -1 : 1;
+    const ux = tang.x * dir;
+    const uy = tang.y * dir;
+    const nx = -tang.y;
+    const ny = tang.x;
+    const h = r * 2.5;
+    const d = r * 2.5;
+    const c1 = { x: pt.x + nx * h, y: pt.y + ny * h };
+    const c2 = { x: pt.x + nx * h + ux * d, y: pt.y + ny * h + uy * d };
+    const c3 = { x: pt.x - nx * h + ux * d, y: pt.y - ny * h + uy * d };
+    const c4 = { x: pt.x - nx * h, y: pt.y - ny * h };
+    return `M ${c1.x.toFixed(2)} ${c1.y.toFixed(2)} L ${c2.x.toFixed(2)} ${c2.y.toFixed(2)} L ${c3.x.toFixed(2)} ${c3.y.toFixed(2)} L ${c4.x.toFixed(2)} ${c4.y.toFixed(2)} Z`;
+  },
+
+  buildFlowLiteContent(le, idPrefix = '') {
+    const color = this.sanitizeColor(le.color, '#38bdf8');
+    const variant = le.variant || 'dashed';
+    const startMode = le.startMode === 'abrupt' ? 'abrupt' : 'tunnel';
+    const endMode = le.endMode === 'abrupt' ? 'abrupt' : 'tunnel';
+    const dir = le.direction === 'reverse' ? 'reverse' : 'forward';
+    const mode = le.playbackMode === 'pingpong' ? 'pingpong' : (le.playbackMode === 'once' ? 'once' : 'loop');
+    const transitDur = Math.max(0.2, Number(le.speed) || 2.0);
+    const startDelay = Math.max(0, Math.min(60, Number(le.delay) || 0));
+    const endDelay = Math.max(0, Math.min(60, Number(le.endDelay) || 0));
+
+    let dashLen = Math.max(2, Number(le.dashLength) || (variant === 'single' ? 36 : 18));
+    let gapLen = Math.max(2, Number(le.gapLength) || 14);
+    let sw = Math.max(0.5, Number(le.strokeWidth) || 3.0);
+    let linecap = le.segmentStyle === 'solid' ? 'butt' : 'round';
+    let leadR = 0;
+
+    if (variant === 'dotted') {
+      const dotDia = Math.max(1, Number(le.dotSize) || 5.0);
+      sw = dotDia;
+      dashLen = 0.2;
+      linecap = 'round';
+      leadR = dotDia / 2.0;
+    } else if (linecap === 'round') {
+      leadR = sw / 2.0;
+    }
+
+    const baseGeom = this._computeFlowLiteGeometry(le, 0, 0);
+    const extGeom = leadR > 0 ? this._computeFlowLiteGeometry(le, leadR, leadR) : baseGeom;
+    const L = baseGeom.totalLen;
+    const visLen = variant === 'dotted' ? sw : dashLen;
+    const period = variant === 'single' ? (L + visLen * 2) : (visLen + gapLen);
+
+    let offStart, offEnd;
+    if (dir === 'forward') {
+      offStart = startMode === 'tunnel' ? dashLen : -(2 * leadR);
+      offEnd = endMode === 'tunnel' ? -(L + 2 * leadR) : -(L - dashLen);
+    } else {
+      offStart = endMode === 'tunnel' ? -(L + 2 * leadR) : -(L - dashLen);
+      offEnd = startMode === 'tunnel' ? dashLen : -(2 * leadR);
+    }
+
+    const activeDist = Math.max(1, Math.abs(offEnd - offStart));
+    const M = variant === 'single' ? 1 : (Math.ceil(activeDist / period) + 1);
+    const totalCycleDist = M === 1 ? activeDist : (M * period);
+    const moveDur = M === 1 ? transitDur : (transitDur * (totalCycleDist / activeDist));
+    const activeRatio = Math.min(0.999, activeDist / totalCycleDist);
+
+    const trackId = `${idPrefix}lite-flow-track-${le.id}`;
+    const clipId = `${idPrefix}lite-flow-clip-${le.id}`;
+    const kfName = `${idPrefix}sva-fl-kf-${le.id}`;
+
+    let maskHoles = '';
+    if (leadR > 0) {
+      if (startMode === 'tunnel') {
+        maskHoles += ' ' + this._buildFlowLiteOverhangMaskD(baseGeom.p0, baseGeom.t0, leadR, true);
+      }
+      if (endMode === 'tunnel') {
+        maskHoles += ' ' + this._buildFlowLiteOverhangMaskD(baseGeom.pLast, baseGeom.tL, leadR, false);
+      }
+    }
+
+    const clearGap = L + totalCycleDist + 500;
+    let totalDur = moveDur;
+    let kfCss = '';
+
+    if (mode === 'pingpong' && M === 1) {
+      // Explicit forward + endDelay + reverse + startDelay cycle
+      totalDur = startDelay + moveDur + endDelay + moveDur;
+      const p1 = ((startDelay / totalDur) * 100).toFixed(3);
+      const p2 = (((startDelay + moveDur) / totalDur) * 100).toFixed(3);
+      const p3 = (((startDelay + moveDur + endDelay) / totalDur) * 100).toFixed(3);
+      kfCss = `@keyframes ${kfName} {
+  0%, ${p1}% { stroke-dashoffset: ${offStart.toFixed(2)}px; opacity: 1; }
+  ${p2}%, ${p3}% { stroke-dashoffset: ${offEnd.toFixed(2)}px; opacity: 1; }
+  100% { stroke-dashoffset: ${offStart.toFixed(2)}px; opacity: 1; }
+}`;
+    } else if (M === 1 && (startDelay > 0 || endDelay > 0)) {
+      totalDur = startDelay + moveDur + endDelay;
+      const pStart = ((startDelay / totalDur) * 100).toFixed(3);
+      const pEnd = (((startDelay + moveDur) / totalDur) * 100).toFixed(3);
+      const startHoldOp = startDelay > 0 && ((dir === 'forward' && startMode === 'abrupt') || (dir === 'reverse' && endMode === 'abrupt')) ? 0 : 1;
+      const endHoldOp = endDelay > 0 && ((dir === 'forward' && endMode === 'abrupt') || (dir === 'reverse' && startMode === 'abrupt')) ? 0 : 1;
+      kfCss = `@keyframes ${kfName} {
+  0% { stroke-dashoffset: ${offStart.toFixed(2)}px; opacity: ${startHoldOp}; }
+  ${pStart}% { stroke-dashoffset: ${offStart.toFixed(2)}px; opacity: 1; }
+  ${pEnd}% { stroke-dashoffset: ${offEnd.toFixed(2)}px; opacity: 1; }
+  ${(Math.min(99.999, parseFloat(pEnd) + 0.01)).toFixed(3)}%, 100% { stroke-dashoffset: ${offEnd.toFixed(2)}px; opacity: ${endHoldOp}; }
+}`;
+    } else {
+      const pctActive = (activeRatio * 100).toFixed(3);
+      const pctHide = (Math.min(99.999, activeRatio * 100 + 0.01)).toFixed(3);
+      kfCss = `@keyframes ${kfName} {
+  0% { stroke-dashoffset: ${offStart.toFixed(2)}px; opacity: 1; }
+  ${pctActive}% { stroke-dashoffset: ${offEnd.toFixed(2)}px; opacity: 1; }
+  ${pctHide}%, 100% { stroke-dashoffset: ${offEnd.toFixed(2)}px; opacity: 0; }
+}`;
+    }
+
+    const iterCss = mode === 'once' ? '1' : 'infinite';
+    const dirCss = (mode === 'pingpong' && M > 1) ? 'alternate' : 'normal';
+    const fillCss = mode === 'once' ? 'forwards' : 'none';
+    const hasCyclePause = M > 1 && mode !== 'once' && (startDelay + endDelay) > 0;
+    const pauseSec = hasCyclePause ? (startDelay + endDelay) : 0;
+
+    const uses = [];
+    for (let k = 0; k < M; k++) {
+      const phaseDelay = -(k / M) * totalDur;
+      const burstAttrs = (k === 0 && hasCyclePause)
+        ? ` data-burst-cycles="1" data-pause-seconds="${pauseSec.toFixed(3)}" data-pause-visibility="hide"`
+        : '';
+      const styleStr = `animation-name:${kfName};animation-duration:${totalDur.toFixed(4)}s;animation-timing-function:linear;animation-delay:${phaseDelay.toFixed(4)}s;animation-iteration-count:${iterCss};animation-direction:${dirCss};animation-fill-mode:${fillCss};--sva-base-dur:${totalDur.toFixed(4)}s;--sva-phase-ratio:${(k / M).toFixed(6)};`;
+      uses.push(`<use href="#${trackId}" class="lite-payload lite-flow-seg" data-semantic-role="payload" data-seg-index="${k}" data-seg-count="${M}"${burstAttrs} fill="none" stroke="${color}" stroke-width="${sw.toFixed(2)}" stroke-linecap="${linecap}" stroke-dasharray="${dashLen.toFixed(2)} ${clearGap.toFixed(2)}" shape-rendering="geometricPrecision" style="${styleStr}" pointer-events="none" />`);
+    }
+
+    const guideAttrs = `class="lite-guide-track" fill="none" stroke="${color}" stroke-width="${Math.max(1, sw * 0.45).toFixed(2)}" stroke-opacity="0.20" shape-rendering="geometricPrecision" pointer-events="none"`;
+    const editorGuideAttrs = `fill="none" stroke="${color}" stroke-width="1" stroke-opacity="0.25" stroke-dasharray="4 4" pointer-events="none"`;
+    const guideMarkup = le.showGuide !== false
+      ? `<path d="${baseGeom.pathD}" ${guideAttrs} />`
+      : `<g class="lite-editor-marker" data-editor-only="true"><path d="${baseGeom.pathD}" ${editorGuideAttrs} /></g>`;
+    const hitMarkup = `<path d="${baseGeom.pathD}" class="lite-hit-target" data-semantic-role="hit-target" fill="none" stroke="transparent" stroke-width="${Math.max(18, sw + 14).toFixed(2)}" pointer-events="stroke" style="cursor:pointer;" />`;
+    const clipAttr = maskHoles ? ` clip-path="url(#${clipId})"` : '';
+    const clipDef = maskHoles ? `<clipPath id="${clipId}"><path clip-rule="evenodd" d="M -2000 -2000 H 5000 V 5000 H -2000 Z${maskHoles}" /></clipPath>` : '';
+
+    return {
+      innerMarkup: `<defs><path id="${trackId}" d="${extGeom.pathD}" />${clipDef}</defs><style>${kfCss}</style>${hitMarkup}${guideMarkup}<g class="lite-flow-stream"${clipAttr}>${uses.join('')}</g>`,
+      dataAttrs: `data-flow-variant="${this.escapeXML(variant)}" data-flow-start-mode="${startMode}" data-flow-end-mode="${endMode}" data-flow-direction="${dir}" data-flow-playback-mode="${mode}" data-flow-dash-length="${dashLen}" data-flow-gap-length="${gapLen}" data-flow-dot-size="${le.dotSize || 5}" data-flow-stroke-width="${sw}" data-flow-cap-style="${le.segmentStyle || 'rounded'}" data-flow-speed="${transitDur}" data-flow-delay="${startDelay}" data-flow-end-delay="${endDelay}" data-flow-length="${L.toFixed(2)}" data-flow-lead-r="${leadR.toFixed(2)}" data-flow-seg-count="${M}" data-flow-off-start="${offStart.toFixed(2)}" data-flow-off-end="${offEnd.toFixed(2)}" data-flow-active-dist="${activeDist.toFixed(2)}" data-flow-period="${period.toFixed(2)}"`
     };
   },
 
@@ -454,13 +785,19 @@ window.LiteEffects = {
       return `<g ${baseAttrs} style="opacity:${opacity};">${hitMarkup}${editorMarker}${shapeMarkup}</g>`;
     }
 
+    if (le.kind === 'flow-lite') {
+      const flowBuilt = this.buildFlowLiteContent(le);
+      return `<g ${baseAttrs} ${flowBuilt.dataAttrs} style="opacity:${opacity};">${flowBuilt.innerMarkup}</g>`;
+    }
+
     return '';
   },
 
   getLiteBurstScript() {
     const needsBurstScript = this.list.some((le) =>
       (le.kind === 'perimeter-tracer' && Number(le.burstCycles) > 0 && Number(le.pauseSeconds) > 0 && le.playbackMode !== 'once') ||
-      (le.kind === 'flash' && Boolean(le.repeat))
+      (le.kind === 'flash' && Boolean(le.repeat)) ||
+      (le.kind === 'flow-lite' && ((Number(le.delay) || 0) + (Number(le.endDelay) || 0)) > 0 && le.playbackMode !== 'once')
     );
     if (!needsBurstScript) return '';
     return `\n<script type="application/ecmascript"><![CDATA[
@@ -571,9 +908,12 @@ window.LiteEffects = {
     bindBtn('btnAddLiteTracer', () => this.addByKind('perimeter-tracer'));
     bindBtn('btnAddLitePulse', () => this.addByKind('pulse'));
     bindBtn('btnAddLiteFlash', () => this.addByKind('flash'));
+    bindBtn('btnAddLiteFlow', () => this.addByKind('flow-lite'));
     bindBtn('btnTriggerLiteFlash', () => {
       if (this.activeId) this.triggerFlash(this.activeId);
     });
+    bindBtn('btnAddLiteFlowNode', () => this.addWaypointToActive());
+    bindBtn('btnDropLiteFlowNode', () => this.dropWaypointFromActive());
 
     const bindField = (elId, prop, isNum = false, isBool = false) => {
       const el = document.getElementById(elId);
@@ -657,15 +997,193 @@ window.LiteEffects = {
     bindField('liteRepeatChk', 'repeat', false, true);
     bindPair('liteFlashRepeatInterval', 'repeatInterval');
     bindField('liteVisibleChk', 'visible', false, true);
+
+    // Flow Lite inspector bindings
+    const bindFlowActivePt = (srcId, dstId) => {
+      const src = document.getElementById(srcId);
+      const dst = document.getElementById(dstId);
+      if (!src) return;
+      src.addEventListener('input', (e) => {
+        const idx = Math.max(0, (parseInt(e.target.value, 10) || 1) - 1);
+        if (dst) dst.value = idx + 1;
+        this.selectWaypoint(idx);
+      });
+    };
+    bindFlowActivePt('liteFlowActivePtSlider', 'liteFlowActivePtNum');
+    bindFlowActivePt('liteFlowActivePtNum', 'liteFlowActivePtSlider');
+
+    const bindFlowPtCoord = (sliderId, numId, axis) => {
+      const s = document.getElementById(sliderId);
+      const n = document.getElementById(numId);
+      const handle = (src, dst) => {
+        if (!src) return;
+        src.addEventListener('input', (e) => {
+          const val = parseFloat(e.target.value);
+          if (!Number.isFinite(val)) return;
+          if (dst) dst.value = val;
+          this.updateActiveWaypointCoord(axis, val);
+        });
+        src.addEventListener('change', () => {
+          if (window.AppCoordinator) window.AppCoordinator.recordHistoryImmediate();
+        });
+      };
+      handle(s, n);
+      handle(n, s);
+    };
+    bindFlowPtCoord('liteFlowPtXSlider', 'liteFlowPtXNum', 'x');
+    bindFlowPtCoord('liteFlowPtYSlider', 'liteFlowPtYNum', 'y');
+
+    const bindFlowBend = (sliderId, numId) => {
+      const s = document.getElementById(sliderId);
+      const n = document.getElementById(numId);
+      const handle = (src, dst) => {
+        if (!src) return;
+        src.addEventListener('input', (e) => {
+          const val = parseFloat(e.target.value);
+          if (!Number.isFinite(val)) return;
+          if (dst) dst.value = val;
+          this.updateActiveSectionBend(val);
+        });
+        src.addEventListener('change', () => {
+          if (window.AppCoordinator) window.AppCoordinator.recordHistoryImmediate();
+        });
+      };
+      handle(s, n);
+      handle(n, s);
+    };
+    bindFlowBend('liteFlowSectionBendSlider', 'liteFlowSectionBendNum');
+
+    bindPair('liteFlowCurvature', 'curvature');
+    bindField('liteFlowShowGuideChk', 'showGuide', false, true);
+    bindPair('liteFlowDashLength', 'dashLength');
+    bindPair('liteFlowGapLength', 'gapLength');
+    bindPair('liteFlowDotSize', 'dotSize');
+    bindPair('liteFlowStrokeWidth', 'strokeWidth');
+    bindField('liteFlowCapStyleSelect', 'segmentStyle');
+    bindField('liteFlowStartModeSelect', 'startMode');
+    bindField('liteFlowEndModeSelect', 'endMode');
+    bindField('liteFlowDirectionSelect', 'direction');
+    bindField('liteFlowPlaybackModeSelect', 'playbackMode');
+    bindPair('liteFlowSpeed', 'speed');
+    bindPair('liteFlowDelay', 'delay');
+    bindPair('liteFlowEndDelay', 'endDelay');
+  },
+
+  addWaypointToActive() {
+    if (!this.activeId) return null;
+    const le = this.getLiteEffect(this.activeId);
+    if (!le || le.kind !== 'flow-lite') return null;
+    const pts = Array.isArray(le.points) ? le.points.map((p) => ({ x: p.x, y: p.y })) : [{ x: 25, y: 50 }, { x: 75, y: 50 }];
+    const bends = Array.isArray(le.bends) ? le.bends.slice() : new Array(Math.max(1, pts.length - 1)).fill(0);
+    const insertAfter = Math.max(0, Math.min(pts.length - 2, this.activePointIndex));
+    const p1 = pts[insertAfter];
+    const p2 = pts[insertAfter + 1] || p1;
+    const midPt = {
+      x: Math.round(((p1.x + p2.x) / 2) * 100) / 100,
+      y: Math.round(((p1.y + p2.y) / 2) * 100) / 100
+    };
+    pts.splice(insertAfter + 1, 0, midPt);
+    bends.splice(insertAfter + 1, 0, 0);
+    this.activePointIndex = insertAfter + 1;
+    const updated = this.updateLiteEffect(this.activeId, { points: pts, bends });
+    if (updated) {
+      this.syncEditorUI(updated);
+      this.triggerAppRender();
+      if (window.FloatingPropertiesEditor && window.FloatingPropertiesEditor.isOpen && window.FloatingPropertiesEditor.activeType === 'lite') {
+        window.FloatingPropertiesEditor.syncFromActiveObject();
+      }
+      if (window.AppCoordinator) window.AppCoordinator.recordHistoryImmediate();
+    }
+    return updated;
+  },
+
+  dropWaypointFromActive() {
+    if (!this.activeId) return null;
+    const le = this.getLiteEffect(this.activeId);
+    if (!le || le.kind !== 'flow-lite') return null;
+    const pts = Array.isArray(le.points) ? le.points.map((p) => ({ x: p.x, y: p.y })) : [];
+    if (pts.length <= 2) return le;
+    const bends = Array.isArray(le.bends) ? le.bends.slice() : new Array(pts.length - 1).fill(0);
+    const dropIdx = Math.max(0, Math.min(pts.length - 1, this.activePointIndex));
+    pts.splice(dropIdx, 1);
+    const bendDropIdx = Math.min(bends.length - 1, dropIdx);
+    bends.splice(bendDropIdx, 1);
+    this.activePointIndex = Math.max(0, Math.min(pts.length - 1, this.activePointIndex));
+    const updated = this.updateLiteEffect(this.activeId, { points: pts, bends });
+    if (updated) {
+      this.syncEditorUI(updated);
+      this.triggerAppRender();
+      if (window.FloatingPropertiesEditor && window.FloatingPropertiesEditor.isOpen && window.FloatingPropertiesEditor.activeType === 'lite') {
+        window.FloatingPropertiesEditor.syncFromActiveObject();
+      }
+      if (window.AppCoordinator) window.AppCoordinator.recordHistoryImmediate();
+    }
+    return updated;
+  },
+
+  selectWaypoint(index) {
+    if (!this.activeId) return;
+    const le = this.getLiteEffect(this.activeId);
+    if (!le || le.kind !== 'flow-lite' || !Array.isArray(le.points)) return;
+    this.activePointIndex = Math.max(0, Math.min(le.points.length - 1, Number(index) || 0));
+    this.syncEditorUI(le);
+    if (window.FloatingPropertiesEditor && window.FloatingPropertiesEditor.isOpen && window.FloatingPropertiesEditor.activeType === 'lite') {
+      window.FloatingPropertiesEditor.syncFromActiveObject();
+    }
+    if (window.AppCoordinator && typeof window.AppCoordinator.updateActiveOverlays === 'function') {
+      window.AppCoordinator.updateActiveOverlays();
+    }
+  },
+
+  updateActiveWaypointCoord(axis, value) {
+    if (!this.activeId) return;
+    const le = this.getLiteEffect(this.activeId);
+    if (!le || le.kind !== 'flow-lite' || !Array.isArray(le.points)) return;
+    const idx = Math.max(0, Math.min(le.points.length - 1, this.activePointIndex));
+    const pts = le.points.map((p) => ({ x: p.x, y: p.y }));
+    pts[idx][axis] = Math.round(Number(value) * 100) / 100;
+    this.updateActive('points', pts);
+  },
+
+  updateActiveSectionBend(value) {
+    if (!this.activeId) return;
+    const le = this.getLiteEffect(this.activeId);
+    if (!le || le.kind !== 'flow-lite' || !Array.isArray(le.points)) return;
+    const secCount = Math.max(1, le.points.length - 1);
+    const secIdx = Math.max(0, Math.min(secCount - 1, this.activePointIndex));
+    const bends = Array.isArray(le.bends) ? le.bends.slice() : new Array(secCount).fill(0);
+    while (bends.length < secCount) bends.push(0);
+    bends[secIdx] = Math.max(-100, Math.min(100, Number(value) || 0));
+    this.updateActive('bends', bends);
+  },
+
+  translateFlowLitePoints(id, deltaXPct, deltaYPct) {
+    const le = this.getLiteEffect(id);
+    if (!le || le.kind !== 'flow-lite' || !Array.isArray(le.points)) return null;
+    const pts = le.points.map((p) => ({
+      x: Math.round((p.x + deltaXPct) * 1000) / 1000,
+      y: Math.round((p.y + deltaYPct) * 1000) / 1000
+    }));
+    return this.updateLiteEffect(id, { points: pts });
   },
 
   addByKind(kind) {
     const offset = (this.list.length % 5) * 28;
-    const created = this.createLiteEffect({
+    const offsetPct = (this.list.length % 5) * 3;
+    const initial = {
       kind,
       x: 240 + offset,
       y: 180 + offset
-    });
+    };
+    if (kind === 'flow-lite') {
+      initial.points = [
+        { x: 22 + offsetPct, y: 45 + offsetPct },
+        { x: 74 + offsetPct, y: 45 + offsetPct }
+      ];
+      initial.bends = [0];
+      this.activePointIndex = 0;
+    }
+    const created = this.createLiteEffect(initial);
     this.selectLite(created.id);
     this.renderList();
     this.triggerAppRender();
@@ -676,8 +1194,14 @@ window.LiteEffects = {
   selectLite(id, opts = {}) {
     this.activeId = String(id);
     const le = this.getLiteEffect(id);
+    if (le && le.kind === 'flow-lite') {
+      document.body.classList.add('editing-flow');
+    } else {
+      document.body.classList.remove('editing-flow');
+    }
     this.syncEditorUI(le);
     this.renderList();
+    this.updateUIOverlay(le);
     if (typeof window.syncInspectorLayerSections === 'function') {
       window.syncInspectorLayerSections();
     }
@@ -686,10 +1210,102 @@ window.LiteEffects = {
     }
   },
 
-  handleStageClick(xPct, yPct) {
+  updateUIOverlay(targetLite) {
+    if (typeof document === 'undefined') return;
+    const container = document.getElementById('dynamicFlowReticles');
+    const pathEl = document.getElementById('flowCurvePath');
+    if (!container || !pathEl) return;
+
+    // Do not clobber main DataFlows reticles when a main Flow is active
+    if (window.DataFlows && window.DataFlows.activeId !== null) return;
+
+    const le = targetLite !== undefined ? targetLite : (this.activeId ? this.getLiteEffect(this.activeId) : null);
+    if (!le || le.kind !== 'flow-lite' || le.visible === false || !Array.isArray(le.points)) {
+      container.innerHTML = '';
+      pathEl.style.display = 'none';
+      return;
+    }
+
+    document.body.classList.add('editing-flow');
+    const geom = this._computeFlowLiteGeometry(le, 0, 0);
+    if (le.points.length >= 2) {
+      pathEl.style.display = 'block';
+      pathEl.setAttribute('d', geom.pathD);
+      pathEl.setAttribute('stroke', le.color || '#38bdf8');
+    } else {
+      pathEl.style.display = 'none';
+    }
+
+    const safeColor = this.sanitizeColor(le.color, '#38bdf8');
+    const existingReticles = container.querySelectorAll('[data-lite-flow-pt-idx]');
+    if (existingReticles.length === le.points.length) {
+      le.points.forEach((pt, idx) => {
+        const isActive = idx === this.activePointIndex;
+        const el = existingReticles[idx];
+        el.className = 'reticle' + (isActive ? ' active-reticle' : '');
+        el.style.left = pt.x + '%';
+        el.style.top = pt.y + '%';
+        el.style.background = isActive ? (safeColor + '4D') : 'rgba(0,0,0,0.65)';
+        el.style.borderColor = safeColor;
+        el.style.zIndex = isActive ? '12' : '11';
+      });
+    } else {
+      container.innerHTML = '';
+      le.points.forEach((pt, idx) => {
+        const isActive = idx === this.activePointIndex;
+        const ret = document.createElement('div');
+        ret.className = 'reticle' + (isActive ? ' active-reticle' : '');
+        ret.setAttribute('data-flow-node-idx', String(idx));
+        ret.setAttribute('data-lite-flow-pt-idx', String(idx));
+        ret.style.left = (Number(pt.x) || 0) + '%';
+        ret.style.top = (Number(pt.y) || 0) + '%';
+        ret.style.pointerEvents = 'auto';
+        ret.style.background = isActive ? (safeColor + '4D') : 'rgba(0,0,0,0.65)';
+        ret.style.borderColor = safeColor;
+        ret.style.zIndex = isActive ? '12' : '11';
+        ret.style.cursor = 'grab';
+        ret.textContent = 'P' + (idx + 1);
+        container.appendChild(ret);
+      });
+    }
+  },
+
+  handleStageClick(xPct, yPct, dragMode = null) {
     if (!this.activeId) return false;
     const le = this.getLiteEffect(this.activeId);
     if (!le) return false;
+    if (le.kind === 'flow-lite' && Array.isArray(le.points) && le.points.length >= 2) {
+      if (dragMode === 'translate' && Array.isArray(this._dragStartPoints) && this._dragStartAnchor) {
+        const dx = Number(xPct) - this._dragStartAnchor.x;
+        const dy = Number(yPct) - this._dragStartAnchor.y;
+        const nextPts = this._dragStartPoints.map((p) => ({
+          x: Math.round((p.x + dx) * 100) / 100,
+          y: Math.round((p.y + dy) * 100) / 100
+        }));
+        const updated = this.updateLiteEffect(this.activeId, { points: nextPts });
+        if (updated) {
+          this.syncEditorUI(updated);
+          this.updateUIOverlay(updated);
+          this.triggerAppRender();
+          return true;
+        }
+        return false;
+      }
+      const idx = Math.max(0, Math.min(le.points.length - 1, this.activePointIndex));
+      const nextPts = le.points.map((p) => ({ x: p.x, y: p.y }));
+      nextPts[idx] = {
+        x: Math.round(Number(xPct) * 100) / 100,
+        y: Math.round(Number(yPct) * 100) / 100
+      };
+      const updated = this.updateLiteEffect(this.activeId, { points: nextPts });
+      if (updated) {
+        this.syncEditorUI(updated);
+        this.updateUIOverlay(updated);
+        this.triggerAppRender();
+        return true;
+      }
+      return false;
+    }
     const cw = (window.Stage && window.Stage.canvasWidth) || 1280;
     const ch = (window.Stage && window.Stage.canvasHeight) || 720;
     const nextX = Math.round((Number(xPct) / 100) * cw);
@@ -705,6 +1321,8 @@ window.LiteEffects = {
 
   deselectLite() {
     this.activeId = null;
+    document.body.classList.remove('editing-flow');
+    this.updateUIOverlay(null);
     this.syncEditorUI(null);
     this.renderList();
     if (typeof window.syncInspectorLayerSections === 'function') {
@@ -802,7 +1420,8 @@ window.LiteEffects = {
       const optsByKind = {
         'perimeter-tracer': ['rounded', 'rect', 'circle', 'ellipse'],
         'pulse': ['circle', 'square', 'diamond', 'cross', 'ring'],
-        'flash': ['diamond', 'circle', 'square', 'cross', 'star']
+        'flash': ['diamond', 'circle', 'square', 'cross', 'star'],
+        'flow-lite': ['dashed', 'dotted', 'single']
       };
       const opts = optsByKind[le.kind] || ['circle'];
       variantSel.innerHTML = opts.map((o) => `<option value="${o}">${o}</option>`).join('');
@@ -846,18 +1465,72 @@ window.LiteEffects = {
     setPair('liteFlashRepeatInterval', le.repeatInterval || 2.0);
     setChk('liteVisibleChk', le.visible !== false);
 
+    const dimGroup = document.getElementById('liteDimensionsGroup');
+    const posRow = document.getElementById('liteXNum') ? document.getElementById('liteXNum').closest('.inspector-prop-row') : null;
     const tracerGroup = document.getElementById('liteTracerGroup');
     const cornerRow = document.getElementById('liteCornerRadiusRow');
     const armRow = document.getElementById('liteArmThicknessRow');
     const pulseGroup = document.getElementById('litePulseGroup');
     const flashGroup = document.getElementById('liteFlashGroup');
+    const flowGroup = document.getElementById('liteFlowGroup');
     const intensityRow = document.getElementById('liteIntensityRow');
+    if (dimGroup) dimGroup.style.display = le.kind === 'flow-lite' ? 'none' : '';
+    if (posRow) posRow.style.display = le.kind === 'flow-lite' ? 'none' : '';
     if (tracerGroup) tracerGroup.style.display = le.kind === 'perimeter-tracer' ? 'block' : 'none';
     if (cornerRow) cornerRow.style.display = (le.kind === 'perimeter-tracer' && le.variant === 'rounded') ? '' : 'none';
     if (armRow) armRow.style.display = ((le.kind === 'pulse' || le.kind === 'flash') && (le.variant === 'cross' || le.variant === 'star')) ? '' : 'none';
     if (pulseGroup) pulseGroup.style.display = le.kind === 'pulse' ? 'block' : 'none';
     if (flashGroup) flashGroup.style.display = le.kind === 'flash' ? 'block' : 'none';
+    if (flowGroup) flowGroup.style.display = le.kind === 'flow-lite' ? 'block' : 'none';
     if (intensityRow) intensityRow.style.display = (le.kind === 'pulse' || le.kind === 'flash') ? '' : 'none';
+
+    if (le.kind === 'flow-lite') {
+      const pts = Array.isArray(le.points) && le.points.length >= 2 ? le.points : [{ x: 25, y: 50 }, { x: 75, y: 50 }];
+      const bends = Array.isArray(le.bends) ? le.bends : new Array(pts.length - 1).fill(0);
+      if (this.activePointIndex >= pts.length) this.activePointIndex = pts.length - 1;
+      if (this.activePointIndex < 0) this.activePointIndex = 0;
+      const activePt = pts[this.activePointIndex] || pts[0];
+      const secIdx = Math.min(pts.length - 2, this.activePointIndex);
+      const secBend = Number(bends[secIdx]) || 0;
+
+      const ptSlider = document.getElementById('liteFlowActivePtSlider');
+      const ptNum = document.getElementById('liteFlowActivePtNum');
+      if (ptSlider) { ptSlider.max = String(pts.length); ptSlider.value = String(this.activePointIndex + 1); }
+      if (ptNum) { ptNum.max = String(pts.length); ptNum.value = String(this.activePointIndex + 1); }
+      const dropBtn = document.getElementById('btnDropLiteFlowNode');
+      if (dropBtn) dropBtn.disabled = pts.length <= 2;
+
+      setPair('liteFlowPtX', Math.round(activePt.x * 10) / 10);
+      setPair('liteFlowPtY', Math.round(activePt.y * 10) / 10);
+      setPair('liteFlowSectionBend', secBend);
+      setPair('liteFlowCurvature', Number(le.curvature) || 0);
+      setChk('liteFlowShowGuideChk', le.showGuide !== false);
+      setPair('liteFlowDashLength', le.dashLength || (le.variant === 'single' ? 36 : 18));
+      setPair('liteFlowGapLength', le.gapLength || 14);
+      setPair('liteFlowDotSize', le.dotSize || 5);
+      setPair('liteFlowStrokeWidth', le.strokeWidth || 3);
+      setVal('liteFlowCapStyleSelect', le.segmentStyle || 'rounded');
+      setVal('liteFlowStartModeSelect', le.startMode || 'tunnel');
+      setVal('liteFlowEndModeSelect', le.endMode || 'tunnel');
+      setVal('liteFlowDirectionSelect', le.direction === 'reverse' ? 'reverse' : 'forward');
+      setVal('liteFlowPlaybackModeSelect', le.playbackMode || 'loop');
+      setPair('liteFlowSpeed', le.speed || 2.0);
+      setPair('liteFlowDelay', le.delay || 0);
+      setPair('liteFlowEndDelay', le.endDelay || 0);
+
+      const isDotted = le.variant === 'dotted';
+      const isSingle = le.variant === 'single';
+      const dashRow = document.getElementById('liteFlowDashLengthRow');
+      const gapRow = document.getElementById('liteFlowGapLengthRow');
+      const dotRow = document.getElementById('liteFlowDotSizeRow');
+      const swRow = document.getElementById('liteFlowStrokeWidthRow');
+      const capRow = document.getElementById('liteFlowCapStyleRow');
+      if (dashRow) dashRow.style.display = isDotted ? 'none' : '';
+      if (gapRow) gapRow.style.display = isSingle ? 'none' : '';
+      if (dotRow) dotRow.style.display = isDotted ? '' : 'none';
+      if (swRow) swRow.style.display = isDotted ? 'none' : '';
+      if (capRow) capRow.style.display = isDotted ? 'none' : '';
+    }
 
     if (typeof window.syncInspectorLayerSections === 'function') {
       window.syncInspectorLayerSections();
@@ -875,8 +1548,8 @@ window.LiteEffects = {
       listEl.innerHTML = '<div class="stage-hint" id="emptyLiteListHint">No low-load effects active.</div>';
       return;
     }
-    const iconByKind = { 'perimeter-tracer': '▭', 'pulse': '◎', 'flash': '✦' };
-    const kindShort = { 'perimeter-tracer': 'Tracer', 'pulse': 'Pulse', 'flash': 'Flash' };
+    const iconByKind = { 'perimeter-tracer': '▭', 'pulse': '◎', 'flash': '✦', 'flow-lite': '↝' };
+    const kindShort = { 'perimeter-tracer': 'Tracer', 'pulse': 'Pulse', 'flash': 'Flash', 'flow-lite': 'Flow' };
     this.list.forEach((le) => {
       const row = document.createElement('div');
       const isActive = String(this.activeId) === String(le.id);

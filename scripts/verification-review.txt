@@ -1,0 +1,271 @@
+=============================================================================
+SVG Animator Studio — Phase 1 Verification Suite Read-Only Review Report
+File: scripts/verification-review.txt
+Generated: 2026-11-04T11:36:13Z
+Branch: refactor/phase1-architecture
+HEAD Commit: ca00fd740010c7e1f6e6287be660211ea8b8b0a5 (ca00fd7)
+=============================================================================
+
+1. INVENTORY OF THE FIVE VERIFICATION FILES IN scripts/
+-----------------------------------------------------------------------------
+The scripts/ directory contained exactly the five authorised verification files
+prior to creating this report:
+
+  1) scripts/verify-architecture.sh
+     - Size:        23,801 bytes
+     - Permissions: -rwxr-xr-x
+     - Purpose:     Comment-, string-, and regex-stripped static source analysis
+                    ([STATIC] checks ARCH-01 through ARCH-10).
+
+  2) scripts/regression-harness.js
+     - Size:        15,586 bytes
+     - Permissions: -rw-r--r--
+     - Purpose:     4-stage incremental Node.js operational harness loading the
+                    actual frontend JS files from internal/web/static/js/
+                    ([RUNTIME] checks REG-02 and REG-03).
+
+  3) scripts/verify-regression.sh
+     - Size:        7,805 bytes
+     - Permissions: -rwxr-xr-x
+     - Purpose:     Functional regression runner executing isolated Go SQLite/REST
+                    tests (REG-01), invoking regression-harness.js when node is
+                    present (REG-02, REG-03), and reporting browser/FFmpeg checks
+                    (REG-04, REG-05).
+
+  4) scripts/verify-runtime.sh
+     - Size:        14,181 bytes
+     - Permissions: -rwxr-xr-x
+     - Purpose:     Runtime & deployment verification runner executing go vet,
+                    package build (./cmd/svg-animator), go test (RUN-01), CLI
+                    SVG/HTML generation (RUN-02), isolated server startup with
+                    temporary SQLite DB (RUN-03), live HTTP static delivery
+                    (RUN-04), live REST API round-trip (RUN-05), and Chromium/
+                    FFmpeg binary checks (RUN-06, RUN-07).
+
+  5) scripts/verify-phase1.sh
+     - Size:        3,596 bytes
+     - Permissions: -rwxr-xr-x
+     - Purpose:     Master runner executing verify-architecture.sh,
+                    verify-regression.sh, and verify-runtime.sh and aggregating
+                    PASS, WARNING, NOT VERIFIED, and FAIL counts.
+
+
+2. INVENTORY OF THE .github/ DIRECTORY
+-----------------------------------------------------------------------------
+  - .github/                                        (directory, 0755, Nov 4 05:24)
+  - .github/agents/                                 (directory, 0755, Nov 4 05:24)
+  - .github/agents/svg-animator-maintainer.agent.md (file, 2,725 bytes, Nov 4 05:24)
+
+  Purpose of .github/agents/svg-animator-maintainer.agent.md:
+  A custom GitHub Copilot / VS Code (code-server) agent definition
+  (name: "SVG Animator Maintainer", tools: [read, search, edit, execute, todo],
+  user-invocable: true) containing maintainer instructions, constraints, working
+  style, validation commands, and subsystem context for SVG Animator Studio.
+
+
+3. EVIDENCE THAT .github/ EXISTED BEFORE THE VERIFICATION WORK
+-----------------------------------------------------------------------------
+Multiple independent sources of recorded evidence confirm that .github/ existed
+long before the verification suite was created:
+
+  a) Filesystem Timestamps:
+     .github/ and .github/agents/svg-animator-maintainer.agent.md have mtime
+     Nov 4 05:24 UTC, whereas scripts/ was created between 11:10 and 11:17 UTC
+     on Nov 4 (nearly 6 hours later).
+
+  b) Pre-Implementation Git Status Log:
+     Before creating scripts/, `git status --short` was executed at 11:08:13Z
+     and already reported:
+       ?? .github/
+
+  c) Reference in AGENTS.md:
+     Line 57 of AGENTS.md explicitly references `.github/agents/` in the
+     AI agent startup procedure ("3. Read any applicable additional agent rules
+     (such as .agents/rules/ or .github/agents/).").
+
+
+4. PER-SCRIPT REVIEW: FALSE POSITIVES, FALSE NEGATIVES, UNSAFE COMMANDS & ASSUMPTIONS
+-----------------------------------------------------------------------------
+
+4.1 scripts/verify-architecture.sh
+  - Unsafe / Destructive Commands:
+    None. Strictly read-only file reads in Python 3.
+  - Potential False Negatives:
+    a) ARCH-03 (line 286): Checks Layer 3 operational sections for `dom_pattern`
+       (`document.*`, `innerHTML`, `classList`) and three global UI functions
+       (`openAccordionById`, `syncUIAfterHistoryRestore`, `syncAllRowsUI`), but
+       does NOT scan Layer 3 sections for intra-module Layer 1 method calls on
+       `this` (e.g., `this.renderList()`, `this.updateUIOverlay()`,
+       `this.refreshAfterChange()`). If a Layer 3 method called `this.renderList()`,
+       ARCH-03 would still report PASS.
+    b) ARCH-07 (lines 369-374): Uses a narrow regex specifically targeting known
+       exceptions in `stage.js` (`window.DataFlows.activeNodeIdx =`,
+       `window.DiagramNodes.selectNode`, `window.DataFlows.updateUIOverlay`)
+       rather than scanning all Layer 1 sections for any direct mutation of
+       another module's state (`window.<Module>.list`, `.counter`, `.activeId`)
+       or direct coordinate assignment on operational objects (`node.x = ...`).
+    c) ARCH-10 (lines 492-498): Checks `if sym not in joined:` (substring
+       presence in stripped code). A file that merely invokes `other.getState()`
+       would satisfy `"getState" in joined` even if it forgot to define its own
+       `getState()` method.
+  - Potential False Positives / Tokenizer Edge Cases:
+    a) `strip_js_comments_and_strings` (lines 71-74, 106-121): Recognizes regex
+       literals only after single-character tokens `( , = : [ ! & | ? { } ; +`
+       (missing keyword prefixes such as `return /.../`), and exits `REGEX_LIT`
+       on the first unescaped `/` even inside a regex character class `[/]`.
+       While none of the current 14 JS files hit this edge case, future regexes
+       could desynchronize string stripping.
+
+4.2 scripts/regression-harness.js
+  - Unsafe / Destructive Commands:
+    None. Uses only Node `fs.readFileSync` and `vm.runInThisContext` in memory.
+  - Incorrect Assumptions / Unexecuted Bugs (Will Fail When Node.js Runs Stage 4):
+    Because `node` is not installed on the LXC, `regression-harness.js` was not
+    executed at runtime. Auditing Stage 4 (lines 308-333) against the actual
+    production files reveals three bugs in the harness:
+    a) Missing `window.buildFullSVG` and `window.serializeSVGForExport` globals:
+       `StillExportStudio.buildStillRenderConfig` (`still-export-modal.js:318`)
+       calls `window.buildFullSVG(...)`, and
+       `AnimatedExportStudio.constructExportJobPayload` (`export-modal.js:104-105`)
+       calls `window.buildFullSVG(...)` and `window.serializeSVGForExport(...)`.
+       Those two global wrappers are defined inside `app.js` (`DOMContentLoaded`),
+       which the harness does not load or alias onto `window`. Calling
+       `buildStillRenderConfig` in Stage 4 will throw
+       `TypeError: window.buildFullSVG is not a function`.
+    b) Incorrect assertion path on `buildStillRenderConfig` return object
+       (lines 316-317): `StillExportStudio.buildStillRenderConfig` returns
+       `{ payloadState, rawSvg, fullTargetW, ... }` (`still-export-modal.js:325-337`).
+       The harness checks `stillCfg.camera.motion` and `stillCfg.optical.type`
+       instead of `stillCfg.payloadState.camera.motion` and
+       `stillCfg.payloadState.optical.type`.
+    c) Transitive dependency of `constructExportJobPayload` on browser `DOMParser`:
+       In `export-modal.js:105`, `constructExportJobPayload` calls
+       `window.serializeSVGForExport(rawSvg)`, which calls
+       `SceneState.serializeSVGForExport` (`new DOMParser()` / `new XMLSerializer()`).
+       In Node.js without `DOMParser`, calling `constructExportJobPayload` will
+       throw `ReferenceError: DOMParser is not defined` unless `serializeSVGForExport`
+       is either decoupled in production code or shimmed in Stage 4.
+
+4.3 scripts/verify-regression.sh
+  - Unsafe / Destructive Commands:
+    None.
+  - Review Findings:
+    a) Properly executes `go test -count=1 -v ./internal/db ./internal/web`
+       (REG-01) using isolated `t.TempDir()` databases.
+    b) Correctly checks `command -v node` and reports `NOT VERIFIED` for REG-02
+       and REG-03 when Node.js is absent, without falling back to static grep.
+    c) Note on lines 103-105 and 122-124: Even if Chromium and FFmpeg are
+       installed in the future, the `else` branches currently emit `NOT VERIFIED`
+       ("automated browser driver suite is not configured" / "full media export
+       test not yet configured") because automated headless browser/FFmpeg test
+       drivers have not yet been written inside `verify-regression.sh`.
+
+4.4 scripts/verify-runtime.sh
+  - Unsafe / Destructive Commands:
+    None. Uses `mktemp -d /tmp/svg-animator-verify.XXXXXX` and cleans up only its
+    own `$SERVER_PID` and `$TMP_DIR` on exit.
+  - Review Findings:
+    a) Fixed port `PORT=18091` (line 28): Assumes TCP port 18091 is free on
+       `127.0.0.1`. If another process is bound to 18091, `RUN-03` could fail or
+       talk to the existing process (though `RUN-03` mitigates this by checking
+       that `$ISO_DATA_DIR/studio_library.db` was created and logged in
+       `$SERVER_LOG`).
+    b) `RUN-04` (lines 167-177): Verifies that `GET /` and all 14 `GET /js/*.js`
+       return HTTP 200 and non-empty bodies, but does not verify the HTTP
+       `Content-Type` header or compare the served bytes against the source files.
+
+4.5 scripts/verify-phase1.sh
+  - Unsafe / Destructive Commands:
+    None. Uses `mktemp /tmp/svg-animator-phase1-results.XXXXXX` and removes only
+    that file on exit.
+  - Review Findings:
+    a) Pipeline exit status in `run_suite` (line 38):
+       `if ! bash "${SCRIPT_DIR}/${script_name}" | tee -a "${COMBINED_LOG}"; then`
+       Because `set -uo pipefail` IS enabled at line 18, a non-zero exit from
+       `bash "${SCRIPT_DIR}/${script_name}"` is properly propagated through the
+       `| tee` pipeline.
+    b) Preserves all four result categories (`PASS`, `WARNING`, `NOT VERIFIED`,
+       `FAIL`) without converting `WARNING` or `NOT VERIFIED` into `PASS`.
+
+
+5. ASSESSMENT OF JAVASCRIPT REGRESSION HARNESS MOCKS (scripts/regression-harness.js)
+-----------------------------------------------------------------------------
+  a) Stages 1 & 2 (Lines 46-154):
+     Genuinely test the real production code with virtually no mocking:
+     - Stage 1 sets only `global.window = global` and directly exercises
+       `SceneState`, `Effects.build`, and `AppCoordinator`.
+     - Stage 2 adds only `window.addEventListener = function() {}` (needed
+       because `stage.js` registers window resize/key listeners when defined) and
+       genuinely tests `Stage` pure math, `NodePresets`, `DiagramNodes`,
+       `DataFlows` (including orthogonal routing and waypoint insertion/removal),
+       `Glows`, and `Ripples`.
+
+  b) Stage 3 (Lines 160-299):
+     Parses the actual `<input>`, `<select>`, and `<textarea>` elements from
+     `internal/web/static/index.html` into an in-memory `controlElements` map so
+     `ControlStateAdaptor.syncFromDOM` and `syncToDOM` read and mutate realistic
+     initial values and checkbox states. However:
+     - `window.syncUIAfterHistoryRestore`, `window.openAccordionById`, and
+       `window.triggerAppRender` are stubbed as no-ops (lines 236-238), so
+       Stage 3 tests operational state restoration in `HistoryManager.undo()/redo()`
+       and `ProjectManager.applyStudioState()`, but does NOT test the DOM UI
+       synchronization inside `app.js`'s `syncUIAfterHistoryRestore()`.
+     - ProjectManager's `fetchProjectsList`, `fetchProjectById`, `postSaveProject`,
+       and `postDeleteProject` are not called in Stage 3 (no `global.fetch` mock
+       was wired up).
+
+  c) Stage 4 (Lines 303-334):
+     - `SceneState.buildFullSVG(fullState)` genuinely executes `Effects.build`
+       and all four `injectIntoSVG` methods (`Ripples`, `Glows`, `DataFlows`,
+       `DiagramNodes`) because those methods operate via string concatenation and
+       `.replace('<!-- INJECT_CAMERA_RIG_ELEMENTS -->', ...)` without DOM APIs.
+     - As noted in Section 4.2 above, the subsequent calls to
+       `StillExportStudio.buildStillRenderConfig` and
+       `AnimatedExportStudio.constructExportJobPayload` will fail when Node.js
+       runs them due to the missing `window.buildFullSVG` /
+       `window.serializeSVGForExport` aliases and the `stillCfg.payloadState`
+       nesting.
+
+
+6. TESTS THAT ONLY CHECK FUNCTION/STRING EXISTENCE VS. BEHAVIOUR
+-----------------------------------------------------------------------------
+  - `ARCH-08` (verify-architecture.sh lines 389-408):
+    Static check only — verifies that the strings `syncFromDOM(`, `syncToDOM(`,
+    `setPairValue(`, and `document.getElementById` appear inside the
+    `ControlStateAdaptor` section of `scene-state.js`. It does not execute
+    `ControlStateAdaptor`.
+  - `ARCH-10` (verify-architecture.sh lines 456-513):
+    Static check only — verifies that the 14 `<script>` tags appear in order in
+    `index.html` and that 98 symbol name strings appear in the stripped JS files.
+    It does not verify runtime behaviour or method signatures.
+  - `TestEmbeddedStaticAssetsAndScriptOrder` & `TestPhase1ArchitecturalInvariants`
+    (`internal/web/server_test.go`, executed during `REG-01` and `RUN-01`):
+    Static checks on the embedded `staticFS` verifying file non-emptiness,
+    `<script>` tag ordering, and absence of `document.getElementById(` in
+    `effects.js`, `coordinator.js`, and `SceneState`.
+  - `RUN-04` (verify-runtime.sh lines 148-183):
+    Verifies only that the live HTTP server returns HTTP 200 and non-empty files
+    for `/` and `/js/*.js`; does not execute the served JavaScript.
+
+
+7. CONFIRMATION THAT NO PRODUCTION FILES WERE CHANGED
+-----------------------------------------------------------------------------
+  - `git diff` and `git diff --staged` are completely empty (0 lines changed in
+    any tracked file).
+  - `studio_library.db` metadata (`stat -c '%Y:%Z:%s' studio_library.db`) remains
+    `1793780025:1793780025:4096` (completely untouched).
+
+
+8. CONFIRMATION OF GIT BRANCH AND HEAD
+-----------------------------------------------------------------------------
+  - Current Branch: `refactor/phase1-architecture`
+  - Current HEAD:   `ca00fd740010c7e1f6e6287be660211ea8b8b0a5` (`ca00fd7`)
+  - Working Tree Untracked Files:
+      ?? .github/agents/svg-animator-maintainer.agent.md
+      ?? scripts/regression-harness.js
+      ?? scripts/verification-review.txt
+      ?? scripts/verify-architecture.sh
+      ?? scripts/verify-phase1.sh
+      ?? scripts/verify-regression.sh
+      ?? scripts/verify-runtime.sh
+=============================================================================

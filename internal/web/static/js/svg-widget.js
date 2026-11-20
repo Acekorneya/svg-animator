@@ -433,7 +433,12 @@
         const parsed = parseFloat(baseDur);
         if (!isNaN(parsed) && parsed > 0) {
           payEl.setAttribute('data-base-dur', String(parsed));
-          payEl.style.animationDuration = `${(parsed / effectiveSpeed).toFixed(3)}s`;
+          const newDur = parsed / effectiveSpeed;
+          payEl.style.animationDuration = `${newDur.toFixed(4)}s`;
+          const phaseRatio = parseFloat(payEl.style.getPropertyValue && payEl.style.getPropertyValue('--sva-phase-ratio'));
+          if (!isNaN(phaseRatio) && phaseRatio > 0) {
+            payEl.style.animationDelay = `${(-phaseRatio * newDur).toFixed(4)}s`;
+          }
         }
       });
     }
@@ -750,13 +755,46 @@
       }
       case 'strokeWidth': {
         if (el) {
-          const sw = Math.max(0.5, Math.min(20, parseFloat(value) || 2.5));
+          const sw = Math.max(0.5, Math.min(24, parseFloat(value) || 2.5));
+          el.setAttribute('data-flow-stroke-width', String(sw));
           el.querySelectorAll('.lite-payload').forEach(node => {
             node.setAttribute('stroke-width', String(sw));
             if (node.style && typeof node.style.setProperty === 'function') {
               node.style.setProperty('--sva-base-sw', `${sw}px`);
             }
           });
+        }
+        break;
+      }
+      case 'dashLength':
+      case 'gapLength':
+      case 'dotSize': {
+        if (el && el.getAttribute('data-lite-kind') === 'flow-lite') {
+          if (property === 'dashLength') {
+            el.setAttribute('data-flow-dash-length', String(Math.max(2, Math.min(400, parseFloat(value) || 18))));
+          } else if (property === 'gapLength') {
+            el.setAttribute('data-flow-gap-length', String(Math.max(2, Math.min(300, parseFloat(value) || 14))));
+          } else if (property === 'dotSize') {
+            el.setAttribute('data-flow-dot-size', String(Math.max(1, Math.min(32, parseFloat(value) || 5))));
+          }
+          const variant = el.getAttribute('data-flow-variant') || 'dashed';
+          const dashLenAttr = parseFloat(el.getAttribute('data-flow-dash-length') || '18') || 18;
+          const gapLenAttr = parseFloat(el.getAttribute('data-flow-gap-length') || '14') || 14;
+          const dotSizeAttr = parseFloat(el.getAttribute('data-flow-dot-size') || '5') || 5;
+          const swAttr = parseFloat(el.getAttribute('data-flow-stroke-width') || '3') || 3;
+          const L = parseFloat(el.getAttribute('data-flow-length') || '300') || 300;
+          const segNodes = Array.from(el.querySelectorAll('.lite-flow-seg'));
+          const M = segNodes.length || 1;
+          const visLen = variant === 'dotted' ? dotSizeAttr : dashLenAttr;
+          const dashDraw = variant === 'dotted' ? 0.2 : dashLenAttr;
+          const swDraw = variant === 'dotted' ? dotSizeAttr : swAttr;
+          const period = variant === 'single' ? (L + visLen * 2) : (visLen + gapLenAttr);
+          const clearGap = L + M * period + 500;
+          segNodes.forEach((node) => {
+            node.setAttribute('stroke-width', swDraw.toFixed(2));
+            node.setAttribute('stroke-dasharray', `${dashDraw.toFixed(2)} ${clearGap.toFixed(2)}`);
+          });
+          el.setAttribute('data-flow-period', period.toFixed(2));
         }
         break;
       }
@@ -789,6 +827,26 @@
       }
       case 'direction': {
         if (el) {
+          if (el.getAttribute('data-lite-kind') === 'flow-lite') {
+            const rawDir = String(value).toLowerCase();
+            const nextDir = (rawDir === 'reverse' || rawDir === 'ccw') ? 'reverse' : 'forward';
+            const origDir = el.getAttribute('data-flow-orig-dir') || el.getAttribute('data-flow-direction') || 'forward';
+            if (!el.hasAttribute('data-flow-orig-dir')) {
+              el.setAttribute('data-flow-orig-dir', origDir);
+            }
+            el.setAttribute('data-flow-direction', nextDir);
+            const mode = el.getAttribute('data-flow-playback-mode') || 'loop';
+            el.querySelectorAll('.lite-flow-seg').forEach((node) => {
+              if (node.style) {
+                if (mode === 'pingpong') {
+                  node.style.animationDirection = nextDir === origDir ? 'alternate' : 'alternate-reverse';
+                } else {
+                  node.style.animationDirection = nextDir === origDir ? 'normal' : 'reverse';
+                }
+              }
+            });
+            break;
+          }
           const dir = String(value).toLowerCase() === 'ccw' ? 'ccw' : 'cw';
           el.querySelectorAll('.lite-payload').forEach(node => {
             const curAnim = (node.style && node.style.animationName) || '';
@@ -828,11 +886,16 @@
         if (el) {
           const raw = String(value).toLowerCase();
           const mode = raw === 'pingpong' ? 'pingpong' : (raw === 'once' ? 'once' : 'loop');
+          el.setAttribute('data-flow-playback-mode', mode);
+          const isFlowLite = el.getAttribute('data-lite-kind') === 'flow-lite';
+          const origDir = el.getAttribute('data-flow-orig-dir') || el.getAttribute('data-flow-direction') || 'forward';
+          const curDir = el.getAttribute('data-flow-direction') || 'forward';
+          const isReversed = isFlowLite && (curDir !== origDir);
           el.querySelectorAll('.lite-payload').forEach(node => {
             const curAnim = (node.style && node.style.animationName) || '';
             const pfxMatch = curAnim.match(/^(.*__)sva-lite-trace-/);
             const pfx = pfxMatch ? pfxMatch[1] : '';
-            if (node.classList) {
+            if (node.classList && !isFlowLite) {
               Array.from(node.classList).forEach(cls => {
                 if (cls.includes('sva-lite-mode-')) node.classList.remove(cls);
               });
@@ -840,7 +903,11 @@
             }
             if (node.style) {
               node.style.animationIterationCount = mode === 'once' ? '1' : 'infinite';
-              node.style.animationDirection = mode === 'pingpong' ? 'alternate' : 'normal';
+              if (mode === 'pingpong') {
+                node.style.animationDirection = isReversed ? 'alternate-reverse' : 'alternate';
+              } else {
+                node.style.animationDirection = isReversed ? 'reverse' : 'normal';
+              }
               node.style.animationFillMode = mode === 'once' ? 'forwards' : 'none';
             }
             node.setAttribute('data-playback-mode', mode);

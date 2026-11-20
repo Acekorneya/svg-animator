@@ -126,6 +126,24 @@ func DeepCopySelection(sel SelectionState) SelectionState {
 	return cp
 }
 
+// DeepCopyLiteEffect creates an isolated deep copy of a LiteEffect.
+func DeepCopyLiteEffect(l LiteEffect) LiteEffect {
+	cp := l
+	cp.Metadata = deepCopyMetadata(l.Metadata)
+	cp.MaintainAspectRatio = deepCopyBoolPtr(l.MaintainAspectRatio)
+	cp.ShowGuide = deepCopyBoolPtr(l.ShowGuide)
+	cp.Visible = deepCopyBoolPtr(l.Visible)
+	if l.Points != nil {
+		cp.Points = make([]geometry.Point, len(l.Points))
+		copy(cp.Points, l.Points)
+	}
+	if l.Bends != nil {
+		cp.Bends = make([]float64, len(l.Bends))
+		copy(cp.Bends, l.Bends)
+	}
+	return cp
+}
+
 // DeepCopySnapshot creates a complete, deeply isolated copy of a Snapshot.
 func DeepCopySnapshot(snap Snapshot) Snapshot {
 	cp := snap
@@ -183,6 +201,15 @@ func DeepCopySnapshot(snap Snapshot) Snapshot {
 		}
 	} else {
 		cp.Images = make([]Image, 0)
+	}
+
+	if snap.LiteEffects != nil {
+		cp.LiteEffects = make([]LiteEffect, len(snap.LiteEffects))
+		for i, le := range snap.LiteEffects {
+			cp.LiteEffects[i] = DeepCopyLiteEffect(le)
+		}
+	} else {
+		cp.LiteEffects = make([]LiteEffect, 0)
 	}
 
 	if snap.Layers != nil {

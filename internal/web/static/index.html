@@ -1134,10 +1134,11 @@
         <div class="accordion-body" style="padding: 0.55rem 0.65rem;">
           <div style="background: rgba(56, 189, 248, 0.06); border: 1px solid rgba(56, 189, 248, 0.25); border-radius: 6px; padding: 0.5rem 0.6rem; margin-bottom: 0.6rem;">
             <div style="font-size: 0.70rem; font-weight: 700; letter-spacing: 0.04em; color: #38bdf8; margin-bottom: 0.4rem;">CREATE LOW-LOAD EFFECT</div>
-            <div style="display: grid; grid-template-columns: repeat(3, 1fr); gap: 6px;">
-              <button type="button" class="tool-btn-compact" id="btnAddLiteTracer" title="Add Perimeter Tracer Lite" style="padding: 0.35rem 0.4rem; text-align: center;">▭ Tracer</button>
-              <button type="button" class="tool-btn-compact" id="btnAddLitePulse" title="Add Pulse Lite" style="padding: 0.35rem 0.4rem; text-align: center;">◎ Pulse</button>
-              <button type="button" class="tool-btn-compact" id="btnAddLiteFlash" title="Add Flash Lite" style="padding: 0.35rem 0.4rem; text-align: center;">✦ Flash</button>
+            <div style="display: grid; grid-template-columns: repeat(4, 1fr); gap: 6px;">
+              <button type="button" class="tool-btn-compact" id="btnAddLiteTracer" title="Add Perimeter Tracer Lite" style="padding: 0.35rem 0.3rem; text-align: center;">▭ Tracer</button>
+              <button type="button" class="tool-btn-compact" id="btnAddLitePulse" title="Add Pulse Lite" style="padding: 0.35rem 0.3rem; text-align: center;">◎ Pulse</button>
+              <button type="button" class="tool-btn-compact" id="btnAddLiteFlash" title="Add Flash Lite" style="padding: 0.35rem 0.3rem; text-align: center;">✦ Flash</button>
+              <button type="button" class="tool-btn-compact" id="btnAddLiteFlow" title="Add Flow Lite" style="padding: 0.35rem 0.3rem; text-align: center;">↝ Flow</button>
             </div>
           </div>
 
@@ -1377,6 +1378,140 @@
                   <div class="inspector-prop-row">
                     <label>Test Trigger</label>
                     <button type="button" class="tool-btn-compact" id="btnTriggerLiteFlash">⚡ Trigger Flash</button>
+                  </div>
+                </div>
+
+                <div id="liteFlowGroup" style="display: none;">
+                  <div class="inspector-prop-row">
+                    <label>Waypoints</label>
+                    <div style="display: flex; gap: 4px; width: 100%;">
+                      <button type="button" class="tool-btn-compact" id="btnAddLiteFlowNode" style="flex: 1;">+ Add Point</button>
+                      <button type="button" class="tool-btn-compact" id="btnDropLiteFlowNode" style="flex: 1;">- Drop Point</button>
+                    </div>
+                  </div>
+                  <div class="inspector-prop-row">
+                    <label for="liteFlowActivePtSlider">Active Point</label>
+                    <div class="slider-row">
+                      <input type="range" id="liteFlowActivePtSlider" min="1" max="2" step="1" value="1">
+                      <input type="number" class="num-input" id="liteFlowActivePtNum" min="1" max="20" step="1" value="1">
+                    </div>
+                  </div>
+                  <div class="inspector-prop-row">
+                    <label for="liteFlowPtXSlider">Point X (%)</label>
+                    <div class="slider-row">
+                      <input type="range" id="liteFlowPtXSlider" min="0" max="100" step="0.5" value="25">
+                      <input type="number" class="num-input" id="liteFlowPtXNum" min="-50" max="150" step="0.5" value="25">
+                    </div>
+                  </div>
+                  <div class="inspector-prop-row">
+                    <label for="liteFlowPtYSlider">Point Y (%)</label>
+                    <div class="slider-row">
+                      <input type="range" id="liteFlowPtYSlider" min="0" max="100" step="0.5" value="50">
+                      <input type="number" class="num-input" id="liteFlowPtYNum" min="-50" max="150" step="0.5" value="50">
+                    </div>
+                  </div>
+                  <div class="inspector-prop-row">
+                    <label for="liteFlowSectionBendSlider">Section Bend</label>
+                    <div class="slider-row">
+                      <input type="range" id="liteFlowSectionBendSlider" min="-100" max="100" step="1" value="0">
+                      <input type="number" class="num-input" id="liteFlowSectionBendNum" min="-100" max="100" step="1" value="0">
+                    </div>
+                  </div>
+                  <div class="inspector-prop-row">
+                    <label for="liteFlowCurvatureSlider">Global Curve</label>
+                    <div class="slider-row">
+                      <input type="range" id="liteFlowCurvatureSlider" min="-100" max="100" step="1" value="0">
+                      <input type="number" class="num-input" id="liteFlowCurvatureNum" min="-100" max="100" step="1" value="0">
+                    </div>
+                  </div>
+                  <div class="inspector-prop-row">
+                    <label for="liteFlowShowGuideChk">Track Guide</label>
+                    <input type="checkbox" id="liteFlowShowGuideChk" checked title="Show subtle static path guide">
+                  </div>
+                  <div class="inspector-prop-row" id="liteFlowDashLengthRow">
+                    <label for="liteFlowDashLengthSlider">Dash Len (px)</label>
+                    <div class="slider-row">
+                      <input type="range" id="liteFlowDashLengthSlider" min="2" max="200" step="1" value="18">
+                      <input type="number" class="num-input" id="liteFlowDashLengthNum" min="2" max="400" step="1" value="18">
+                    </div>
+                  </div>
+                  <div class="inspector-prop-row" id="liteFlowGapLengthRow">
+                    <label for="liteFlowGapLengthSlider">Gap Len (px)</label>
+                    <div class="slider-row">
+                      <input type="range" id="liteFlowGapLengthSlider" min="2" max="200" step="1" value="14">
+                      <input type="number" class="num-input" id="liteFlowGapLengthNum" min="2" max="300" step="1" value="14">
+                    </div>
+                  </div>
+                  <div class="inspector-prop-row" id="liteFlowDotSizeRow" style="display: none;">
+                    <label for="liteFlowDotSizeSlider">Dot Size (px)</label>
+                    <div class="slider-row">
+                      <input type="range" id="liteFlowDotSizeSlider" min="1" max="32" step="0.5" value="5">
+                      <input type="number" class="num-input" id="liteFlowDotSizeNum" min="1" max="32" step="0.5" value="5">
+                    </div>
+                  </div>
+                  <div class="inspector-prop-row" id="liteFlowStrokeWidthRow">
+                    <label for="liteFlowStrokeWidthSlider">Thickness (px)</label>
+                    <div class="slider-row">
+                      <input type="range" id="liteFlowStrokeWidthSlider" min="0.5" max="24" step="0.5" value="3">
+                      <input type="number" class="num-input" id="liteFlowStrokeWidthNum" min="0.5" max="24" step="0.5" value="3">
+                    </div>
+                  </div>
+                  <div class="inspector-prop-row" id="liteFlowCapStyleRow">
+                    <label for="liteFlowCapStyleSelect">Cap Style</label>
+                    <select id="liteFlowCapStyleSelect">
+                      <option value="rounded">Rounded Caps</option>
+                      <option value="solid">Flat Caps</option>
+                    </select>
+                  </div>
+                  <div class="inspector-prop-row">
+                    <label for="liteFlowStartModeSelect">Start Mode</label>
+                    <select id="liteFlowStartModeSelect">
+                      <option value="tunnel">Tunnel Entry (Grow In)</option>
+                      <option value="abrupt">Abrupt Entry (Instant)</option>
+                    </select>
+                  </div>
+                  <div class="inspector-prop-row">
+                    <label for="liteFlowEndModeSelect">End Mode</label>
+                    <select id="liteFlowEndModeSelect">
+                      <option value="tunnel">Tunnel Exit (Shorten Out)</option>
+                      <option value="abrupt">Abrupt Exit (Instant)</option>
+                    </select>
+                  </div>
+                  <div class="inspector-prop-row">
+                    <label for="liteFlowDirectionSelect">Direction</label>
+                    <select id="liteFlowDirectionSelect">
+                      <option value="forward">Forward (Start → End)</option>
+                      <option value="reverse">Reverse (End → Start)</option>
+                    </select>
+                  </div>
+                  <div class="inspector-prop-row">
+                    <label for="liteFlowPlaybackModeSelect">Motion Mode</label>
+                    <select id="liteFlowPlaybackModeSelect">
+                      <option value="loop">Loop (Continuous)</option>
+                      <option value="pingpong">Ping-Pong</option>
+                      <option value="once">Single Pass</option>
+                    </select>
+                  </div>
+                  <div class="inspector-prop-row">
+                    <label for="liteFlowSpeedSlider">Speed (Dur s)</label>
+                    <div class="slider-row">
+                      <input type="range" id="liteFlowSpeedSlider" min="0.2" max="15" step="0.1" value="2.0">
+                      <input type="number" class="num-input" id="liteFlowSpeedNum" min="0.2" max="60" step="0.1" value="2.0">
+                    </div>
+                  </div>
+                  <div class="inspector-prop-row">
+                    <label for="liteFlowDelaySlider">Start Delay (s)</label>
+                    <div class="slider-row">
+                      <input type="range" id="liteFlowDelaySlider" min="0" max="15" step="0.1" value="0">
+                      <input type="number" class="num-input" id="liteFlowDelayNum" min="0" max="60" step="0.1" value="0">
+                    </div>
+                  </div>
+                  <div class="inspector-prop-row">
+                    <label for="liteFlowEndDelaySlider">End Delay (s)</label>
+                    <div class="slider-row">
+                      <input type="range" id="liteFlowEndDelaySlider" min="0" max="15" step="0.1" value="0">
+                      <input type="number" class="num-input" id="liteFlowEndDelayNum" min="0" max="60" step="0.1" value="0">
+                    </div>
                   </div>
                 </div>
 
@@ -2557,6 +2692,139 @@
               </div>
             </div>
           </div>
+          <div id="fctx-liteFlowGroup" style="display: none;">
+            <div class="floating-prop-row">
+              <label>Waypoints</label>
+              <div style="display: flex; gap: 4px; width: 100%;">
+                <button type="button" class="btn-floating-action" id="fctx-btnAddLiteFlowNode" style="flex: 1; padding: 0.18rem 0.35rem; font-size: 0.72rem;">+ Add Pt</button>
+                <button type="button" class="btn-floating-action" id="fctx-btnDropLiteFlowNode" style="flex: 1; padding: 0.18rem 0.35rem; font-size: 0.72rem;">- Drop Pt</button>
+              </div>
+            </div>
+            <div class="floating-prop-row">
+              <label for="fctx-liteFlowActivePtSlider">Active Pt</label>
+              <div class="slider-row">
+                <input type="range" id="fctx-liteFlowActivePtSlider" min="1" max="2" step="1" value="1">
+                <input type="number" class="num-input" id="fctx-liteFlowActivePtNum" min="1" max="20" step="1" value="1">
+              </div>
+            </div>
+            <div class="floating-prop-row">
+              <label for="fctx-liteFlowPtXSlider">Point X %</label>
+              <div class="slider-row">
+                <input type="range" id="fctx-liteFlowPtXSlider" min="0" max="100" step="0.5" value="25">
+                <input type="number" class="num-input" id="fctx-liteFlowPtXNum" min="-50" max="150" step="0.5" value="25">
+              </div>
+            </div>
+            <div class="floating-prop-row">
+              <label for="fctx-liteFlowPtYSlider">Point Y %</label>
+              <div class="slider-row">
+                <input type="range" id="fctx-liteFlowPtYSlider" min="0" max="100" step="0.5" value="50">
+                <input type="number" class="num-input" id="fctx-liteFlowPtYNum" min="-50" max="150" step="0.5" value="50">
+              </div>
+            </div>
+            <div class="floating-prop-row">
+              <label for="fctx-liteFlowSectionBendSlider">Sec Bend</label>
+              <div class="slider-row">
+                <input type="range" id="fctx-liteFlowSectionBendSlider" min="-100" max="100" step="1" value="0">
+                <input type="number" class="num-input" id="fctx-liteFlowSectionBendNum" min="-100" max="100" step="1" value="0">
+              </div>
+            </div>
+            <div class="floating-prop-row">
+              <label for="fctx-liteFlowCurvatureSlider">Global Crv</label>
+              <div class="slider-row">
+                <input type="range" id="fctx-liteFlowCurvatureSlider" min="-100" max="100" step="1" value="0">
+                <input type="number" class="num-input" id="fctx-liteFlowCurvatureNum" min="-100" max="100" step="1" value="0">
+              </div>
+            </div>
+            <div class="floating-prop-row">
+              <label for="fctx-liteFlowShowGuideChk">Guide</label>
+              <input type="checkbox" id="fctx-liteFlowShowGuideChk" checked>
+            </div>
+            <div class="floating-prop-row" id="fctx-liteFlowDashLengthRow">
+              <label for="fctx-liteFlowDashLengthSlider">Dash (px)</label>
+              <div class="slider-row">
+                <input type="range" id="fctx-liteFlowDashLengthSlider" min="2" max="200" step="1" value="18">
+                <input type="number" class="num-input" id="fctx-liteFlowDashLengthNum" min="2" max="400" step="1" value="18">
+              </div>
+            </div>
+            <div class="floating-prop-row" id="fctx-liteFlowGapLengthRow">
+              <label for="fctx-liteFlowGapLengthSlider">Gap (px)</label>
+              <div class="slider-row">
+                <input type="range" id="fctx-liteFlowGapLengthSlider" min="2" max="200" step="1" value="14">
+                <input type="number" class="num-input" id="fctx-liteFlowGapLengthNum" min="2" max="300" step="1" value="14">
+              </div>
+            </div>
+            <div class="floating-prop-row" id="fctx-liteFlowDotSizeRow" style="display: none;">
+              <label for="fctx-liteFlowDotSizeSlider">Dot (px)</label>
+              <div class="slider-row">
+                <input type="range" id="fctx-liteFlowDotSizeSlider" min="1" max="32" step="0.5" value="5">
+                <input type="number" class="num-input" id="fctx-liteFlowDotSizeNum" min="1" max="32" step="0.5" value="5">
+              </div>
+            </div>
+            <div class="floating-prop-row" id="fctx-liteFlowStrokeWidthRow">
+              <label for="fctx-liteFlowStrokeWidthSlider">Thick (px)</label>
+              <div class="slider-row">
+                <input type="range" id="fctx-liteFlowStrokeWidthSlider" min="0.5" max="24" step="0.5" value="3">
+                <input type="number" class="num-input" id="fctx-liteFlowStrokeWidthNum" min="0.5" max="24" step="0.5" value="3">
+              </div>
+            </div>
+            <div class="floating-prop-row" id="fctx-liteFlowCapStyleRow">
+              <label for="fctx-liteFlowCapStyleSelect">Caps</label>
+              <select id="fctx-liteFlowCapStyleSelect" class="full-select">
+                <option value="rounded">Rounded Caps</option>
+                <option value="solid">Flat Caps</option>
+              </select>
+            </div>
+            <div class="floating-prop-row">
+              <label for="fctx-liteFlowStartModeSelect">Start Mode</label>
+              <select id="fctx-liteFlowStartModeSelect" class="full-select">
+                <option value="tunnel">Tunnel Entry</option>
+                <option value="abrupt">Abrupt Entry</option>
+              </select>
+            </div>
+            <div class="floating-prop-row">
+              <label for="fctx-liteFlowEndModeSelect">End Mode</label>
+              <select id="fctx-liteFlowEndModeSelect" class="full-select">
+                <option value="tunnel">Tunnel Exit</option>
+                <option value="abrupt">Abrupt Exit</option>
+              </select>
+            </div>
+            <div class="floating-prop-row">
+              <label for="fctx-liteFlowDirectionSelect">Direction</label>
+              <select id="fctx-liteFlowDirectionSelect" class="full-select">
+                <option value="forward">Forward (Start → End)</option>
+                <option value="reverse">Reverse (End → Start)</option>
+              </select>
+            </div>
+            <div class="floating-prop-row">
+              <label for="fctx-liteFlowPlaybackModeSelect">Motion</label>
+              <select id="fctx-liteFlowPlaybackModeSelect" class="full-select">
+                <option value="loop">Loop (Continuous)</option>
+                <option value="pingpong">Ping-Pong</option>
+                <option value="once">Single Pass</option>
+              </select>
+            </div>
+            <div class="floating-prop-row">
+              <label for="fctx-liteFlowSpeedSlider">Speed (s)</label>
+              <div class="slider-row">
+                <input type="range" id="fctx-liteFlowSpeedSlider" min="0.2" max="15" step="0.1" value="2.0">
+                <input type="number" class="num-input" id="fctx-liteFlowSpeedNum" min="0.2" max="60" step="0.1" value="2.0">
+              </div>
+            </div>
+            <div class="floating-prop-row">
+              <label for="fctx-liteFlowDelaySlider">Start Dly</label>
+              <div class="slider-row">
+                <input type="range" id="fctx-liteFlowDelaySlider" min="0" max="15" step="0.1" value="0">
+                <input type="number" class="num-input" id="fctx-liteFlowDelayNum" min="0" max="60" step="0.1" value="0">
+              </div>
+            </div>
+            <div class="floating-prop-row">
+              <label for="fctx-liteFlowEndDelaySlider">End Delay</label>
+              <div class="slider-row">
+                <input type="range" id="fctx-liteFlowEndDelaySlider" min="0" max="15" step="0.1" value="0">
+                <input type="number" class="num-input" id="fctx-liteFlowEndDelayNum" min="0" max="60" step="0.1" value="0">
+              </div>
+            </div>
+          </div>
         </div>
 
         <!-- MULTI-SELECTION BAR (When 2+ items selected) -->
@@ -3549,6 +3817,7 @@
   <script src="js/history.js?v=6.0"></script>
   <script src="js/projects.js?v=6.0"></script>
   <script src="js/shape-dropdown.js?v=6.0"></script>
+  <script src="js/svg-widget.js?v=6.0"></script>
   <script src="js/export-adapter.js?v=6.0"></script>
   <script src="js/workspace.js?v=6.0"></script>
   <script src="js/notifications.js?v=6.0"></script>

@@ -51,6 +51,7 @@ func (h *HistoryManager) Record(snap Snapshot, sel SelectionState) bool {
 			len(top.Snapshot.Flows) == len(normSnap.Flows) &&
 			len(top.Snapshot.Glows) == len(normSnap.Glows) &&
 			len(top.Snapshot.Ripples) == len(normSnap.Ripples) &&
+			len(top.Snapshot.LiteEffects) == len(normSnap.LiteEffects) &&
 			len(top.Snapshot.Groups) == len(normSnap.Groups) &&
 			len(top.Snapshot.Images) == len(normSnap.Images) &&
 			len(top.Snapshot.Layers) == len(normSnap.Layers) &&

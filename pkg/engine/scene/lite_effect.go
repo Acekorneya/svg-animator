@@ -6,6 +6,8 @@ import (
 	"math"
 	"strconv"
 	"strings"
+
+	"gitea.seaoffate.net/blackgrape/svg-animator/pkg/engine/geometry"
 )
 
 func toFloat(v any) (float64, bool) {
@@ -70,7 +72,7 @@ func ValidateLiteEffect(l *LiteEffect) error {
 		return errors.New("nil lite effect")
 	}
 	switch l.Kind {
-	case "perimeter-tracer", "pulse", "flash":
+	case "perimeter-tracer", "pulse", "flash", "flow-lite":
 	default:
 		return fmt.Errorf("unsupported lite effect kind %q", l.Kind)
 	}
@@ -114,6 +116,55 @@ func ValidateLiteEffect(l *LiteEffect) error {
 		}
 		if l.Intensity < 0 || l.Intensity > 1.0 {
 			return errors.New("intensity must be between 0.0 and 1.0")
+		}
+	}
+	if l.Kind == "flow-lite" {
+		if len(l.Points) < 2 {
+			return errors.New("flow-lite requires at least 2 waypoints")
+		}
+		for _, b := range l.Bends {
+			if b < -100 || b > 100 {
+				return errors.New("flow-lite section bend must be between -100 and 100")
+			}
+		}
+		if l.Curvature < -100 || l.Curvature > 100 {
+			return errors.New("flow-lite curvature must be between -100 and 100")
+		}
+		if l.Variant != "" && l.Variant != "dashed" && l.Variant != "dotted" && l.Variant != "single" {
+			return fmt.Errorf("unsupported flow-lite variant %q", l.Variant)
+		}
+		if l.DashLength < 2 || l.DashLength > 400 {
+			return errors.New("flow-lite dashLength must be between 2 and 400")
+		}
+		if l.GapLength < 2 || l.GapLength > 300 {
+			return errors.New("flow-lite gapLength must be between 2 and 300")
+		}
+		if l.DotSize < 1 || l.DotSize > 32 {
+			return errors.New("flow-lite dotSize must be between 1 and 32")
+		}
+		if l.StrokeWidth < 0.5 || l.StrokeWidth > 24 {
+			return errors.New("flow-lite strokeWidth must be between 0.5 and 24")
+		}
+		if l.StartMode != "" && l.StartMode != "tunnel" && l.StartMode != "abrupt" {
+			return fmt.Errorf("unsupported flow-lite startMode %q", l.StartMode)
+		}
+		if l.EndMode != "" && l.EndMode != "tunnel" && l.EndMode != "abrupt" {
+			return fmt.Errorf("unsupported flow-lite endMode %q", l.EndMode)
+		}
+		if l.Direction != "" && l.Direction != "forward" && l.Direction != "reverse" && l.Direction != "cw" && l.Direction != "ccw" {
+			return fmt.Errorf("unsupported flow-lite direction %q", l.Direction)
+		}
+		if l.PlaybackMode != "" && l.PlaybackMode != "loop" && l.PlaybackMode != "pingpong" && l.PlaybackMode != "once" {
+			return fmt.Errorf("unsupported flow-lite playbackMode %q", l.PlaybackMode)
+		}
+		if l.Speed <= 0 {
+			return errors.New("flow-lite speed must be greater than 0")
+		}
+		if l.Delay < 0 || l.Delay > 60 {
+			return errors.New("flow-lite delay must be between 0 and 60")
+		}
+		if l.EndDelay < 0 || l.EndDelay > 60 {
+			return errors.New("flow-lite endDelay must be between 0 and 60")
 		}
 	}
 	return nil
@@ -277,6 +328,63 @@ func applyLiteEffectDefaults(l *LiteEffect) {
 		if l.Intensity <= 0 {
 			l.Intensity = 0.75 // avoid high-contrast jarring default
 		}
+	case "flow-lite":
+		if l.Variant == "" {
+			l.Variant = "dashed"
+		}
+		if len(l.Points) < 2 {
+			l.Points = []geometry.Point{
+				{X: 25, Y: 50},
+				{X: 75, Y: 50},
+			}
+		}
+		if len(l.Bends) != len(l.Points)-1 {
+			newBends := make([]float64, len(l.Points)-1)
+			for i := 0; i < len(newBends) && i < len(l.Bends); i++ {
+				newBends[i] = l.Bends[i]
+			}
+			l.Bends = newBends
+		}
+		if l.DashLength <= 0 {
+			if l.Variant == "single" {
+				l.DashLength = 36
+			} else {
+				l.DashLength = 18
+			}
+		}
+		if l.GapLength <= 0 {
+			l.GapLength = 14
+		}
+		if l.DotSize <= 0 {
+			l.DotSize = 5
+		}
+		if l.StrokeWidth <= 0 || l.StrokeWidth == 2.5 {
+			l.StrokeWidth = 3.0
+		}
+		if l.SegmentStyle == "" {
+			l.SegmentStyle = "rounded"
+		}
+		if l.StartMode == "" {
+			l.StartMode = "tunnel"
+		}
+		if l.EndMode == "" {
+			l.EndMode = "tunnel"
+		}
+		if l.Direction == "" || l.Direction == "cw" {
+			l.Direction = "forward"
+		} else if l.Direction == "ccw" {
+			l.Direction = "reverse"
+		}
+		if l.PlaybackMode == "" {
+			l.PlaybackMode = "loop"
+		}
+		if l.Speed <= 0 {
+			l.Speed = 2.0
+		}
+		if l.ShowGuide == nil {
+			sg := true
+			l.ShowGuide = &sg
+		}
 	}
 }
 
@@ -372,7 +480,7 @@ func (s *Scene) UpdateLiteEffect(id StringID, patch map[string]any) (LiteEffect,
 	if v, ok := toFloat(patch["startOffset"]); ok {
 		existing.StartOffset = v
 	}
-	if v, ok := patch["direction"].(string); ok && (v == "cw" || v == "ccw") {
+	if v, ok := patch["direction"].(string); ok && (v == "cw" || v == "ccw" || v == "forward" || v == "reverse") {
 		existing.Direction = v
 	}
 	if v, ok := patch["playbackMode"].(string); ok && (v == "loop" || v == "pingpong" || v == "once") {
@@ -440,6 +548,79 @@ func (s *Scene) UpdateLiteEffect(id StringID, patch map[string]any) (LiteEffect,
 	}
 	if v, ok := patch["locked"].(bool); ok {
 		existing.Locked = v
+	}
+	if rawPts, ok := patch["points"]; ok {
+		var parsedPts []geometry.Point
+		switch pts := rawPts.(type) {
+		case []geometry.Point:
+			parsedPts = append(parsedPts, pts...)
+		case []any:
+			for _, item := range pts {
+				if m, ok := item.(map[string]any); ok {
+					x, okX := toFloat(m["x"])
+					y, okY := toFloat(m["y"])
+					if okX && okY {
+						parsedPts = append(parsedPts, geometry.Point{X: x, Y: y})
+					}
+				}
+			}
+		}
+		if len(parsedPts) >= 2 {
+			existing.Points = parsedPts
+			if len(existing.Bends) != len(existing.Points)-1 {
+				newBends := make([]float64, len(existing.Points)-1)
+				for i := 0; i < len(newBends) && i < len(existing.Bends); i++ {
+					newBends[i] = existing.Bends[i]
+				}
+				existing.Bends = newBends
+			}
+		}
+	}
+	if rawBends, ok := patch["bends"]; ok {
+		var parsedBends []float64
+		switch bs := rawBends.(type) {
+		case []float64:
+			parsedBends = append(parsedBends, bs...)
+		case []any:
+			for _, item := range bs {
+				if f, ok := toFloat(item); ok {
+					parsedBends = append(parsedBends, math.Max(-100, math.Min(100, f)))
+				}
+			}
+		}
+		if len(existing.Points) >= 2 {
+			newBends := make([]float64, len(existing.Points)-1)
+			for i := 0; i < len(newBends) && i < len(parsedBends); i++ {
+				newBends[i] = math.Max(-100, math.Min(100, parsedBends[i]))
+			}
+			existing.Bends = newBends
+		} else {
+			existing.Bends = parsedBends
+		}
+	}
+	if v, ok := toFloat(patch["curvature"]); ok {
+		existing.Curvature = math.Max(-100, math.Min(100, v))
+	}
+	if v, ok := toFloat(patch["dashLength"]); ok && v > 0 {
+		existing.DashLength = math.Max(2, math.Min(400, v))
+	}
+	if v, ok := toFloat(patch["gapLength"]); ok && v > 0 {
+		existing.GapLength = math.Max(2, math.Min(300, v))
+	}
+	if v, ok := toFloat(patch["dotSize"]); ok && v > 0 {
+		existing.DotSize = math.Max(1, math.Min(32, v))
+	}
+	if v, ok := patch["startMode"].(string); ok && (v == "tunnel" || v == "abrupt") {
+		existing.StartMode = v
+	}
+	if v, ok := patch["endMode"].(string); ok && (v == "tunnel" || v == "abrupt") {
+		existing.EndMode = v
+	}
+	if v, ok := toFloat(patch["delay"]); ok {
+		existing.Delay = math.Max(0, math.Min(60, v))
+	}
+	if v, ok := toFloat(patch["endDelay"]); ok {
+		existing.EndDelay = math.Max(0, math.Min(60, v))
 	}
 
 	if err := ValidateLiteEffect(&existing); err != nil {

@@ -461,7 +461,8 @@ window.FloatingPropertiesEditor = {
           const optsByKind = {
             'perimeter-tracer': ['rounded', 'rect', 'circle', 'ellipse'],
             'pulse': ['circle', 'square', 'diamond', 'cross', 'ring'],
-            'flash': ['diamond', 'circle', 'square', 'cross', 'star']
+            'flash': ['diamond', 'circle', 'square', 'cross', 'star'],
+            'flow-lite': ['dashed', 'dotted', 'single']
           };
           const opts = optsByKind[le.kind] || ['circle'];
           variantSel.innerHTML = opts.map((o) => `<option value="${o}">${o}</option>`).join('');
@@ -499,18 +500,69 @@ window.FloatingPropertiesEditor = {
         this._setChk('fctx-liteRepeatChk', le.repeat);
         this._setPair('fctx-liteFlashRepeatInterval', le.repeatInterval !== undefined ? le.repeatInterval : 2.0);
 
+        const dimGrp = document.getElementById('fctx-liteDimensionsGroup');
         const tg = document.getElementById('fctx-liteTracerGroup');
         const crRow = document.getElementById('fctx-liteCornerRadiusRow');
         const armRow = document.getElementById('fctx-liteArmThicknessRow');
         const pg = document.getElementById('fctx-litePulseGroup');
         const fg = document.getElementById('fctx-liteFlashGroup');
+        const flg = document.getElementById('fctx-liteFlowGroup');
         const trigBtn = document.getElementById('fctx-btnTriggerLiteFlash');
+        if (dimGrp) dimGrp.style.display = le.kind === 'flow-lite' ? 'none' : '';
         if (tg) tg.style.display = le.kind === 'perimeter-tracer' ? 'block' : 'none';
         if (crRow) crRow.style.display = (le.kind === 'perimeter-tracer' && le.variant === 'rounded') ? '' : 'none';
         if (armRow) armRow.style.display = ((le.kind === 'pulse' || le.kind === 'flash') && (le.variant === 'cross' || le.variant === 'star')) ? '' : 'none';
         if (pg) pg.style.display = le.kind === 'pulse' ? 'block' : 'none';
         if (fg) fg.style.display = le.kind === 'flash' ? 'block' : 'none';
+        if (flg) flg.style.display = le.kind === 'flow-lite' ? 'block' : 'none';
         if (trigBtn) trigBtn.style.display = le.kind === 'flash' ? 'inline-block' : 'none';
+
+        if (le.kind === 'flow-lite') {
+          const pts = Array.isArray(le.points) && le.points.length >= 2 ? le.points : [{ x: 25, y: 50 }, { x: 75, y: 50 }];
+          const bends = Array.isArray(le.bends) ? le.bends : new Array(pts.length - 1).fill(0);
+          const ptIdx = Math.max(0, Math.min(pts.length - 1, (window.LiteEffects && window.LiteEffects.activePointIndex) || 0));
+          const activePt = pts[ptIdx] || pts[0];
+          const secIdx = Math.min(pts.length - 2, ptIdx);
+          const secBend = Number(bends[secIdx]) || 0;
+
+          const ptSlider = document.getElementById('fctx-liteFlowActivePtSlider');
+          const ptNum = document.getElementById('fctx-liteFlowActivePtNum');
+          if (ptSlider) { ptSlider.max = String(pts.length); ptSlider.value = String(ptIdx + 1); }
+          if (ptNum) { ptNum.max = String(pts.length); ptNum.value = String(ptIdx + 1); }
+          const dropBtn = document.getElementById('fctx-btnDropLiteFlowNode');
+          if (dropBtn) dropBtn.disabled = pts.length <= 2;
+
+          this._setPair('fctx-liteFlowPtX', Math.round(activePt.x * 10) / 10);
+          this._setPair('fctx-liteFlowPtY', Math.round(activePt.y * 10) / 10);
+          this._setPair('fctx-liteFlowSectionBend', secBend);
+          this._setPair('fctx-liteFlowCurvature', Number(le.curvature) || 0);
+          this._setChk('fctx-liteFlowShowGuideChk', le.showGuide !== false);
+          this._setPair('fctx-liteFlowDashLength', le.dashLength || (le.variant === 'single' ? 36 : 18));
+          this._setPair('fctx-liteFlowGapLength', le.gapLength || 14);
+          this._setPair('fctx-liteFlowDotSize', le.dotSize || 5);
+          this._setPair('fctx-liteFlowStrokeWidth', le.strokeWidth || 3);
+          this._setVal('fctx-liteFlowCapStyleSelect', le.segmentStyle || 'rounded');
+          this._setVal('fctx-liteFlowStartModeSelect', le.startMode || 'tunnel');
+          this._setVal('fctx-liteFlowEndModeSelect', le.endMode || 'tunnel');
+          this._setVal('fctx-liteFlowDirectionSelect', le.direction === 'reverse' ? 'reverse' : 'forward');
+          this._setVal('fctx-liteFlowPlaybackModeSelect', le.playbackMode || 'loop');
+          this._setPair('fctx-liteFlowSpeed', le.speed || 2.0);
+          this._setPair('fctx-liteFlowDelay', le.delay || 0);
+          this._setPair('fctx-liteFlowEndDelay', le.endDelay || 0);
+
+          const isDotted = le.variant === 'dotted';
+          const isSingle = le.variant === 'single';
+          const dashRow = document.getElementById('fctx-liteFlowDashLengthRow');
+          const gapRow = document.getElementById('fctx-liteFlowGapLengthRow');
+          const dotRow = document.getElementById('fctx-liteFlowDotSizeRow');
+          const swRow = document.getElementById('fctx-liteFlowStrokeWidthRow');
+          const capRow = document.getElementById('fctx-liteFlowCapStyleRow');
+          if (dashRow) dashRow.style.display = isDotted ? 'none' : '';
+          if (gapRow) gapRow.style.display = isSingle ? 'none' : '';
+          if (dotRow) dotRow.style.display = isDotted ? '' : 'none';
+          if (swRow) swRow.style.display = isDotted ? 'none' : '';
+          if (capRow) capRow.style.display = isDotted ? 'none' : '';
+        }
       } else if (this.activeType === 'image') {
         const img = window.ImageObjects ? window.ImageObjects.getImage(this.activeId) : null;
         if (!img) {
@@ -1284,7 +1336,15 @@ window.FloatingPropertiesEditor = {
       ['fctx-liteMaxScale', 'maxScale', false],
       ['fctx-litePeriod', 'period', false],
       ['fctx-liteFlashDur', 'durationMs', true],
-      ['fctx-liteFlashRepeatInterval', 'repeatInterval', false]
+      ['fctx-liteFlashRepeatInterval', 'repeatInterval', false],
+      ['fctx-liteFlowCurvature', 'curvature', false],
+      ['fctx-liteFlowDashLength', 'dashLength', false],
+      ['fctx-liteFlowGapLength', 'gapLength', false],
+      ['fctx-liteFlowDotSize', 'dotSize', false],
+      ['fctx-liteFlowStrokeWidth', 'strokeWidth', false],
+      ['fctx-liteFlowSpeed', 'speed', false],
+      ['fctx-liteFlowDelay', 'delay', false],
+      ['fctx-liteFlowEndDelay', 'endDelay', false]
     ];
     litePairs.forEach(([baseId, prop, isInt]) => {
       const slider = document.getElementById(baseId + 'Slider');
@@ -1347,6 +1407,74 @@ window.FloatingPropertiesEditor = {
     bindLiteSimple('fctx-litePauseSecondsNum', 'pauseSeconds', 'input');
     bindLiteSimple('fctx-litePauseVisibilitySelect', 'pauseVisibility', 'change');
     bindLiteSimple('fctx-liteRepeatChk', 'repeat', 'change', true);
+    bindLiteSimple('fctx-liteFlowShowGuideChk', 'showGuide', 'change', true);
+    bindLiteSimple('fctx-liteFlowCapStyleSelect', 'segmentStyle', 'change');
+    bindLiteSimple('fctx-liteFlowStartModeSelect', 'startMode', 'change');
+    bindLiteSimple('fctx-liteFlowEndModeSelect', 'endMode', 'change');
+    bindLiteSimple('fctx-liteFlowDirectionSelect', 'direction', 'change');
+    bindLiteSimple('fctx-liteFlowPlaybackModeSelect', 'playbackMode', 'change');
+
+    document.getElementById('fctx-btnAddLiteFlowNode')?.addEventListener('click', () => {
+      if (this.activeType === 'lite' && window.LiteEffects) {
+        window.LiteEffects.addWaypointToActive();
+      }
+    });
+    document.getElementById('fctx-btnDropLiteFlowNode')?.addEventListener('click', () => {
+      if (this.activeType === 'lite' && window.LiteEffects) {
+        window.LiteEffects.dropWaypointFromActive();
+      }
+    });
+
+    const bindFctxFlowActivePt = (srcId, dstId) => {
+      const src = document.getElementById(srcId);
+      const dst = document.getElementById(dstId);
+      if (!src) return;
+      src.addEventListener('input', (e) => {
+        if (this._isSyncing || this.activeType !== 'lite' || !window.LiteEffects) return;
+        const idx = Math.max(0, (parseInt(e.target.value, 10) || 1) - 1);
+        if (dst) dst.value = idx + 1;
+        window.LiteEffects.selectWaypoint(idx);
+      });
+    };
+    bindFctxFlowActivePt('fctx-liteFlowActivePtSlider', 'fctx-liteFlowActivePtNum');
+    bindFctxFlowActivePt('fctx-liteFlowActivePtNum', 'fctx-liteFlowActivePtSlider');
+
+    const bindFctxFlowPtCoord = (sliderId, numId, axis) => {
+      const s = document.getElementById(sliderId);
+      const n = document.getElementById(numId);
+      const handle = (src, dst) => {
+        if (!src) return;
+        src.addEventListener('input', (e) => {
+          if (this._isSyncing || this.activeType !== 'lite' || !window.LiteEffects) return;
+          const val = parseFloat(e.target.value);
+          if (!Number.isFinite(val)) return;
+          if (dst) dst.value = val;
+          window.LiteEffects.updateActiveWaypointCoord(axis, val);
+        });
+      };
+      handle(s, n);
+      handle(n, s);
+    };
+    bindFctxFlowPtCoord('fctx-liteFlowPtXSlider', 'fctx-liteFlowPtXNum', 'x');
+    bindFctxFlowPtCoord('fctx-liteFlowPtYSlider', 'fctx-liteFlowPtYNum', 'y');
+
+    const bindFctxFlowBend = (sliderId, numId) => {
+      const s = document.getElementById(sliderId);
+      const n = document.getElementById(numId);
+      const handle = (src, dst) => {
+        if (!src) return;
+        src.addEventListener('input', (e) => {
+          if (this._isSyncing || this.activeType !== 'lite' || !window.LiteEffects) return;
+          const val = parseFloat(e.target.value);
+          if (!Number.isFinite(val)) return;
+          if (dst) dst.value = val;
+          window.LiteEffects.updateActiveSectionBend(val);
+        });
+      };
+      handle(s, n);
+      handle(n, s);
+    };
+    bindFctxFlowBend('fctx-liteFlowSectionBendSlider', 'fctx-liteFlowSectionBendNum');
 
     const btnTriggerLiteFlash = document.getElementById('fctx-btnTriggerLiteFlash');
     if (btnTriggerLiteFlash) {
@@ -1810,6 +1938,11 @@ window.FloatingPropertiesEditor = {
       if (!isNaN(fid)) return { type: 'flow', id: fid };
     }
     const flowReticle = target.closest('[data-flow-node-idx]');
+    if (flowReticle && flowReticle.hasAttribute('data-lite-flow-pt-idx')) {
+      if (window.LiteEffects && window.LiteEffects.activeId !== null) {
+        return { type: 'lite', id: window.LiteEffects.activeId };
+      }
+    }
     const flowPath = target.closest('.flow-track-path') || (target.id && target.id.startsWith('flowPath-') ? target : null) || (target.closest && target.closest('[id^="flowPath-"]'));
     if (flowReticle || flowPath) {
       let flowId = null;
@@ -1958,7 +2091,7 @@ window.FloatingPropertiesEditor = {
               return;
             }
 
-            const accordionIds = { node: 'acc-nodes', flow: 'acc-flows', glow: 'acc-glows', ripple: 'acc-ripples', image: 'acc-layers' };
+            const accordionIds = { node: 'acc-nodes', flow: 'acc-flows', glow: 'acc-glows', ripple: 'acc-ripples', lite: 'acc-lite-effects', image: 'acc-layers' };
             if (window.AppCoordinator && typeof window.AppCoordinator.selectObject === 'function') {
               window.AppCoordinator.selectObject(obj.type, obj.id, { openAccordionId: accordionIds[obj.type] });
             }

@@ -200,7 +200,10 @@ window.Stage = {
             type: 'lite',
             id: le.id,
             initX: le.x,
-            initY: le.y
+            initY: le.y,
+            initPoints: (le.kind === 'flow-lite' && Array.isArray(le.points))
+              ? le.points.map((p) => ({ x: p.x, y: p.y }))
+              : null
           });
         }
       } else if (it.type === 'image' && window.ImageObjects) {
@@ -414,6 +417,9 @@ window.Stage = {
             } else if (window.DataFlows && typeof window.DataFlows.selectWaypoint === 'function') {
               window.DataFlows.selectWaypoint(idx);
             }
+          }
+          if (window.LiteEffects) {
+            window.LiteEffects._dragMode = 'waypoint';
           }
           this.nodeGrabOffsetX = 0;
           this.nodeGrabOffsetY = 0;
@@ -734,12 +740,21 @@ window.Stage = {
             }
             const le = window.LiteEffects.getLiteEffect(liteId);
             if (le) {
-              const cxPx = Number(le.x) || 240;
-              const cyPx = Number(le.y) || 180;
-              const cxPct = (cxPx / (this.canvasWidth || 1280)) * 100;
-              const cyPct = (cyPx / (this.canvasHeight || 720)) * 100;
-              this.nodeGrabOffsetX = cxPct - coords.x;
-              this.nodeGrabOffsetY = cyPct - coords.y;
+              if (le.kind === 'flow-lite' && Array.isArray(le.points)) {
+                window.LiteEffects._dragMode = 'translate';
+                window.LiteEffects._dragStartPoints = le.points.map((p) => ({ x: p.x, y: p.y }));
+                window.LiteEffects._dragStartAnchor = { x: coords.x, y: coords.y };
+                this.nodeGrabOffsetX = 0;
+                this.nodeGrabOffsetY = 0;
+              } else {
+                window.LiteEffects._dragMode = null;
+                const cxPx = Number(le.x) || 240;
+                const cyPx = Number(le.y) || 180;
+                const cxPct = (cxPx / (this.canvasWidth || 1280)) * 100;
+                const cyPct = (cyPx / (this.canvasHeight || 720)) * 100;
+                this.nodeGrabOffsetX = cxPct - coords.x;
+                this.nodeGrabOffsetY = cyPct - coords.y;
+              }
             } else {
               this.nodeGrabOffsetX = 0;
               this.nodeGrabOffsetY = 0;
@@ -1040,8 +1055,15 @@ window.Stage = {
             } else if (item.type === 'lite') {
               const le = window.LiteEffects ? window.LiteEffects.getLiteEffect(item.id) : null;
               if (le) {
-                le.x = Math.round((item.initX + deltaXPx) * 100) / 100;
-                le.y = Math.round((item.initY + deltaYPx) * 100) / 100;
+                if (le.kind === 'flow-lite' && Array.isArray(item.initPoints)) {
+                  le.points = item.initPoints.map((p) => ({
+                    x: Math.round((p.x + deltaX) * 1000) / 1000,
+                    y: Math.round((p.y + deltaY) * 1000) / 1000
+                  }));
+                } else {
+                  le.x = Math.round((item.initX + deltaXPx) * 100) / 100;
+                  le.y = Math.round((item.initY + deltaYPx) * 100) / 100;
+                }
                 const liveLite = document.querySelector('#svgContainer [data-lite-id="' + le.id + '"]');
                 if (liveLite) {
                   liveLite.setAttribute('transform', 'translate(' + deltaXPx.toFixed(2) + ', ' + deltaYPx.toFixed(2) + ')');
@@ -1335,6 +1357,15 @@ window.Stage = {
                 const f = window.DataFlows ? window.DataFlows.getFlow(item.id) : null;
                 if (f && window.EngineBridge && typeof window.EngineBridge.updateFlow === 'function') {
                   window.EngineBridge.updateFlow(f.id, { nodes: f.nodes });
+                }
+              } else if (item.type === 'lite') {
+                const le = window.LiteEffects ? window.LiteEffects.getLiteEffect(item.id) : null;
+                if (le && window.EngineBridge && typeof window.EngineBridge.updateLiteEffect === 'function') {
+                  if (le.kind === 'flow-lite' && Array.isArray(le.points)) {
+                    window.EngineBridge.updateLiteEffect(le.id, { points: le.points });
+                  } else {
+                    window.EngineBridge.updateLiteEffect(le.id, { x: le.x, y: le.y });
+                  }
                 }
               }
             });

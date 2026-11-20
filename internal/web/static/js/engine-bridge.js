@@ -1396,6 +1396,13 @@
         window.ImageObjects.setState({ images: mappedImages, imagesCounter: snap.imagesCounter || 0 });
       }
 
+      if (window.LiteEffects) {
+        window.LiteEffects.setState({
+          liteEffects: snap.liteEffects || [],
+          liteEffectsCounter: snap.liteEffectsCounter || (snap.liteEffects ? snap.liteEffects.length : 0)
+        });
+      }
+
       if (window.LayerManager) {
         window.LayerManager.setLayers(snap.layers || [], { skipBridge: true, skipEngineSync: true });
       }

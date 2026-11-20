@@ -921,7 +921,7 @@ func (s *Scene) setFromSnapshotLocked(snap Snapshot) {
 			s.liteEffectsCounter = idNum
 		}
 		MigrateLegacyLiteEffect(&le)
-		s.liteEffects[le.ID] = le
+		s.liteEffects[le.ID] = DeepCopyLiteEffect(le)
 		s.liteEffectOrder = append(s.liteEffectOrder, le.ID)
 	}
 
@@ -1003,6 +1003,7 @@ func (s *Scene) Reset() {
 	s.ripples = make(map[StringID]Ripple)
 	s.groups = make(map[StringID]Group)
 	s.images = make(map[StringID]Image)
+	s.liteEffects = make(map[StringID]LiteEffect)
 
 	s.nodeIDs = make([]StringID, 0)
 	s.flowIDs = make([]StringID, 0)
@@ -1010,6 +1011,7 @@ func (s *Scene) Reset() {
 	s.rippleIDs = make([]StringID, 0)
 	s.groupIDs = make([]StringID, 0)
 	s.imageIDs = make([]StringID, 0)
+	s.liteEffectOrder = make([]StringID, 0)
 
 	s.nodesCounter = 0
 	s.flowsCounter = 0
@@ -1017,6 +1019,7 @@ func (s *Scene) Reset() {
 	s.ripplesCounter = 0
 	s.groupsCounter = 0
 	s.imagesCounter = 0
+	s.liteEffectsCounter = 0
 
 	s.layers = make([]LayerEntry, 0)
 	s.parameters = nil
@@ -1288,7 +1291,7 @@ func (s *Scene) getSnapshotLocked() Snapshot {
 
 	liteEffects := make([]LiteEffect, len(s.liteEffectOrder))
 	for i, id := range s.liteEffectOrder {
-		liteEffects[i] = s.liteEffects[id]
+		liteEffects[i] = DeepCopyLiteEffect(s.liteEffects[id])
 	}
 
 	layers := s.getLayersSnapshotLocked()

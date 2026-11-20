@@ -1160,6 +1160,10 @@
      * @returns {boolean} Whether the waypoint selection succeeded
      */
     selectWaypoint(index) {
+      if (this.activeSelection && this.activeSelection.type === 'lite' && window.LiteEffects && typeof window.LiteEffects.selectWaypoint === 'function') {
+        window.LiteEffects.selectWaypoint(index);
+        return true;
+      }
       if (window.DataFlows && typeof window.DataFlows.selectWaypoint === 'function') {
         return window.DataFlows.selectWaypoint(index);
       }
@@ -1220,6 +1224,16 @@
           : (window.Ripples.list && window.Ripples.list.find((r) => r.id === window.Ripples.activeId)));
         if (typeof window.Ripples.updateUIOverlay === 'function') {
           window.Ripples.updateUIOverlay(activeRipple || null);
+        }
+      }
+      if (window.LiteEffects && typeof window.LiteEffects.updateUIOverlay === 'function') {
+        if (window.LiteEffects.activeId !== null) {
+          const isVis = !window.LayerManager || typeof window.LayerManager.getEffective !== 'function' ||
+            window.LayerManager.getEffective('lite', window.LiteEffects.activeId)?.visible !== false;
+          const activeLite = isVis ? window.LiteEffects.getLiteEffect(window.LiteEffects.activeId) : null;
+          window.LiteEffects.updateUIOverlay(activeLite || null);
+        } else {
+          window.LiteEffects.updateUIOverlay(null);
         }
       }
       if (typeof window.syncImageToolsUI === 'function') {

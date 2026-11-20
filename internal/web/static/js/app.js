@@ -2665,10 +2665,13 @@ function getDrawerWidgetPropDefs(type) {
       { prop: 'opacity', label: 'Opacity (0..1)', type: 'number', min: 0, max: 1, desc: 'Transparency of the low-load effect (0.0 to 1.0)' },
       { prop: 'visibility', label: 'Visibility (Toggle)', type: 'boolean', desc: 'Toggle visibility of the low-load effect' },
       { prop: 'speed', label: 'Speed / Rate', type: 'speed', min: 0.1, max: 10, desc: 'Playback speed multiplier for the effect (0.1 to 10.0)' },
-      { prop: 'strokeWidth', label: 'Stroke Width', type: 'number', min: 0.5, max: 20, desc: 'Perimeter tracer stroke thickness in px (0.5 to 20)' },
+      { prop: 'strokeWidth', label: 'Stroke Width', type: 'number', min: 0.5, max: 24, desc: 'Stroke thickness in px (0.5 to 24)' },
+      { prop: 'dashLength', label: 'Dash / Segment Length', type: 'number', min: 2, max: 400, desc: 'Flow Lite dash or single segment length in px (2 to 400)' },
+      { prop: 'gapLength', label: 'Gap Spacing', type: 'number', min: 2, max: 300, desc: 'Flow Lite clear gap between segments in px (2 to 300)' },
+      { prop: 'dotSize', label: 'Dot Diameter', type: 'number', min: 1, max: 32, desc: 'Flow Lite dot diameter in px for dotted pattern (1 to 32)' },
       { prop: 'segments', label: 'Segments', type: 'number', min: 1, max: 16, desc: 'Number of tracer segments around perimeter (1 to 16)' },
       { prop: 'lineGapRatio', label: 'Line:Gap Ratio', type: 'text', desc: 'Repeating segment pattern ratio (e.g. 1:3)' },
-      { prop: 'direction', label: 'Direction', type: 'enum', options: ['cw', 'ccw'], desc: 'Perimeter tracer travel direction' },
+      { prop: 'direction', label: 'Direction', type: 'enum', options: ['cw', 'ccw', 'forward', 'reverse'], desc: 'Travel direction' },
       { prop: 'startOffset', label: 'Start Offset (%)', type: 'number', min: 0, max: 100, desc: 'Perimeter starting phase offset (0 to 100%)' },
       { prop: 'playbackMode', label: 'Motion Mode', type: 'enum', options: ['loop', 'pingpong', 'once'], desc: 'Tracer playback mode (loop, pingpong, once)' },
       { prop: 'showGuide', label: 'Guide Visibility', type: 'boolean', desc: 'Show or hide static perimeter boundary guide' },
@@ -2752,10 +2755,13 @@ function getObjectPropValue(type, id, prop) {
         case 'opacity': return le.opacity !== undefined ? le.opacity : 0.9;
         case 'visibility': return le.visible !== false;
         case 'speed': return 1.0;
-        case 'strokeWidth': return le.strokeWidth !== undefined ? le.strokeWidth : 2.5;
+        case 'strokeWidth': return le.strokeWidth !== undefined ? le.strokeWidth : (le.kind === 'flow-lite' ? 3.0 : 2.5);
+        case 'dashLength': return le.dashLength !== undefined ? le.dashLength : (le.variant === 'single' ? 36 : 18);
+        case 'gapLength': return le.gapLength !== undefined ? le.gapLength : 14;
+        case 'dotSize': return le.dotSize !== undefined ? le.dotSize : 5;
         case 'segments': return le.segments !== undefined ? le.segments : 2;
         case 'lineGapRatio': return le.lineGapRatio || '1:3';
-        case 'direction': return le.direction || 'cw';
+        case 'direction': return le.direction || (le.kind === 'flow-lite' ? 'forward' : 'cw');
         case 'playbackMode': return le.playbackMode || 'loop';
         case 'burstCycles': return le.burstCycles !== undefined ? le.burstCycles : 0;
         case 'pauseSeconds': return le.pauseSeconds !== undefined ? le.pauseSeconds : 0;
@@ -2811,7 +2817,7 @@ window.renderWidgetPropertyCards = function(containerEl, sel, statusMsgEl) {
     if (le) {
       liteKind = le.kind || '';
       if (!objName) objName = le.name || '';
-      const kindMap = { 'perimeter-tracer': 'Tracer', 'pulse': 'Pulse', 'flash': 'Flash' };
+      const kindMap = { 'perimeter-tracer': 'Tracer', 'pulse': 'Pulse', 'flash': 'Flash', 'flow-lite': 'Flow' };
       const kindLabel = kindMap[le.kind] || 'Lite';
       objDisplayName = le.name ? `${le.name} (${kindLabel} #${sel.id})` : `${kindLabel} #${sel.id}`;
     }
@@ -2831,15 +2837,28 @@ window.renderWidgetPropertyCards = function(containerEl, sel, statusMsgEl) {
   let propDefs = getDrawerWidgetPropDefs(sel.type);
   if (sel.type === 'lite' && liteKind) {
     propDefs = propDefs.filter((p) => {
-      if (['strokeWidth', 'segments', 'lineGapRatio', 'direction', 'playbackMode', 'burstCycles', 'pauseSeconds', 'pauseVisibility', 'showGuide'].includes(p.prop)) {
+      if (['segments', 'lineGapRatio', 'burstCycles', 'pauseSeconds', 'pauseVisibility'].includes(p.prop)) {
         return liteKind === 'perimeter-tracer';
+      }
+      if (['strokeWidth', 'direction', 'playbackMode', 'showGuide'].includes(p.prop)) {
+        return liteKind === 'perimeter-tracer' || liteKind === 'flow-lite';
+      }
+      if (['dashLength', 'gapLength', 'dotSize'].includes(p.prop)) {
+        return liteKind === 'flow-lite';
       }
       if (['scale', 'period'].includes(p.prop)) return liteKind === 'pulse';
       if (['trigger', 'duration', 'repeat', 'repeatInterval'].includes(p.prop)) return liteKind === 'flash';
       if (p.prop === 'intensity') return liteKind === 'pulse' || liteKind === 'flash';
       if (p.prop === 'armThickness') return (liteKind === 'pulse' || liteKind === 'flash');
-      if (p.prop === 'speed') return liteKind === 'perimeter-tracer' || liteKind === 'pulse';
+      if (p.prop === 'speed') return liteKind === 'perimeter-tracer' || liteKind === 'pulse' || liteKind === 'flow-lite';
       return true;
+    }).map((p) => {
+      if (p.prop === 'direction') {
+        return Object.assign({}, p, {
+          options: liteKind === 'flow-lite' ? ['forward', 'reverse'] : ['cw', 'ccw']
+        });
+      }
+      return p;
     });
   }
 
@@ -3313,7 +3332,7 @@ window.renderWidgetParametersOverview = function(selectionPayload) {
         const le = window.LiteEffects.getLiteEffect(sel.id);
         if (le) {
           currentName = le.name || '';
-          const kindMap = { 'perimeter-tracer': 'Tracer', 'pulse': 'Pulse', 'flash': 'Flash' };
+          const kindMap = { 'perimeter-tracer': 'Tracer', 'pulse': 'Pulse', 'flash': 'Flash', 'flow-lite': 'Flow' };
           const kindLabel = kindMap[le.kind] || 'Lite';
           objDisplayName = le.name ? `${le.name} (${kindLabel} #${sel.id})` : `${kindLabel} #${sel.id}`;
         }
@@ -4124,7 +4143,7 @@ document.addEventListener('DOMContentLoaded', () => {
       return;
     }
     if (window.LiteEffects && window.LiteEffects.activeId !== null) {
-      window.LiteEffects.handleStageClick(x, y);
+      window.LiteEffects.handleStageClick(x, y, window.LiteEffects._dragMode);
       return;
     }
     if (window.DiagramNodes && window.DiagramNodes.activeId !== null) {

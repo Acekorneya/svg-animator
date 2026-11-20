@@ -438,48 +438,58 @@ type WidgetManifest struct {
 }
 
 // LiteEffect represents a low-load declarative SVG visual effect (Stage 16D).
-// Kind values in 16D-A: "perimeter-tracer", "pulse", "flash".
+// Kind values in 16D-A / 16D-B-M1: "perimeter-tracer", "pulse", "flash", "flow-lite".
 type LiteEffect struct {
-	ID           StringID       `json:"id"`
-	Name         string         `json:"name,omitempty"`
-	Metadata     map[string]any `json:"metadata,omitempty"`
-	Kind         string         `json:"kind"`              // "perimeter-tracer" | "pulse" | "flash"
-	Variant      string         `json:"variant,omitempty"` // e.g. "rect", "rounded", "circle", "ellipse", "square", "diamond", "cross", "ring", "star"
-	TargetID     string         `json:"targetId,omitempty"`
-	X            float64        `json:"x"`
-	Y            float64        `json:"y"`
-	Width        float64        `json:"width,omitempty"`
-	Height       float64        `json:"height,omitempty"`
-	Radius       float64        `json:"radius,omitempty"`
-	CornerRadius float64        `json:"cornerRadius,omitempty"`
-	Color        string         `json:"color"`
-	Opacity      float64        `json:"opacity"`
-	StrokeWidth  float64        `json:"strokeWidth,omitempty"`
-	Segments     int            `json:"segments,omitempty"`     // Perimeter Tracer: 1..16
-	LineGapRatio string         `json:"lineGapRatio,omitempty"` // Perimeter Tracer: e.g. "1:3"
-	SegmentStyle string         `json:"segmentStyle,omitempty"` // "solid" | "rounded" | "dashed"
-	StartOffset  float64        `json:"startOffset,omitempty"`  // 0..100 percent
-	Direction           string         `json:"direction,omitempty"`           // "cw" | "ccw"
-	PlaybackMode        string         `json:"playbackMode,omitempty"`        // "loop" | "pingpong" | "once"
-	EntryExit           string         `json:"entryExit,omitempty"`           // legacy backward-compat ("none")
-	BurstCycles         int            `json:"burstCycles,omitempty"`         // 0 = continuous, 1..100 = circuits per burst
-	PauseSeconds        float64        `json:"pauseSeconds,omitempty"`        // pause duration in seconds between bursts
-	PauseVisibility     string         `json:"pauseVisibility,omitempty"`     // "hide" | "hold"
-	Speed               float64        `json:"speed,omitempty"`               // circuit duration in seconds or multiplier
-	Period              float64        `json:"period,omitempty"`              // pulse period in seconds
-	Duration            float64        `json:"dur,omitempty"`                 // flash brief duration in seconds
-	RepeatInterval      float64        `json:"repeatInterval,omitempty"`      // flash repeat interval in seconds
-	Intensity           float64        `json:"intensity,omitempty"`           // pulse/flash peak amplitude (0..1)
-	ArmThickness        float64        `json:"armThickness,omitempty"`        // cross/star arm thickness in SVG units (1..20)
-	Repeat              bool           `json:"repeat,omitempty"`              // flash repeating interval toggle
-	TriggerNonce        int64          `json:"triggerNonce,omitempty"`        // flash single-shot trigger counter
-	OriginMode          string         `json:"originMode,omitempty"`          // "center" (migrates legacy top-left tracers on load)
-	MaintainAspectRatio *bool          `json:"maintainAspectRatio,omitempty"` // pulse/tracer aspect ratio lock
-	MinScale            float64        `json:"minScale,omitempty"`            // pulse minimum scale multiplier (e.g. 0.85)
-	MaxScale            float64        `json:"maxScale,omitempty"`            // pulse maximum scale multiplier (e.g. 1.15)
-	ShowGuide           *bool          `json:"showGuide,omitempty"`           // perimeter-tracer static boundary guide visibility
-	Visible             *bool          `json:"visible,omitempty"`
-	Locked              bool           `json:"locked"`
+	ID                  StringID         `json:"id"`
+	Name                string           `json:"name,omitempty"`
+	Metadata            map[string]any   `json:"metadata,omitempty"`
+	Kind                string           `json:"kind"`              // "perimeter-tracer" | "pulse" | "flash" | "flow-lite"
+	Variant             string           `json:"variant,omitempty"` // e.g. "rect", "rounded", "circle", "ellipse", "square", "diamond", "cross", "ring", "star", "dashed", "dotted", "single"
+	TargetID            string           `json:"targetId,omitempty"`
+	X                   float64          `json:"x"`
+	Y                   float64          `json:"y"`
+	Width               float64          `json:"width,omitempty"`
+	Height              float64          `json:"height,omitempty"`
+	Radius              float64          `json:"radius,omitempty"`
+	CornerRadius        float64          `json:"cornerRadius,omitempty"`
+	Color               string           `json:"color"`
+	Opacity             float64          `json:"opacity"`
+	StrokeWidth         float64          `json:"strokeWidth,omitempty"`
+	Segments            int              `json:"segments,omitempty"`     // Perimeter Tracer: 1..16
+	LineGapRatio        string           `json:"lineGapRatio,omitempty"` // Perimeter Tracer: e.g. "1:3"
+	SegmentStyle        string           `json:"segmentStyle,omitempty"` // "solid" | "rounded" | "dashed"
+	StartOffset         float64          `json:"startOffset,omitempty"`  // 0..100 percent
+	Direction           string           `json:"direction,omitempty"`    // "cw" | "ccw" | "forward" | "reverse"
+	PlaybackMode        string           `json:"playbackMode,omitempty"` // "loop" | "pingpong" | "once"
+	EntryExit           string           `json:"entryExit,omitempty"`    // legacy backward-compat ("none")
+	BurstCycles         int              `json:"burstCycles,omitempty"`  // 0 = continuous, 1..100 = circuits per burst
+	PauseSeconds        float64          `json:"pauseSeconds,omitempty"` // pause duration in seconds between bursts
+	PauseVisibility     string           `json:"pauseVisibility,omitempty"`
+	Speed               float64          `json:"speed,omitempty"`               // circuit/transit duration in seconds
+	Period              float64          `json:"period,omitempty"`              // pulse period in seconds
+	Duration            float64          `json:"dur,omitempty"`                 // flash brief duration in seconds
+	RepeatInterval      float64          `json:"repeatInterval,omitempty"`      // flash repeat interval in seconds
+	Intensity           float64          `json:"intensity,omitempty"`           // pulse/flash peak amplitude (0..1)
+	ArmThickness        float64          `json:"armThickness,omitempty"`        // cross/star arm thickness in SVG units (1..20)
+	Repeat              bool             `json:"repeat,omitempty"`              // flash repeating interval toggle
+	TriggerNonce        int64            `json:"triggerNonce,omitempty"`        // flash single-shot trigger counter
+	OriginMode          string           `json:"originMode,omitempty"`          // "center"
+	MaintainAspectRatio *bool            `json:"maintainAspectRatio,omitempty"` // pulse/tracer aspect ratio lock
+	MinScale            float64          `json:"minScale,omitempty"`            // pulse minimum scale multiplier (e.g. 0.85)
+	MaxScale            float64          `json:"maxScale,omitempty"`            // pulse maximum scale multiplier (e.g. 1.15)
+	ShowGuide           *bool            `json:"showGuide,omitempty"`           // perimeter-tracer / flow-lite static guide track visibility
+	Points              []geometry.Point `json:"points,omitempty"`              // flow-lite ordered waypoints in percentage coordinates
+	Bends               []float64        `json:"bends,omitempty"`               // flow-lite per-section bend curvature (-100..+100)
+	Curvature           float64          `json:"curvature,omitempty"`           // flow-lite whole-path curvature modifier (-100..+100)
+	DashLength          float64          `json:"dashLength,omitempty"`          // flow-lite dash/segment length in px (2..400)
+	GapLength           float64          `json:"gapLength,omitempty"`           // flow-lite gap spacing in px (2..300)
+	DotSize             float64          `json:"dotSize,omitempty"`             // flow-lite dot diameter in px (1..32)
+	StartMode           string           `json:"startMode,omitempty"`           // flow-lite start endpoint behaviour ("tunnel" | "abrupt")
+	EndMode             string           `json:"endMode,omitempty"`             // flow-lite end endpoint behaviour ("tunnel" | "abrupt")
+	Delay               float64          `json:"delay,omitempty"`               // flow-lite start delay in seconds (0..60)
+	EndDelay            float64          `json:"endDelay,omitempty"`            // flow-lite end delay in seconds (0..60)
+	Visible             *bool            `json:"visible,omitempty"`
+	Locked              bool             `json:"locked"`
 }
 
 func (l LiteEffect) IsVisible() bool {
