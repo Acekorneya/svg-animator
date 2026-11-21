@@ -335,6 +335,10 @@ window.FloatingPropertiesEditor = {
     editor.style.bottom = 'auto';
   },
 
+  syncSelection() {
+    this.syncFromActiveObject();
+  },
+
   syncFromActiveObject() {
     if (!this.isOpen || this._isSyncing) return;
     this._syncMultiBar();
@@ -2319,6 +2323,10 @@ window.FloatingPropertiesEditor = {
     if (typeof window !== 'undefined') {
       window.addEventListener('keydown', (e) => {
         if (e.key === 'Escape' && this.isOpen) {
+          const gmModal = typeof document !== 'undefined' ? document.getElementById('groupMappingModal') : null;
+          if (gmModal && gmModal.style && (gmModal.style.display === 'flex' || gmModal.style.display === 'block')) {
+            return;
+          }
           this.close(true);
           if (typeof e.stopPropagation === 'function') e.stopPropagation();
         }

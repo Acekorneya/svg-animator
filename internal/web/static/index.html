@@ -4657,96 +4657,118 @@
 
   <!-- GROUP SEMANTIC PROPERTY MAPPING DIALOG (STAGE 16E) -->
   <div id="groupMappingModal" class="modal-overlay" style="display: none; z-index: 1060;">
-    <div class="modal-content" style="width: 680px; max-width: 96vw; max-height: 88vh; display: flex; flex-direction: column; background: #0d1117; border: 1px solid #30363d; border-radius: 10px; box-shadow: 0 20px 44px rgba(0,0,0,0.75);">
+    <div class="modal-content" style="width: 720px; max-width: 96vw; max-height: 90vh; display: flex; flex-direction: column; background: #0d1117; border: 1px solid #30363d; border-radius: 10px; box-shadow: 0 20px 44px rgba(0,0,0,0.75);">
       <div class="modal-header" style="padding: 0.85rem 1.15rem; border-bottom: 1px solid #30363d; display: flex; justify-content: space-between; align-items: center; background: #161b22; border-radius: 10px 10px 0 0;">
         <div style="display: flex; flex-direction: column; gap: 2px;">
-          <h3 id="groupMappingModalTitle" style="margin: 0; font-size: 0.98rem; color: #58a6ff; display: flex; align-items: center; gap: 0.45rem;">🔗 Add Semantic Group Property Mapping</h3>
-          <span id="groupMappingModalSubtitle" style="font-size: 0.72rem; color: #8b949e;">Group: <strong id="groupMappingModalGroupName" style="color: #e6edf3;">group-1</strong> • Derived Parameter: <code id="groupMappingModalDerivedName" style="color: #7ee787; background: rgba(63,185,80,0.12); padding: 1px 5px; border-radius: 3px;">group-1-cpu</code></span>
+          <h3 id="groupMappingModalTitle" style="margin: 0; font-size: 0.98rem; color: #58a6ff; display: flex; align-items: center; gap: 0.45rem;">🔗 Semantic Group Property Mapping</h3>
+          <span id="groupMappingModalSubtitle" style="font-size: 0.72rem; color: #8b949e;">Group: <strong id="groupMappingModalGroupName" style="color: #e6edf3;">group-1</strong> • Derived Parameter: <code id="groupMappingModalDerivedName" style="color: #7ee787; background: rgba(63,185,80,0.12); padding: 1px 5px; border-radius: 3px;">group-1-cpu</code> • Type: <code id="groupMappingModalDerivedType" style="color: #79c0ff; background: rgba(56,139,253,0.14); padding: 1px 5px; border-radius: 3px;">number</code></span>
         </div>
-        <button type="button" class="floating-editor-close-btn" id="btnGroupMappingModalClose" title="Cancel &amp; Close">&times;</button>
+        <div style="display: flex; align-items: center; gap: 8px;">
+          <button type="button" id="btnGmModalNewMapping" style="background: #21262d; border: 1px solid #30363d; color: #58a6ff; font-size: 0.72rem; padding: 4px 9px; border-radius: 5px; cursor: pointer; font-weight: 600;" title="Reset editor to create a new semantic mapping">+ New Mapping</button>
+          <button type="button" class="floating-editor-close-btn" id="btnGroupMappingModalClose" title="Close Dialog">&times;</button>
+        </div>
       </div>
 
-      <div class="modal-body" style="padding: 1rem 1.15rem; overflow-y: auto; display: flex; flex-direction: column; gap: 0.9rem; font-size: 0.8rem; color: #c9d1d9;">
-        <!-- Section 1: Semantic Identity & Parameter Type -->
-        <div style="background: #161b22; border: 1px solid #30363d; border-radius: 7px; padding: 0.8rem;">
-          <div style="font-size: 0.72rem; font-weight: 700; text-transform: uppercase; letter-spacing: 0.04em; color: #58a6ff; margin-bottom: 0.55rem;">1. Semantic Property Identity &amp; Type</div>
-          <div style="display: grid; grid-template-columns: 1fr 1.2fr 0.9fr; gap: 0.65rem;">
+      <div class="modal-body" style="padding: 1rem 1.15rem; overflow-y: auto; display: flex; flex-direction: column; gap: 0.8rem; font-size: 0.8rem; color: #c9d1d9;">
+        <!-- 1. First Row — Identity (Two Columns: Alias | Label) & Multiline Description -->
+        <div style="background: #161b22; border: 1px solid #30363d; border-radius: 7px; padding: 0.8rem; display: flex; flex-direction: column; gap: 0.6rem;">
+          <div id="gmModalIdentityRow" style="display: grid; grid-template-columns: 1fr 1fr; gap: 0.75rem;">
             <div>
-              <label for="gmModalAliasInput" style="display: block; font-size: 0.72rem; color: #8b949e; margin-bottom: 3px;">Semantic Alias <span style="color:#f85149;">*</span></label>
+              <label id="gmModalAliasLabel" for="gmModalAliasInput" style="display: block; font-size: 0.73rem; font-weight: 600; color: #c9d1d9; margin-bottom: 4px;">Alias <span style="color:#f85149;">*</span></label>
               <input type="text" id="gmModalAliasInput" class="gm-alias-in" placeholder="e.g. cpu, status-color, headline" style="width: 100%; padding: 6px 8px; background: #0d1117; border: 1px solid #30363d; color: #e6edf3; border-radius: 5px; font-size: 0.78rem; font-family: ui-monospace, monospace;">
             </div>
             <div>
-              <label for="gmModalLabelInput" style="display: block; font-size: 0.72rem; color: #8b949e; margin-bottom: 3px;">Display Label</label>
+              <label id="gmModalLabelLabel" for="gmModalLabelInput" style="display: block; font-size: 0.73rem; font-weight: 600; color: #c9d1d9; margin-bottom: 4px;">Label</label>
               <input type="text" id="gmModalLabelInput" class="gm-label-in" placeholder="e.g. CPU Load (%)" style="width: 100%; padding: 6px 8px; background: #0d1117; border: 1px solid #30363d; color: #e6edf3; border-radius: 5px; font-size: 0.78rem;">
             </div>
-            <div>
-              <label for="gmModalTypeSelect" style="display: block; font-size: 0.72rem; color: #8b949e; margin-bottom: 3px;">Parameter Type <span style="color:#f85149;">*</span></label>
-              <select id="gmModalTypeSelect" class="gm-type-sel" style="width: 100%; padding: 6px 8px; background: #0d1117; border: 1px solid #30363d; color: #e6edf3; border-radius: 5px; font-size: 0.78rem;">
-                <option value="number">number (Numeric / Readout)</option>
-                <option value="color">color (Hex / CSS Colour)</option>
-                <option value="text">text (String / Message)</option>
-                <option value="boolean">boolean (True / False)</option>
-                <option value="speed">speed (Rate Multiplier)</option>
-                <option value="enum">enum (Allowed Options)</option>
+          </div>
+
+          <!-- Multiline Description spanning full width -->
+          <div>
+            <label for="gmModalDescInput" style="display: block; font-size: 0.73rem; font-weight: 600; color: #c9d1d9; margin-bottom: 4px;">Description</label>
+            <textarea id="gmModalDescInput" class="gm-desc-in" rows="2" placeholder="Describe what this group parameter controls across member objects..." style="width: 100%; min-height: 48px; max-height: 110px; resize: vertical; padding: 6px 8px; background: #0d1117; border: 1px solid #30363d; color: #e6edf3; border-radius: 5px; font-size: 0.76rem; font-family: inherit; line-height: 1.4;"></textarea>
+          </div>
+        </div>
+
+        <!-- 2. Target Selection Row (Group Member | Property) -->
+        <div style="background: #161b22; border: 1px solid #30363d; border-radius: 7px; padding: 0.8rem; display: flex; flex-direction: column; gap: 0.55rem;">
+          <div style="display: flex; justify-content: space-between; align-items: center;">
+            <span style="font-size: 0.72rem; font-weight: 700; text-transform: uppercase; letter-spacing: 0.04em; color: #58a6ff;">Target Selection (Group Member &amp; Property)</span>
+            <div id="gmModalTypeResolutionWrap" style="display: none; align-items: center; gap: 6px; font-size: 0.71rem; color: #8b949e;">
+              <span>Input Type:</span>
+              <select id="gmModalTypeSelect" class="gm-type-sel" style="padding: 2px 6px; background: #0d1117; border: 1px solid #388bfd; color: #79c0ff; border-radius: 4px; font-size: 0.71rem;">
+                <option value="number">number</option>
+                <option value="color">color</option>
+                <option value="text">text</option>
+                <option value="boolean">boolean</option>
+                <option value="speed">speed</option>
+                <option value="enum">enum</option>
               </select>
             </div>
-          </div>
-          <div style="margin-top: 0.55rem;">
-            <label for="gmModalDescInput" style="display: block; font-size: 0.72rem; color: #8b949e; margin-bottom: 3px;">Description (Optional)</label>
-            <input type="text" id="gmModalDescInput" class="gm-desc-in" placeholder="Describe what this group parameter controls across member objects..." style="width: 100%; padding: 5px 8px; background: #0d1117; border: 1px solid #30363d; color: #e6edf3; border-radius: 5px; font-size: 0.76rem;">
-          </div>
-        </div>
-
-        <!-- Section 2: Default Value & Constraints -->
-        <div style="background: #161b22; border: 1px solid #30363d; border-radius: 7px; padding: 0.8rem;">
-          <div style="font-size: 0.72rem; font-weight: 700; text-transform: uppercase; letter-spacing: 0.04em; color: #58a6ff; margin-bottom: 0.55rem;">2. Default Value &amp; Constraints</div>
-          <div style="display: grid; grid-template-columns: 1.2fr 1fr 1fr; gap: 0.65rem; align-items: start;">
-            <div>
-              <label for="gmModalDefaultInput" style="display: block; font-size: 0.72rem; color: #8b949e; margin-bottom: 3px;">Default Value <span style="color:#f85149;">*</span></label>
-              <div style="display: flex; gap: 6px; align-items: center;">
-                <input type="color" id="gmModalDefaultColorPicker" value="#38bdf8" style="display: none; width: 34px; height: 30px; padding: 0; border: 1px solid #30363d; background: transparent; border-radius: 4px; cursor: pointer;">
-                <input type="text" id="gmModalDefaultInput" class="gm-default-in" value="50" style="flex: 1; padding: 6px 8px; background: #0d1117; border: 1px solid #30363d; color: #e6edf3; border-radius: 5px; font-size: 0.78rem;">
-              </div>
-            </div>
-            <div id="gmModalMinWrap">
-              <label for="gmModalMinInput" style="display: block; font-size: 0.72rem; color: #8b949e; margin-bottom: 3px;">Min Bound</label>
-              <input type="number" id="gmModalMinInput" class="gm-min-in" value="0" step="any" style="width: 100%; padding: 6px 8px; background: #0d1117; border: 1px solid #30363d; color: #e6edf3; border-radius: 5px; font-size: 0.78rem;">
-            </div>
-            <div id="gmModalMaxWrap">
-              <label for="gmModalMaxInput" style="display: block; font-size: 0.72rem; color: #8b949e; margin-bottom: 3px;">Max Bound</label>
-              <input type="number" id="gmModalMaxInput" class="gm-max-in" value="100" step="any" style="width: 100%; padding: 6px 8px; background: #0d1117; border: 1px solid #30363d; color: #e6edf3; border-radius: 5px; font-size: 0.78rem;">
-            </div>
-            <div id="gmModalEnumWrap" style="display: none; grid-column: span 2;">
-              <label for="gmModalOptionsInput" style="display: block; font-size: 0.72rem; color: #8b949e; margin-bottom: 3px;">Allowed Enum Options (comma-separated) <span style="color:#f85149;">*</span></label>
-              <input type="text" id="gmModalOptionsInput" class="gm-options-in" placeholder="e.g. cw, ccw or loop, pingpong, once" style="width: 100%; padding: 6px 8px; background: #0d1117; border: 1px solid #30363d; color: #e6edf3; border-radius: 5px; font-size: 0.78rem;">
-            </div>
-          </div>
-          <div id="gmModalConstraintHint" style="margin-top: 6px; font-size: 0.71rem; color: #8b949e;"></div>
-        </div>
-
-        <!-- Section 3: Member Target Bindings (1..N Fan-Out) -->
-        <div style="background: #161b22; border: 1px solid #30363d; border-radius: 7px; padding: 0.8rem;">
-          <div style="display: flex; justify-content: space-between; align-items: center; margin-bottom: 0.55rem;">
-            <div>
-              <div style="font-size: 0.72rem; font-weight: 700; text-transform: uppercase; letter-spacing: 0.04em; color: #58a6ff;">3. Member Target Bindings (1..N Atomic Fan-Out)</div>
-              <div style="font-size: 0.70rem; color: #8b949e;">Only properties supported by the selected member and compatible with the mapping type can be bound.</div>
-            </div>
-            <button type="button" id="btnGmModalAddTarget" class="gm-add-target-btn" style="background: #21262d; border: 1px solid #388bfd; color: #58a6ff; font-size: 0.74rem; padding: 4px 10px; border-radius: 5px; cursor: pointer; font-weight: 600;">+ Add Target Binding</button>
           </div>
           <div id="gmModalTargetsList" class="gm-targets-list" style="display: flex; flex-direction: column; gap: 8px;"></div>
         </div>
 
-        <!-- Validation Feedback Box -->
-        <div id="gmModalValidationBox" style="padding: 8px 11px; border-radius: 6px; font-size: 0.75rem; border: 1px solid #30363d; background: #090d13; color: #8b949e; line-height: 1.45;">
-          Configure the semantic alias, type, default value, and at least one compatible member target binding.
+        <!-- 3. Default Value | Constraints Row -->
+        <div style="background: #161b22; border: 1px solid #30363d; border-radius: 7px; padding: 0.8rem;">
+          <div id="gmModalDefaultConstraintsRow" style="display: grid; grid-template-columns: 1fr 1.4fr; gap: 0.75rem; align-items: start;">
+            <div>
+              <label for="gmModalDefaultInput" style="display: block; font-size: 0.73rem; font-weight: 600; color: #c9d1d9; margin-bottom: 4px;">Default Value <span style="color:#f85149;">*</span></label>
+              <div style="display: flex; gap: 6px; align-items: center;">
+                <input type="color" id="gmModalDefaultColorPicker" value="#38bdf8" style="display: none; width: 34px; height: 30px; padding: 0; border: 1px solid #30363d; background: transparent; border-radius: 4px; cursor: pointer;">
+                <input type="text" id="gmModalDefaultInput" class="gm-default-in" value="50" style="flex: 1; padding: 6px 8px; background: #0d1117; border: 1px solid #30363d; color: #e6edf3; border-radius: 5px; font-size: 0.78rem;">
+                <select id="gmModalDefaultBoolSelect" style="display: none; flex: 1; padding: 6px 8px; background: #0d1117; border: 1px solid #30363d; color: #e6edf3; border-radius: 5px; font-size: 0.78rem;">
+                  <option value="true">true</option>
+                  <option value="false">false</option>
+                </select>
+              </div>
+            </div>
+            <div>
+              <label style="display: block; font-size: 0.73rem; font-weight: 600; color: #c9d1d9; margin-bottom: 4px;">Constraints</label>
+              <div id="gmModalNumericConstraints" style="display: grid; grid-template-columns: 1fr 1fr; gap: 0.5rem;">
+                <div id="gmModalMinWrap">
+                  <input type="number" id="gmModalMinInput" class="gm-min-in" value="0" step="any" placeholder="Min" title="Minimum allowed value" style="width: 100%; padding: 6px 8px; background: #0d1117; border: 1px solid #30363d; color: #e6edf3; border-radius: 5px; font-size: 0.78rem;">
+                </div>
+                <div id="gmModalMaxWrap">
+                  <input type="number" id="gmModalMaxInput" class="gm-max-in" value="100" step="any" placeholder="Max" title="Maximum allowed value" style="width: 100%; padding: 6px 8px; background: #0d1117; border: 1px solid #30363d; color: #e6edf3; border-radius: 5px; font-size: 0.78rem;">
+                </div>
+              </div>
+              <div id="gmModalEnumWrap" style="display: none;">
+                <input type="text" id="gmModalOptionsInput" class="gm-options-in" placeholder="Allowed options (comma-separated, e.g. cw, ccw)" style="width: 100%; padding: 6px 8px; background: #0d1117; border: 1px solid #30363d; color: #e6edf3; border-radius: 5px; font-size: 0.78rem;">
+              </div>
+              <div id="gmModalNoConstraintsNote" style="display: none; padding: 6px 8px; background: #0d1117; border: 1px dashed #30363d; border-radius: 5px; font-size: 0.74rem; color: #8b949e;"></div>
+              <div id="gmModalConstraintHint" style="margin-top: 4px; font-size: 0.70rem; color: #8b949e;"></div>
+            </div>
+          </div>
         </div>
-      </div>
 
-      <div class="modal-footer" style="padding: 0.75rem 1.15rem; border-top: 1px solid #30363d; display: flex; justify-content: space-between; align-items: center; background: #161b22; border-radius: 0 0 10px 10px;">
-        <span id="gmModalFooterSummary" style="font-size: 0.73rem; color: #8b949e;">1 target binding</span>
-        <div style="display: flex; gap: 8px;">
-          <button type="button" class="btn btn-secondary btn-sm gm-cancel-btn" id="btnGroupMappingModalCancel" style="padding: 6px 14px; font-size: 0.78rem;">Cancel</button>
-          <button type="button" class="btn btn-primary btn-sm gm-save-btn" id="btnGroupMappingModalSave" style="padding: 6px 16px; font-size: 0.78rem; background: #238636; border-color: #3fb950; color: #fff; font-weight: 600;">Save Mapping</button>
+        <!-- 4. Validation & Save Mapping Row (Side-by-Side) -->
+        <div id="gmModalValidationSaveRow" style="display: flex; align-items: stretch; justify-content: space-between; gap: 0.75rem;">
+          <div id="gmModalValidationBox" style="flex: 1; padding: 8px 11px; border-radius: 6px; font-size: 0.75rem; border: 1px solid #30363d; background: #090d13; color: #8b949e; line-height: 1.4; display: flex; align-items: center;">
+            Configure Alias, Group Member, Property, and Default Value to save.
+          </div>
+          <div style="display: flex; align-items: center; gap: 6px;">
+            <button type="button" class="btn btn-secondary btn-sm gm-cancel-btn" id="btnGroupMappingModalCancel" style="padding: 8px 12px; font-size: 0.76rem; white-space: nowrap;">Cancel</button>
+            <button type="button" class="btn btn-primary btn-sm gm-save-btn" id="btnGroupMappingModalSave" style="padding: 8px 16px; font-size: 0.78rem; background: #238636; border-color: #3fb950; color: #fff; font-weight: 600; white-space: nowrap;">Save Mapping</button>
+          </div>
+        </div>
+
+        <!-- 5. Add New Binding Row (Disabled until initial mapping is saved) -->
+        <div style="display: flex; align-items: center; justify-content: space-between; background: #161b22; border: 1px solid #30363d; border-radius: 7px; padding: 0.6rem 0.85rem;">
+          <div style="display: flex; flex-direction: column; gap: 2px;">
+            <span style="font-size: 0.75rem; font-weight: 600; color: #c9d1d9;">Multi-Target Fan-Out Bindings</span>
+            <span id="gmModalAddBindingHint" style="font-size: 0.70rem; color: #8b949e;">Save the initial mapping first to enable adding more group member bindings to this alias.</span>
+          </div>
+          <button type="button" id="btnGmModalAddTarget" class="gm-add-target-btn" disabled style="background: #21262d; border: 1px solid #388bfd; color: #58a6ff; font-size: 0.75rem; padding: 5px 12px; border-radius: 5px; cursor: not-allowed; opacity: 0.45; font-weight: 600; white-space: nowrap;">+ Add New Binding</button>
+        </div>
+
+        <!-- 6. Existing Semantic Mappings List for Selected Group -->
+        <div style="background: #161b22; border: 1px solid #30363d; border-radius: 7px; padding: 0.8rem; display: flex; flex-direction: column; gap: 0.55rem;">
+          <div style="display: flex; justify-content: space-between; align-items: center;">
+            <span style="font-size: 0.72rem; font-weight: 700; text-transform: uppercase; letter-spacing: 0.04em; color: #58a6ff;">Existing Semantic Mappings (<span id="gmModalExistingCount">0</span>)</span>
+            <span id="gmModalFooterSummary" style="font-size: 0.71rem; color: #8b949e;">1 target binding</span>
+          </div>
+          <div id="gmModalExistingMappingsList" style="display: flex; flex-direction: column; gap: 6px; max-height: 170px; overflow-y: auto;"></div>
         </div>
       </div>
     </div>

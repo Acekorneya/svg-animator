@@ -552,3 +552,25 @@ Following initial user visual acceptance testing of `M1–M3` (`5b846b6`, `059f9
   - Updated `#btnAddGlobalSpeedParam`, `#btnAddGlobalVisParam`, and `#btnAddGlobalStateParam` in `app.js` to toggle cleanly and display `✓ Bound (Click to remove)` when active.
   - Updated `applyPreview` in `app.js` to pause/unpause/rewind live Studio canvas SVG animations when previewing root `operatingState`, `playbackRate`, and `visibility`.
   - Added whole-widget `operatingState`, `playbackRate`, and `widgetVisible` controls to the consolidated showcase (`http://192.168.100.40:8088/composite-widget-demo.html`).
+
+### 10.4 Stage 16E Semantic Mapping Dialog Refinement & Inspector Synchronisation Report
+
+Following user review of the dedicated Semantic Group Property Mapping dialog (`422715d`), two targeted refinements were implemented and verified:
+
+#### 1. Parent Group Inspector Refresh & Synchronisation Fix
+- **Root Causes:**
+  1. Throughout `internal/web/static/js/app.js`, mapping save and remove handlers invoked `window.FloatingPropertiesEditor.syncSelection()`, whereas `window.FloatingPropertiesEditor` in `internal/web/static/js/context-editor.js` only defined `syncFromActiveObject()`. As a result, when a group was inspected via the Floating Context Editor (`#floatingContextEditor`), adding, editing, or removing a mapping never re-rendered `#fctx-widgetPropertiesList`.
+  2. Pressing `Escape` while `#groupMappingModal` was open triggered global `keydown` handlers in `context-editor.js` and `workspace.js` (`#groupMappingModal` was not in `workspace.js`'s modal exclusion list), which closed `#floatingContextEditor` and cleared the active group selection.
+  3. `EngineBridge.setGroupMapping` and `EngineBridge.removeGroupMapping` (`internal/web/static/js/engine-bridge.js`) only updated `window.ObjectGroups.list` when `findIndex >= 0`, and `renderGroupSemanticMappingsSection` did not prioritize `EngineBridge.getGroup(sel.id)`.
+- **Correction Implemented:**
+  - Added `syncSelection() { this.syncFromActiveObject(); }` on `window.FloatingPropertiesEditor` (`context-editor.js`), added `#groupMappingModal` Escape-key guards in `context-editor.js` and `workspace.js`, updated `EngineBridge.setGroupMapping`/`removeGroupMapping` to upsert `res.group` into `window.ObjectGroups.list`, and implemented `GroupMappingDialog.refreshParentInspectors(groupId)` in `app.js` so both the Right Drawer (`#drawerWidgetPropertiesList`) and Floating Context Editor (`#fctx-widgetPropertiesList`) refresh immediately after every save, edit, removal, cancel, or close.
+
+#### 2. Streamlined `#groupMappingModal` Field Hierarchy & Multi-Binding Workflow
+- **Reorganised Dialog Layout (`internal/web/static/index.html`, `internal/web/static/js/app.js`):**
+  1. **First Row — Identity (2 Columns):** `Alias` (`#gmModalAliasInput`) | `Label` (`#gmModalLabelInput`), with `Parameter Type` removed from the identity row.
+  2. **Description:** Full-width multiline `<textarea id="gmModalDescInput">` directly beneath the identity row.
+  3. **Target Selection (`Group Member` | `Property`):** Shortened labels (`Group Member` and `Property`), automatically deriving the mapping's parameter type (`number`, `color`, `text`, `boolean`, `speed`, `enum`) and domain defaults/constraints from the primary selected property (with a compact `Input Type` selector `#gmModalTypeResolutionWrap` shown only when a `text` property can be driven via `number → text` conversion).
+  4. **Default Value | Constraints Row:** Side-by-side `Default Value` and domain-responsive `Constraints` (`Min`/`Max` for numeric/speed, comma-separated `Options` for enum, colour picker for colour, boolean selector for boolean).
+  5. **Validation & Save Mapping Row:** Live validation feedback box (`#gmModalValidationBox`) on the left alongside `Cancel` and `Save Mapping` (`#btnGroupMappingModalSave`) aligned right.
+  6. **Add New Binding (`#btnGmModalAddTarget`):** Initially **disabled** (`disabled = true`, `isPersisted = false`) for a newly created, unsaved mapping. Once the first valid mapping is saved (`isPersisted = true`), **`+ Add New Binding`** enables so additional compatible `Group Member` + `Property` targets can be bound to the **same semantic alias** and saved via `Group.SetMapping` without risking corruption if an unfinished extra binding is cancelled.
+  7. **Existing Semantic Mappings (`#gmModalExistingMappingsList`):** Live list at the bottom of the dialog displaying all current mappings for the selected group (Alias, Label, derived parameter badge, bound targets, `✏️ Edit`, and `✕ Remove`), updated immediately on every save, edit, or removal and kept synchronised with the parent Group Inspector.

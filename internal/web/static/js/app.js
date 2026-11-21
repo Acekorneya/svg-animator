@@ -3191,8 +3191,11 @@ function getGroupMemberDisplayLabel(m) {
 window.GroupMappingDialog = {
   activeGroupId: null,
   originalAlias: null,
+  isPersisted: false,
+  lastSavedSnapshot: null,
   statusMsgEl: null,
   targetRows: [],
+  _explicitNumberToText: false,
   _bound: false,
 
   _ensureBound() {
@@ -3205,26 +3208,49 @@ window.GroupMappingDialog = {
     const cancelBtn = document.getElementById('btnGroupMappingModalCancel');
     const saveBtn = document.getElementById('btnGroupMappingModalSave');
     const addTargetBtn = document.getElementById('btnGmModalAddTarget');
+    const newMappingBtn = document.getElementById('btnGmModalNewMapping');
     const aliasIn = document.getElementById('gmModalAliasInput');
     const labelIn = document.getElementById('gmModalLabelInput');
+    const descIn = document.getElementById('gmModalDescInput');
     const typeSel = document.getElementById('gmModalTypeSelect');
     const defIn = document.getElementById('gmModalDefaultInput');
     const defCol = document.getElementById('gmModalDefaultColorPicker');
+    const defBool = document.getElementById('gmModalDefaultBoolSelect');
     const minIn = document.getElementById('gmModalMinInput');
     const maxIn = document.getElementById('gmModalMaxInput');
     const optIn = document.getElementById('gmModalOptionsInput');
 
     if (closeBtn) closeBtn.addEventListener('click', () => this.close());
-    if (cancelBtn) cancelBtn.addEventListener('click', () => this.close());
-    if (addTargetBtn) addTargetBtn.addEventListener('click', () => {
-      this.addTargetRow();
-      this.validateForm();
-    });
+    if (cancelBtn) cancelBtn.addEventListener('click', () => this.cancel());
+    if (newMappingBtn) {
+      newMappingBtn.addEventListener('click', () => {
+        if (this.activeGroupId) {
+          this.open(this.activeGroupId, null, this.statusMsgEl);
+        }
+      });
+    }
+    if (addTargetBtn) {
+      addTargetBtn.addEventListener('click', () => {
+        if (addTargetBtn.disabled || !this.isPersisted) return;
+        this.addTargetRow();
+        this.validateForm();
+      });
+    }
     if (saveBtn) saveBtn.addEventListener('click', () => this.save());
 
-    [aliasIn, labelIn, defIn, minIn, maxIn, optIn].forEach((el) => {
+    [aliasIn, labelIn, descIn, defIn, minIn, maxIn, optIn].forEach((el) => {
       if (el) {
-        el.addEventListener('input', () => this.validateForm());
+        el.addEventListener('input', () => {
+          if (el === defIn) {
+            const curType = (typeSel && typeSel.value) || 'number';
+            if (curType === 'color' && defCol && /^#[0-9a-fA-F]{6}$/.test(defIn.value.trim())) {
+              defCol.value = defIn.value.trim();
+            } else if (curType === 'boolean' && defBool) {
+              defBool.value = (defIn.value.trim().toLowerCase() === 'false' || defIn.value.trim() === '0') ? 'false' : 'true';
+            }
+          }
+          this.validateForm();
+        });
         el.addEventListener('change', () => this.validateForm());
       }
     });
@@ -3236,66 +3262,249 @@ window.GroupMappingDialog = {
       });
     }
 
+    if (defBool && defIn) {
+      defBool.addEventListener('change', (e) => {
+        defIn.value = e.target.value;
+        this.validateForm();
+      });
+    }
+
     if (typeSel) {
       typeSel.addEventListener('change', () => {
-        this._syncTypeControls(true);
+        this._explicitNumberToText = (typeSel.value === 'number');
+        const primaryDef = this._getPrimarySelectedPropDef();
+        this._syncTypeControls(true, primaryDef);
         this.targetRows.forEach((r) => r.populateProps(true));
         this.validateForm();
       });
     }
+
+    if (typeof window !== 'undefined') {
+      window.addEventListener('keydown', (e) => {
+        if (e.key === 'Escape' && modal.style && modal.style.display === 'flex') {
+          if (typeof e.preventDefault === 'function') e.preventDefault();
+          if (typeof e.stopPropagation === 'function') e.stopPropagation();
+          this.cancel();
+        }
+      });
+    }
   },
 
-  _getGroup() {
-    if (!this.activeGroupId) return null;
+  _getGroup(groupId = null) {
+    const gid = groupId || this.activeGroupId;
+    if (!gid) return null;
+    if (window.EngineBridge && typeof window.EngineBridge.getGroup === 'function' && window.EngineBridge.isReady && window.EngineBridge.isReady()) {
+      const g = window.EngineBridge.getGroup(gid);
+      if (g) return g;
+    }
     if (window.AppCoordinator && typeof window.AppCoordinator.getGroup === 'function') {
-      const g = window.AppCoordinator.getGroup(this.activeGroupId);
+      const g = window.AppCoordinator.getGroup(gid);
       if (g) return g;
     }
     if (window.EngineBridge && typeof window.EngineBridge.getGroup === 'function') {
-      return window.EngineBridge.getGroup(this.activeGroupId);
+      return window.EngineBridge.getGroup(gid);
     }
     return null;
   },
 
-  _syncTypeControls(resetDefaults) {
+  refreshParentInspectors(groupId = null) {
+    const gid = groupId || this.activeGroupId;
+    if (gid && window.AppCoordinator) {
+      const curSel = typeof window.AppCoordinator.getActiveSelection === 'function'
+        ? window.AppCoordinator.getActiveSelection()
+        : window.AppCoordinator.activeSelection;
+      if (!curSel || curSel.type !== 'group' || String(curSel.id) !== String(gid)) {
+        const grp = this._getGroup(gid);
+        if (grp && window.AppCoordinator.activeSelection) {
+          window.AppCoordinator.activeSelection = {
+            type: 'group',
+            id: String(gid),
+            items: Array.isArray(grp.members) ? [...grp.members] : [],
+            name: grp.name || ('Group ' + grp.id)
+          };
+        }
+      }
+    }
+    if (typeof window.renderWidgetParametersOverview === 'function') {
+      window.renderWidgetParametersOverview(gid ? { type: 'group', id: String(gid) } : undefined);
+    }
+    if (window.FloatingPropertiesEditor) {
+      if (window.FloatingPropertiesEditor.isOpen && gid && window.FloatingPropertiesEditor.activeType === 'group') {
+        window.FloatingPropertiesEditor.activeId = String(gid);
+      }
+      if (typeof window.FloatingPropertiesEditor.syncFromActiveObject === 'function') {
+        window.FloatingPropertiesEditor.syncFromActiveObject();
+      } else if (typeof window.FloatingPropertiesEditor.syncSelection === 'function') {
+        window.FloatingPropertiesEditor.syncSelection();
+      }
+    }
+  },
+
+  _syncAddBindingButton() {
+    const addTargetBtn = document.getElementById('btnGmModalAddTarget');
+    const hintEl = document.getElementById('gmModalAddBindingHint');
+    if (addTargetBtn) {
+      addTargetBtn.disabled = !this.isPersisted;
+      addTargetBtn.style.opacity = this.isPersisted ? '1' : '0.45';
+      addTargetBtn.style.cursor = this.isPersisted ? 'pointer' : 'not-allowed';
+    }
+    if (hintEl) {
+      hintEl.textContent = this.isPersisted
+        ? 'Click "+ Add New Binding" to bind another Group Member and compatible Property to this same semantic alias.'
+        : 'Save the initial mapping first to enable adding more group member bindings to this alias.';
+      hintEl.style.color = this.isPersisted ? '#7ee787' : '#8b949e';
+    }
+  },
+
+  _getPrimarySelectedPropDef() {
+    if (!this.targetRows || this.targetRows.length === 0) return null;
+    const primary = this.targetRows[0];
+    if (!primary || !primary.memSel || !primary.propSel) return null;
+    const [mType, mId] = (primary.memSel.value || '').split(':');
+    const propName = primary.propSel.value || '';
+    if (!mType || !mId || !propName) return null;
+    const supported = getSupportedPropertiesForMember(mType, mId);
+    return supported.find((p) => p.prop === propName) || null;
+  },
+
+  _syncTypeControls(resetDefaults, propDef = null) {
     const typeSel = document.getElementById('gmModalTypeSelect');
+    const derivedTypeEl = document.getElementById('groupMappingModalDerivedType');
     const defIn = document.getElementById('gmModalDefaultInput');
     const defCol = document.getElementById('gmModalDefaultColorPicker');
+    const defBool = document.getElementById('gmModalDefaultBoolSelect');
+    const numConstraints = document.getElementById('gmModalNumericConstraints');
     const minWrap = document.getElementById('gmModalMinWrap');
     const maxWrap = document.getElementById('gmModalMaxWrap');
     const enumWrap = document.getElementById('gmModalEnumWrap');
+    const noConstraintsNote = document.getElementById('gmModalNoConstraintsNote');
+    const constraintHint = document.getElementById('gmModalConstraintHint');
     const minIn = document.getElementById('gmModalMinInput');
     const maxIn = document.getElementById('gmModalMaxInput');
     const optIn = document.getElementById('gmModalOptionsInput');
     if (!typeSel) return;
 
     const t = typeSel.value || 'number';
+    if (derivedTypeEl) derivedTypeEl.textContent = t;
+
     const isNum = (t === 'number' || t === 'speed');
+    if (numConstraints) numConstraints.style.display = isNum ? 'grid' : 'none';
     if (minWrap) minWrap.style.display = isNum ? 'block' : 'none';
     if (maxWrap) maxWrap.style.display = isNum ? 'block' : 'none';
     if (enumWrap) enumWrap.style.display = (t === 'enum') ? 'block' : 'none';
     if (defCol) defCol.style.display = (t === 'color') ? 'inline-block' : 'none';
+    if (defBool) defBool.style.display = (t === 'boolean') ? 'inline-block' : 'none';
+    if (defIn) defIn.style.display = (t === 'boolean') ? 'none' : 'inline-block';
+
+    if (noConstraintsNote) {
+      if (!isNum && t !== 'enum') {
+        noConstraintsNote.style.display = 'block';
+        if (t === 'color') {
+          noConstraintsNote.textContent = 'Colour domain: valid hex (#RRGGBB) or CSS colour string.';
+        } else if (t === 'boolean') {
+          noConstraintsNote.textContent = 'Boolean domain: true or false.';
+        } else if (t === 'text') {
+          noConstraintsNote.textContent = 'Text domain: string value (supports cycle-safe Text Lite runtime updates).';
+        } else {
+          noConstraintsNote.textContent = `Domain type: ${t}`;
+        }
+      } else {
+        noConstraintsNote.style.display = 'none';
+      }
+    }
+
+    if (constraintHint) {
+      if (propDef && (propDef.min !== undefined || propDef.max !== undefined) && isNum) {
+        constraintHint.textContent = `Target domain bounds: ${propDef.min ?? '−∞'} to ${propDef.max ?? '+∞'}`;
+      } else if (propDef && Array.isArray(propDef.options) && propDef.options.length > 0 && t === 'enum') {
+        constraintHint.textContent = `Allowed target options: ${propDef.options.join(', ')}`;
+      } else {
+        constraintHint.textContent = '';
+      }
+    }
 
     if (resetDefaults && defIn) {
       if (t === 'color') {
-        defIn.value = '#38bdf8';
-        if (defCol) defCol.value = '#38bdf8';
+        const cVal = (propDef && propDef.defaultColor) || '#38bdf8';
+        defIn.value = cVal;
+        if (defCol) defCol.value = cVal;
       } else if (t === 'boolean') {
         defIn.value = 'true';
+        if (defBool) defBool.value = 'true';
       } else if (t === 'speed') {
         defIn.value = '1.0';
-        if (minIn) minIn.value = '0.1';
-        if (maxIn) maxIn.value = '10';
+        if (minIn) minIn.value = (propDef && propDef.min !== undefined) ? String(propDef.min) : '0.1';
+        if (maxIn) maxIn.value = (propDef && propDef.max !== undefined) ? String(propDef.max) : '10';
       } else if (t === 'text') {
         defIn.value = 'Nominal';
       } else if (t === 'enum') {
-        if (optIn && !optIn.value) optIn.value = 'loop, pingpong, once';
-        defIn.value = 'loop';
+        const opts = (propDef && Array.isArray(propDef.options) && propDef.options.length > 0)
+          ? propDef.options
+          : ['loop', 'pingpong', 'once'];
+        if (optIn) optIn.value = opts.join(', ');
+        defIn.value = opts[0];
       } else {
-        defIn.value = '50';
-        if (minIn) minIn.value = '0';
-        if (maxIn) maxIn.value = '100';
+        const dMin = (propDef && propDef.min !== undefined) ? propDef.min : 0;
+        const dMax = (propDef && propDef.max !== undefined) ? propDef.max : 100;
+        if (minIn) minIn.value = String(dMin);
+        if (maxIn) maxIn.value = String(dMax);
+        defIn.value = String(dMax <= 1 ? 1 : Math.round((dMin + dMax) / 2));
       }
+    }
+  },
+
+  _applyPropertyDomainFromMember(mType, mId, propDef) {
+    if (!propDef) return;
+    const typeSel = document.getElementById('gmModalTypeSelect');
+    const typeWrap = document.getElementById('gmModalTypeResolutionWrap');
+    const defIn = document.getElementById('gmModalDefaultInput');
+    const defCol = document.getElementById('gmModalDefaultColorPicker');
+    const defBool = document.getElementById('gmModalDefaultBoolSelect');
+    const minIn = document.getElementById('gmModalMinInput');
+    const maxIn = document.getElementById('gmModalMaxInput');
+    const optIn = document.getElementById('gmModalOptionsInput');
+
+    if (typeWrap) {
+      typeWrap.style.display = (propDef.type === 'text') ? 'flex' : 'none';
+    }
+
+    let derivedType = propDef.type || 'number';
+    if (propDef.type === 'text' && this._explicitNumberToText) {
+      derivedType = 'number';
+    }
+    if (typeSel) {
+      typeSel.value = derivedType;
+    }
+
+    this._syncTypeControls(false, propDef);
+
+    const liveVal = getObjectPropValue(mType, mId, propDef.prop);
+    if (derivedType === 'color') {
+      const hex = (typeof liveVal === 'string' && liveVal.trim()) ? liveVal.trim() : '#38bdf8';
+      if (defIn) defIn.value = hex;
+      if (defCol && /^#[0-9a-fA-F]{6}$/.test(hex)) defCol.value = hex;
+    } else if (derivedType === 'boolean') {
+      const bStr = (liveVal === false || liveVal === 'false' || liveVal === 0) ? 'false' : 'true';
+      if (defIn) defIn.value = bStr;
+      if (defBool) defBool.value = bStr;
+    } else if (derivedType === 'enum') {
+      const opts = Array.isArray(propDef.options) && propDef.options.length > 0 ? propDef.options : ['cw', 'ccw'];
+      if (optIn) optIn.value = opts.join(', ');
+      const curStr = (liveVal !== undefined && liveVal !== null && opts.includes(String(liveVal))) ? String(liveVal) : opts[0];
+      if (defIn) defIn.value = curStr;
+    } else if (derivedType === 'number' || derivedType === 'speed') {
+      const minBound = propDef.min !== undefined ? propDef.min : (derivedType === 'speed' ? 0.1 : 0);
+      const maxBound = propDef.max !== undefined ? propDef.max : (derivedType === 'speed' ? 10 : 100);
+      if (minIn) minIn.value = String(minBound);
+      if (maxIn) maxIn.value = String(maxBound);
+      const numLive = Number(liveVal);
+      if (Number.isFinite(numLive) && numLive >= minBound && numLive <= maxBound) {
+        if (defIn) defIn.value = String(numLive);
+      } else {
+        if (defIn) defIn.value = String(derivedType === 'speed' ? 1.0 : (maxBound <= 1 ? maxBound : Math.round((minBound + maxBound) / 2)));
+      }
+    } else if (derivedType === 'text') {
+      if (defIn) defIn.value = (liveVal !== undefined && liveVal !== null && String(liveVal) !== '') ? String(liveVal) : 'System Ready';
     }
   },
 
@@ -3303,8 +3512,11 @@ window.GroupMappingDialog = {
     this._ensureBound();
     this.activeGroupId = groupId;
     this.originalAlias = existingMapping ? existingMapping.alias : null;
+    this.isPersisted = Boolean(existingMapping && existingMapping.alias);
+    this.lastSavedSnapshot = existingMapping ? JSON.parse(JSON.stringify(existingMapping)) : null;
     this.statusMsgEl = statusMsgEl || null;
     this.targetRows = [];
+    this._explicitNumberToText = false;
 
     const grp = this._getGroup();
     if (!grp) return;
@@ -3316,8 +3528,10 @@ window.GroupMappingDialog = {
     const labelIn = document.getElementById('gmModalLabelInput');
     const descIn = document.getElementById('gmModalDescInput');
     const typeSel = document.getElementById('gmModalTypeSelect');
+    const typeWrap = document.getElementById('gmModalTypeResolutionWrap');
     const defIn = document.getElementById('gmModalDefaultInput');
     const defCol = document.getElementById('gmModalDefaultColorPicker');
+    const defBool = document.getElementById('gmModalDefaultBoolSelect');
     const minIn = document.getElementById('gmModalMinInput');
     const maxIn = document.getElementById('gmModalMaxInput');
     const optIn = document.getElementById('gmModalOptionsInput');
@@ -3336,46 +3550,74 @@ window.GroupMappingDialog = {
       if (labelIn) labelIn.value = existingMapping.label || existingMapping.alias || '';
       if (descIn) descIn.value = existingMapping.description || '';
       if (typeSel) typeSel.value = existingMapping.type || 'number';
-      this._syncTypeControls(false);
-      if (defIn) defIn.value = existingMapping.default !== undefined && existingMapping.default !== null ? String(existingMapping.default) : '';
-      if (defCol && existingMapping.type === 'color' && typeof existingMapping.default === 'string' && existingMapping.default.startsWith('#')) {
-        defCol.value = existingMapping.default;
-      }
-      if (minIn) minIn.value = (existingMapping.min !== undefined && existingMapping.min !== null) ? String(existingMapping.min) : '';
-      if (maxIn) maxIn.value = (existingMapping.max !== undefined && existingMapping.max !== null) ? String(existingMapping.max) : '';
-      if (optIn) optIn.value = Array.isArray(existingMapping.options) ? existingMapping.options.join(', ') : '';
       const existingTargets = Array.isArray(existingMapping.targets) ? existingMapping.targets : [];
       if (existingTargets.length > 0) {
         existingTargets.forEach((t) => {
           const mType = t.memberType || (t.target ? t.target.split('-')[0] : '');
           const mId = t.memberId || (t.target ? t.target.replace(/^[^-]+-/, '') : '');
-          this.addTargetRow(`${mType}:${mId}`, t.property);
+          this.addTargetRow(`${mType}:${mId}`, t.property, true);
         });
       } else {
-        this.addTargetRow();
+        this.addTargetRow('', '', true);
       }
+      const primaryDef = this._getPrimarySelectedPropDef();
+      if (typeWrap) {
+        typeWrap.style.display = (primaryDef && primaryDef.type === 'text') ? 'flex' : 'none';
+      }
+      this._syncTypeControls(false, primaryDef);
+      const defStr = existingMapping.default !== undefined && existingMapping.default !== null ? String(existingMapping.default) : '';
+      if (defIn) defIn.value = defStr;
+      if (defCol && existingMapping.type === 'color' && typeof existingMapping.default === 'string' && existingMapping.default.startsWith('#')) {
+        defCol.value = existingMapping.default;
+      }
+      if (defBool && existingMapping.type === 'boolean') {
+        defBool.value = (defStr.toLowerCase() === 'false' || defStr === '0') ? 'false' : 'true';
+      }
+      if (minIn) minIn.value = (existingMapping.min !== undefined && existingMapping.min !== null) ? String(existingMapping.min) : '';
+      if (maxIn) maxIn.value = (existingMapping.max !== undefined && existingMapping.max !== null) ? String(existingMapping.max) : '';
+      if (optIn) optIn.value = Array.isArray(existingMapping.options) ? existingMapping.options.join(', ') : '';
     } else {
       if (aliasIn) aliasIn.value = '';
       if (labelIn) labelIn.value = '';
       if (descIn) descIn.value = '';
       if (typeSel) typeSel.value = 'number';
       if (optIn) optIn.value = '';
-      this._syncTypeControls(true);
-      this.addTargetRow();
+      this.addTargetRow('', '', false);
     }
 
+    this._syncAddBindingButton();
+    this.renderExistingMappings();
     if (modal) modal.style.display = 'flex';
     this.validateForm();
   },
 
-  close() {
+  cancel() {
+    const gid = this.activeGroupId;
     const modal = document.getElementById('groupMappingModal');
     if (modal) modal.style.display = 'none';
     this.activeGroupId = null;
     this.originalAlias = null;
+    this.isPersisted = false;
+    this.lastSavedSnapshot = null;
+    if (gid) {
+      this.refreshParentInspectors(gid);
+    }
   },
 
-  addTargetRow(initialMemberKey = '', initialProperty = '') {
+  close() {
+    const gid = this.activeGroupId;
+    const modal = document.getElementById('groupMappingModal');
+    if (modal) modal.style.display = 'none';
+    this.activeGroupId = null;
+    this.originalAlias = null;
+    this.isPersisted = false;
+    this.lastSavedSnapshot = null;
+    if (gid) {
+      this.refreshParentInspectors(gid);
+    }
+  },
+
+  addTargetRow(initialMemberKey = '', initialProperty = '', skipDomainSync = false) {
     const grp = this._getGroup();
     const targetsListEl = document.getElementById('gmModalTargetsList');
     const typeSel = document.getElementById('gmModalTypeSelect');
@@ -3385,32 +3627,43 @@ window.GroupMappingDialog = {
 
     const row = document.createElement('div');
     row.className = 'gm-target-row';
-    row.style.cssText = 'display: grid; grid-template-columns: 1.3fr 1.3fr auto; gap: 8px; align-items: center; background: #0d1117; border: 1px solid #30363d; border-radius: 6px; padding: 8px 10px;';
+    row.style.cssText = 'display: grid; grid-template-columns: 1.25fr 1.35fr auto; gap: 8px; align-items: start; background: #0d1117; border: 1px solid #30363d; border-radius: 6px; padding: 8px 10px;';
 
     const memWrap = document.createElement('div');
     const memLbl = document.createElement('label');
-    memLbl.style.cssText = 'display: block; font-size: 0.68rem; color: #8b949e; margin-bottom: 2px;';
-    memLbl.textContent = 'Target Group Member';
+    memLbl.className = 'gm-member-label';
+    memLbl.style.cssText = 'display: block; font-size: 0.70rem; font-weight: 600; color: #c9d1d9; margin-bottom: 3px;';
+    memLbl.textContent = 'Group Member';
     const memSel = document.createElement('select');
     memSel.className = 'gm-member-sel';
     memSel.style.cssText = 'width: 100%; padding: 5px 7px; background: #161b22; border: 1px solid #30363d; color: #e6edf3; border-radius: 4px; font-size: 0.76rem;';
+    const newRowIndex = this.targetRows.length;
+    let selectedMemKey = '';
     members.forEach((m, idx) => {
       const opt = document.createElement('option');
       const key = `${m.type}:${m.id}`;
       opt.value = key;
       opt.textContent = getGroupMemberDisplayLabel(m);
-      if (initialMemberKey ? key === initialMemberKey : idx === (this.targetRows.length % members.length)) {
+      if (initialMemberKey ? key === initialMemberKey : idx === (newRowIndex % members.length)) {
         opt.selected = true;
+        selectedMemKey = key;
       }
       memSel.appendChild(opt);
     });
+    if (!selectedMemKey && members.length > 0) {
+      selectedMemKey = `${members[0].type}:${members[0].id}`;
+    }
+    if (selectedMemKey) {
+      memSel.value = selectedMemKey;
+    }
     memWrap.appendChild(memLbl);
     memWrap.appendChild(memSel);
 
     const propWrap = document.createElement('div');
     const propLbl = document.createElement('label');
-    propLbl.style.cssText = 'display: block; font-size: 0.68rem; color: #8b949e; margin-bottom: 2px;';
-    propLbl.textContent = 'Target Property (Compatibility Filtered)';
+    propLbl.className = 'gm-prop-label';
+    propLbl.style.cssText = 'display: block; font-size: 0.70rem; font-weight: 600; color: #c9d1d9; margin-bottom: 3px;';
+    propLbl.textContent = 'Property';
     const propSel = document.createElement('select');
     propSel.className = 'gm-prop-sel';
     propSel.style.cssText = 'width: 100%; padding: 5px 7px; background: #161b22; border: 1px solid #30363d; color: #e6edf3; border-radius: 4px; font-size: 0.76rem;';
@@ -3421,8 +3674,13 @@ window.GroupMappingDialog = {
     propWrap.appendChild(propSel);
     propWrap.appendChild(propHint);
 
-    const populateProps = (preserveCurrent) => {
+    const rowRef = { row, memSel, propSel, propHint, populateProps: null };
+    this.targetRows.push(rowRef);
+
+    const populateProps = (preserveCurrent, updateDomainFromPrimary = false) => {
       const [mType, mId] = (memSel.value || '').split(':');
+      const rowIndex = this.targetRows.indexOf(rowRef);
+      const isPrimaryTypeDriver = (rowIndex === 0 && this.targetRows.length <= 1 && !this.isPersisted);
       const mKindType = (typeSel && typeSel.value) ? typeSel.value : 'number';
       const supportedProps = getSupportedPropertiesForMember(mType, mId);
       const prevVal = preserveCurrent ? propSel.value : initialProperty;
@@ -3432,13 +3690,13 @@ window.GroupMappingDialog = {
       let compatibleCount = 0;
 
       supportedProps.forEach((p) => {
-        const compatible = (p.type === mKindType) || (mKindType === 'number' && p.type === 'text');
+        const compatible = isPrimaryTypeDriver || (p.type === mKindType) || (mKindType === 'number' && p.type === 'text');
         const opt = document.createElement('option');
         opt.value = p.prop;
         if (compatible) {
           compatibleCount++;
           if (!firstCompatibleVal) firstCompatibleVal = p.prop;
-          const convNote = (mKindType === 'number' && p.type === 'text') ? ' [number→text readout]' : '';
+          const convNote = (!isPrimaryTypeDriver && mKindType === 'number' && p.type === 'text') ? ' [number→text readout]' : '';
           const rangeNote = (p.min !== undefined || p.max !== undefined) ? ` [${p.min ?? '−∞'}..${p.max ?? '+∞'}]` : '';
           opt.textContent = `✓ ${p.prop} — ${p.label} (${p.type}${rangeNote}${convNote})`;
         } else {
@@ -3455,14 +3713,19 @@ window.GroupMappingDialog = {
         propSel.appendChild(emptyOpt);
         propSel.value = '';
         propHint.style.color = '#f85149';
-        propHint.textContent = `⚠️ This member has no properties compatible with "${mKindType}". Choose another member or change Parameter Type.`;
+        propHint.textContent = `⚠️ This member has no properties compatible with "${mKindType}". Choose another member.`;
       } else {
-        const canSelectPrev = prevVal && Array.from(propSel.options).some((o) => o.value === prevVal && !o.disabled);
+        const optList = Array.from(propSel.options || propSel.children || []);
+        const canSelectPrev = prevVal && optList.some((o) => o.value === prevVal && !o.disabled);
         propSel.value = canSelectPrev ? prevVal : firstCompatibleVal;
         const selectedDef = supportedProps.find((p) => p.prop === propSel.value);
         if (selectedDef) {
+          if (rowIndex === 0 && updateDomainFromPrimary) {
+            this._applyPropertyDomainFromMember(mType, mId, selectedDef);
+          }
+          const activeType = (typeSel && typeSel.value) ? typeSel.value : selectedDef.type;
           propHint.style.color = '#8b949e';
-          if (mKindType === 'number' && selectedDef.type === 'text') {
+          if (activeType === 'number' && selectedDef.type === 'text') {
             propHint.textContent = `ℹ️ Numeric value converts automatically to text readout on ${mType}-${mId}.${selectedDef.prop}.`;
           } else if (selectedDef.min !== undefined || selectedDef.max !== undefined) {
             propHint.textContent = `ℹ️ Target domain constraint: ${selectedDef.min ?? '−∞'} to ${selectedDef.max ?? '+∞'}.`;
@@ -3474,27 +3737,30 @@ window.GroupMappingDialog = {
         }
       }
     };
+    rowRef.populateProps = populateProps;
 
     memSel.addEventListener('change', () => {
-      populateProps(false);
+      const isPrimary = (this.targetRows.indexOf(rowRef) === 0 && this.targetRows.length <= 1 && !this.isPersisted);
+      populateProps(false, isPrimary);
       this.validateForm();
     });
     propSel.addEventListener('change', () => {
-      populateProps(true);
+      const isPrimary = (this.targetRows.indexOf(rowRef) === 0 && this.targetRows.length <= 1);
+      populateProps(true, isPrimary);
+      if (this.targetRows.indexOf(rowRef) === 0 && this.targetRows.length > 1) {
+        this.targetRows.slice(1).forEach((r) => r.populateProps(true, false));
+      }
       this.validateForm();
     });
 
-    populateProps(false);
+    populateProps(false, !skipDomainSync && this.targetRows.length === 1);
 
     const remBtn = document.createElement('button');
     remBtn.type = 'button';
     remBtn.className = 'gm-remove-target-btn';
-    remBtn.style.cssText = 'background: #21262d; border: 1px solid #30363d; color: #f85149; cursor: pointer; font-size: 0.78rem; padding: 5px 8px; border-radius: 4px; align-self: start; margin-top: 16px;';
+    remBtn.style.cssText = 'background: #21262d; border: 1px solid #30363d; color: #f85149; cursor: pointer; font-size: 0.75rem; padding: 5px 8px; border-radius: 4px; align-self: start; margin-top: 18px;';
     remBtn.textContent = '✕ Remove';
     remBtn.title = 'Remove this target binding';
-
-    const rowRef = { row, memSel, propSel, propHint, populateProps };
-    this.targetRows.push(rowRef);
 
     remBtn.addEventListener('click', () => {
       if (this.targetRows.length <= 1) {
@@ -3505,6 +3771,7 @@ window.GroupMappingDialog = {
       if (idx >= 0) this.targetRows.splice(idx, 1);
       if (typeof row.remove === 'function') row.remove();
       else if (row.parentNode) row.parentNode.removeChild(row);
+      this.targetRows.forEach((r) => r.populateProps(true, false));
       this.validateForm();
     });
 
@@ -3515,12 +3782,105 @@ window.GroupMappingDialog = {
     return rowRef;
   },
 
+  renderExistingMappings() {
+    const listEl = document.getElementById('gmModalExistingMappingsList');
+    const countEl = document.getElementById('gmModalExistingCount');
+    if (!listEl) return;
+    const grp = this._getGroup();
+    const mappings = (grp && Array.isArray(grp.mappings)) ? grp.mappings : [];
+    if (countEl) countEl.textContent = String(mappings.length);
+
+    listEl.innerHTML = '';
+    if (mappings.length === 0) {
+      listEl.innerHTML = `<div style="font-size: 0.72rem; color: #8b949e; font-style: italic; padding: 6px 4px;">No semantic mappings saved on this group yet.</div>`;
+      return;
+    }
+
+    const grpName = (grp && (grp.name || grp.id)) || 'group-1';
+    mappings.forEach((m) => {
+      const item = document.createElement('div');
+      item.className = 'gm-existing-mapping-item';
+      item.dataset.alias = m.alias;
+      const isEditingThis = (this.isPersisted && this.originalAlias === m.alias);
+      item.style.cssText = `display: flex; justify-content: space-between; align-items: center; gap: 8px; padding: 6px 9px; background: #0d1117; border: 1px solid ${isEditingThis ? '#3fb950' : '#30363d'}; border-radius: 6px; font-size: 0.74rem;`;
+
+      const paramName = (window.EngineBridge && typeof window.EngineBridge.generateParameterName === 'function')
+        ? window.EngineBridge.generateParameterName(grpName, m.alias, 'group')
+        : `${grpName}-group-${m.alias}`;
+      const targetsText = (Array.isArray(m.targets) ? m.targets : [])
+        .map((t) => `${t.target}.${t.property}`)
+        .join(', ');
+
+      const infoWrap = document.createElement('div');
+      infoWrap.style.cssText = 'display: flex; flex-direction: column; gap: 2px; min-width: 0; flex: 1;';
+      infoWrap.innerHTML = `
+        <div style="display: flex; align-items: center; gap: 6px; flex-wrap: wrap;">
+          <code style="color: #7ee787; background: rgba(63,185,80,0.12); padding: 1px 5px; border-radius: 3px; font-weight: 600;">${m.alias}</code>
+          <strong style="color: #e6edf3;">${m.label || m.alias}</strong>
+          <span style="color: #8b949e; font-size: 0.68rem;">(${m.type})</span>
+          <code style="color: #58a6ff; font-size: 0.68rem;">${paramName}</code>
+        </div>
+        <div style="color: #8b949e; font-size: 0.69rem; overflow: hidden; text-overflow: ellipsis; white-space: nowrap;">
+          🎯 Bound (${(m.targets || []).length}): <code style="color: #79c0ff;">${targetsText}</code> • Default: <strong style="color: #c9d1d9;">${m.default}</strong>
+        </div>
+      `;
+
+      const btnWrap = document.createElement('div');
+      btnWrap.style.cssText = 'display: flex; align-items: center; gap: 5px; flex-shrink: 0;';
+
+      const editBtn = document.createElement('button');
+      editBtn.type = 'button';
+      editBtn.className = 'btn-modal-edit-mapping';
+      editBtn.style.cssText = 'background: #21262d; border: 1px solid #30363d; color: #58a6ff; font-size: 0.68rem; padding: 3px 7px; border-radius: 4px; cursor: pointer;';
+      editBtn.textContent = '✏️ Edit';
+      editBtn.title = `Load "${m.alias}" into editor`;
+      editBtn.addEventListener('click', (e) => {
+        e.stopPropagation();
+        this.open(grp.id, m, this.statusMsgEl);
+      });
+
+      const remBtn = document.createElement('button');
+      remBtn.type = 'button';
+      remBtn.className = 'btn-modal-remove-mapping';
+      remBtn.style.cssText = 'background: #21262d; border: 1px solid #da3633; color: #f85149; font-size: 0.68rem; padding: 3px 7px; border-radius: 4px; cursor: pointer;';
+      remBtn.textContent = '✕ Remove';
+      remBtn.title = `Remove semantic mapping "${m.alias}"`;
+      remBtn.addEventListener('click', (e) => {
+        e.stopPropagation();
+        if (window.EngineBridge && typeof window.EngineBridge.removeGroupMapping === 'function') {
+          const res = window.EngineBridge.removeGroupMapping(grp.id, m.alias);
+          if (res && res.success) {
+            if (window.AppCoordinator) {
+              window.AppCoordinator.recordHistoryImmediate();
+              window.AppCoordinator.showNotification(`Removed group mapping '${m.alias}'`, 'info');
+            }
+            const wasEditingRemoved = (this.originalAlias === m.alias);
+            this.refreshParentInspectors(grp.id);
+            if (wasEditingRemoved) {
+              this.open(grp.id, null, this.statusMsgEl);
+            } else {
+              this.renderExistingMappings();
+              this.validateForm();
+            }
+          }
+        }
+      });
+
+      btnWrap.appendChild(editBtn);
+      btnWrap.appendChild(remBtn);
+      item.appendChild(infoWrap);
+      item.appendChild(btnWrap);
+      listEl.appendChild(item);
+    });
+  },
+
   buildCandidatePayload() {
     const aliasIn = document.getElementById('gmModalAliasInput');
     const labelIn = document.getElementById('gmModalLabelInput');
     const descIn = document.getElementById('gmModalDescInput');
     const typeSel = document.getElementById('gmModalTypeSelect');
     const defIn = document.getElementById('gmModalDefaultInput');
+    const defBool = document.getElementById('gmModalDefaultBoolSelect');
     const minIn = document.getElementById('gmModalMinInput');
     const maxIn = document.getElementById('gmModalMaxInput');
     const optIn = document.getElementById('gmModalOptionsInput');
@@ -3529,7 +3889,9 @@ window.GroupMappingDialog = {
     const label = (labelIn && labelIn.value ? labelIn.value : '').trim() || alias;
     const description = (descIn && descIn.value ? descIn.value : '').trim();
     const mType = (typeSel && typeSel.value) ? typeSel.value : 'number';
-    const rawDef = (defIn && defIn.value !== undefined) ? String(defIn.value).trim() : '';
+    const rawDef = (mType === 'boolean' && defBool && defBool.style.display !== 'none')
+      ? String(defBool.value).trim()
+      : ((defIn && defIn.value !== undefined) ? String(defIn.value).trim() : '');
 
     let defVal = rawDef;
     if (mType === 'number' || mType === 'speed') {
@@ -3585,7 +3947,7 @@ window.GroupMappingDialog = {
 
     // 1. Unique & valid semantic alias
     if (!alias) {
-      errors.push('Semantic Alias is required (e.g. cpu, status-color, headline).');
+      errors.push('Alias is required (e.g. cpu, status-color, headline).');
     } else if (!reAlias.test(alias)) {
       errors.push(`Invalid alias "${alias}": must start with a letter and contain only letters, digits, underscores, or hyphens (max 48 chars).`);
     } else if (reserved.includes(alias.toLowerCase())) {
@@ -3714,12 +4076,16 @@ window.GroupMappingDialog = {
     }
 
     const derivedEl = document.getElementById('groupMappingModalDerivedName');
+    const derivedTypeEl = document.getElementById('groupMappingModalDerivedType');
     if (derivedEl && grp) {
       const grpName = grp.name || grp.id;
       const cleanAlias = payload.alias || 'alias';
       derivedEl.textContent = (window.EngineBridge && typeof window.EngineBridge.generateParameterName === 'function')
         ? window.EngineBridge.generateParameterName(grpName, cleanAlias, 'group')
         : `${grpName}-group-${cleanAlias}`;
+    }
+    if (derivedTypeEl) {
+      derivedTypeEl.textContent = payload.type || 'number';
     }
 
     const footerSum = document.getElementById('gmModalFooterSummary');
@@ -3735,12 +4101,12 @@ window.GroupMappingDialog = {
         valBox.style.background = 'rgba(35, 134, 54, 0.12)';
         valBox.style.color = '#7ee787';
         const targetList = payload.targets.map((t) => `${t.target}.${t.property}`).join(', ');
-        valBox.innerHTML = `✓ <strong>Valid Semantic Mapping:</strong> <code>${payload.alias}</code> (${payload.type}) → fans out atomically to <code>[${targetList}]</code>.`;
+        valBox.innerHTML = `<span>✓ <strong>Valid Mapping:</strong> <code>${payload.alias}</code> (${payload.type}) → <code>[${targetList}]</code></span>`;
       } else {
         valBox.style.borderColor = 'rgba(248, 81, 73, 0.55)';
         valBox.style.background = 'rgba(248, 81, 73, 0.10)';
         valBox.style.color = '#ffa198';
-        valBox.innerHTML = `<strong>⚠️ Please resolve before saving:</strong><ul style="margin: 4px 0 0 18px; padding: 0;">${res.errors.map((e) => `<li>${e}</li>`).join('')}</ul>`;
+        valBox.innerHTML = `<div><strong>⚠️ Resolve before saving:</strong><ul style="margin: 3px 0 0 16px; padding: 0;">${res.errors.map((e) => `<li>${e}</li>`).join('')}</ul></div>`;
       }
     }
     if (saveBtn) {
@@ -3762,7 +4128,6 @@ window.GroupMappingDialog = {
     }
 
     if (window.EngineBridge && typeof window.EngineBridge.setGroupMapping === 'function') {
-      // If editing and alias was renamed, remove old alias first after validating new alias
       if (this.originalAlias && this.originalAlias !== payload.alias && typeof window.EngineBridge.removeGroupMapping === 'function') {
         const oldSnapshot = (Array.isArray(grp.mappings) ? grp.mappings : []).find((m) => m.alias === this.originalAlias);
         window.EngineBridge.removeGroupMapping(grp.id, this.originalAlias);
@@ -3780,6 +4145,28 @@ window.GroupMappingDialog = {
         }
       }
 
+      this.isPersisted = true;
+      this.originalAlias = payload.alias;
+      this.lastSavedSnapshot = JSON.parse(JSON.stringify(payload));
+
+      const titleEl = document.getElementById('groupMappingModalTitle');
+      if (titleEl) {
+        titleEl.textContent = `✏️ Edit Semantic Group Property Mapping ("${payload.alias}")`;
+      }
+
+      this._syncAddBindingButton();
+      this.targetRows.forEach((r) => r.populateProps(true, false));
+      this.renderExistingMappings();
+
+      const valBox = document.getElementById('gmModalValidationBox');
+      if (valBox) {
+        const targetList = payload.targets.map((t) => `${t.target}.${t.property}`).join(', ');
+        valBox.style.borderColor = 'rgba(63, 185, 80, 0.65)';
+        valBox.style.background = 'rgba(35, 134, 54, 0.18)';
+        valBox.style.color = '#7ee787';
+        valBox.innerHTML = `<span>✓ <strong>Saved "${payload.alias}"</strong> (${payload.targets.length} binding(s): <code>[${targetList}]</code>). You can now click <strong>+ Add New Binding</strong> or close the dialog.</span>`;
+      }
+
       if (this.statusMsgEl) {
         this.statusMsgEl.style.color = '#3fb950';
         this.statusMsgEl.textContent = `✓ Saved group semantic mapping "${payload.alias}" (${payload.targets.length} target(s))`;
@@ -3788,11 +4175,7 @@ window.GroupMappingDialog = {
         window.AppCoordinator.recordHistoryImmediate();
         window.AppCoordinator.showNotification(`Saved group mapping '${payload.alias}'`, 'success');
       }
-      this.close();
-      if (typeof window.renderWidgetParametersOverview === 'function') window.renderWidgetParametersOverview();
-      if (window.FloatingPropertiesEditor && typeof window.FloatingPropertiesEditor.syncSelection === 'function') {
-        window.FloatingPropertiesEditor.syncSelection();
-      }
+      this.refreshParentInspectors(grp.id);
       return true;
     }
     return false;
@@ -3801,9 +4184,11 @@ window.GroupMappingDialog = {
 
 window.renderGroupSemanticMappingsSection = function(containerEl, sel, statusMsgEl) {
   if (!containerEl || !sel || sel.type !== 'group' || !sel.id) return;
-  const grp = (window.AppCoordinator && typeof window.AppCoordinator.getGroup === 'function')
-    ? window.AppCoordinator.getGroup(sel.id)
-    : (window.EngineBridge && typeof window.EngineBridge.getGroup === 'function' ? window.EngineBridge.getGroup(sel.id) : null);
+  const grp = (window.EngineBridge && typeof window.EngineBridge.getGroup === 'function' && window.EngineBridge.isReady && window.EngineBridge.isReady())
+    ? window.EngineBridge.getGroup(sel.id)
+    : ((window.AppCoordinator && typeof window.AppCoordinator.getGroup === 'function')
+      ? window.AppCoordinator.getGroup(sel.id)
+      : (window.EngineBridge && typeof window.EngineBridge.getGroup === 'function' ? window.EngineBridge.getGroup(sel.id) : null));
   if (!grp) return;
 
   const secWrap = document.createElement('div');
@@ -3812,7 +4197,7 @@ window.renderGroupSemanticMappingsSection = function(containerEl, sel, statusMsg
 
   const titleRow = document.createElement('div');
   titleRow.style.cssText = 'display: flex; justify-content: space-between; align-items: center;';
-  titleRow.innerHTML = `<span style="font-size: 0.76rem; font-weight: 600; color: #58a6ff;">🔗 Semantic Group Property Mappings</span>`;
+  titleRow.innerHTML = `<span style="font-size: 0.76rem; font-weight: 600; color: #58a6ff;">🔗 Semantic Group Property Mappings (${Array.isArray(grp.mappings) ? grp.mappings.length : 0})</span>`;
 
   const addMappingBtn = document.createElement('button');
   addMappingBtn.type = 'button';
@@ -3847,7 +4232,7 @@ window.renderGroupSemanticMappingsSection = function(containerEl, sel, statusMsg
 
       const hdr = document.createElement('div');
       hdr.style.cssText = 'display: flex; justify-content: space-between; align-items: center; gap: 6px;';
-      hdr.innerHTML = `<span style="font-size: 0.74rem; color: #e6edf3;"><strong>${m.label || m.alias}</strong> <span style="color:#8b949e; font-size:0.68rem;">(${m.type})</span></span>`;
+      hdr.innerHTML = `<span style="font-size: 0.74rem; color: #e6edf3;"><code style="color:#7ee787; background:rgba(63,185,80,0.12); padding:1px 4px; border-radius:3px; margin-right:4px;">${m.alias}</code><strong>${m.label || m.alias}</strong> <span style="color:#8b949e; font-size:0.68rem;">(${m.type})</span></span>`;
 
       const rightHdr = document.createElement('div');
       rightHdr.style.cssText = 'display: flex; align-items: center; gap: 4px;';
@@ -3883,9 +4268,9 @@ window.renderGroupSemanticMappingsSection = function(containerEl, sel, statusMsg
               window.AppCoordinator.recordHistoryImmediate();
               window.AppCoordinator.showNotification(`Removed group mapping '${m.alias}'`, 'info');
             }
-            if (typeof window.renderWidgetParametersOverview === 'function') window.renderWidgetParametersOverview();
-            if (window.FloatingPropertiesEditor && typeof window.FloatingPropertiesEditor.syncSelection === 'function') {
-              window.FloatingPropertiesEditor.syncSelection();
+            window.GroupMappingDialog.refreshParentInspectors(grp.id);
+            if (window.GroupMappingDialog.activeGroupId === grp.id) {
+              window.GroupMappingDialog.renderExistingMappings();
             }
           }
         }

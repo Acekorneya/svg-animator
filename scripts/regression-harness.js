@@ -12304,6 +12304,44 @@ async function runHarness() {
     });
     assert(badOpRange && badOpRange.success === false, 'W16E-26: Rejected max=100 on opacity [0..1] member property');
 
+    // 6. GroupMappingDialog Refinement: Layout, Add New Binding enablement, & Parent Inspector Synchronisation
+    window.AppCoordinator.selectGroup(pureLiteGrp.id);
+    if (window.FloatingPropertiesEditor && typeof window.FloatingPropertiesEditor.openFor === 'function') {
+      window.FloatingPropertiesEditor.openFor('group', pureLiteGrp.id);
+    }
+    window.GroupMappingDialog.open(pureLiteGrp.id, null);
+    assert.strictEqual(window.GroupMappingDialog.isPersisted, false, 'W16E-27: New unsaved mapping starts with isPersisted=false');
+    const addBindBtn = document.getElementById('btnGmModalAddTarget');
+    assert(addBindBtn && addBindBtn.disabled === true, 'W16E-28: Add New Binding button is disabled before initial save');
+    assert.strictEqual(document.getElementById('gmModalDescInput')?.tagName, 'TEXTAREA', 'W16E-29: Description field is a multiline TEXTAREA');
+
+    // Configure primary binding (pureLite1.value) and save
+    document.getElementById('gmModalAliasInput').value = 'load';
+    document.getElementById('gmModalLabelInput').value = 'Cluster Load (%)';
+    document.getElementById('gmModalDescInput').value = 'Multiline description\nLine 2';
+    window.GroupMappingDialog.targetRows[0].memSel.value = `lite:${pureLite1.id}`;
+    window.GroupMappingDialog.targetRows[0].populateProps(false, true);
+    window.GroupMappingDialog.targetRows[0].propSel.value = 'value';
+    window.GroupMappingDialog.targetRows[0].populateProps(true, true);
+    assert.strictEqual(document.getElementById('gmModalTypeSelect').value, 'number', 'W16E-30: Selecting gauge.value derives mapping type=number');
+    assert.strictEqual(window.GroupMappingDialog.save(), true, 'W16E-31: Initial 1-target mapping save succeeded');
+    assert.strictEqual(window.GroupMappingDialog.isPersisted, true, 'W16E-32: After save, isPersisted=true');
+    assert.strictEqual(addBindBtn.disabled, false, 'W16E-33: Add New Binding button is enabled after initial save');
+
+    // Verify immediate synchronisation of Right Drawer, Floating Context Editor, and Modal Existing Mappings list
+    const modalListKids = document.getElementById('gmModalExistingMappingsList')?.children || [];
+    assert(modalListKids.some(c => c.dataset && c.dataset.alias === 'load'), 'W16E-34: Modal Existing Mappings list immediately updated');
+    const drawerSec = (document.getElementById('drawerWidgetPropertiesList')?.children || []).find(c => c.className === 'group-semantic-mappings-section');
+    assert(drawerSec && (drawerSec.children[1]?.children || []).some(c => c.dataset && c.dataset.alias === 'load'), 'W16E-35: Right Drawer Group Inspector immediately updated');
+    const fctxSec = (document.getElementById('fctx-widgetPropertiesList')?.children || []).find(c => c.className === 'group-semantic-mappings-section');
+    assert(fctxSec && (fctxSec.children[1]?.children || []).some(c => c.dataset && c.dataset.alias === 'load'), 'W16E-36: Floating Context Editor Group Inspector immediately updated');
+
+    // Cancel after adding an invalid second binding preserves saved 1-target mapping
+    window.GroupMappingDialog.addTargetRow(`lite:${pureLite1.id}`, 'value');
+    assert.strictEqual(window.GroupMappingDialog.validateForm().valid, false, 'W16E-37: Duplicate second binding fails validation');
+    window.GroupMappingDialog.cancel();
+    assert.strictEqual(window.AppCoordinator.getGroup(pureLiteGrp.id).mappings[0].targets.length, 1, 'W16E-38: Cancel after invalid second binding preserves saved 1-target mapping');
+
     window.ProjectManager.resetToNewProject();
     window.EngineBridge.setWidgetParameters([]);
   }

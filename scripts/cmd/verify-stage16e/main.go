@@ -157,44 +157,116 @@ func run() int {
 			const deckVis = document.getElementById('drawerWidgetAuthoringDeck')?.style.display !== 'none';
 			const semanticSecVis = Boolean(document.querySelector('.group-semantic-mappings-section'));
 
-			// 3. Dedicated Add/Edit Mapping Modal Dialog & Compatibility Filtering
+			// 3. Dedicated Add/Edit Mapping Modal Dialog — Layout, Workflow & 18 Focused Checks
 			document.querySelector('.btn-add-group-mapping')?.click();
 			const modalOpen1 = document.getElementById('groupMappingModal')?.style.display === 'flex';
-			// Empty alias -> Save button disabled
+
+			// Check 7 & 8: Alias | Label 2-column layout and multiline Description textarea
+			const aliasLabelOk = (document.getElementById('gmModalAliasLabel')?.textContent || '').trim().startsWith('Alias');
+			const labelLabelOk = (document.getElementById('gmModalLabelLabel')?.textContent || '').trim() === 'Label';
+			const identityTwoCols = (document.getElementById('gmModalIdentityRow')?.style.gridTemplateColumns || '').includes('1fr 1fr');
+			const descIsTextarea = document.getElementById('gmModalDescInput')?.tagName === 'TEXTAREA';
+			const memberLabelText = (document.querySelector('#gmModalTargetsList .gm-member-label')?.textContent || '').trim();
+			const memberLabelOk = memberLabelText === 'Group Member';
+
+			// Check 12 & 13: Save Mapping disabled when alias is empty; Add New Binding disabled before initial save
 			const saveDisabledWhenEmpty = Boolean(document.getElementById('btnGroupMappingModalSave')?.disabled);
+			const addBindingDisabledBeforeSave = Boolean(document.getElementById('btnGmModalAddTarget')?.disabled);
+
 			// Cancel closes modal without changes
 			document.getElementById('btnGroupMappingModalCancel')?.click();
 			const modalClosedAfterCancel = document.getElementById('groupMappingModal')?.style.display === 'none';
 
-			// Re-open modal and author 'cpu' mapping (number -> gauge.value + text.text)
+			// Re-open modal and configure primary binding: leGauge.value (1 target initially)
 			window.GroupMappingDialog.open(grp1.id, null, document.getElementById('drawerWidgetStatusMsg'));
 			document.getElementById('gmModalAliasInput').value = 'cpu';
 			document.getElementById('gmModalLabelInput').value = 'CPU Load (%)';
-			document.getElementById('gmModalTypeSelect').value = 'number';
-			window.GroupMappingDialog._syncTypeControls(false);
-			document.getElementById('gmModalDefaultInput').value = '40';
-			document.getElementById('gmModalMinInput').value = '0';
-			document.getElementById('gmModalMaxInput').value = '100';
+			document.getElementById('gmModalDescInput').value = 'Line 1 description\nLine 2 fan-out details';
 
-			// Configure row 1: leGauge.value, add row 2: leText.text
+			// Check 9 & 10: Selecting Group Member (leGauge) and Property (value) derives type='number' & domain [0..100], default=40
 			window.GroupMappingDialog.targetRows[0].memSel.value = 'lite:' + leGauge.id;
-			window.GroupMappingDialog.targetRows[0].populateProps(false);
+			window.GroupMappingDialog.targetRows[0].memSel.dispatchEvent(new Event('change'));
 			window.GroupMappingDialog.targetRows[0].propSel.value = 'value';
-			// Verify incompatible color property on leGauge is disabled in dropdown when type is 'number'
-			const colorOptDisabledWhenNumber = Array.from(window.GroupMappingDialog.targetRows[0].propSel.options)
-				.some(o => o.value === 'color' && o.disabled);
+			window.GroupMappingDialog.targetRows[0].propSel.dispatchEvent(new Event('change'));
+			const domainRespondedToTarget = document.getElementById('gmModalTypeSelect')?.value === 'number' &&
+				document.getElementById('gmModalDefaultInput')?.value === '40' &&
+				document.getElementById('gmModalMinInput')?.value === '0' &&
+				document.getElementById('gmModalMaxInput')?.value === '100';
 
-			window.GroupMappingDialog.addTargetRow('lite:' + leText.id, 'text');
+			// Check 11: Validation error on out-of-range default (999) clears immediately when corrected to 40
+			document.getElementById('gmModalDefaultInput').value = '999';
+			document.getElementById('gmModalDefaultInput').dispatchEvent(new Event('input'));
+			const saveDisabledOnInvalidDefault = Boolean(document.getElementById('btnGroupMappingModalSave')?.disabled);
+			document.getElementById('gmModalDefaultInput').value = '40';
+			document.getElementById('gmModalDefaultInput').dispatchEvent(new Event('input'));
+			const saveEnabledAfterCorrection = !document.getElementById('btnGroupMappingModalSave')?.disabled;
+
+			// Save initial 1-target mapping
+			const initialSaveSuccess = window.GroupMappingDialog.save();
+
+			// Check 1, 3, 14: Immediately visible in Right Drawer, Floating Context Editor, and modal bottom list; Add New Binding now enabled!
+			const addBindingEnabledAfterSave = !document.getElementById('btnGmModalAddTarget')?.disabled;
+			const modalExistingCount1 = document.querySelectorAll('#gmModalExistingMappingsList .gm-existing-mapping-item').length;
+			const drawerHasCard1 = Boolean(document.querySelector('#drawerWidgetPropertiesList .group-mapping-card[data-alias="cpu"]'));
+			const fctxHasCard1 = Boolean(document.querySelector('#fctx-widgetPropertiesList .group-mapping-card[data-alias="cpu"]'));
+
+			// Check 15: Click "+ Add New Binding", select leText.text (with compatibility filtering), and save extended 2-target mapping
+			document.getElementById('btnGmModalAddTarget')?.click();
+			const hasTwoTargetRows = window.GroupMappingDialog.targetRows.length === 2;
+			window.GroupMappingDialog.targetRows[1].memSel.value = 'lite:' + leText.id;
+			window.GroupMappingDialog.targetRows[1].memSel.dispatchEvent(new Event('change'));
+			// Verify incompatible color property on leText is disabled when mapping type is 'number'
+			const colorOptDisabledWhenNumber = Array.from(window.GroupMappingDialog.targetRows[1].propSel.options)
+				.some(o => o.value === 'color' && o.disabled);
+			window.GroupMappingDialog.targetRows[1].propSel.value = 'text';
+			window.GroupMappingDialog.targetRows[1].propSel.dispatchEvent(new Event('change'));
 			const valRes = window.GroupMappingDialog.validateForm();
 			const saveSuccess = window.GroupMappingDialog.save();
+			const savedTwoTargets = (window.AppCoordinator.getGroup(grp1.id).mappings[0].targets || []).length === 2;
 
-			// Open Edit Mapping dialog for 'cpu' and cancel without changes
+			// Check 16: Add an invalid third binding (duplicate target) -> rejected & cancelled without damaging saved 2-target mapping
+			document.getElementById('btnGmModalAddTarget')?.click();
+			window.GroupMappingDialog.targetRows[2].memSel.value = 'lite:' + leText.id;
+			window.GroupMappingDialog.targetRows[2].memSel.dispatchEvent(new Event('change'));
+			window.GroupMappingDialog.targetRows[2].propSel.value = 'text';
+			window.GroupMappingDialog.targetRows[2].propSel.dispatchEvent(new Event('change'));
+			const dupBindingRejected = !window.GroupMappingDialog.validateForm().valid &&
+				Boolean(document.getElementById('btnGroupMappingModalSave')?.disabled) &&
+				window.GroupMappingDialog.save() === false;
+			document.getElementById('btnGroupMappingModalCancel')?.click();
+			const preservedAfterInvalidThirdCancel = (window.AppCoordinator.getGroup(grp1.id).mappings[0].targets || []).length === 2;
+
+			// Check 2, 4, 5, 6: Preserved after modal close; Edit reflected immediately; Temp mapping added & removed immediately
+			const drawerHasCardAfterClose = Boolean(document.querySelector('#drawerWidgetPropertiesList .group-mapping-card[data-alias="cpu"]'));
+			const fctxHasCardAfterClose = Boolean(document.querySelector('#fctx-widgetPropertiesList .group-mapping-card[data-alias="cpu"]'));
+
 			document.querySelector('.btn-edit-group-mapping')?.click();
 			const editModalOpen = document.getElementById('groupMappingModal')?.style.display === 'flex' &&
 				document.getElementById('gmModalAliasInput')?.value === 'cpu';
+			document.getElementById('gmModalLabelInput').value = 'CPU Telemetry (%)';
+			window.GroupMappingDialog.save();
+			const editReflectedInInspectors = (document.querySelector('#drawerWidgetPropertiesList .group-mapping-card[data-alias="cpu"]')?.textContent || '').includes('CPU Telemetry (%)') &&
+				(document.querySelector('#fctx-widgetPropertiesList .group-mapping-card[data-alias="cpu"]')?.textContent || '').includes('CPU Telemetry (%)');
+
+			// Cancel unsaved mutation preserves saved alias
 			document.getElementById('gmModalAliasInput').value = 'mutated-unsaved';
 			document.getElementById('btnGroupMappingModalCancel')?.click();
 			const unchangedAfterEditCancel = window.AppCoordinator.getGroup(grp1.id).mappings[0].alias === 'cpu';
+
+			// Add a temporary second mapping 'temp-col' and remove it via inspector Remove button
+			window.GroupMappingDialog.open(grp1.id, null, document.getElementById('drawerWidgetStatusMsg'));
+			document.getElementById('gmModalAliasInput').value = 'temp-col';
+			window.GroupMappingDialog.targetRows[0].memSel.value = 'lite:' + leGauge.id;
+			window.GroupMappingDialog.targetRows[0].memSel.dispatchEvent(new Event('change'));
+			window.GroupMappingDialog.targetRows[0].propSel.value = 'color';
+			window.GroupMappingDialog.targetRows[0].propSel.dispatchEvent(new Event('change'));
+			window.GroupMappingDialog.save();
+			window.GroupMappingDialog.close();
+			const tempAddedInBoth = Boolean(document.querySelector('#drawerWidgetPropertiesList .group-mapping-card[data-alias="temp-col"]')) &&
+				Boolean(document.querySelector('#fctx-widgetPropertiesList .group-mapping-card[data-alias="temp-col"]'));
+			document.querySelector('#drawerWidgetPropertiesList .group-mapping-card[data-alias="temp-col"] .btn-remove-group-mapping')?.click();
+			const tempRemovedInBoth = !document.querySelector('#drawerWidgetPropertiesList .group-mapping-card[data-alias="temp-col"]') &&
+				!document.querySelector('#fctx-widgetPropertiesList .group-mapping-card[data-alias="temp-col"]');
 
 			// 4. Whole-Widget Operating State button (#btnAddGlobalStateParam) in Studio
 			document.getElementById('btnAddGlobalStateParam')?.click();
@@ -211,9 +283,16 @@ func run() int {
 
 			return JSON.stringify({
 				ok: Boolean(liteToolbarVis && pureGrpOk && grp1 && deckVis && semanticSecVis &&
-					modalOpen1 && saveDisabledWhenEmpty && modalClosedAfterCancel &&
-					colorOptDisabledWhenNumber && valRes.valid && saveSuccess &&
-					editModalOpen && unchangedAfterEditCancel && hasGlobalOperatingState &&
+					modalOpen1 && aliasLabelOk && labelLabelOk && identityTwoCols && descIsTextarea && memberLabelOk &&
+					saveDisabledWhenEmpty && addBindingDisabledBeforeSave && modalClosedAfterCancel &&
+					domainRespondedToTarget && saveDisabledOnInvalidDefault && saveEnabledAfterCorrection &&
+					initialSaveSuccess && addBindingEnabledAfterSave && modalExistingCount1 === 1 &&
+					drawerHasCard1 && fctxHasCard1 && hasTwoTargetRows &&
+					colorOptDisabledWhenNumber && valRes.valid && saveSuccess && savedTwoTargets &&
+					dupBindingRejected && preservedAfterInvalidThirdCancel &&
+					drawerHasCardAfterClose && fctxHasCardAfterClose &&
+					editModalOpen && editReflectedInInspectors && unchangedAfterEditCancel &&
+					tempAddedInBoth && tempRemovedInBoth && hasGlobalOperatingState &&
 					comp && grp2 && grp3 &&
 					grp2.name === 'cpuwindow-2' && grp3.name === 'cpuwindow-3' && compListCount === 1 &&
 					paramNames.includes('cpuwindow-1-group-cpu') &&
@@ -223,10 +302,29 @@ func run() int {
 				liteToolbarVis,
 				pureGrpOk,
 				modalOpen1,
+				aliasLabelOk,
+				labelLabelOk,
+				identityTwoCols,
+				descIsTextarea,
+				memberLabelOk,
 				saveDisabledWhenEmpty,
+				addBindingDisabledBeforeSave,
+				domainRespondedToTarget,
+				saveDisabledOnInvalidDefault,
+				saveEnabledAfterCorrection,
+				addBindingEnabledAfterSave,
+				modalExistingCount1,
+				drawerHasCard1,
+				fctxHasCard1,
 				colorOptDisabledWhenNumber,
+				savedTwoTargets,
+				dupBindingRejected,
+				preservedAfterInvalidThirdCancel,
 				editModalOpen,
+				editReflectedInInspectors,
 				unchangedAfterEditCancel,
+				tempAddedInBoth,
+				tempRemovedInBoth,
 				hasGlobalOperatingState,
 				grp1Name: grp1 && grp1.name,
 				grp2Name: grp2 && grp2.name,

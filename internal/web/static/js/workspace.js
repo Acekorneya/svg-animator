@@ -437,7 +437,7 @@
       if (isInput) return false;
 
       if (typeof document !== 'undefined') {
-        const modalOpen = ['projectsModal', 'stillExportModal', 'exportModal'].some((id) => {
+        const modalOpen = ['projectsModal', 'stillExportModal', 'exportModal', 'groupMappingModal'].some((id) => {
           const el = document.getElementById(id);
           return el && el.style && (el.style.display === 'flex' || el.style.display === 'block');
         });

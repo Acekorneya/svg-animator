@@ -1491,9 +1491,10 @@
           mapping: mapping
         });
         if (res && res.success) {
-          if (res.group && window.ObjectGroups) {
+          if (res.group && window.ObjectGroups && Array.isArray(window.ObjectGroups.list)) {
             const idx = window.ObjectGroups.list.findIndex((g) => String(g.id) === String(groupId));
             if (idx >= 0) window.ObjectGroups.list[idx] = res.group;
+            else window.ObjectGroups.list.push(res.group);
           }
           if (Array.isArray(res.parameters)) {
             this._widgetParameters = res.parameters;
@@ -1515,9 +1516,10 @@
           alias: String(alias)
         });
         if (res && res.success) {
-          if (res.group && window.ObjectGroups) {
+          if (res.group && window.ObjectGroups && Array.isArray(window.ObjectGroups.list)) {
             const idx = window.ObjectGroups.list.findIndex((g) => String(g.id) === String(groupId));
             if (idx >= 0) window.ObjectGroups.list[idx] = res.group;
+            else window.ObjectGroups.list.push(res.group);
           }
           if (Array.isArray(res.parameters)) {
             this._widgetParameters = res.parameters;
