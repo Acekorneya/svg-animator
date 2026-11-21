@@ -72,7 +72,7 @@ func ValidateLiteEffect(l *LiteEffect) error {
 		return errors.New("nil lite effect")
 	}
 	switch l.Kind {
-	case "perimeter-tracer", "pulse", "flash", "flow-lite":
+	case "perimeter-tracer", "pulse", "flash", "flow-lite", "radar-lite":
 	default:
 		return fmt.Errorf("unsupported lite effect kind %q", l.Kind)
 	}
@@ -157,14 +157,37 @@ func ValidateLiteEffect(l *LiteEffect) error {
 		if l.PlaybackMode != "" && l.PlaybackMode != "loop" && l.PlaybackMode != "pingpong" && l.PlaybackMode != "once" {
 			return fmt.Errorf("unsupported flow-lite playbackMode %q", l.PlaybackMode)
 		}
-		if l.Speed <= 0 {
-			return errors.New("flow-lite speed must be greater than 0")
+		if l.Speed < 0.2 || l.Speed > 30.0 {
+			return errors.New("flow-lite cycle duration (speed) must be between 0.2 and 30.0 seconds")
 		}
 		if l.Delay < 0 || l.Delay > 60 {
 			return errors.New("flow-lite delay must be between 0 and 60")
 		}
 		if l.EndDelay < 0 || l.EndDelay > 60 {
 			return errors.New("flow-lite endDelay must be between 0 and 60")
+		}
+	}
+	if l.Kind == "radar-lite" {
+		if l.Variant != "" && l.Variant != "single" && l.Variant != "multi" && l.Variant != "fading-ping" {
+			return fmt.Errorf("unsupported radar-lite variant %q", l.Variant)
+		}
+		if l.Rings < 1 || l.Rings > 6 {
+			return errors.New("radar-lite rings must be between 1 and 6")
+		}
+		if l.MinScale < 0.05 || l.MinScale > 2.0 {
+			return errors.New("radar-lite minScale must be between 0.05 and 2.0")
+		}
+		if l.MaxScale < 0.1 || l.MaxScale > 3.0 {
+			return errors.New("radar-lite maxScale must be between 0.1 and 3.0")
+		}
+		if l.MinScale >= l.MaxScale {
+			return errors.New("radar-lite minScale must be strictly less than maxScale")
+		}
+		if l.Period < 0.2 || l.Period > 30.0 {
+			return errors.New("radar-lite cycle duration (period) must be between 0.2 and 30.0 seconds")
+		}
+		if l.StrokeWidth < 0.5 || l.StrokeWidth > 20.0 {
+			return errors.New("radar-lite strokeWidth must be between 0.5 and 20.0")
 		}
 	}
 	return nil
@@ -214,7 +237,7 @@ func applyLiteEffectDefaults(l *LiteEffect) {
 		switch l.Kind {
 		case "flash":
 			l.Color = "#f59e0b"
-		case "pulse":
+		case "pulse", "radar-lite":
 			l.Color = "#22c55e"
 		default:
 			l.Color = "#38bdf8"
@@ -224,7 +247,11 @@ func applyLiteEffectDefaults(l *LiteEffect) {
 		l.Opacity = 0.9
 	}
 	if l.StrokeWidth <= 0 {
-		l.StrokeWidth = 2.5
+		if l.Kind == "radar-lite" {
+			l.StrokeWidth = 2.0
+		} else {
+			l.StrokeWidth = 2.5
+		}
 	}
 	if l.Radius <= 0 {
 		l.Radius = 28
@@ -232,6 +259,8 @@ func applyLiteEffectDefaults(l *LiteEffect) {
 	if l.Width <= 0 {
 		if l.Kind == "pulse" || l.Kind == "flash" {
 			l.Width = l.Radius * 2
+		} else if l.Kind == "radar-lite" {
+			l.Width = 80
 		} else {
 			l.Width = 140
 		}
@@ -239,6 +268,8 @@ func applyLiteEffectDefaults(l *LiteEffect) {
 	if l.Height <= 0 {
 		if l.Kind == "pulse" || l.Kind == "flash" {
 			l.Height = l.Radius * 2
+		} else if l.Kind == "radar-lite" {
+			l.Height = 80
 		} else {
 			l.Height = 80
 		}
@@ -380,10 +411,53 @@ func applyLiteEffectDefaults(l *LiteEffect) {
 		}
 		if l.Speed <= 0 {
 			l.Speed = 2.0
+		} else if l.Speed > 30.0 {
+			l.Speed = 30.0
 		}
 		if l.ShowGuide == nil {
 			sg := true
 			l.ShowGuide = &sg
+		}
+	case "radar-lite":
+		if l.Variant == "" {
+			l.Variant = "multi"
+		}
+		if l.Variant == "single" {
+			l.Rings = 1
+		} else if l.Rings <= 0 {
+			l.Rings = 3
+		} else if l.Rings > 6 {
+			l.Rings = 6
+		}
+		if l.MinScale <= 0 {
+			l.MinScale = 0.15
+		}
+		if l.MaxScale <= 0 {
+			l.MaxScale = 1.0
+		}
+		if l.MinScale >= l.MaxScale {
+			l.MinScale = math.Max(0.05, l.MaxScale*0.5)
+		}
+		if l.Period <= 0 {
+			if l.Speed > 0 {
+				l.Period = l.Speed
+			} else {
+				l.Period = 2.4
+			}
+		}
+		if l.Speed <= 0 {
+			l.Speed = l.Period
+		}
+		if l.StrokeWidth <= 0 || l.StrokeWidth == 2.5 {
+			l.StrokeWidth = 2.0
+		}
+		if l.ShowGuide == nil {
+			sg := true
+			l.ShowGuide = &sg
+		}
+		if l.MaintainAspectRatio == nil {
+			mar := true
+			l.MaintainAspectRatio = &mar
 		}
 	}
 }
@@ -471,6 +545,14 @@ func (s *Scene) UpdateLiteEffect(id StringID, patch map[string]any) (LiteEffect,
 	if v, ok := toFloat(patch["segments"]); ok && v >= 1 {
 		existing.Segments = int(math.Round(v))
 	}
+	if v, ok := toFloat(patch["rings"]); ok && v >= 1 {
+		existing.Rings = int(math.Max(1, math.Min(6, math.Round(v))))
+	}
+	if existing.Kind == "radar-lite" && existing.Variant == "single" {
+		existing.Rings = 1
+	} else if existing.Kind == "radar-lite" && (existing.Variant == "multi" || existing.Variant == "fading-ping") && existing.Rings < 1 {
+		existing.Rings = 3
+	}
 	if v, ok := patch["lineGapRatio"].(string); ok && v != "" {
 		existing.LineGapRatio = v
 	}
@@ -505,10 +587,19 @@ func (s *Scene) UpdateLiteEffect(id StringID, patch map[string]any) (LiteEffect,
 		existing.RepeatInterval = math.Max(0.2, math.Min(60, v))
 	}
 	if v, ok := toFloat(patch["speed"]); ok && v > 0 {
-		existing.Speed = v
+		if existing.Kind == "flow-lite" {
+			existing.Speed = math.Max(0.2, math.Min(30.0, v))
+		} else {
+			existing.Speed = v
+		}
 	}
 	if v, ok := toFloat(patch["period"]); ok && v > 0 {
-		existing.Period = v
+		if existing.Kind == "radar-lite" {
+			existing.Period = math.Max(0.2, math.Min(30.0, v))
+			existing.Speed = existing.Period
+		} else {
+			existing.Period = v
+		}
 	}
 	if v, ok := toFloat(patch["dur"]); ok && v > 0 {
 		existing.Duration = v
@@ -523,10 +614,21 @@ func (s *Scene) UpdateLiteEffect(id StringID, patch map[string]any) (LiteEffect,
 		existing.Intensity = math.Max(0, math.Min(1, v))
 	}
 	if v, ok := toFloat(patch["minScale"]); ok && v > 0 {
-		existing.MinScale = math.Max(0.1, math.Min(3.0, v))
+		minBound := 0.1
+		if existing.Kind == "radar-lite" {
+			minBound = 0.05
+		}
+		existing.MinScale = math.Max(minBound, math.Min(3.0, v))
 	}
 	if v, ok := toFloat(patch["maxScale"]); ok && v > 0 {
 		existing.MaxScale = math.Max(0.1, math.Min(4.0, v))
+	}
+	if existing.Kind == "radar-lite" && existing.MinScale >= existing.MaxScale {
+		if _, hasMin := patch["minScale"]; hasMin {
+			existing.MaxScale = math.Min(3.0, existing.MinScale+0.1)
+		} else {
+			existing.MinScale = math.Max(0.05, existing.MaxScale-0.1)
+		}
 	}
 	if v, ok := patch["originMode"].(string); ok && v != "" {
 		existing.OriginMode = v

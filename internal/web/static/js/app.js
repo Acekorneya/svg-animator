@@ -2674,9 +2674,9 @@ function getDrawerWidgetPropDefs(type) {
       { prop: 'direction', label: 'Direction', type: 'enum', options: ['cw', 'ccw', 'forward', 'reverse'], desc: 'Travel direction' },
       { prop: 'startOffset', label: 'Start Offset (%)', type: 'number', min: 0, max: 100, desc: 'Perimeter starting phase offset (0 to 100%)' },
       { prop: 'playbackMode', label: 'Motion Mode', type: 'enum', options: ['loop', 'pingpong', 'once'], desc: 'Tracer playback mode (loop, pingpong, once)' },
-      { prop: 'showGuide', label: 'Guide Visibility', type: 'boolean', desc: 'Show or hide static perimeter boundary guide' },
-      { prop: 'scale', label: 'Pulse Max Scale', type: 'number', min: 0.4, max: 2.5, desc: 'Maximum pulse expansion scale multiplier (0.4 to 2.5)' },
-      { prop: 'period', label: 'Pulse Period (s)', type: 'number', min: 0.2, max: 20, desc: 'Pulse cycle duration in seconds (0.2 to 20.0)' },
+      { prop: 'showGuide', label: 'Guide Visibility', type: 'boolean', desc: 'Show or hide static perimeter boundary guide or radar centre dot' },
+      { prop: 'scale', label: 'Max Scale', type: 'number', min: 0.2, max: 3.0, desc: 'Maximum pulse/radar expansion scale multiplier (0.2 to 3.0)' },
+      { prop: 'period', label: 'Cycle Duration / Period (s)', type: 'number', min: 0.2, max: 30, desc: 'Pulse or Radar Ping cycle duration in seconds (0.2 to 30.0)' },
       { prop: 'intensity', label: 'Intensity', type: 'number', min: 0, max: 1, desc: 'Peak pulse/flash amplitude (0.0 to 1.0)' },
       { prop: 'trigger', label: 'Flash Trigger', type: 'number', min: 0, max: 1000000, desc: 'Incrementing or changing this value triggers a single-shot Flash Lite pulse' },
       { prop: 'duration', label: 'Flash Duration (ms)', type: 'number', min: 20, max: 1000, desc: 'Flash duration in milliseconds (20 to 1000 ms)' },
@@ -2755,7 +2755,7 @@ function getObjectPropValue(type, id, prop) {
         case 'opacity': return le.opacity !== undefined ? le.opacity : 0.9;
         case 'visibility': return le.visible !== false;
         case 'speed': return 1.0;
-        case 'strokeWidth': return le.strokeWidth !== undefined ? le.strokeWidth : (le.kind === 'flow-lite' ? 3.0 : 2.5);
+        case 'strokeWidth': return le.strokeWidth !== undefined ? le.strokeWidth : (le.kind === 'flow-lite' ? 3.0 : (le.kind === 'radar-lite' ? 2.0 : 2.5));
         case 'dashLength': return le.dashLength !== undefined ? le.dashLength : (le.variant === 'single' ? 36 : 18);
         case 'gapLength': return le.gapLength !== undefined ? le.gapLength : 14;
         case 'dotSize': return le.dotSize !== undefined ? le.dotSize : 5;
@@ -2767,8 +2767,8 @@ function getObjectPropValue(type, id, prop) {
         case 'pauseSeconds': return le.pauseSeconds !== undefined ? le.pauseSeconds : 0;
         case 'pauseVisibility': return le.pauseVisibility || 'hide';
         case 'showGuide': return le.showGuide !== false;
-        case 'scale': return le.maxScale !== undefined ? le.maxScale : 1.15;
-        case 'period': return le.period !== undefined ? le.period : 1.8;
+        case 'scale': return le.maxScale !== undefined ? le.maxScale : (le.kind === 'radar-lite' ? 1.0 : 1.15);
+        case 'period': return le.period !== undefined ? le.period : (le.kind === 'radar-lite' ? 2.4 : 1.8);
         case 'intensity': return le.intensity !== undefined ? le.intensity : (le.kind === 'flash' ? 0.75 : 0.85);
         case 'armThickness': return le.armThickness !== undefined ? le.armThickness : 3.0;
         case 'trigger': return 0;
@@ -2817,7 +2817,7 @@ window.renderWidgetPropertyCards = function(containerEl, sel, statusMsgEl) {
     if (le) {
       liteKind = le.kind || '';
       if (!objName) objName = le.name || '';
-      const kindMap = { 'perimeter-tracer': 'Tracer', 'pulse': 'Pulse', 'flash': 'Flash', 'flow-lite': 'Flow' };
+      const kindMap = { 'perimeter-tracer': 'Tracer', 'pulse': 'Pulse', 'flash': 'Flash', 'flow-lite': 'Flow', 'radar-lite': 'Radar' };
       const kindLabel = kindMap[le.kind] || 'Lite';
       objDisplayName = le.name ? `${le.name} (${kindLabel} #${sel.id})` : `${kindLabel} #${sel.id}`;
     }
@@ -2840,17 +2840,20 @@ window.renderWidgetPropertyCards = function(containerEl, sel, statusMsgEl) {
       if (['segments', 'lineGapRatio', 'burstCycles', 'pauseSeconds', 'pauseVisibility'].includes(p.prop)) {
         return liteKind === 'perimeter-tracer';
       }
-      if (['strokeWidth', 'direction', 'playbackMode', 'showGuide'].includes(p.prop)) {
+      if (['strokeWidth', 'showGuide'].includes(p.prop)) {
+        return liteKind === 'perimeter-tracer' || liteKind === 'flow-lite' || liteKind === 'radar-lite';
+      }
+      if (['direction', 'playbackMode'].includes(p.prop)) {
         return liteKind === 'perimeter-tracer' || liteKind === 'flow-lite';
       }
       if (['dashLength', 'gapLength', 'dotSize'].includes(p.prop)) {
         return liteKind === 'flow-lite';
       }
-      if (['scale', 'period'].includes(p.prop)) return liteKind === 'pulse';
+      if (['scale', 'period'].includes(p.prop)) return liteKind === 'pulse' || liteKind === 'radar-lite';
       if (['trigger', 'duration', 'repeat', 'repeatInterval'].includes(p.prop)) return liteKind === 'flash';
       if (p.prop === 'intensity') return liteKind === 'pulse' || liteKind === 'flash';
       if (p.prop === 'armThickness') return (liteKind === 'pulse' || liteKind === 'flash');
-      if (p.prop === 'speed') return liteKind === 'perimeter-tracer' || liteKind === 'pulse' || liteKind === 'flow-lite';
+      if (p.prop === 'speed') return liteKind === 'perimeter-tracer' || liteKind === 'pulse' || liteKind === 'flow-lite' || liteKind === 'radar-lite';
       return true;
     }).map((p) => {
       if (p.prop === 'direction') {
@@ -3332,7 +3335,7 @@ window.renderWidgetParametersOverview = function(selectionPayload) {
         const le = window.LiteEffects.getLiteEffect(sel.id);
         if (le) {
           currentName = le.name || '';
-          const kindMap = { 'perimeter-tracer': 'Tracer', 'pulse': 'Pulse', 'flash': 'Flash', 'flow-lite': 'Flow' };
+          const kindMap = { 'perimeter-tracer': 'Tracer', 'pulse': 'Pulse', 'flash': 'Flash', 'flow-lite': 'Flow', 'radar-lite': 'Radar' };
           const kindLabel = kindMap[le.kind] || 'Lite';
           objDisplayName = le.name ? `${le.name} (${kindLabel} #${sel.id})` : `${kindLabel} #${sel.id}`;
         }

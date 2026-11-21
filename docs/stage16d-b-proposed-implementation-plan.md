@@ -1,9 +1,9 @@
 # Stage 16D-B — Proposed Implementation Plan
 
-**Status:** **M1 IMPLEMENTED — AWAITING USER ACCEPTANCE (M2–M4 NOT YET AUTHORISED)**  
+**Status:** **M1 ACCEPTED (`a3a7d24`); Stage 16D-B-M2 — IMPLEMENTED, AWAITING USER ACCEPTANCE (M3–M4 NOT YET AUTHORISED)**
 **Project:** SVG Animator Studio  
 **Stage:** Stage 16D-B (Flows, Data Indicators and Waveforms)  
-**Implementation Authorisation:** **M1 (`16D-B-M1`: Flow Lite) IMPLEMENTED — AWAITING USER ACCEPTANCE** (M2–M4 remain unauthorised until M1 is reviewed and accepted)  
+**Implementation Authorisation:** **M1 (`16D-B-M1`: Flow Lite) ACCEPTED (`a3a7d24`); Stage 16D-B-M2 (`16D-B-M2`: Radar Ping Lite + M1 Minor Inspector Corrections) IMPLEMENTED — AWAITING USER ACCEPTANCE** (M3–M4 remain unauthorised until M2 is reviewed and accepted)
 **Baseline Commits:** `bf7ee3e` (Test Lab M6 closeout) and `7e8d4f6` (Stage 16D-A standalone SVG export audit)  
 **Engineering Guidance Reference:** [`docs/architecture/svg-animation-engineering-guidance.md`](architecture/svg-animation-engineering-guidance.md)  
 **Test Lab Comparative Evidence:** [`testlab/m6-evidence/M6_FINAL_COMPARATIVE_REPORT.md`](../testlab/m6-evidence/M6_FINAL_COMPARATIVE_REPORT.md) (BookStack Book 468, Page 470, revision 13; live viewer at `http://192.168.100.40:8093/`)
@@ -332,13 +332,14 @@ During design review, two implementation approaches were evaluated for open-path
 ## H. Decisions Requiring User Approval
 
 1. **Approve the revised Stage 16D-B plan** incorporating the multi-point path and per-section bend model, independent start/end Abrupt and Tunnel modes, declarative Start Delay and End Delay timing, pixel-based Dashed/Dotted/Single Segment pattern controls, and the static Gauge Lite colour precedence contract.
-2. **Authorise Milestone 1 (`16D-B-M1`: Flow Lite) only** for implementation. (Approved; M1 implemented and awaiting user acceptance.)
+2. **Authorise Milestone 1 (`16D-B-M1`: Flow Lite) only** for implementation. (Approved; M1 implemented in commit `a3a7d24` and **ACCEPTED** by user.)
+3. **Authorise Milestone 2 (`16D-B-M2`: Radar Ping Lite) and the two minor M1 Flow Lite inspector corrections.** (Approved; M2 implemented and awaiting user acceptance.)
 
 ---
 
 ## I. Milestone 1 (`16D-B-M1`: Flow Lite) Implementation Evidence & Status
 
-**Milestone Status:** **IMPLEMENTED — AWAITING USER ACCEPTANCE**  
+**Milestone Status:** **ACCEPTED (`a3a7d24`, with minor M1 inspector corrections completed in M2)**
 **Live Studio URL:** `http://192.168.100.40:8088/`  
 **Live 10-Example Visual Demonstration URL:** `http://192.168.100.40:8088/flow-lite-demo.html`  
 **Live Stage 16C Widget Consumer URL:** `http://192.168.100.40:8091/index.html`
@@ -379,3 +380,33 @@ Before integrating Flow Lite into Studio, an automated Chromium CDP feasibility 
 - **Go Unit & Package Tests (`go vet ./... && go test ./...`):** **PASS (100%)**
 - **Node Regression Harness (`node scripts/regression-harness.js`):** **89 / 89 Scenarios PASS** (including Scenario 89 testing Flow Lite multi-point authoring, bends, endpoints, and serialization)
 - **Real-Browser Chromium CDP Acceptance Suite (`go run ./scripts/cmd/verify-stage16d-b-m1/main.go`):** **16 / 16 Gates PASS (`AT-M1-01` through `AT-M1-16`)**
+- **Minor M1 Flow Lite Adjustments Completed in M2:**
+  - Renamed the Flow Lite speed inspector label to **Cycle Duration** in both the Low-Load Effects drawer (`#liteFlowGroup`) and the floating Context Editor (`#fctx-liteFlowGroup`) while preserving the `speed` property key for backward compatibility.
+  - Extended Flow Lite Cycle Duration range to **`0.2 s` – `30.0 s`** across HTML sliders, numeric inputs, Go validation (`ValidateLiteEffect`, `applyLiteEffectDefaults`, `UpdateLiteEffect`), serialization/restoration, undo/redo, standalone SVG export, and the Stage 16C widget runtime.
+
+---
+
+## J. Milestone 2 (`16D-B-M2`: Radar Ping Lite) Implementation Evidence & Status
+
+**Milestone Status:** **Stage 16D-B-M2 — IMPLEMENTED, AWAITING USER ACCEPTANCE**
+**Live Studio URL:** `http://192.168.100.40:8088/`
+**Live 9-Example Radar Ping Lite Visual Showcase URL:** `http://192.168.100.40:8088/radar-lite-demo.html`
+**Live 10-Example Flow Lite Visual Showcase URL:** `http://192.168.100.40:8088/flow-lite-demo.html`
+**Live Stage 16C Widget Consumer URL:** `http://192.168.100.40:8091/index.html`
+
+### 1. Architecture & Rendering Model
+- **Authoritative Go Ownership (`pkg/engine/scene/model.go`, `pkg/engine/scene/lite_effect.go`, `pkg/engine/scene/widget.go`):**
+  - Added `"radar-lite"` (`kind: "radar-lite"`) and `Rings int` (`json:"rings,omitempty"`, `1..6`) to `scene.LiteEffect`.
+  - Enforced strict validation in `ValidateLiteEffect`, defaults in `applyLiteEffectDefaults`, and patch clamping in `UpdateLiteEffect` for `variant` (`"single"`, `"multi"`, `"fading-ping"`), `rings` (`1..6`, normalized to `1` when `variant == "single"`), `minScale` (`0.05..2.0`), `maxScale` (`0.1..3.0`, strictly `> minScale`), `period` (`0.2..30.0 s`), `strokeWidth` (`0.5..20.0 px`), `showGuide` (centre marker dot), and `maintainAspectRatio` (circular vs. elliptical geometry).
+  - Updated `ObjectPropertyCatalog["lite"]` in `pkg/engine/scene/widget.go` so `color`, `opacity`, `visibility`, `speed`, `strokeWidth`, `scale`, `period`, and `showGuide` are eligible for three-tier Stage 16B/16C widget parameter exposure.
+- **Filter-Free Declarative CSS SVG Rendering (`internal/web/static/js/lite-effects.js`):**
+  - Renders `1..6` concentric `<ellipse class="lite-payload lite-radar-ring sva-lite-radar-anim" vector-effect="non-scaling-stroke">` rings plus an optional `<circle class="lite-guide-track lite-radar-center">` centre anchor dot.
+  - Uses zero SVG filter primitives (`<filter>`, `<feGaussianBlur>`, `<feDisplacementMap>`, `<feColorMatrix>`).
+  - Shared `@keyframes sva-lite-radar` expands each ring monotonically from `scale(var(--sva-radar-min))` to `scale(var(--sva-radar-max))` while fading opacity from `1` to `0`, with `transform-box: fill-box; transform-origin: center` and `vector-effect="non-scaling-stroke"` so ring stroke thickness remains visually constant throughout expansion.
+  - Multi-ring staggering assigns each ring `k` (`0 .. ringCount-1`) a negative `animation-delay: -(k / ringCount) * period` and stores `--sva-phase-ratio: k / ringCount`. When `period` or `speed` is updated at runtime via `SVGWidget.setParameter()`, `svg-widget.js` recomputes both `animationDuration` and staggered `animationDelay` so rings never collapse into synchronized phase.
+
+### 2. Verification Results Summary
+- **Go Unit & Package Tests (`go vet ./... && go test ./...`):** **PASS (100%)** (including `TestRadarPingLiteVariantsRingsScaleAndPersistence` and `30.0 s` Flow Lite Cycle Duration tests in `pkg/engine/scene/lite_effect_test.go`).
+- **Node Regression Harness (`node scripts/regression-harness.js`):** **90 / 90 Scenarios PASS** (including Scenario 90 verifying Flow Lite `30.0 s` Cycle Duration and Radar Ping Lite `single`, `multi` `1..6` rings, `fading-ping`, elliptical geometry, centre marker, and `.sva` / project round-trip).
+- **Stage 16D-B-M1 Real-Browser Acceptance Suite (`go run ./scripts/cmd/verify-stage16d-b-m1/main.go`):** **16 / 16 Gates PASS**.
+- **Stage 16D-B-M2 Real-Browser Acceptance Suite (`go run ./scripts/cmd/verify-stage16d-b-m2/main.go`):** **16 / 16 Gates PASS (`AT-M2-01` through `AT-M2-16`)**, including temporal browser sampling of monotonic outward ring expansion, opacity fade-out, multi-ring staggered phase separation, negative controls for stationary/synchronized rings, standalone SVG export, Stage 16C multi-instance widget isolation, and off-screen suspension/resumption.

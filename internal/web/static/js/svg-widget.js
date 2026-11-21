@@ -584,8 +584,16 @@
             }
           });
           el.querySelectorAll('.lite-guide-track').forEach(g => {
-            g.setAttribute('stroke', value);
-            if (g.style) g.style.stroke = value;
+            const gStroke = g.getAttribute('stroke');
+            const gFill = g.getAttribute('fill');
+            if (!gStroke || gStroke !== 'none') {
+              g.setAttribute('stroke', value);
+              if (g.style) g.style.stroke = value;
+            }
+            if (gFill && gFill !== 'none') {
+              g.setAttribute('fill', value);
+              if (g.style) g.style.fill = value;
+            }
           });
         } else {
           // Generic Node or Element
@@ -730,8 +738,10 @@
           const sVal = Math.max(0.2, Math.min(4.0, parseFloat(value) || 1.15));
           el.querySelectorAll('.lite-payload').forEach(node => {
             node.setAttribute('data-pulse-scale', String(sVal));
+            node.setAttribute('data-radar-max', String(sVal));
             if (node.style && typeof node.style.setProperty === 'function') {
               node.style.setProperty('--sva-pulse-max', String(sVal));
+              node.style.setProperty('--sva-radar-max', String(sVal));
             }
           });
         }
@@ -927,13 +937,26 @@
       }
       case 'period': {
         if (el) {
-          const sec = Math.max(0.2, Math.min(20, parseFloat(value) || 1.8));
+          const sec = Math.max(0.2, Math.min(30, parseFloat(value) || 1.8));
           el.querySelectorAll('.lite-payload').forEach(node => {
             node.setAttribute('data-pulse-period', String(sec));
             if (node.style) {
               node.style.animationDuration = `${sec}s`;
               if (typeof node.style.setProperty === 'function') {
                 node.style.setProperty('--sva-base-dur', `${sec}s`);
+              }
+              const phaseRatioStr = typeof node.style.getPropertyValue === 'function'
+                ? node.style.getPropertyValue('--sva-phase-ratio')
+                : '';
+              if (phaseRatioStr !== '' && phaseRatioStr !== null) {
+                const ratio = parseFloat(phaseRatioStr);
+                if (Number.isFinite(ratio)) {
+                  const negDelay = -ratio * sec;
+                  node.style.animationDelay = `${negDelay.toFixed(4)}s`;
+                  if (typeof node.style.setProperty === 'function') {
+                    node.style.setProperty('--sva-base-delay', `${negDelay.toFixed(4)}s`);
+                  }
+                }
               }
             }
           });

@@ -462,10 +462,16 @@ window.FloatingPropertiesEditor = {
             'perimeter-tracer': ['rounded', 'rect', 'circle', 'ellipse'],
             'pulse': ['circle', 'square', 'diamond', 'cross', 'ring'],
             'flash': ['diamond', 'circle', 'square', 'cross', 'star'],
-            'flow-lite': ['dashed', 'dotted', 'single']
+            'flow-lite': ['dashed', 'dotted', 'single'],
+            'radar-lite': ['multi', 'single', 'fading-ping']
+          };
+          const labelsByOpt = {
+            'multi': 'Multiple Pings (multi)',
+            'single': 'Single Ping (single)',
+            'fading-ping': 'Fading Ping (fading-ping)'
           };
           const opts = optsByKind[le.kind] || ['circle'];
-          variantSel.innerHTML = opts.map((o) => `<option value="${o}">${o}</option>`).join('');
+          variantSel.innerHTML = opts.map((o) => `<option value="${o}">${le.kind === 'radar-lite' && labelsByOpt[o] ? labelsByOpt[o] : o}</option>`).join('');
         }
         const durMs = Math.round((Number(le.dur) || 0.10) * 1000);
         this._setVal('fctx-liteNameInput', le.name || '');
@@ -507,6 +513,7 @@ window.FloatingPropertiesEditor = {
         const pg = document.getElementById('fctx-litePulseGroup');
         const fg = document.getElementById('fctx-liteFlashGroup');
         const flg = document.getElementById('fctx-liteFlowGroup');
+        const rdg = document.getElementById('fctx-liteRadarGroup');
         const trigBtn = document.getElementById('fctx-btnTriggerLiteFlash');
         if (dimGrp) dimGrp.style.display = le.kind === 'flow-lite' ? 'none' : '';
         if (tg) tg.style.display = le.kind === 'perimeter-tracer' ? 'block' : 'none';
@@ -515,7 +522,19 @@ window.FloatingPropertiesEditor = {
         if (pg) pg.style.display = le.kind === 'pulse' ? 'block' : 'none';
         if (fg) fg.style.display = le.kind === 'flash' ? 'block' : 'none';
         if (flg) flg.style.display = le.kind === 'flow-lite' ? 'block' : 'none';
+        if (rdg) rdg.style.display = le.kind === 'radar-lite' ? 'block' : 'none';
         if (trigBtn) trigBtn.style.display = le.kind === 'flash' ? 'inline-block' : 'none';
+
+        if (le.kind === 'radar-lite') {
+          this._setChk('fctx-liteRadarShowGuideChk', le.showGuide !== false);
+          this._setPair('fctx-liteRadarRings', le.variant === 'single' ? 1 : (le.rings || 3));
+          this._setPair('fctx-liteRadarMinScale', le.minScale !== undefined ? le.minScale : 0.15);
+          this._setPair('fctx-liteRadarMaxScale', le.maxScale !== undefined ? le.maxScale : 1.0);
+          this._setPair('fctx-liteRadarPeriod', le.period || le.speed || 2.4);
+          this._setPair('fctx-liteRadarStrokeWidth', le.strokeWidth || 2.0);
+          const fctxRingsRow = document.getElementById('fctx-liteRadarRingsRow');
+          if (fctxRingsRow) fctxRingsRow.style.display = le.variant === 'single' ? 'none' : '';
+        }
 
         if (le.kind === 'flow-lite') {
           const pts = Array.isArray(le.points) && le.points.length >= 2 ? le.points : [{ x: 25, y: 50 }, { x: 75, y: 50 }];
@@ -1344,7 +1363,12 @@ window.FloatingPropertiesEditor = {
       ['fctx-liteFlowStrokeWidth', 'strokeWidth', false],
       ['fctx-liteFlowSpeed', 'speed', false],
       ['fctx-liteFlowDelay', 'delay', false],
-      ['fctx-liteFlowEndDelay', 'endDelay', false]
+      ['fctx-liteFlowEndDelay', 'endDelay', false],
+      ['fctx-liteRadarRings', 'rings', true],
+      ['fctx-liteRadarMinScale', 'minScale', false],
+      ['fctx-liteRadarMaxScale', 'maxScale', false],
+      ['fctx-liteRadarPeriod', 'period', false],
+      ['fctx-liteRadarStrokeWidth', 'strokeWidth', false]
     ];
     litePairs.forEach(([baseId, prop, isInt]) => {
       const slider = document.getElementById(baseId + 'Slider');
@@ -1413,6 +1437,7 @@ window.FloatingPropertiesEditor = {
     bindLiteSimple('fctx-liteFlowEndModeSelect', 'endMode', 'change');
     bindLiteSimple('fctx-liteFlowDirectionSelect', 'direction', 'change');
     bindLiteSimple('fctx-liteFlowPlaybackModeSelect', 'playbackMode', 'change');
+    bindLiteSimple('fctx-liteRadarShowGuideChk', 'showGuide', 'change', true);
 
     document.getElementById('fctx-btnAddLiteFlowNode')?.addEventListener('click', () => {
       if (this.activeType === 'lite' && window.LiteEffects) {

@@ -103,9 +103,26 @@ window.LiteEffects = {
       else if (le.direction === 'ccw') le.direction = 'reverse';
       if (!le.playbackMode) le.playbackMode = 'loop';
       if (!le.speed || le.speed <= 0) le.speed = 2.0;
+      else if (le.speed > 30) le.speed = 30;
       le.delay = Math.max(0, Math.min(60, Number(le.delay) || 0));
       le.endDelay = Math.max(0, Math.min(60, Number(le.endDelay) || 0));
       if (le.showGuide === undefined || le.showGuide === null) le.showGuide = true;
+    } else if (le.kind === 'radar-lite') {
+      if (!le.variant || !['single', 'multi', 'fading-ping'].includes(le.variant)) le.variant = 'multi';
+      if (le.variant === 'single') le.rings = 1;
+      else if (!le.rings || le.rings < 1) le.rings = 3;
+      else if (le.rings > 6) le.rings = 6;
+      if (!le.minScale || le.minScale <= 0) le.minScale = 0.15;
+      if (!le.maxScale || le.maxScale <= 0) le.maxScale = 1.0;
+      if (le.minScale >= le.maxScale) le.minScale = Math.max(0.05, le.maxScale * 0.5);
+      if (!le.period || le.period <= 0) le.period = Number(le.speed) > 0 ? Number(le.speed) : 2.4;
+      else if (le.period > 30) le.period = 30;
+      le.speed = le.period;
+      if (!le.strokeWidth || le.strokeWidth <= 0) le.strokeWidth = 2.0;
+      if (!le.width || le.width <= 0) le.width = 80;
+      if (!le.height || le.height <= 0) le.height = 80;
+      if (le.showGuide === undefined || le.showGuide === null) le.showGuide = true;
+      if (le.maintainAspectRatio === undefined || le.maintainAspectRatio === null) le.maintainAspectRatio = true;
     }
     return le;
   },
@@ -123,11 +140,12 @@ window.LiteEffects = {
     const kind = initialProps.kind || 'perimeter-tracer';
     const isTracer = kind === 'perimeter-tracer';
     const isFlowLite = kind === 'flow-lite';
-    const defaultW = isTracer ? 140 : 56;
-    const defaultH = isTracer ? 80 : 56;
+    const isRadar = kind === 'radar-lite';
+    const defaultW = isTracer ? 140 : (isRadar ? 80 : 56);
+    const defaultH = isTracer ? 80 : (isRadar ? 80 : 56);
     const defaultVariant = isFlowLite
       ? 'dashed'
-      : (isTracer ? 'rounded' : (kind === 'flash' ? 'diamond' : 'circle'));
+      : (isRadar ? 'multi' : (isTracer ? 'rounded' : (kind === 'flash' ? 'diamond' : 'circle')));
     const payload = Object.assign({
       kind,
       originMode: 'center',
@@ -136,23 +154,24 @@ window.LiteEffects = {
       y: 180,
       width: defaultW,
       height: defaultH,
-      radius: 28,
+      radius: isRadar ? 40 : 28,
       cornerRadius: 10,
-      color: kind === 'flash' ? '#f59e0b' : (kind === 'pulse' ? '#22c55e' : '#38bdf8'),
+      color: kind === 'flash' ? '#f59e0b' : ((kind === 'pulse' || isRadar) ? '#22c55e' : '#38bdf8'),
       opacity: 0.9,
-      strokeWidth: isFlowLite ? 3.0 : 2.5,
+      strokeWidth: isFlowLite ? 3.0 : (isRadar ? 2.0 : 2.5),
       segments: 2,
+      rings: isRadar ? 3 : undefined,
       lineGapRatio: '1:3',
       segmentStyle: 'rounded',
       startOffset: 0,
       direction: isFlowLite ? 'forward' : 'cw',
       playbackMode: 'loop',
-      speed: isFlowLite ? 2.0 : 3.0,
-      period: kind === 'flash' ? 3.0 : 1.8,
+      speed: isFlowLite ? 2.0 : (isRadar ? 2.4 : 3.0),
+      period: kind === 'flash' ? 3.0 : (isRadar ? 2.4 : 1.8),
       dur: 0.10,
       intensity: kind === 'flash' ? 0.75 : 0.85,
-      minScale: 0.85,
-      maxScale: 1.15,
+      minScale: isRadar ? 0.15 : 0.85,
+      maxScale: isRadar ? 1.0 : 1.15,
       maintainAspectRatio: !isTracer && !isFlowLite,
       showGuide: true,
       repeat: false,
@@ -281,6 +300,11 @@ window.LiteEffects = {
   25% { opacity: var(--sva-flash-int, 0.75); transform: scale(1.08); }
   100% { opacity: 0; transform: scale(1.0); }
 }
+@keyframes sva-lite-radar {
+  0% { transform: scale(var(--sva-radar-min, 0.15)); opacity: 1; }
+  85% { opacity: 0.35; }
+  100% { transform: scale(var(--sva-radar-max, 1.0)); opacity: 0; }
+}
 .sva-lite-tracer-anim {
   animation-timing-function: linear;
 }
@@ -305,11 +329,19 @@ window.LiteEffects = {
   animation-timing-function: ease-out;
   animation-fill-mode: both;
 }
+.sva-lite-radar-anim {
+  transform-box: fill-box;
+  transform-origin: center;
+  will-change: transform, opacity;
+  animation-name: sva-lite-radar;
+  animation-timing-function: linear;
+  animation-iteration-count: infinite;
+}
 [data-sva-widget-instance] .lite-editor-marker {
   display: none !important;
 }
 @media (prefers-reduced-motion: reduce) {
-  .sva-lite-tracer-anim, .sva-lite-pulse-anim, .sva-lite-flash-anim {
+  .sva-lite-tracer-anim, .sva-lite-pulse-anim, .sva-lite-flash-anim, .sva-lite-radar-anim {
     animation: none !important;
   }
 }
@@ -343,7 +375,8 @@ window.LiteEffects = {
     const rx = w / 2;
     const ry = h / 2;
     const r = Math.min(rx, ry);
-    return { cx, cy, x: cx - rx, y: cy - ry, w, h, rx, ry, r, cr };
+    const rot = Number(le.rotation) || 0;
+    return { cx, cy, x: cx - rx, y: cy - ry, w, h, rx, ry, r, cr, rot };
   },
 
   getBoundingBox(le) {
@@ -517,7 +550,7 @@ window.LiteEffects = {
     const endMode = le.endMode === 'abrupt' ? 'abrupt' : 'tunnel';
     const dir = le.direction === 'reverse' ? 'reverse' : 'forward';
     const mode = le.playbackMode === 'pingpong' ? 'pingpong' : (le.playbackMode === 'once' ? 'once' : 'loop');
-    const transitDur = Math.max(0.2, Number(le.speed) || 2.0);
+    const transitDur = Math.max(0.2, Math.min(30.0, Number(le.speed) || 2.0));
     const startDelay = Math.max(0, Math.min(60, Number(le.delay) || 0));
     const endDelay = Math.max(0, Math.min(60, Number(le.endDelay) || 0));
 
@@ -674,9 +707,10 @@ window.LiteEffects = {
     const color = this.sanitizeColor(le.color, '#38bdf8');
     const opacity = le.opacity != null ? Math.max(0, Math.min(1, Number(le.opacity))) : 0.9;
     const sw = Number(le.strokeWidth) || 2.5;
-    const { cx, cy, x, y, w, h, rx, ry, cr } = this._resolveGeometry(le);
+    const { cx, cy, x, y, w, h, rx, ry, cr, rot } = this._resolveGeometry(le);
     const nameAttr = le.name ? ` data-semantic-name="${this.escapeXML(le.name)}"` : '';
-    const baseAttrs = `id="lite-${le.id}" class="diagram-lite-instance" data-lite-id="${le.id}" data-lite-kind="${this.escapeXML(le.kind)}" data-semantic-target="lite-${le.id}"${nameAttr}`;
+    const rotAttr = (rot && Math.abs(rot) > 0.001) ? ` transform="rotate(${Number(rot.toFixed(2))}, ${cx.toFixed(2)}, ${cy.toFixed(2)})"` : '';
+    const baseAttrs = `id="lite-${le.id}" class="diagram-lite-instance" data-lite-id="${le.id}" data-lite-kind="${this.escapeXML(le.kind)}" data-semantic-target="lite-${le.id}"${nameAttr}${rotAttr}`;
 
     if (le.kind === 'perimeter-tracer') {
       const segs = Math.max(1, Math.min(16, Number(le.segments) || 2));
@@ -788,6 +822,30 @@ window.LiteEffects = {
     if (le.kind === 'flow-lite') {
       const flowBuilt = this.buildFlowLiteContent(le);
       return `<g ${baseAttrs} ${flowBuilt.dataAttrs} style="opacity:${opacity};">${flowBuilt.innerMarkup}</g>`;
+    }
+
+    if (le.kind === 'radar-lite') {
+      const variant = le.variant || 'multi';
+      const ringCount = variant === 'single' ? 1 : Math.max(1, Math.min(6, Math.round(Number(le.rings) || 3)));
+      const minScale = Math.max(0.05, Math.min(2.0, Number(le.minScale) || 0.15));
+      const maxScale = Math.max(minScale + 0.05, Math.min(3.0, Number(le.maxScale) || 1.0));
+      const period = Math.max(0.2, Math.min(30.0, Number(le.period) || Number(le.speed) || 2.4));
+      const isFadingPing = variant === 'fading-ping';
+      const fillVal = isFadingPing ? color : 'none';
+      const fillOpAttr = isFadingPing ? ' fill-opacity="0.18"' : '';
+      const hitMarkup = `<ellipse class="lite-hit-target" data-semantic-role="hit-target" cx="${cx.toFixed(2)}" cy="${cy.toFixed(2)}" rx="${Math.max(4, rx).toFixed(2)}" ry="${Math.max(4, ry).toFixed(2)}" fill="transparent" pointer-events="all" style="cursor:pointer;" />`;
+      const rings = [];
+      for (let k = 0; k < ringCount; k++) {
+        const phaseRatio = k / ringCount;
+        const phaseDelay = -phaseRatio * period;
+        const styleStr = `animation-duration:${period.toFixed(4)}s;animation-delay:${phaseDelay.toFixed(4)}s;--sva-base-dur:${period.toFixed(4)}s;--sva-phase-ratio:${phaseRatio.toFixed(6)};--sva-radar-min:${minScale};--sva-radar-max:${maxScale};`;
+        rings.push(`<ellipse class="lite-payload lite-radar-ring sva-lite-radar-anim" data-semantic-role="payload" data-ring-index="${k}" data-ring-count="${ringCount}" data-radar-min="${minScale}" data-radar-max="${maxScale}" data-radar-period="${period}" cx="${cx.toFixed(2)}" cy="${cy.toFixed(2)}" rx="${Math.max(2.5, rx).toFixed(2)}" ry="${Math.max(2.5, ry).toFixed(2)}" fill="${fillVal}"${fillOpAttr} stroke="${color}" stroke-width="${sw.toFixed(2)}" vector-effect="non-scaling-stroke" shape-rendering="geometricPrecision" style="${styleStr}" pointer-events="none" />`);
+      }
+      const dotR = Math.max(2.0, Math.min(6.0, Math.min(rx, ry) * 0.12));
+      const showDot = le.showGuide !== false;
+      const guideVis = showDot ? 'visible' : 'hidden';
+      const centerDot = `<circle class="lite-guide-track lite-radar-center" cx="${cx.toFixed(2)}" cy="${cy.toFixed(2)}" r="${dotR.toFixed(2)}" fill="${color}" visibility="${guideVis}" style="visibility:${guideVis};" pointer-events="none" />`;
+      return `<g ${baseAttrs} data-radar-variant="${this.escapeXML(variant)}" data-radar-rings="${ringCount}" data-radar-min="${minScale}" data-radar-max="${maxScale}" data-radar-period="${period}" style="opacity:${opacity};">${hitMarkup}${rings.join('')}${centerDot}</g>`;
     }
 
     return '';
@@ -909,6 +967,7 @@ window.LiteEffects = {
     bindBtn('btnAddLitePulse', () => this.addByKind('pulse'));
     bindBtn('btnAddLiteFlash', () => this.addByKind('flash'));
     bindBtn('btnAddLiteFlow', () => this.addByKind('flow-lite'));
+    bindBtn('btnAddLiteRadar', () => this.addByKind('radar-lite'));
     bindBtn('btnTriggerLiteFlash', () => {
       if (this.activeId) this.triggerFlash(this.activeId);
     });
@@ -1067,6 +1126,14 @@ window.LiteEffects = {
     bindPair('liteFlowSpeed', 'speed');
     bindPair('liteFlowDelay', 'delay');
     bindPair('liteFlowEndDelay', 'endDelay');
+
+    // Radar Ping Lite inspector bindings
+    bindField('liteRadarShowGuideChk', 'showGuide', false, true);
+    bindPair('liteRadarRings', 'rings', true);
+    bindPair('liteRadarMinScale', 'minScale');
+    bindPair('liteRadarMaxScale', 'maxScale');
+    bindPair('liteRadarPeriod', 'period');
+    bindPair('liteRadarStrokeWidth', 'strokeWidth');
   },
 
   addWaypointToActive() {
@@ -1362,10 +1429,16 @@ window.LiteEffects = {
       patch.maintainAspectRatio = true;
     }
 
-    if (key === 'minScale' && Number(value) > (Number(existing.maxScale) || 1.15)) {
-      patch.maxScale = Number(value);
-    } else if (key === 'maxScale' && Number(value) < (Number(existing.minScale) || 0.85)) {
-      patch.minScale = Number(value);
+    if (key === 'minScale' && Number(value) >= (Number(existing.maxScale) || 1.15)) {
+      patch.maxScale = Math.round((Number(value) + 0.1) * 100) / 100;
+    } else if (key === 'maxScale' && Number(value) <= (Number(existing.minScale) || (existing.kind === 'radar-lite' ? 0.15 : 0.85))) {
+      patch.minScale = Math.max(0.05, Math.round((Number(value) - 0.1) * 100) / 100);
+    } else if (key === 'variant' && existing.kind === 'radar-lite') {
+      if (value === 'single') {
+        patch.rings = 1;
+      } else if ((value === 'multi' || value === 'fading-ping') && (!existing.rings || existing.rings < 2)) {
+        patch.rings = 3;
+      }
     }
 
     const updated = this.updateLiteEffect(this.activeId, patch);
@@ -1421,10 +1494,16 @@ window.LiteEffects = {
         'perimeter-tracer': ['rounded', 'rect', 'circle', 'ellipse'],
         'pulse': ['circle', 'square', 'diamond', 'cross', 'ring'],
         'flash': ['diamond', 'circle', 'square', 'cross', 'star'],
-        'flow-lite': ['dashed', 'dotted', 'single']
+        'flow-lite': ['dashed', 'dotted', 'single'],
+        'radar-lite': ['multi', 'single', 'fading-ping']
+      };
+      const labelsByOpt = {
+        'multi': 'Multiple Pings (multi)',
+        'single': 'Single Ping (single)',
+        'fading-ping': 'Fading Ping (fading-ping)'
       };
       const opts = optsByKind[le.kind] || ['circle'];
-      variantSel.innerHTML = opts.map((o) => `<option value="${o}">${o}</option>`).join('');
+      variantSel.innerHTML = opts.map((o) => `<option value="${o}">${le.kind === 'radar-lite' && labelsByOpt[o] ? labelsByOpt[o] : o}</option>`).join('');
     }
 
     const durMs = Math.round((Number(le.dur) || 0.10) * 1000);
@@ -1473,6 +1552,7 @@ window.LiteEffects = {
     const pulseGroup = document.getElementById('litePulseGroup');
     const flashGroup = document.getElementById('liteFlashGroup');
     const flowGroup = document.getElementById('liteFlowGroup');
+    const radarGroup = document.getElementById('liteRadarGroup');
     const intensityRow = document.getElementById('liteIntensityRow');
     if (dimGroup) dimGroup.style.display = le.kind === 'flow-lite' ? 'none' : '';
     if (posRow) posRow.style.display = le.kind === 'flow-lite' ? 'none' : '';
@@ -1482,7 +1562,19 @@ window.LiteEffects = {
     if (pulseGroup) pulseGroup.style.display = le.kind === 'pulse' ? 'block' : 'none';
     if (flashGroup) flashGroup.style.display = le.kind === 'flash' ? 'block' : 'none';
     if (flowGroup) flowGroup.style.display = le.kind === 'flow-lite' ? 'block' : 'none';
+    if (radarGroup) radarGroup.style.display = le.kind === 'radar-lite' ? 'block' : 'none';
     if (intensityRow) intensityRow.style.display = (le.kind === 'pulse' || le.kind === 'flash') ? '' : 'none';
+
+    if (le.kind === 'radar-lite') {
+      setChk('liteRadarShowGuideChk', le.showGuide !== false);
+      setPair('liteRadarRings', le.variant === 'single' ? 1 : (le.rings || 3));
+      setPair('liteRadarMinScale', le.minScale != null ? le.minScale : 0.15);
+      setPair('liteRadarMaxScale', le.maxScale != null ? le.maxScale : 1.0);
+      setPair('liteRadarPeriod', le.period || le.speed || 2.4);
+      setPair('liteRadarStrokeWidth', le.strokeWidth || 2.0);
+      const ringsRow = document.getElementById('liteRadarRingsRow');
+      if (ringsRow) ringsRow.style.display = le.variant === 'single' ? 'none' : '';
+    }
 
     if (le.kind === 'flow-lite') {
       const pts = Array.isArray(le.points) && le.points.length >= 2 ? le.points : [{ x: 25, y: 50 }, { x: 75, y: 50 }];
@@ -1548,8 +1640,8 @@ window.LiteEffects = {
       listEl.innerHTML = '<div class="stage-hint" id="emptyLiteListHint">No low-load effects active.</div>';
       return;
     }
-    const iconByKind = { 'perimeter-tracer': '▭', 'pulse': '◎', 'flash': '✦', 'flow-lite': '↝' };
-    const kindShort = { 'perimeter-tracer': 'Tracer', 'pulse': 'Pulse', 'flash': 'Flash', 'flow-lite': 'Flow' };
+    const iconByKind = { 'perimeter-tracer': '▭', 'pulse': '◎', 'flash': '✦', 'flow-lite': '↝', 'radar-lite': '◉' };
+    const kindShort = { 'perimeter-tracer': 'Tracer', 'pulse': 'Pulse', 'flash': 'Flash', 'flow-lite': 'Flow', 'radar-lite': 'Radar' };
     this.list.forEach((le) => {
       const row = document.createElement('div');
       const isActive = String(this.activeId) === String(le.id);

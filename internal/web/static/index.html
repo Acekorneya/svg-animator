@@ -1134,11 +1134,12 @@
         <div class="accordion-body" style="padding: 0.55rem 0.65rem;">
           <div style="background: rgba(56, 189, 248, 0.06); border: 1px solid rgba(56, 189, 248, 0.25); border-radius: 6px; padding: 0.5rem 0.6rem; margin-bottom: 0.6rem;">
             <div style="font-size: 0.70rem; font-weight: 700; letter-spacing: 0.04em; color: #38bdf8; margin-bottom: 0.4rem;">CREATE LOW-LOAD EFFECT</div>
-            <div style="display: grid; grid-template-columns: repeat(4, 1fr); gap: 6px;">
-              <button type="button" class="tool-btn-compact" id="btnAddLiteTracer" title="Add Perimeter Tracer Lite" style="padding: 0.35rem 0.3rem; text-align: center;">▭ Tracer</button>
-              <button type="button" class="tool-btn-compact" id="btnAddLitePulse" title="Add Pulse Lite" style="padding: 0.35rem 0.3rem; text-align: center;">◎ Pulse</button>
-              <button type="button" class="tool-btn-compact" id="btnAddLiteFlash" title="Add Flash Lite" style="padding: 0.35rem 0.3rem; text-align: center;">✦ Flash</button>
-              <button type="button" class="tool-btn-compact" id="btnAddLiteFlow" title="Add Flow Lite" style="padding: 0.35rem 0.3rem; text-align: center;">↝ Flow</button>
+            <div style="display: grid; grid-template-columns: repeat(5, 1fr); gap: 5px;">
+              <button type="button" class="tool-btn-compact" id="btnAddLiteTracer" title="Add Perimeter Tracer Lite" style="padding: 0.35rem 0.25rem; text-align: center;">▭ Tracer</button>
+              <button type="button" class="tool-btn-compact" id="btnAddLitePulse" title="Add Pulse Lite" style="padding: 0.35rem 0.25rem; text-align: center;">◎ Pulse</button>
+              <button type="button" class="tool-btn-compact" id="btnAddLiteFlash" title="Add Flash Lite" style="padding: 0.35rem 0.25rem; text-align: center;">✦ Flash</button>
+              <button type="button" class="tool-btn-compact" id="btnAddLiteFlow" title="Add Flow Lite" style="padding: 0.35rem 0.25rem; text-align: center;">↝ Flow</button>
+              <button type="button" class="tool-btn-compact" id="btnAddLiteRadar" title="Add Radar Ping Lite" style="padding: 0.35rem 0.25rem; text-align: center;">◉ Radar</button>
             </div>
           </div>
 
@@ -1493,10 +1494,10 @@
                     </select>
                   </div>
                   <div class="inspector-prop-row">
-                    <label for="liteFlowSpeedSlider">Speed (Dur s)</label>
+                    <label for="liteFlowSpeedSlider" title="Duration in seconds for one complete pass along the path (excluding start/end delays)">Cycle Duration</label>
                     <div class="slider-row">
-                      <input type="range" id="liteFlowSpeedSlider" min="0.2" max="15" step="0.1" value="2.0">
-                      <input type="number" class="num-input" id="liteFlowSpeedNum" min="0.2" max="60" step="0.1" value="2.0">
+                      <input type="range" id="liteFlowSpeedSlider" min="0.2" max="30" step="0.1" value="2.0">
+                      <input type="number" class="num-input" id="liteFlowSpeedNum" min="0.2" max="30" step="0.1" value="2.0">
                     </div>
                   </div>
                   <div class="inspector-prop-row">
@@ -1511,6 +1512,48 @@
                     <div class="slider-row">
                       <input type="range" id="liteFlowEndDelaySlider" min="0" max="15" step="0.1" value="0">
                       <input type="number" class="num-input" id="liteFlowEndDelayNum" min="0" max="60" step="0.1" value="0">
+                    </div>
+                  </div>
+                </div>
+
+                <div id="liteRadarGroup" style="display: none;">
+                  <div class="inspector-prop-row">
+                    <label for="liteRadarShowGuideChk">Centre Marker</label>
+                    <input type="checkbox" id="liteRadarShowGuideChk" checked title="Show static centre dot marker">
+                  </div>
+                  <div class="inspector-prop-row" id="liteRadarRingsRow">
+                    <label for="liteRadarRingsSlider">Ring Count</label>
+                    <div class="slider-row">
+                      <input type="range" id="liteRadarRingsSlider" min="1" max="6" step="1" value="3">
+                      <input type="number" class="num-input" id="liteRadarRingsNum" min="1" max="6" step="1" value="3">
+                    </div>
+                  </div>
+                  <div class="inspector-prop-row">
+                    <label for="liteRadarMinScaleSlider">Min Scale</label>
+                    <div class="slider-row">
+                      <input type="range" id="liteRadarMinScaleSlider" min="0.05" max="1.0" step="0.05" value="0.15">
+                      <input type="number" class="num-input" id="liteRadarMinScaleNum" min="0.05" max="2.0" step="0.05" value="0.15">
+                    </div>
+                  </div>
+                  <div class="inspector-prop-row">
+                    <label for="liteRadarMaxScaleSlider">Max Scale</label>
+                    <div class="slider-row">
+                      <input type="range" id="liteRadarMaxScaleSlider" min="0.30" max="2.50" step="0.05" value="1.00">
+                      <input type="number" class="num-input" id="liteRadarMaxScaleNum" min="0.20" max="3.00" step="0.05" value="1.00">
+                    </div>
+                  </div>
+                  <div class="inspector-prop-row">
+                    <label for="liteRadarPeriodSlider" title="Duration in seconds for one ring to expand from Min Scale to Max Scale">Cycle Duration</label>
+                    <div class="slider-row">
+                      <input type="range" id="liteRadarPeriodSlider" min="0.2" max="30" step="0.1" value="2.4">
+                      <input type="number" class="num-input" id="liteRadarPeriodNum" min="0.2" max="30" step="0.1" value="2.4">
+                    </div>
+                  </div>
+                  <div class="inspector-prop-row">
+                    <label for="liteRadarStrokeWidthSlider">Stroke Width</label>
+                    <div class="slider-row">
+                      <input type="range" id="liteRadarStrokeWidthSlider" min="0.5" max="20" step="0.5" value="2.0">
+                      <input type="number" class="num-input" id="liteRadarStrokeWidthNum" min="0.5" max="20" step="0.5" value="2.0">
                     </div>
                   </div>
                 </div>
@@ -2804,10 +2847,10 @@
               </select>
             </div>
             <div class="floating-prop-row">
-              <label for="fctx-liteFlowSpeedSlider">Speed (s)</label>
+              <label for="fctx-liteFlowSpeedSlider" title="Duration in seconds for one complete pass along the path">Cycle Duration</label>
               <div class="slider-row">
-                <input type="range" id="fctx-liteFlowSpeedSlider" min="0.2" max="15" step="0.1" value="2.0">
-                <input type="number" class="num-input" id="fctx-liteFlowSpeedNum" min="0.2" max="60" step="0.1" value="2.0">
+                <input type="range" id="fctx-liteFlowSpeedSlider" min="0.2" max="30" step="0.1" value="2.0">
+                <input type="number" class="num-input" id="fctx-liteFlowSpeedNum" min="0.2" max="30" step="0.1" value="2.0">
               </div>
             </div>
             <div class="floating-prop-row">
@@ -2822,6 +2865,47 @@
               <div class="slider-row">
                 <input type="range" id="fctx-liteFlowEndDelaySlider" min="0" max="15" step="0.1" value="0">
                 <input type="number" class="num-input" id="fctx-liteFlowEndDelayNum" min="0" max="60" step="0.1" value="0">
+              </div>
+            </div>
+          </div>
+          <div id="fctx-liteRadarGroup" style="display: none;">
+            <div class="floating-prop-row">
+              <label for="fctx-liteRadarShowGuideChk">Centre Dot</label>
+              <input type="checkbox" id="fctx-liteRadarShowGuideChk" checked>
+            </div>
+            <div class="floating-prop-row" id="fctx-liteRadarRingsRow">
+              <label for="fctx-liteRadarRingsSlider">Ring Count</label>
+              <div class="slider-row">
+                <input type="range" id="fctx-liteRadarRingsSlider" min="1" max="6" step="1" value="3">
+                <input type="number" class="num-input" id="fctx-liteRadarRingsNum" min="1" max="6" step="1" value="3">
+              </div>
+            </div>
+            <div class="floating-prop-row">
+              <label for="fctx-liteRadarMinScaleSlider">Min Scale</label>
+              <div class="slider-row">
+                <input type="range" id="fctx-liteRadarMinScaleSlider" min="0.05" max="1.0" step="0.05" value="0.15">
+                <input type="number" class="num-input" id="fctx-liteRadarMinScaleNum" min="0.05" max="2.0" step="0.05" value="0.15">
+              </div>
+            </div>
+            <div class="floating-prop-row">
+              <label for="fctx-liteRadarMaxScaleSlider">Max Scale</label>
+              <div class="slider-row">
+                <input type="range" id="fctx-liteRadarMaxScaleSlider" min="0.30" max="2.50" step="0.05" value="1.00">
+                <input type="number" class="num-input" id="fctx-liteRadarMaxScaleNum" min="0.20" max="3.00" step="0.05" value="1.00">
+              </div>
+            </div>
+            <div class="floating-prop-row">
+              <label for="fctx-liteRadarPeriodSlider" title="Duration in seconds for one ring expansion cycle">Cycle Duration</label>
+              <div class="slider-row">
+                <input type="range" id="fctx-liteRadarPeriodSlider" min="0.2" max="30" step="0.1" value="2.4">
+                <input type="number" class="num-input" id="fctx-liteRadarPeriodNum" min="0.2" max="30" step="0.1" value="2.4">
+              </div>
+            </div>
+            <div class="floating-prop-row">
+              <label for="fctx-liteRadarStrokeWidthSlider">Stroke (px)</label>
+              <div class="slider-row">
+                <input type="range" id="fctx-liteRadarStrokeWidthSlider" min="0.5" max="20" step="0.5" value="2.0">
+                <input type="number" class="num-input" id="fctx-liteRadarStrokeWidthNum" min="0.5" max="20" step="0.5" value="2.0">
               </div>
             </div>
           </div>
@@ -3817,7 +3901,6 @@
   <script src="js/history.js?v=6.0"></script>
   <script src="js/projects.js?v=6.0"></script>
   <script src="js/shape-dropdown.js?v=6.0"></script>
-  <script src="js/svg-widget.js?v=6.0"></script>
   <script src="js/export-adapter.js?v=6.0"></script>
   <script src="js/workspace.js?v=6.0"></script>
   <script src="js/notifications.js?v=6.0"></script>

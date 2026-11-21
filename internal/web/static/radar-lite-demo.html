@@ -1,0 +1,284 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+  <meta charset="UTF-8" />
+  <meta name="viewport" content="width=device-width, initial-scale=1.0" />
+  <title>SVG Animator Studio — Stage 16D-B-M2: Radar Ping Lite Visual Showcase</title>
+  <style>
+    :root {
+      --bg-primary: #0b0f17;
+      --bg-panel: #131b2b;
+      --bg-card: #1a2438;
+      --border: #2c3a58;
+      --text-main: #f8fafc;
+      --text-muted: #94a3b8;
+      --accent: #22c55e;
+    }
+    * { box-sizing: border-box; margin: 0; padding: 0; }
+    body {
+      background: var(--bg-primary);
+      color: var(--text-main);
+      font-family: -apple-system, BlinkMacSystemFont, "Segoe UI", Roboto, sans-serif;
+      padding: 28px 32px;
+      line-height: 1.5;
+    }
+    header {
+      display: flex;
+      justify-content: space-between;
+      align-items: center;
+      flex-wrap: wrap;
+      gap: 16px;
+      margin-bottom: 24px;
+      padding-bottom: 18px;
+      border-bottom: 1px solid var(--border);
+    }
+    h1 { font-size: 1.5rem; font-weight: 700; color: #f1f5f9; }
+    .subtitle { font-size: 0.9rem; color: var(--text-muted); margin-top: 4px; }
+    .badge-row { display: flex; gap: 10px; align-items: center; flex-wrap: wrap; }
+    .badge {
+      padding: 5px 12px;
+      border-radius: 999px;
+      font-size: 0.78rem;
+      font-weight: 600;
+      background: rgba(34, 197, 94, 0.14);
+      color: #4ade80;
+      border: 1px solid rgba(34, 197, 94, 0.35);
+    }
+    .grid {
+      display: grid;
+      grid-template-columns: repeat(auto-fit, minmax(460px, 1fr));
+      gap: 20px;
+      margin-bottom: 24px;
+    }
+    .card {
+      background: var(--bg-panel);
+      border: 1px solid var(--border);
+      border-radius: 12px;
+      padding: 18px;
+      display: flex;
+      flex-direction: column;
+      gap: 12px;
+    }
+    .card-header {
+      display: flex;
+      justify-content: space-between;
+      align-items: baseline;
+      gap: 10px;
+    }
+    .card-title { font-size: 1.02rem; font-weight: 600; color: #e2e8f0; }
+    .card-meta { font-size: 0.75rem; color: var(--text-muted); font-family: monospace; }
+    .card-desc { font-size: 0.82rem; color: var(--text-muted); }
+    .stage-box {
+      background: #070b11;
+      border: 1px solid #1e293b;
+      border-radius: 8px;
+      overflow: hidden;
+      display: flex;
+      align-items: center;
+      justify-content: center;
+      padding: 8px;
+    }
+    .stage-box svg {
+      width: 100%;
+      height: 220px;
+      display: block;
+    }
+    @keyframes sva-lite-radar {
+      0%   { transform: scale(var(--sva-radar-min, 0.15)); opacity: var(--sva-radar-op, 0.9); }
+      75%  { opacity: calc(var(--sva-radar-op, 0.9) * 0.45); }
+      100% { transform: scale(var(--sva-radar-max, 1.0)); opacity: 0; }
+    }
+    .sva-lite-radar-anim {
+      animation-name: sva-lite-radar;
+      animation-timing-function: cubic-bezier(0.16, 0.68, 0.38, 0.98);
+      animation-iteration-count: infinite;
+      transform-box: fill-box;
+      transform-origin: center;
+    }
+    .legend-bar {
+      display: flex;
+      justify-content: space-around;
+      font-size: 0.76rem;
+      color: #cbd5e1;
+      padding-top: 4px;
+    }
+    .nav-links {
+      display: flex;
+      gap: 12px;
+      margin-top: 8px;
+    }
+    .nav-links a {
+      color: #38bdf8;
+      text-decoration: none;
+      font-size: 0.84rem;
+      font-weight: 600;
+    }
+    .nav-links a:hover { text-decoration: underline; }
+  </style>
+</head>
+<body>
+  <header>
+    <div>
+      <h1>Stage 16D-B-M2 — Radar Ping Lite Visual Showcase</h1>
+      <div class="subtitle">Filter-free concentric expanding rings with monotonic outward expansion, staggered phase spacing, and consistent stroke width (<code>vector-effect="non-scaling-stroke"</code>).</div>
+      <div class="nav-links">
+        <a href="/">← Return to SVG Animator Studio</a>
+        <a href="/flow-lite-demo.html">View M1 Flow Lite Showcase</a>
+      </div>
+    </div>
+    <div class="badge-row">
+      <span class="badge">Zero SVG Filters</span>
+      <span class="badge">1–6 Staggered Rings</span>
+      <span class="badge">Single · Multi · Fading Ping</span>
+      <span class="badge">0.2 s – 30.0 s Cycle Duration</span>
+    </div>
+  </header>
+
+  <div class="grid">
+    <!-- Card 1: Single Ping vs 3 Staggered Rings -->
+    <div class="card" id="demo-card-variants">
+      <div class="card-header">
+        <span class="card-title">1. Single Ping vs. Three Staggered Rings</span>
+        <span class="card-meta">variant: "single" (1 ring) | "multi" (3 rings)</span>
+      </div>
+      <p class="card-desc">Left: Single Ping emits one ring per 2.2 s cycle. Right: Multi-Ring emits 3 evenly staggered rings (phase offsets 0.00, -0.73 s, -1.47 s) creating a continuous sonar sweep.</p>
+      <div class="stage-box">
+        <svg viewBox="0 0 440 200" xmlns="http://www.w3.org/2000/svg">
+          <!-- Single Ping (Left) -->
+          <g id="demo-radar-single" data-lite-kind="radar-lite" data-radar-variant="single" data-radar-rings="1">
+            <ellipse class="lite-payload lite-radar-ring sva-lite-radar-anim"
+              cx="115" cy="100" rx="55" ry="55" fill="none" stroke="#22c55e" stroke-width="2.2"
+              stroke-opacity="0.95" vector-effect="non-scaling-stroke"
+              style="--sva-radar-min: 0.15; --sva-radar-max: 1.0; --sva-radar-op: 0.95; animation-duration: 2.2s; animation-delay: 0s;" />
+            <circle class="lite-guide-track lite-radar-center" cx="115" cy="100" r="3.5" fill="#22c55e" opacity="0.9" />
+          </g>
+          <!-- Three Staggered Rings (Right) -->
+          <g id="demo-radar-multi-3" data-lite-kind="radar-lite" data-radar-variant="multi" data-radar-rings="3">
+            <ellipse class="lite-payload lite-radar-ring sva-lite-radar-anim" data-ring-index="0"
+              cx="325" cy="100" rx="55" ry="55" fill="none" stroke="#38bdf8" stroke-width="2.2"
+              stroke-opacity="0.95" vector-effect="non-scaling-stroke"
+              style="--sva-radar-min: 0.15; --sva-radar-max: 1.0; --sva-radar-op: 0.95; --sva-phase-ratio: 0; animation-duration: 2.4s; animation-delay: 0s;" />
+            <ellipse class="lite-payload lite-radar-ring sva-lite-radar-anim" data-ring-index="1"
+              cx="325" cy="100" rx="55" ry="55" fill="none" stroke="#38bdf8" stroke-width="2.2"
+              stroke-opacity="0.95" vector-effect="non-scaling-stroke"
+              style="--sva-radar-min: 0.15; --sva-radar-max: 1.0; --sva-radar-op: 0.95; --sva-phase-ratio: 0.3333; animation-duration: 2.4s; animation-delay: -0.8s;" />
+            <ellipse class="lite-payload lite-radar-ring sva-lite-radar-anim" data-ring-index="2"
+              cx="325" cy="100" rx="55" ry="55" fill="none" stroke="#38bdf8" stroke-width="2.2"
+              stroke-opacity="0.95" vector-effect="non-scaling-stroke"
+              style="--sva-radar-min: 0.15; --sva-radar-max: 1.0; --sva-radar-op: 0.95; --sva-phase-ratio: 0.6667; animation-duration: 2.4s; animation-delay: -1.6s;" />
+            <circle class="lite-guide-track lite-radar-center" cx="325" cy="100" r="3.5" fill="#38bdf8" opacity="0.9" />
+          </g>
+        </svg>
+      </div>
+      <div class="legend-bar">
+        <span>Left: Single Ping (1 Ring, 2.2 s)</span>
+        <span>Right: Multi-Ring (3 Staggered Rings, 2.4 s)</span>
+      </div>
+    </div>
+
+    <!-- Card 2: Six Staggered Rings vs Fading Ping Variant -->
+    <div class="card" id="demo-card-six-and-fading">
+      <div class="card-header">
+        <span class="card-title">2. Six Staggered Rings vs. Fading Ping Variant</span>
+        <span class="card-meta">rings: 6 | variant: "fading-ping" (fill-opacity: 0.18)</span>
+      </div>
+      <p class="card-desc">Left: Maximum density 6-ring radar sweep with 60° phase intervals. Right: Fading Ping variant adds a soft translucent interior disc that fades smoothly to zero at full radius.</p>
+      <div class="stage-box">
+        <svg viewBox="0 0 440 200" xmlns="http://www.w3.org/2000/svg">
+          <!-- Six Staggered Rings (Left) -->
+          <g id="demo-radar-multi-6" data-lite-kind="radar-lite" data-radar-variant="multi" data-radar-rings="6">
+            <ellipse class="lite-payload lite-radar-ring sva-lite-radar-anim" data-ring-index="0" cx="115" cy="100" rx="58" ry="58" fill="none" stroke="#a855f7" stroke-width="1.8" vector-effect="non-scaling-stroke" style="--sva-radar-min: 0.12; --sva-radar-max: 1.0; --sva-radar-op: 0.9; animation-duration: 3.0s; animation-delay: 0s;" />
+            <ellipse class="lite-payload lite-radar-ring sva-lite-radar-anim" data-ring-index="1" cx="115" cy="100" rx="58" ry="58" fill="none" stroke="#a855f7" stroke-width="1.8" vector-effect="non-scaling-stroke" style="--sva-radar-min: 0.12; --sva-radar-max: 1.0; --sva-radar-op: 0.9; animation-duration: 3.0s; animation-delay: -0.5s;" />
+            <ellipse class="lite-payload lite-radar-ring sva-lite-radar-anim" data-ring-index="2" cx="115" cy="100" rx="58" ry="58" fill="none" stroke="#a855f7" stroke-width="1.8" vector-effect="non-scaling-stroke" style="--sva-radar-min: 0.12; --sva-radar-max: 1.0; --sva-radar-op: 0.9; animation-duration: 3.0s; animation-delay: -1.0s;" />
+            <ellipse class="lite-payload lite-radar-ring sva-lite-radar-anim" data-ring-index="3" cx="115" cy="100" rx="58" ry="58" fill="none" stroke="#a855f7" stroke-width="1.8" vector-effect="non-scaling-stroke" style="--sva-radar-min: 0.12; --sva-radar-max: 1.0; --sva-radar-op: 0.9; animation-duration: 3.0s; animation-delay: -1.5s;" />
+            <ellipse class="lite-payload lite-radar-ring sva-lite-radar-anim" data-ring-index="4" cx="115" cy="100" rx="58" ry="58" fill="none" stroke="#a855f7" stroke-width="1.8" vector-effect="non-scaling-stroke" style="--sva-radar-min: 0.12; --sva-radar-max: 1.0; --sva-radar-op: 0.9; animation-duration: 3.0s; animation-delay: -2.0s;" />
+            <ellipse class="lite-payload lite-radar-ring sva-lite-radar-anim" data-ring-index="5" cx="115" cy="100" rx="58" ry="58" fill="none" stroke="#a855f7" stroke-width="1.8" vector-effect="non-scaling-stroke" style="--sva-radar-min: 0.12; --sva-radar-max: 1.0; --sva-radar-op: 0.9; animation-duration: 3.0s; animation-delay: -2.5s;" />
+            <circle class="lite-guide-track lite-radar-center" cx="115" cy="100" r="3.5" fill="#a855f7" opacity="0.9" />
+          </g>
+          <!-- Fading Ping Variant (Right) -->
+          <g id="demo-radar-fading" data-lite-kind="radar-lite" data-radar-variant="fading-ping" data-radar-rings="3">
+            <ellipse class="lite-payload lite-radar-ring sva-lite-radar-anim" data-ring-index="0" cx="325" cy="100" rx="58" ry="58" fill="#f59e0b" fill-opacity="0.18" stroke="#f59e0b" stroke-width="2.2" vector-effect="non-scaling-stroke" style="--sva-radar-min: 0.15; --sva-radar-max: 1.05; --sva-radar-op: 0.95; animation-duration: 2.4s; animation-delay: 0s;" />
+            <ellipse class="lite-payload lite-radar-ring sva-lite-radar-anim" data-ring-index="1" cx="325" cy="100" rx="58" ry="58" fill="#f59e0b" fill-opacity="0.18" stroke="#f59e0b" stroke-width="2.2" vector-effect="non-scaling-stroke" style="--sva-radar-min: 0.15; --sva-radar-max: 1.05; --sva-radar-op: 0.95; animation-duration: 2.4s; animation-delay: -0.8s;" />
+            <ellipse class="lite-payload lite-radar-ring sva-lite-radar-anim" data-ring-index="2" cx="325" cy="100" rx="58" ry="58" fill="#f59e0b" fill-opacity="0.18" stroke="#f59e0b" stroke-width="2.2" vector-effect="non-scaling-stroke" style="--sva-radar-min: 0.15; --sva-radar-max: 1.05; --sva-radar-op: 0.95; animation-duration: 2.4s; animation-delay: -1.6s;" />
+            <circle class="lite-guide-track lite-radar-center" cx="325" cy="100" r="3.5" fill="#f59e0b" opacity="0.9" />
+          </g>
+        </svg>
+      </div>
+      <div class="legend-bar">
+        <span>Left: 6 Staggered Rings (3.0 s cycle)</span>
+        <span>Right: Fading Ping (3 Filled Rings, 2.4 s)</span>
+      </div>
+    </div>
+
+    <!-- Card 3: Small & Large Geometry + Circular & Elliptical -->
+    <div class="card" id="demo-card-geometry">
+      <div class="card-header">
+        <span class="card-title">3. Small vs. Large &amp; Circular vs. Elliptical Geometry</span>
+        <span class="card-meta">36×36 Small | 136×136 Large | 140×64 Elliptical</span>
+      </div>
+      <p class="card-desc">Left: Compact 36×36 node badge ping. Centre: Large 136×136 perimeter radar. Right: Non-uniform 140×64 elliptical ground-plane beacon (`maintainAspectRatio: false`).</p>
+      <div class="stage-box">
+        <svg viewBox="0 0 440 200" xmlns="http://www.w3.org/2000/svg">
+          <!-- Small 36x36 -->
+          <g id="demo-radar-small" data-lite-kind="radar-lite" data-radar-variant="multi" data-radar-rings="3">
+            <ellipse class="lite-payload lite-radar-ring sva-lite-radar-anim" cx="55" cy="100" rx="18" ry="18" fill="none" stroke="#10b981" stroke-width="2" vector-effect="non-scaling-stroke" style="--sva-radar-min: 0.18; --sva-radar-max: 1.0; --sva-radar-op: 0.95; animation-duration: 1.8s; animation-delay: 0s;" />
+            <ellipse class="lite-payload lite-radar-ring sva-lite-radar-anim" cx="55" cy="100" rx="18" ry="18" fill="none" stroke="#10b981" stroke-width="2" vector-effect="non-scaling-stroke" style="--sva-radar-min: 0.18; --sva-radar-max: 1.0; --sva-radar-op: 0.95; animation-duration: 1.8s; animation-delay: -0.6s;" />
+            <ellipse class="lite-payload lite-radar-ring sva-lite-radar-anim" cx="55" cy="100" rx="18" ry="18" fill="none" stroke="#10b981" stroke-width="2" vector-effect="non-scaling-stroke" style="--sva-radar-min: 0.18; --sva-radar-max: 1.0; --sva-radar-op: 0.95; animation-duration: 1.8s; animation-delay: -1.2s;" />
+            <circle class="lite-guide-track lite-radar-center" cx="55" cy="100" r="2.5" fill="#10b981" />
+          </g>
+          <!-- Large 136x136 -->
+          <g id="demo-radar-large" data-lite-kind="radar-lite" data-radar-variant="multi" data-radar-rings="3">
+            <ellipse class="lite-payload lite-radar-ring sva-lite-radar-anim" cx="185" cy="100" rx="68" ry="68" fill="none" stroke="#22c55e" stroke-width="2.2" vector-effect="non-scaling-stroke" style="--sva-radar-min: 0.15; --sva-radar-max: 1.0; --sva-radar-op: 0.9; animation-duration: 2.6s; animation-delay: 0s;" />
+            <ellipse class="lite-payload lite-radar-ring sva-lite-radar-anim" cx="185" cy="100" rx="68" ry="68" fill="none" stroke="#22c55e" stroke-width="2.2" vector-effect="non-scaling-stroke" style="--sva-radar-min: 0.15; --sva-radar-max: 1.0; --sva-radar-op: 0.9; animation-duration: 2.6s; animation-delay: -0.8667s;" />
+            <ellipse class="lite-payload lite-radar-ring sva-lite-radar-anim" cx="185" cy="100" rx="68" ry="68" fill="none" stroke="#22c55e" stroke-width="2.2" vector-effect="non-scaling-stroke" style="--sva-radar-min: 0.15; --sva-radar-max: 1.0; --sva-radar-op: 0.9; animation-duration: 2.6s; animation-delay: -1.7333s;" />
+            <circle class="lite-guide-track lite-radar-center" cx="185" cy="100" r="4" fill="#22c55e" />
+          </g>
+          <!-- Elliptical 140x64 -->
+          <g id="demo-radar-ellipse" data-lite-kind="radar-lite" data-radar-variant="multi" data-radar-rings="3">
+            <ellipse class="lite-payload lite-radar-ring sva-lite-radar-anim" cx="350" cy="100" rx="70" ry="32" fill="none" stroke="#38bdf8" stroke-width="2" vector-effect="non-scaling-stroke" style="--sva-radar-min: 0.15; --sva-radar-max: 1.0; --sva-radar-op: 0.95; animation-duration: 2.2s; animation-delay: 0s;" />
+            <ellipse class="lite-payload lite-radar-ring sva-lite-radar-anim" cx="350" cy="100" rx="70" ry="32" fill="none" stroke="#38bdf8" stroke-width="2" vector-effect="non-scaling-stroke" style="--sva-radar-min: 0.15; --sva-radar-max: 1.0; --sva-radar-op: 0.95; animation-duration: 2.2s; animation-delay: -0.7333s;" />
+            <ellipse class="lite-payload lite-radar-ring sva-lite-radar-anim" cx="350" cy="100" rx="70" ry="32" fill="none" stroke="#38bdf8" stroke-width="2" vector-effect="non-scaling-stroke" style="--sva-radar-min: 0.15; --sva-radar-max: 1.0; --sva-radar-op: 0.95; animation-duration: 2.2s; animation-delay: -1.4667s;" />
+            <circle class="lite-guide-track lite-radar-center" cx="350" cy="100" r="3" fill="#38bdf8" />
+          </g>
+        </svg>
+      </div>
+      <div class="legend-bar">
+        <span>Small (36×36)</span>
+        <span>Large Circular (136×136)</span>
+        <span>Elliptical (140×64)</span>
+      </div>
+    </div>
+
+    <!-- Card 4: Fast vs Slow Cycle Duration & Centre Marker On vs Off -->
+    <div class="card" id="demo-card-timing-and-marker">
+      <div class="card-header">
+        <span class="card-title">4. Fast vs. Slow Timing &amp; Centre Marker On / Off</span>
+        <span class="card-meta">0.9 s Fast (Marker On) | 5.4 s Slow (Marker Off)</span>
+      </div>
+      <p class="card-desc">Left: Fast 0.9 s alert cadence with visible centre anchor marker (`showGuide: true`). Right: Slow 5.4 s ambient sweep with centre marker hidden (`showGuide: false`).</p>
+      <div class="stage-box">
+        <svg viewBox="0 0 440 200" xmlns="http://www.w3.org/2000/svg">
+          <!-- Fast 0.9s + Marker On -->
+          <g id="demo-radar-fast-marker-on" data-lite-kind="radar-lite" data-radar-variant="multi" data-radar-rings="3">
+            <ellipse class="lite-payload lite-radar-ring sva-lite-radar-anim" cx="115" cy="100" rx="55" ry="55" fill="none" stroke="#ef4444" stroke-width="2.2" vector-effect="non-scaling-stroke" style="--sva-radar-min: 0.15; --sva-radar-max: 1.1; --sva-radar-op: 0.95; animation-duration: 0.9s; animation-delay: 0s;" />
+            <ellipse class="lite-payload lite-radar-ring sva-lite-radar-anim" cx="115" cy="100" rx="55" ry="55" fill="none" stroke="#ef4444" stroke-width="2.2" vector-effect="non-scaling-stroke" style="--sva-radar-min: 0.15; --sva-radar-max: 1.1; --sva-radar-op: 0.95; animation-duration: 0.9s; animation-delay: -0.3s;" />
+            <ellipse class="lite-payload lite-radar-ring sva-lite-radar-anim" cx="115" cy="100" rx="55" ry="55" fill="none" stroke="#ef4444" stroke-width="2.2" vector-effect="non-scaling-stroke" style="--sva-radar-min: 0.15; --sva-radar-max: 1.1; --sva-radar-op: 0.95; animation-duration: 0.9s; animation-delay: -0.6s;" />
+            <circle class="lite-guide-track lite-radar-center" cx="115" cy="100" r="4" fill="#ef4444" opacity="0.95" style="visibility: visible;" />
+          </g>
+          <!-- Slow 5.4s + Marker Off -->
+          <g id="demo-radar-slow-marker-off" data-lite-kind="radar-lite" data-radar-variant="multi" data-radar-rings="3">
+            <ellipse class="lite-payload lite-radar-ring sva-lite-radar-anim" cx="325" cy="100" rx="55" ry="55" fill="none" stroke="#38bdf8" stroke-width="2.2" vector-effect="non-scaling-stroke" style="--sva-radar-min: 0.15; --sva-radar-max: 1.1; --sva-radar-op: 0.95; animation-duration: 5.4s; animation-delay: 0s;" />
+            <ellipse class="lite-payload lite-radar-ring sva-lite-radar-anim" cx="325" cy="100" rx="55" ry="55" fill="none" stroke="#38bdf8" stroke-width="2.2" vector-effect="non-scaling-stroke" style="--sva-radar-min: 0.15; --sva-radar-max: 1.1; --sva-radar-op: 0.95; animation-duration: 5.4s; animation-delay: -1.8s;" />
+            <ellipse class="lite-payload lite-radar-ring sva-lite-radar-anim" cx="325" cy="100" rx="55" ry="55" fill="none" stroke="#38bdf8" stroke-width="2.2" vector-effect="non-scaling-stroke" style="--sva-radar-min: 0.15; --sva-radar-max: 1.1; --sva-radar-op: 0.95; animation-duration: 5.4s; animation-delay: -3.6s;" />
+            <circle class="lite-guide-track lite-radar-center" cx="325" cy="100" r="4" fill="#38bdf8" opacity="0.95" visibility="hidden" style="visibility: hidden;" />
+          </g>
+        </svg>
+      </div>
+      <div class="legend-bar">
+        <span>Left: Fast 0.9 s Cycle · Centre Marker ON</span>
+        <span>Right: Slow 5.4 s Cycle · Centre Marker OFF</span>
+      </div>
+    </div>
+  </div>
+</body>
+</html>

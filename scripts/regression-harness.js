@@ -11604,6 +11604,97 @@ async function runHarness() {
   }
   console.log('[HARNESS] Scenario 89 PASS: Stage 16D-B-M1 Flow Lite Multi-Point Path, Endpoints & Widget Controls verified.');
 
+  // =========================================================================
+  // SCENARIO 90: Stage 16D-B-M2 Radar Ping Lite (Single, Multi 1..6 Rings,
+  //              Fading Ping, Elliptical Geometry, Centre Marker) & Flow Lite
+  //              30.0 s Cycle Duration Boundary
+  // =========================================================================
+  console.log('\n[HARNESS] Testing Scenario 90: Stage 16D-B-M2 Radar Ping Lite & Flow Lite 30.0 s Cycle Duration...');
+  {
+    // 1. Flow Lite 30.0 s Cycle Duration boundary
+    const slowFlow = window.LiteEffects.createLiteEffect({
+      name: 'slowTelemetryFlow',
+      kind: 'flow-lite',
+      variant: 'dashed',
+      speed: 30.0,
+      points: [{ x: 10, y: 20 }, { x: 90, y: 20 }],
+      bends: [0]
+    });
+    assert.strictEqual(slowFlow.speed, 30.0, 'W16DBM2-01: Flow Lite 30.0 s Cycle Duration preserved on creation');
+    const renderedSlowFlow = window.LiteEffects.renderLiteElement(slowFlow);
+    assert(renderedSlowFlow.includes('data-flow-speed="30"'), 'W16DBM2-02: Flow Lite rendered with 30 s Cycle Duration');
+
+    // 2. Radar Ping Lite default multi-ring creation (3 staggered rings)
+    const radarMulti = window.LiteEffects.createLiteEffect({
+      name: 'primarySonar',
+      kind: 'radar-lite',
+      variant: 'multi',
+      rings: 4,
+      minScale: 0.18,
+      maxScale: 1.25,
+      period: 3.2,
+      strokeWidth: 2.5,
+      color: '#22c55e',
+      opacity: 0.92,
+      x: 45,
+      y: 55,
+      width: 110,
+      height: 76,
+      maintainAspectRatio: false,
+      showGuide: true
+    });
+    assert.strictEqual(radarMulti.kind, 'radar-lite', 'W16DBM2-03: Radar Ping Lite kind preserved');
+    assert.strictEqual(radarMulti.variant, 'multi', 'W16DBM2-04: Radar Ping Lite multi variant preserved');
+    assert.strictEqual(radarMulti.rings, 4, 'W16DBM2-05: Radar Ping Lite 4 rings preserved');
+    assert.strictEqual(radarMulti.minScale, 0.18, 'W16DBM2-06: Radar Ping Lite minScale preserved');
+    assert.strictEqual(radarMulti.maxScale, 1.25, 'W16DBM2-07: Radar Ping Lite maxScale preserved');
+    assert.strictEqual(radarMulti.period, 3.2, 'W16DBM2-08: Radar Ping Lite period preserved');
+    assert.strictEqual(radarMulti.width, 110, 'W16DBM2-09: Radar Ping Lite elliptical width preserved');
+    assert.strictEqual(radarMulti.height, 76, 'W16DBM2-10: Radar Ping Lite elliptical height preserved');
+
+    const renderedMulti = window.LiteEffects.renderLiteElement(radarMulti);
+    assert(renderedMulti.includes('data-lite-kind="radar-lite"'), 'W16DBM2-11: Rendered group has data-lite-kind="radar-lite"');
+    assert(renderedMulti.includes('data-radar-rings="4"'), 'W16DBM2-12: Rendered group has data-radar-rings="4"');
+    assert(!renderedMulti.includes('<filter'), 'W16DBM2-13: Radar Ping Lite uses zero SVG filter primitives');
+    const ringMatches = renderedMulti.match(/class="lite-payload lite-radar-ring sva-lite-radar-anim"/g) || [];
+    assert.strictEqual(ringMatches.length, 4, 'W16DBM2-14: Exactly 4 staggered ring ellipses rendered');
+    assert(renderedMulti.includes('vector-effect="non-scaling-stroke"'), 'W16DBM2-15: Rings preserve stroke thickness via non-scaling-stroke');
+    assert(renderedMulti.includes('class="lite-guide-track lite-radar-center"'), 'W16DBM2-16: Centre marker dot rendered');
+
+    // 3. Single Ping variant enforces 1 ring
+    window.LiteEffects.updateLiteEffect(radarMulti.id, { variant: 'single' });
+    const updatedSingle = window.LiteEffects.getLiteEffect(radarMulti.id);
+    assert.strictEqual(updatedSingle.variant, 'single', 'W16DBM2-17: Variant updated to single');
+    assert.strictEqual(updatedSingle.rings, 1, 'W16DBM2-18: Single variant normalizes rings to 1');
+    const renderedSingle = window.LiteEffects.renderLiteElement(updatedSingle);
+    const singleRingMatches = renderedSingle.match(/class="lite-payload lite-radar-ring sva-lite-radar-anim"/g) || [];
+    assert.strictEqual(singleRingMatches.length, 1, 'W16DBM2-19: Single variant renders 1 ring');
+
+    // 4. Fading Ping variant with 6 rings
+    window.LiteEffects.updateLiteEffect(radarMulti.id, { variant: 'fading-ping', rings: 6, showGuide: false });
+    const updatedFading = window.LiteEffects.getLiteEffect(radarMulti.id);
+    assert.strictEqual(updatedFading.variant, 'fading-ping', 'W16DBM2-20: Variant updated to fading-ping');
+    assert.strictEqual(updatedFading.rings, 6, 'W16DBM2-21: 6 rings preserved on fading-ping');
+    const renderedFading = window.LiteEffects.renderLiteElement(updatedFading);
+    assert(renderedFading.includes('fill-opacity="0.18"'), 'W16DBM2-22: Fading ping includes soft interior fill-opacity');
+    assert(renderedFading.includes('visibility="hidden"'), 'W16DBM2-23: Centre marker hidden when showGuide is false');
+
+    // 5. Project serialization round-trip preserves Radar Ping Lite & Flow Lite 30 s
+    const serialized90 = window.ProjectManager.serializeStudioState();
+    window.ProjectManager.resetToNewProject();
+    window.ProjectManager.applyStudioState(serialized90);
+    const restoredRadar = window.LiteEffects.getLiteEffect(radarMulti.id);
+    const restoredFlow = window.LiteEffects.getLiteEffect(slowFlow.id);
+    assert(restoredRadar && restoredRadar.kind === 'radar-lite', 'W16DBM2-24: Radar Ping Lite restored after round-trip');
+    assert.strictEqual(restoredRadar.variant, 'fading-ping', 'W16DBM2-25: Radar Ping Lite variant restored');
+    assert.strictEqual(restoredRadar.rings, 6, 'W16DBM2-26: Radar Ping Lite rings restored');
+    assert.strictEqual(restoredFlow.speed, 30.0, 'W16DBM2-27: Flow Lite 30.0 s Cycle Duration restored');
+
+    window.ProjectManager.resetToNewProject();
+    window.EngineBridge.setWidgetParameters([]);
+  }
+  console.log('[HARNESS] Scenario 90 PASS: Stage 16D-B-M2 Radar Ping Lite & Flow Lite 30.0 s Cycle Duration verified.');
+
   console.log('[HARNESS] REG-03 PASS: Stage 3, 4, 5, 6, 7, 8, 9, 11, 12, 13, 14, 15 & 16 non-destructive cropping, background extraction, image baking, dedicated crop clip & snip workspace, object-local clipping, unified layer management, independent image objects, persistent groups, duplication, copy/paste with flow remapping, multi-selection, alignment, distribution, colour tools, selection retention, notifications, naming sync, history(50), schema 1.2.0, .sva packaging, background photo restoration, SVG compilation, export payload builders, collision-free widgets, external runtime parameters, and Go WASM engines verified.');
 }
 

@@ -388,4 +388,104 @@ func TestFlowLiteMultiPointBendsEndpointsAndWidgetScoping(t *testing.T) {
 	if !strings.Contains(scopedSVG, `href="#w1__lite-flow-track-1"`) || !strings.Contains(scopedSVG, `url(#w1__lite-flow-clip-1)`) || !strings.Contains(scopedSVG, `w1__sva-fl-1`) {
 		t.Fatalf("ScopeWidgetSVG did not scope flow-lite href, clip-path, or keyframes: %s", scopedSVG)
 	}
+
+	// 7. Flow Lite 30-second Cycle Duration boundary check
+	upd30, err := sc.UpdateLiteEffect(fl.ID, map[string]any{"speed": 30.0})
+	if err != nil || upd30.Speed != 30.0 {
+		t.Fatalf("expected flow-lite 30.0s cycle duration accepted, got speed=%v err=%v", upd30.Speed, err)
+	}
+	updClamp, err := sc.UpdateLiteEffect(fl.ID, map[string]any{"speed": 45.0})
+	if err != nil || updClamp.Speed != 30.0 {
+		t.Fatalf("expected flow-lite >30.0s cycle duration clamped to 30.0s, got speed=%v err=%v", updClamp.Speed, err)
+	}
+}
+
+func TestRadarPingLiteVariantsRingsScaleAndPersistence(t *testing.T) {
+	sc := NewScene()
+
+	// 1. Default Radar Ping Lite creation
+	rd := sc.CreateLiteEffect(LiteEffect{
+		Name: "beacon",
+		Kind: "radar-lite",
+	})
+	if rd.Kind != "radar-lite" || rd.Variant != "multi" || rd.Rings != 3 {
+		t.Fatalf("expected radar-lite multi with 3 rings by default, got %+v", rd)
+	}
+	if rd.MinScale != 0.15 || rd.MaxScale != 1.0 || rd.Period != 2.4 || rd.StrokeWidth != 2.0 || rd.Width != 80 || rd.Height != 80 || rd.Color != "#22c55e" || rd.Opacity != 0.9 {
+		t.Fatalf("unexpected radar-lite defaults: %+v", rd)
+	}
+	if rd.ShowGuide == nil || !*rd.ShowGuide {
+		t.Fatalf("expected radar-lite ShowGuide=true (centre marker enabled) by default")
+	}
+
+	// 2. Update variant to single -> rings normalized to 1
+	singleUpd, err := sc.UpdateLiteEffect(rd.ID, map[string]any{
+		"variant": "single",
+	})
+	if err != nil || singleUpd.Rings != 1 {
+		t.Fatalf("expected single variant to normalize rings=1, got rings=%d err=%v", singleUpd.Rings, err)
+	}
+
+	// 3. Update to fading-ping with 6 rings, custom ellipse dimensions, min/max scale, and 30s cycle duration
+	fadingUpd, err := sc.UpdateLiteEffect(rd.ID, map[string]any{
+		"variant":     "fading-ping",
+		"rings":       6,
+		"minScale":    0.20,
+		"maxScale":    1.25,
+		"period":      30.0,
+		"strokeWidth": 3.5,
+		"width":       120.0,
+		"height":      70.0,
+		"color":       "#38bdf8",
+		"opacity":     0.85,
+		"showGuide":   false,
+	})
+	if err != nil {
+		t.Fatalf("UpdateLiteEffect(radar-lite fading-ping) failed: %v", err)
+	}
+	if fadingUpd.Variant != "fading-ping" || fadingUpd.Rings != 6 || fadingUpd.MinScale != 0.20 || fadingUpd.MaxScale != 1.25 || fadingUpd.Period != 30.0 || fadingUpd.Width != 120 || fadingUpd.Height != 70 || (fadingUpd.ShowGuide != nil && *fadingUpd.ShowGuide) {
+		t.Fatalf("unexpected radar-lite fading-ping update: %+v", fadingUpd)
+	}
+
+	// 4. Snapshot and History Undo/Redo round-trip
+	sc.RecordHistory()
+	_, _ = sc.UpdateLiteEffect(rd.ID, map[string]any{"rings": 4, "period": 1.6})
+	sc.RecordHistory()
+	if _, err := sc.UndoHistory(); err != nil {
+		t.Fatalf("UndoHistory failed: %v", err)
+	}
+	afterUndo, _ := sc.GetLiteEffect(rd.ID)
+	if afterUndo.Rings != 6 || afterUndo.Period != 30.0 {
+		t.Fatalf("expected undo to restore rings=6 period=30.0, got %+v", afterUndo)
+	}
+	if _, err := sc.RedoHistory(); err != nil {
+		t.Fatalf("RedoHistory failed: %v", err)
+	}
+	afterRedo, _ := sc.GetLiteEffect(rd.ID)
+	if afterRedo.Rings != 4 || afterRedo.Period != 1.6 {
+		t.Fatalf("expected redo to restore rings=4 period=1.6, got %+v", afterRedo)
+	}
+
+	// 5. Widget parameter binding for Radar Ping Lite
+	radarProps := map[string]string{
+		"color":       "color",
+		"opacity":     "number",
+		"visibility":  "boolean",
+		"speed":       "speed",
+		"strokeWidth": "number",
+		"scale":       "number",
+		"period":      "number",
+		"showGuide":   "boolean",
+	}
+	for prop, pType := range radarProps {
+		pName := GenerateParameterName("beacon", prop, "lite")
+		if err := sc.AddParameter(WidgetParameter{
+			Name:     pName,
+			Type:     pType,
+			Target:   "lite-" + string(rd.ID),
+			Property: prop,
+		}); err != nil {
+			t.Fatalf("AddParameter(radar-lite %s) failed: %v", prop, err)
+		}
+	}
 }

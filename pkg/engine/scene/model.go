@@ -438,13 +438,13 @@ type WidgetManifest struct {
 }
 
 // LiteEffect represents a low-load declarative SVG visual effect (Stage 16D).
-// Kind values in 16D-A / 16D-B-M1: "perimeter-tracer", "pulse", "flash", "flow-lite".
+// Kind values in 16D-A / 16D-B-M1..M2: "perimeter-tracer", "pulse", "flash", "flow-lite", "radar-lite".
 type LiteEffect struct {
 	ID                  StringID         `json:"id"`
 	Name                string           `json:"name,omitempty"`
 	Metadata            map[string]any   `json:"metadata,omitempty"`
-	Kind                string           `json:"kind"`              // "perimeter-tracer" | "pulse" | "flash" | "flow-lite"
-	Variant             string           `json:"variant,omitempty"` // e.g. "rect", "rounded", "circle", "ellipse", "square", "diamond", "cross", "ring", "star", "dashed", "dotted", "single"
+	Kind                string           `json:"kind"`              // "perimeter-tracer" | "pulse" | "flash" | "flow-lite" | "radar-lite"
+	Variant             string           `json:"variant,omitempty"` // e.g. "rect", "rounded", "circle", "ellipse", "square", "diamond", "cross", "ring", "star", "dashed", "dotted", "single", "multi", "fading-ping"
 	TargetID            string           `json:"targetId,omitempty"`
 	X                   float64          `json:"x"`
 	Y                   float64          `json:"y"`
@@ -456,6 +456,7 @@ type LiteEffect struct {
 	Opacity             float64          `json:"opacity"`
 	StrokeWidth         float64          `json:"strokeWidth,omitempty"`
 	Segments            int              `json:"segments,omitempty"`     // Perimeter Tracer: 1..16
+	Rings               int              `json:"rings,omitempty"`        // Radar Ping Lite: 1..6
 	LineGapRatio        string           `json:"lineGapRatio,omitempty"` // Perimeter Tracer: e.g. "1:3"
 	SegmentStyle        string           `json:"segmentStyle,omitempty"` // "solid" | "rounded" | "dashed"
 	StartOffset         float64          `json:"startOffset,omitempty"`  // 0..100 percent
