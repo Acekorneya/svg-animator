@@ -376,6 +376,9 @@
     },
 
     buildFullSVG(state, overrides = {}) {
+      if (!state) {
+        state = this.currentRenderState || window.currentRenderState || this.buildCurrentRenderState();
+      }
       if (!state || !window.Effects) return '';
       const includeFlows = overrides.includeFlows !== false;
       const includeGlows = overrides.includeGlows !== false;

@@ -201,6 +201,8 @@ func BuildProjectFromStudioState(projectName string, projectDesc string, schemaJ
 		LiteEffectsCounter int                     `json:"liteEffectsCounter"`
 		Groups             []scene.Group           `json:"groups"`
 		GroupsCounter      int                     `json:"groupsCounter"`
+		Composites         []scene.CompositeDef    `json:"composites"`
+		CompositesCounter  int                     `json:"compositesCounter"`
 		Images             []scene.Image           `json:"images"`
 		ImagesCounter      int                     `json:"imagesCounter"`
 		Layers             []scene.LayerEntry      `json:"layers"`
@@ -439,6 +441,8 @@ func BuildProjectFromStudioState(projectName string, projectDesc string, schemaJ
 			LiteEffectsCounter: raw.LiteEffectsCounter,
 			Groups:             groups,
 			GroupsCounter:      groupsCounter,
+			Composites:         raw.Composites,
+			CompositesCounter:  raw.CompositesCounter,
 			Images:             raw.Images,
 			ImagesCounter:      raw.ImagesCounter,
 			Layers:             raw.Layers,

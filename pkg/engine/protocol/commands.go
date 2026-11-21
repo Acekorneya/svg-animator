@@ -781,6 +781,69 @@ type GroupMappingResponse struct {
 	Error      string                  `json:"error,omitempty"`
 }
 
+// CompositeCreateFromGroupRequest payload for "Composite.CreateFromGroup".
+type CompositeCreateFromGroupRequest struct {
+	GroupID     scene.StringID `json:"groupId"`
+	Name        string         `json:"name,omitempty"`
+	Description string         `json:"description,omitempty"`
+}
+
+// CompositeCreateResponse response for "Composite.CreateFromGroup".
+type CompositeCreateResponse struct {
+	Success   bool               `json:"success"`
+	Composite scene.CompositeDef `json:"composite,omitempty"`
+	Snapshot  *scene.Snapshot    `json:"snapshot,omitempty"`
+	Error     string             `json:"error,omitempty"`
+}
+
+// CompositeInstantiateRequest payload for "Composite.Instantiate".
+type CompositeInstantiateRequest struct {
+	CompositeID  scene.StringID `json:"compositeId"`
+	InstanceName string         `json:"instanceName,omitempty"`
+	OffsetX      float64        `json:"offsetX"`
+	OffsetY      float64        `json:"offsetY"`
+}
+
+// CompositeInstantiateResponse response for "Composite.Instantiate".
+type CompositeInstantiateResponse struct {
+	Success    bool                    `json:"success"`
+	Group      scene.Group             `json:"group,omitempty"`
+	NewItems   []scene.SelectionItem   `json:"newItems,omitempty"`
+	Parameters []scene.WidgetParameter `json:"parameters,omitempty"`
+	Snapshot   *scene.Snapshot         `json:"snapshot,omitempty"`
+	Error      string                  `json:"error,omitempty"`
+}
+
+// CompositeDeleteRequest payload for "Composite.Delete".
+type CompositeDeleteRequest struct {
+	CompositeID scene.StringID `json:"compositeId"`
+}
+
+// CompositeDeleteResponse response for "Composite.Delete".
+type CompositeDeleteResponse struct {
+	Success  bool            `json:"success"`
+	Snapshot *scene.Snapshot `json:"snapshot,omitempty"`
+	Error    string          `json:"error,omitempty"`
+}
+
+// CompositeGetRequest payload for "Composite.Get".
+type CompositeGetRequest struct {
+	CompositeID scene.StringID `json:"compositeId"`
+}
+
+// CompositeGetResponse response for "Composite.Get".
+type CompositeGetResponse struct {
+	Found     bool               `json:"found"`
+	Composite scene.CompositeDef `json:"composite,omitempty"`
+}
+
+// CompositeListResponse response for "Composite.List".
+type CompositeListResponse struct {
+	Composites        []scene.CompositeDef `json:"composites"`
+	Count             int                  `json:"count"`
+	CompositesCounter int64                `json:"compositesCounter"`
+}
+
 // ImageCreateRequest payload for "Image.Create".
 type ImageCreateRequest struct {
 	Image scene.Image `json:"image"`
@@ -3082,6 +3145,73 @@ func Dispatch(command string, payloadJSON []byte) ([]byte, error) {
 			Success:    true,
 			Group:      grp,
 			Parameters: activeScene.GetParameters(),
+		})
+
+	case "Composite.CreateFromGroup":
+		var req CompositeCreateFromGroupRequest
+		if err := json.Unmarshal(payloadJSON, &req); err != nil {
+			return nil, fmt.Errorf("decoding CompositeCreateFromGroupRequest: %w", err)
+		}
+		comp, err := activeScene.CreateCompositeFromGroup(req.GroupID, req.Name, req.Description)
+		if err != nil {
+			return json.Marshal(CompositeCreateResponse{Success: false, Error: err.Error()})
+		}
+		snap := activeScene.GetSnapshot()
+		return json.Marshal(CompositeCreateResponse{
+			Success:   true,
+			Composite: comp,
+			Snapshot:  &snap,
+		})
+
+	case "Composite.Instantiate":
+		var req CompositeInstantiateRequest
+		if err := json.Unmarshal(payloadJSON, &req); err != nil {
+			return nil, fmt.Errorf("decoding CompositeInstantiateRequest: %w", err)
+		}
+		grp, newItems, err := activeScene.InstantiateComposite(req.CompositeID, req.InstanceName, req.OffsetX, req.OffsetY)
+		if err != nil {
+			return json.Marshal(CompositeInstantiateResponse{Success: false, Error: err.Error()})
+		}
+		snap := activeScene.GetSnapshot()
+		return json.Marshal(CompositeInstantiateResponse{
+			Success:    true,
+			Group:      grp,
+			NewItems:   newItems,
+			Parameters: activeScene.GetParameters(),
+			Snapshot:   &snap,
+		})
+
+	case "Composite.Delete":
+		var req CompositeDeleteRequest
+		if err := json.Unmarshal(payloadJSON, &req); err != nil {
+			return nil, fmt.Errorf("decoding CompositeDeleteRequest: %w", err)
+		}
+		if err := activeScene.DeleteComposite(req.CompositeID); err != nil {
+			return json.Marshal(CompositeDeleteResponse{Success: false, Error: err.Error()})
+		}
+		snap := activeScene.GetSnapshot()
+		return json.Marshal(CompositeDeleteResponse{
+			Success:  true,
+			Snapshot: &snap,
+		})
+
+	case "Composite.Get":
+		var req CompositeGetRequest
+		if err := json.Unmarshal(payloadJSON, &req); err != nil {
+			return nil, fmt.Errorf("decoding CompositeGetRequest: %w", err)
+		}
+		comp, found := activeScene.GetComposite(req.CompositeID)
+		return json.Marshal(CompositeGetResponse{
+			Found:     found,
+			Composite: comp,
+		})
+
+	case "Composite.List":
+		comps := activeScene.GetAllComposites()
+		return json.Marshal(CompositeListResponse{
+			Composites:        comps,
+			Count:             len(comps),
+			CompositesCounter: activeScene.CompositesCounter(),
 		})
 
 	case "Scene.Copy":

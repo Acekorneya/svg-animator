@@ -597,12 +597,20 @@ func (s *Scene) PastePayload(payload ClipboardPayload, offsetX float64, offsetY 
 					remappedMappings = append(remappedMappings, mCopy)
 				}
 			}
+			var newGroupName string
+			isCompositeOrSequential := g.CompositeID != "" || len(g.Mappings) > 0 || reTrailingInstanceNumber.MatchString(strings.TrimSpace(g.Name))
+			if isCompositeOrSequential {
+				newGroupName = s.nextSequentialGroupNameLocked(g.Name)
+			} else {
+				newGroupName = g.Name + " Copy"
+			}
 			clonedGroup := Group{
-				ID:       newGID,
-				Name:     g.Name + " Copy",
-				Members:  remappedMembers,
-				Mappings: remappedMappings,
-				Metadata: deepCopyMetadata(g.Metadata),
+				ID:          newGID,
+				Name:        newGroupName,
+				CompositeID: g.CompositeID,
+				Members:     remappedMembers,
+				Mappings:    remappedMappings,
+				Metadata:    deepCopyMetadata(g.Metadata),
 			}
 			s.groups[newGID] = clonedGroup
 			s.groupIDs = append(s.groupIDs, newGID)

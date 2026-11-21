@@ -1992,6 +1992,16 @@
             <div id="layersListContainer" class="layers-list-container" style="max-height: 480px; overflow-y: auto; border: 1px solid var(--border); border-radius: 6px; background: rgba(0,0,0,0.25); display: flex; flex-direction: column; gap: 2px; padding: 4px;">
               <!-- Rendered dynamically by window.App.renderLayersList() -->
             </div>
+            <!-- Stage 16E-M3: Reusable Composite Templates Library -->
+            <div id="compositesLibrarySection" style="margin-top: 0.65rem; padding: 0.45rem; background: rgba(22, 27, 34, 0.75); border: 1px solid var(--border); border-radius: 6px;">
+              <div style="display: flex; justify-content: space-between; align-items: center; margin-bottom: 0.35rem;">
+                <span style="font-size: 0.72rem; font-weight: 700; color: #58a6ff; text-transform: uppercase; letter-spacing: 0.4px;">🧩 Composite Templates (<strong id="compositesCountBadge">0</strong>)</span>
+                <button type="button" class="btn btn-secondary btn-sm" id="btnSaveActiveGroupAsComposite" style="font-size: 0.68rem; padding: 0.16rem 0.4rem; color: #3fb950; border-color: rgba(63,185,80,0.4); display: none;" title="Save selected group as reusable composite template">+ Save Group</button>
+              </div>
+              <div id="compositesListContainer" style="display: flex; flex-direction: column; gap: 4px; max-height: 180px; overflow-y: auto;">
+                <div style="font-size: 0.72rem; color: #8b949e; text-align: center; padding: 6px 0;">No composite templates yet. Select a group and click "Save as Composite Template".</div>
+              </div>
+            </div>
             <div id="imageEditor" style="display: none; margin-top: 0.5rem; padding: 0.4rem; background: rgba(22, 27, 34, 0.7); border: 1px solid var(--border); border-radius: 6px;">
               <div style="display: flex; justify-content: space-between; align-items: center; margin-bottom: 0.35rem;">
                 <span style="font-weight: bold; color: #a371f7;" id="editingImageLabel">Editing Image</span>
@@ -3674,9 +3684,10 @@
 
         <!-- GROUP SECTION -->
         <div id="fctx-groupSection" class="floating-editor-section" style="display: none;">
-          <div class="floating-actions-bar">
+          <div class="floating-actions-bar" style="flex-wrap: wrap;">
             <button type="button" class="btn-floating-action" id="fctx-btnUngroup" style="background: var(--bg-surface-secondary, #21262d); color: #58a6ff; border: 1px solid var(--border-color, #30363d);" title="Disband this group, keeping all member objects on the canvas (Ctrl+Shift+G)">🔓 Ungroup (Keep Objects)</button>
             <button type="button" class="btn-floating-action" id="fctx-btnDuplicateGroup" style="background: var(--bg-surface-secondary, #21262d); color: #e6edf3; border: 1px solid var(--border-color, #30363d);" title="Duplicate group and members (Ctrl+D)">📋 Duplicate</button>
+            <button type="button" class="btn-floating-action" id="fctx-btnSaveComposite" style="background: rgba(35, 134, 54, 0.25); color: #7ee787; border: 1px solid #238636;" title="Save this group and its semantic mappings as a reusable Composite Template">🧩 Save as Composite Template</button>
             <button type="button" class="btn-floating-action btn-del" id="fctx-btnDeleteGroup" title="Delete group and all its member objects from the canvas">&times; Delete Group &amp; Members</button>
           </div>
           <div class="floating-prop-row">

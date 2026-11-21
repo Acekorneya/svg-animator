@@ -279,6 +279,108 @@
       container.appendChild(row);
     }
     updateLayersToolbarState();
+    renderCompositesList();
+  }
+
+  function renderCompositesList() {
+    const listEl = document.getElementById('compositesListContainer');
+    const countEl = document.getElementById('compositesCountBadge');
+    const btnSaveActive = document.getElementById('btnSaveActiveGroupAsComposite');
+    if (!listEl) return;
+
+    const sel = (window.AppCoordinator && typeof window.AppCoordinator.getActiveSelection === 'function')
+      ? window.AppCoordinator.getActiveSelection()
+      : null;
+
+    if (btnSaveActive) {
+      btnSaveActive.style.display = (sel && sel.type === 'group' && sel.id) ? 'inline-block' : 'none';
+      if (!btnSaveActive._hasCompositeEvent) {
+        btnSaveActive._hasCompositeEvent = true;
+        btnSaveActive.addEventListener('click', (e) => {
+          e.stopPropagation();
+          if (window.AppCoordinator && typeof window.AppCoordinator.saveSelectedGroupAsComposite === 'function') {
+            window.AppCoordinator.saveSelectedGroupAsComposite();
+          }
+        });
+      }
+    }
+
+    let composites = [];
+    if (window.EngineBridge && typeof window.EngineBridge.listComposites === 'function') {
+      composites = window.EngineBridge.listComposites() || [];
+    } else if (window.ObjectGroups && Array.isArray(window.ObjectGroups.composites)) {
+      composites = window.ObjectGroups.composites;
+    }
+
+    if (countEl) {
+      countEl.textContent = String(composites.length);
+    }
+
+    if (!composites || composites.length === 0) {
+      listEl.innerHTML = '<div style="font-size: 0.72rem; color: #8b949e; text-align: center; padding: 6px 0;">No composite templates yet. Select a group and click "Save as Composite Template".</div>';
+      return;
+    }
+
+    listEl.innerHTML = '';
+    composites.forEach((comp, idx) => {
+      const row = document.createElement('div');
+      row.className = 'composite-template-item';
+      row.style.cssText = 'display: flex; justify-content: space-between; align-items: center; padding: 5px 7px; background: #161b22; border: 1px solid #30363d; border-radius: 5px; font-size: 0.74rem; gap: 6px;';
+
+      const info = document.createElement('div');
+      info.style.cssText = 'display: flex; flex-direction: column; min-width: 0; flex: 1;';
+      const memberCount = (comp.payload && Array.isArray(comp.payload.groups) && comp.payload.groups[0] && Array.isArray(comp.payload.groups[0].members))
+        ? comp.payload.groups[0].members.length
+        : 0;
+      const mapCount = Array.isArray(comp.mappings) ? comp.mappings.length : 0;
+
+      const title = document.createElement('span');
+      title.style.cssText = 'font-weight: 600; color: #58a6ff; overflow: hidden; text-overflow: ellipsis; white-space: nowrap;';
+      title.textContent = `🧩 ${comp.name || comp.id}`;
+
+      const sub = document.createElement('span');
+      sub.style.cssText = 'font-size: 0.67rem; color: #8b949e;';
+      sub.textContent = `${memberCount} members • ${mapCount} semantic mapping(s)`;
+
+      info.appendChild(title);
+      info.appendChild(sub);
+
+      const actions = document.createElement('div');
+      actions.style.cssText = 'display: flex; align-items: center; gap: 4px;';
+
+      const placeBtn = document.createElement('button');
+      placeBtn.type = 'button';
+      placeBtn.className = 'btn-place-composite';
+      placeBtn.style.cssText = 'background: #238636; border: 1px solid #3fb950; color: #fff; font-size: 0.68rem; padding: 2px 7px; border-radius: 3px; cursor: pointer; font-weight: 600;';
+      placeBtn.textContent = '➕ Place';
+      placeBtn.title = `Place a new independent instance of "${comp.name || comp.id}"`;
+      placeBtn.addEventListener('click', (e) => {
+        e.stopPropagation();
+        const offset = 5.0 + ((idx % 4) * 4.0);
+        if (window.AppCoordinator && typeof window.AppCoordinator.instantiateComposite === 'function') {
+          window.AppCoordinator.instantiateComposite(comp.id, '', offset, offset);
+        }
+      });
+
+      const delBtn = document.createElement('button');
+      delBtn.type = 'button';
+      delBtn.style.cssText = 'background: transparent; border: none; color: #f85149; font-size: 0.78rem; cursor: pointer; padding: 0 4px;';
+      delBtn.textContent = '✕';
+      delBtn.title = `Remove template "${comp.name || comp.id}" from library`;
+      delBtn.addEventListener('click', (e) => {
+        e.stopPropagation();
+        if (window.AppCoordinator && typeof window.AppCoordinator.deleteComposite === 'function') {
+          window.AppCoordinator.deleteComposite(comp.id);
+        }
+      });
+
+      actions.appendChild(placeBtn);
+      actions.appendChild(delBtn);
+
+      row.appendChild(info);
+      row.appendChild(actions);
+      listEl.appendChild(row);
+    });
   }
 
   function initLayersToolbarEvents() {
@@ -917,6 +1019,7 @@
   }
 
   window.renderLayersList = renderLayersList;
+  window.renderCompositesList = renderCompositesList;
   window.updateLayersToolbarState = updateLayersToolbarState;
   window.initLayersToolbarEvents = initLayersToolbarEvents;
   window.syncInspectorLayerSections = syncInspectorLayerSections;

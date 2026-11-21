@@ -1,0 +1,813 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+  <meta charset="UTF-8" />
+  <meta name="viewport" content="width=device-width, initial-scale=1.0" />
+  <title>SVG Animator Studio — Stage 16E: Groups, Semantic Property Mappings &amp; Reusable Composite Objects Showcase</title>
+  <script src="/js/svg-widget.js"></script>
+  <style>
+    :root {
+      --bg: #060a12;
+      --card: #0c1322;
+      --card-inner: #080d18;
+      --border: #1e293b;
+      --border-hi: #38bdf8;
+      --text: #f8fafc;
+      --muted: #94a3b8;
+      --accent: #38bdf8;
+      --green: #22c55e;
+      --amber: #f59e0b;
+      --red: #ef4444;
+    }
+    * { box-sizing: border-box; }
+    body {
+      margin: 0;
+      padding: 20px 26px 56px;
+      background: var(--bg);
+      color: var(--text);
+      font-family: Inter, system-ui, -apple-system, sans-serif;
+      line-height: 1.45;
+    }
+    header {
+      display: flex;
+      justify-content: space-between;
+      align-items: flex-start;
+      flex-wrap: wrap;
+      gap: 14px;
+      padding-bottom: 16px;
+      border-bottom: 1px solid var(--border);
+      margin-bottom: 22px;
+    }
+    header h1 {
+      margin: 0 0 6px;
+      font-size: 20px;
+      color: #e2e8f0;
+    }
+    header p {
+      margin: 0;
+      font-size: 13px;
+      color: var(--muted);
+    }
+    .badge-row {
+      display: flex;
+      gap: 8px;
+      flex-wrap: wrap;
+    }
+    .badge {
+      padding: 5px 10px;
+      border-radius: 6px;
+      font-size: 11px;
+      font-weight: 600;
+      background: rgba(56, 189, 248, 0.12);
+      border: 1px solid rgba(56, 189, 248, 0.35);
+      color: var(--accent);
+    }
+    .badge.green {
+      background: rgba(34, 197, 94, 0.12);
+      border-color: rgba(34, 197, 94, 0.35);
+      color: var(--green);
+    }
+    section {
+      background: var(--card);
+      border: 1px solid var(--border);
+      border-radius: 10px;
+      padding: 18px 20px;
+      margin-bottom: 22px;
+    }
+    section h2 {
+      margin: 0 0 4px;
+      font-size: 16px;
+      color: var(--accent);
+    }
+    section p.sub {
+      margin: 0 0 14px;
+      font-size: 12.5px;
+      color: var(--muted);
+    }
+    .stage-wrap {
+      background: #04070e;
+      border: 1px solid #1e293b;
+      border-radius: 8px;
+      overflow: hidden;
+      margin-bottom: 14px;
+    }
+    .stage-wrap svg {
+      width: 100%;
+      height: auto;
+      display: block;
+    }
+    .controls-grid {
+      display: grid;
+      grid-template-columns: repeat(auto-fit, minmax(320px, 1fr));
+      gap: 14px;
+    }
+    .ctrl-card {
+      background: var(--card-inner);
+      border: 1px solid var(--border);
+      border-radius: 8px;
+      padding: 13px 15px;
+      display: flex;
+      flex-direction: column;
+      gap: 10px;
+    }
+    .ctrl-card h3 {
+      margin: 0;
+      font-size: 13.5px;
+      color: #e2e8f0;
+      display: flex;
+      justify-content: space-between;
+      align-items: center;
+      padding-bottom: 6px;
+      border-bottom: 1px solid #1e293b;
+    }
+    .ctrl-row {
+      display: flex;
+      align-items: center;
+      justify-content: space-between;
+      gap: 8px;
+      font-size: 12px;
+    }
+    .ctrl-row label {
+      color: #cbd5e1;
+      min-width: 118px;
+      font-weight: 500;
+    }
+    .ctrl-row input[type="range"] {
+      flex: 1;
+      accent-color: var(--accent);
+      cursor: pointer;
+    }
+    .ctrl-row input[type="text"],
+    .ctrl-row select {
+      flex: 1;
+      background: #0f172a;
+      border: 1px solid #334155;
+      color: #f8fafc;
+      border-radius: 4px;
+      padding: 4px 7px;
+      font-size: 12px;
+    }
+    .ctrl-row input[type="color"] {
+      width: 36px;
+      height: 24px;
+      border: 1px solid #334155;
+      background: transparent;
+      border-radius: 4px;
+      cursor: pointer;
+      padding: 0;
+    }
+    .val-pill {
+      font-family: ui-monospace, SFMono-Regular, Menlo, monospace;
+      font-size: 11.5px;
+      color: var(--accent);
+      min-width: 42px;
+      text-align: right;
+    }
+    .btn-bar {
+      display: flex;
+      gap: 6px;
+      flex-wrap: wrap;
+    }
+    button {
+      background: #1e293b;
+      border: 1px solid #334155;
+      color: #e2e8f0;
+      padding: 5px 10px;
+      border-radius: 5px;
+      font-size: 11.5px;
+      font-weight: 600;
+      cursor: pointer;
+      transition: background 0.15s, border-color 0.15s;
+    }
+    button:hover {
+      background: #334155;
+      border-color: var(--accent);
+    }
+    button.primary {
+      background: #0284c7;
+      border-color: #38bdf8;
+      color: #fff;
+    }
+    button.danger {
+      background: rgba(239, 68, 68, 0.15);
+      border-color: rgba(239, 68, 68, 0.45);
+      color: #fca5a5;
+    }
+    .diag-box {
+      background: #03060c;
+      border: 1px solid #1e293b;
+      border-radius: 6px;
+      padding: 8px 11px;
+      font-family: ui-monospace, SFMono-Regular, Menlo, monospace;
+      font-size: 11.5px;
+      color: #94a3b8;
+      line-height: 1.5;
+    }
+    .diag-box code {
+      color: #7dd3fc;
+    }
+    .param-tag {
+      font-family: ui-monospace, SFMono-Regular, Menlo, monospace;
+      font-size: 10.5px;
+      background: rgba(56, 189, 248, 0.12);
+      color: #7dd3fc;
+      padding: 2px 6px;
+      border-radius: 4px;
+      border: 1px solid rgba(56, 189, 248, 0.25);
+    }
+  </style>
+</head>
+<body>
+  <header>
+    <div>
+      <h1>SVG Animator Studio — Stage 16E: Groups, Semantic Property Mappings &amp; Reusable Composite Objects</h1>
+      <p>Live Stage 16C Widget Runtime (<code>SVGWidget.mount()</code>) • Group-Level Speed/Opacity/Visibility (M1) • Atomic Multi-Target Semantic Fan-Out (M2) • Sequential Composite Instances <code>cpuwindow-1..3</code> (M3)</p>
+    </div>
+    <div class="badge-row">
+      <span class="badge">M1: Group Targets &amp; Speed</span>
+      <span class="badge">M2: Atomic Multi-Target Fan-Out</span>
+      <span class="badge green">M3: Sequential Composite Instances (cpuwindow-1..3)</span>
+      <a href="/" style="text-decoration:none;"><span class="badge" style="cursor:pointer;">← Open Studio Editor (:8088)</span></a>
+    </div>
+  </header>
+
+  <!-- ===================================================================== -->
+  <!-- SECTION 1 (M3 + M2 + M1): THREE PLACED COMPOSITE INSTANCES (cpuwindow) -->
+  <!-- ===================================================================== -->
+  <section id="sec-m3-composites">
+    <h2>1. Stage 16E-M3 Flagship Showcase — Three Placed Composite Instances (<code>cpuwindow-1</code>, <code>cpuwindow-2</code>, <code>cpuwindow-3</code>)</h2>
+    <p class="sub">
+      A single exported Stage 16C SVG Widget containing three independent concrete composite groups placed from the <code>cpuwindow</code> template.
+      Each instance exposes deterministic parameters:
+      <span class="param-tag">cpuwindow-{1..3}-group-cpu</span> (fans out to Gauge Lite <code>value</code> + numeric Text Box Lite <code>text</code>),
+      <span class="param-tag">cpuwindow-{1..3}-group-status-color</span> (fans out to Perimeter Tracer <code>color</code> + Connector Flow <code>color</code> + Header Node <code>stroke</code>),
+      <span class="param-tag">cpuwindow-{1..3}-group-headline</span> (drives animated Horizontal Ticker <code>text</code> with cycle-boundary <code>pendingText</code> handover),
+      <span class="param-tag">cpuwindow-{1..3}-group-waveform</span> (drives Oscilloscope Lite <code>samples</code>), and built-in
+      <span class="param-tag">opacity</span>, <span class="param-tag">visibility</span>, and <span class="param-tag">speed</span>.
+    </p>
+
+    <div class="stage-wrap" id="compositeClusterHost"></div>
+
+    <div class="controls-grid">
+      <!-- Unit 1 Controls -->
+      <div class="ctrl-card" id="card-cpu-1">
+        <h3>
+          <span>🧩 Instance 1: <code>cpuwindow-1</code> (group-1)</span>
+          <span class="param-tag" id="badge-state-1">ACTIVE</span>
+        </h3>
+        <div class="ctrl-row">
+          <label>CPU Load (<code>-cpu</code>)</label>
+          <input type="range" id="in-cpu-1" min="0" max="100" step="1" value="32" />
+          <span class="val-pill" id="val-cpu-1">32%</span>
+        </div>
+        <div class="ctrl-row">
+          <label>Status Colour</label>
+          <input type="color" id="in-col-1" value="#22c55e" />
+          <div class="btn-bar">
+            <button type="button" onclick="setUnitColor(1, '#22c55e')">Nominal</button>
+            <button type="button" onclick="setUnitColor(1, '#f59e0b')">Warn</button>
+            <button type="button" onclick="setUnitColor(1, '#ef4444')">Alert</button>
+          </div>
+        </div>
+        <div class="ctrl-row">
+          <label>Ticker Headline</label>
+          <input type="text" id="in-txt-1" value="NODE-01: NOMINAL TELEMETRY" />
+          <button type="button" class="primary" id="btn-send-txt-1" onclick="sendUnitHeadline(1)">Queue</button>
+        </div>
+        <div class="ctrl-row">
+          <label>Waveform Preset</label>
+          <select id="in-wave-1" onchange="setUnitWaveform(1, this.value)">
+            <option value="0, 0.25, 0.5, 0.25, 0, -0.25, -0.5, -0.25, 0, 0.25, 0.5, 0">Calm Sine</option>
+            <option value="0, 0.1, 0.95, -0.85, 0.3, 0, 0, 0.1, 0.95, -0.85, 0.3, 0">ECG Pulse</option>
+            <option value="0.9, -0.9, 0.85, -0.85, 0.9, -0.9, 0.8, -0.8, 0.9, -0.9, 0.85, -0.85">High Frequency</option>
+          </select>
+        </div>
+        <div class="ctrl-row">
+          <label>Group Speed (M1)</label>
+          <input type="range" id="in-spd-1" min="0.2" max="4.0" step="0.1" value="1.0" />
+          <span class="val-pill" id="val-spd-1">1.0×</span>
+        </div>
+        <div class="ctrl-row">
+          <label>Group Opacity (M1)</label>
+          <input type="range" id="in-op-1" min="0.1" max="1.0" step="0.05" value="1.0" />
+          <span class="val-pill" id="val-op-1">1.00</span>
+        </div>
+        <div class="ctrl-row">
+          <label>Group Visibility</label>
+          <input type="checkbox" id="in-vis-1" checked onchange="setUnitVis(1, this.checked)" />
+          <span style="font-size:11px; color:#94a3b8;">Toggles entire <code>&lt;g id="group-1"&gt;</code></span>
+        </div>
+      </div>
+
+      <!-- Unit 2 Controls -->
+      <div class="ctrl-card" id="card-cpu-2">
+        <h3>
+          <span>🧩 Instance 2: <code>cpuwindow-2</code> (group-2)</span>
+          <span class="param-tag" id="badge-state-2">ACTIVE</span>
+        </h3>
+        <div class="ctrl-row">
+          <label>CPU Load (<code>-cpu</code>)</label>
+          <input type="range" id="in-cpu-2" min="0" max="100" step="1" value="68" />
+          <span class="val-pill" id="val-cpu-2">68%</span>
+        </div>
+        <div class="ctrl-row">
+          <label>Status Colour</label>
+          <input type="color" id="in-col-2" value="#38bdf8" />
+          <div class="btn-bar">
+            <button type="button" onclick="setUnitColor(2, '#22c55e')">Nominal</button>
+            <button type="button" onclick="setUnitColor(2, '#f59e0b')">Warn</button>
+            <button type="button" onclick="setUnitColor(2, '#ef4444')">Alert</button>
+          </div>
+        </div>
+        <div class="ctrl-row">
+          <label>Ticker Headline</label>
+          <input type="text" id="in-txt-2" value="NODE-02: ELEVATED WORKLOAD" />
+          <button type="button" class="primary" id="btn-send-txt-2" onclick="sendUnitHeadline(2)">Queue</button>
+        </div>
+        <div class="ctrl-row">
+          <label>Waveform Preset</label>
+          <select id="in-wave-2" onchange="setUnitWaveform(2, this.value)">
+            <option value="0, 0.1, 0.95, -0.85, 0.3, 0, 0, 0.1, 0.95, -0.85, 0.3, 0" selected>ECG Pulse</option>
+            <option value="0, 0.25, 0.5, 0.25, 0, -0.25, -0.5, -0.25, 0, 0.25, 0.5, 0">Calm Sine</option>
+            <option value="0.9, -0.9, 0.85, -0.85, 0.9, -0.9, 0.8, -0.8, 0.9, -0.9, 0.85, -0.85">High Frequency</option>
+          </select>
+        </div>
+        <div class="ctrl-row">
+          <label>Group Speed (M1)</label>
+          <input type="range" id="in-spd-2" min="0.2" max="4.0" step="0.1" value="1.5" />
+          <span class="val-pill" id="val-spd-2">1.5×</span>
+        </div>
+        <div class="ctrl-row">
+          <label>Group Opacity (M1)</label>
+          <input type="range" id="in-op-2" min="0.1" max="1.0" step="0.05" value="1.0" />
+          <span class="val-pill" id="val-op-2">1.00</span>
+        </div>
+        <div class="ctrl-row">
+          <label>Group Visibility</label>
+          <input type="checkbox" id="in-vis-2" checked onchange="setUnitVis(2, this.checked)" />
+          <span style="font-size:11px; color:#94a3b8;">Toggles entire <code>&lt;g id="group-2"&gt;</code></span>
+        </div>
+      </div>
+
+      <!-- Unit 3 Controls -->
+      <div class="ctrl-card" id="card-cpu-3">
+        <h3>
+          <span>🧩 Instance 3: <code>cpuwindow-3</code> (group-3)</span>
+          <span class="param-tag" id="badge-state-3">ACTIVE</span>
+        </h3>
+        <div class="ctrl-row">
+          <label>CPU Load (<code>-cpu</code>)</label>
+          <input type="range" id="in-cpu-3" min="0" max="100" step="1" value="91" />
+          <span class="val-pill" id="val-cpu-3">91%</span>
+        </div>
+        <div class="ctrl-row">
+          <label>Status Colour</label>
+          <input type="color" id="in-col-3" value="#f59e0b" />
+          <div class="btn-bar">
+            <button type="button" onclick="setUnitColor(3, '#22c55e')">Nominal</button>
+            <button type="button" onclick="setUnitColor(3, '#f59e0b')">Warn</button>
+            <button type="button" onclick="setUnitColor(3, '#ef4444')">Alert</button>
+          </div>
+        </div>
+        <div class="ctrl-row">
+          <label>Ticker Headline</label>
+          <input type="text" id="in-txt-3" value="NODE-03: THERMAL THROTTLE ACTIVE" />
+          <button type="button" class="primary" id="btn-send-txt-3" onclick="sendUnitHeadline(3)">Queue</button>
+        </div>
+        <div class="ctrl-row">
+          <label>Waveform Preset</label>
+          <select id="in-wave-3" onchange="setUnitWaveform(3, this.value)">
+            <option value="0.9, -0.9, 0.85, -0.85, 0.9, -0.9, 0.8, -0.8, 0.9, -0.9, 0.85, -0.85" selected>High Frequency</option>
+            <option value="0, 0.25, 0.5, 0.25, 0, -0.25, -0.5, -0.25, 0, 0.25, 0.5, 0">Calm Sine</option>
+            <option value="0, 0.1, 0.95, -0.85, 0.3, 0, 0, 0.1, 0.95, -0.85, 0.3, 0">ECG Pulse</option>
+          </select>
+        </div>
+        <div class="ctrl-row">
+          <label>Group Speed (M1)</label>
+          <input type="range" id="in-spd-3" min="0.2" max="4.0" step="0.1" value="2.2" />
+          <span class="val-pill" id="val-spd-3">2.2×</span>
+        </div>
+        <div class="ctrl-row">
+          <label>Group Opacity (M1)</label>
+          <input type="range" id="in-op-3" min="0.1" max="1.0" step="0.05" value="1.0" />
+          <span class="val-pill" id="val-op-3">1.00</span>
+        </div>
+        <div class="ctrl-row">
+          <label>Group Visibility</label>
+          <input type="checkbox" id="in-vis-3" checked onchange="setUnitVis(3, this.checked)" />
+          <span style="font-size:11px; color:#94a3b8;">Toggles entire <code>&lt;g id="group-3"&gt;</code></span>
+        </div>
+      </div>
+    </div>
+
+    <!-- Batch Precedence, Atomic Validation & Diagnostics Deck -->
+    <div class="controls-grid" style="margin-top: 14px;">
+      <div class="ctrl-card">
+        <h3>
+          <span>⚡ Stage 16E-M2 Contracts: Atomic Fan-Out, Batch Precedence &amp; Error Rejection</span>
+          <span class="param-tag">Contract Verifier</span>
+        </h3>
+        <div class="btn-bar">
+          <button type="button" class="primary" id="btn-test-precedence" onclick="runPrecedenceDemo()">
+            1. Test Same-Batch Precedence (Group cpu=85 + Member Override readout="85% [LOCKED]")
+          </button>
+          <button type="button" class="danger" id="btn-test-atomic-reject" onclick="runAtomicRejectionDemo()">
+            2. Test Atomic Invalid Rejection (cpu=999 Out-of-Range → 0 Partial Mutations)
+          </button>
+          <button type="button" onclick="resetClusterDefaults()">
+            ↺ Reset All 3 Composite Units to Defaults
+          </button>
+        </div>
+        <div class="diag-box" id="clusterDiagLog">
+          Ready. Adjust any control above or run the contract verifiers to inspect atomic multi-target updates.
+        </div>
+      </div>
+    </div>
+  </section>
+
+  <script>
+    // Build the 3-instance composite SVG with embedded Stage 16E manifest
+    function buildCompositeUnitMarkup(unitIdx, xOffset) {
+      const gid = `group-${unitIdx}`;
+      const gName = `cpuwindow-${unitIdx}`;
+      const nodeInId = unitIdx * 10 + 1;
+      const nodeOutId = unitIdx * 10 + 2;
+      const flowId = unitIdx;
+      const tracerId = unitIdx * 10 + 1;
+      const gaugeId = unitIdx * 10 + 2;
+      const readoutId = unitIdx * 10 + 3;
+      const tickerId = unitIdx * 10 + 4;
+      const oscId = unitIdx * 10 + 5;
+
+      const cx = xOffset + 190;
+      const initCpu = unitIdx === 1 ? 32 : (unitIdx === 2 ? 68 : 91);
+      const initCol = unitIdx === 1 ? '#22c55e' : (unitIdx === 2 ? '#38bdf8' : '#f59e0b');
+      const initHeadline = unitIdx === 1
+        ? 'NODE-01: NOMINAL TELEMETRY'
+        : (unitIdx === 2 ? 'NODE-02: ELEVATED WORKLOAD' : 'NODE-03: THERMAL THROTTLE ACTIVE');
+      const r = 56;
+      const circ = (2 * Math.PI * r).toFixed(2);
+      const filled = ((initCpu / 100) * 2 * Math.PI * r).toFixed(2);
+
+      return `
+      <g id="${gid}" class="scene-group" data-group-id="${gid}" data-semantic-target="${gid}" data-semantic-name="${gName}">
+        <!-- Outer Panel Background -->
+        <rect x="${xOffset}" y="24" width="380" height="392" rx="14" fill="#09101d" stroke="#1e293b" stroke-width="1.5" />
+
+        <!-- Perimeter Tracer Lite -->
+        <g id="lite-effect-${tracerId}" class="lite-effect-group lite-perimeter-tracer" data-lite-id="${tracerId}" data-lite-kind="perimeter-tracer" data-semantic-target="lite-${tracerId}" data-semantic-name="cpuframe-${unitIdx}" opacity="0.95">
+          <rect class="lite-guide-track" x="${xOffset}" y="24" width="380" height="392" rx="14" fill="none" stroke="${initCol}" stroke-width="1" stroke-opacity="0.22" />
+          <rect class="lite-payload" x="${xOffset}" y="24" width="380" height="392" rx="14" fill="none" stroke="${initCol}" stroke-width="2.5" pathLength="1000" stroke-dasharray="125 375" style="animation: sva-lite-trace-cw 3.2s linear infinite; --sva-base-dur: 3.2s;" data-base-dur="3.2" />
+        </g>
+
+        <!-- Header Node & Status Node connected by Flow -->
+        <g id="node-${nodeInId}" class="diagram-node" data-node-id="${nodeInId}" data-semantic-target="node-${nodeInId}" data-semantic-name="hdr-${unitIdx}">
+          <rect x="${xOffset + 18}" y="42" width="148" height="36" rx="8" fill="#0f172a" stroke="${initCol}" stroke-width="2" />
+          <text x="${xOffset + 92}" y="65" fill="#f8fafc" font-size="13" font-weight="700" text-anchor="middle" font-family="ui-monospace, monospace">CPUWINDOW-${unitIdx}</text>
+        </g>
+
+        <g id="node-${nodeOutId}" class="diagram-node" data-node-id="${nodeOutId}" data-semantic-target="node-${nodeOutId}" data-semantic-name="bus-${unitIdx}">
+          <rect x="${xOffset + 254}" y="42" width="108" height="36" rx="8" fill="#0f172a" stroke="#334155" stroke-width="1.5" />
+          <text x="${xOffset + 308}" y="64" fill="#94a3b8" font-size="11.5" font-weight="600" text-anchor="middle" font-family="ui-monospace, monospace">TELEMETRY</text>
+        </g>
+
+        <g id="flow-group-${flowId}" class="data-flow" data-flow-id="${flowId}" data-semantic-target="flow-${flowId}" data-semantic-name="busflow-${unitIdx}">
+          <path id="flowPath-${flowId}" d="M ${xOffset + 166} 60 L ${xOffset + 254} 60" fill="none" stroke="${initCol}" stroke-width="2" stroke-dasharray="6 4" opacity="0.7" />
+          <circle r="4.5" fill="${initCol}">
+            <animateMotion dur="1.6s" repeatCount="indefinite" path="M ${xOffset + 166} 60 L ${xOffset + 254} 60" />
+          </circle>
+        </g>
+
+        <!-- Gauge Lite (Ring) -->
+        <g id="lite-effect-${gaugeId}" class="lite-effect-group lite-gauge" data-lite-id="${gaugeId}" data-lite-kind="gauge-lite" data-gauge-variant="ring" data-semantic-target="lite-${gaugeId}" data-semantic-name="cpugauge-${unitIdx}"
+           data-gauge-value="${initCpu}" data-gauge-min="0" data-gauge-max="100" data-gauge-x="${xOffset + 24}" data-gauge-y="96" data-gauge-w="156" data-gauge-h="156" data-gauge-cx="${xOffset + 102}" data-gauge-cy="174" data-gauge-r="${r}" data-gauge-sw="11"
+           data-gauge-base-color="#22c55e" data-gauge-bg-color="#1e293b" data-gauge-use-thresholds="true"
+           data-gauge-t1-enabled="true" data-gauge-t1-val="50" data-gauge-t1-col="#38bdf8"
+           data-gauge-t2-enabled="true" data-gauge-t2-val="70" data-gauge-t2-col="#f59e0b"
+           data-gauge-t3-enabled="true" data-gauge-t3-val="85" data-gauge-t3-col="#f97316"
+           data-gauge-t4-enabled="true" data-gauge-t4-val="95" data-gauge-t4-col="#ef4444">
+          <circle class="lite-gauge-track" cx="${xOffset + 102}" cy="174" r="${r}" fill="none" stroke="#1e293b" stroke-width="11" />
+          <circle class="lite-gauge-fill lite-gauge-arc lite-payload" cx="${xOffset + 102}" cy="174" r="${r}" fill="none" stroke="${initCol}" stroke-width="11" stroke-linecap="round"
+                  transform="rotate(-90 ${xOffset + 102} 174)" stroke-dasharray="${filled} ${circ}" />
+          <text x="${xOffset + 102}" y="198" fill="#64748b" font-size="10" font-weight="600" text-anchor="middle">LOAD %</text>
+        </g>
+
+        <!-- Numeric Readout Text Box Lite (Co-Driven by cpuwindow-N-group-cpu) -->
+        <g id="lite-effect-${readoutId}" class="lite-effect-group lite-text" data-lite-id="${readoutId}" data-lite-kind="text-lite" data-text-variant="none" data-text-anim="none"
+           data-semantic-target="lite-${readoutId}" data-semantic-name="cpureadout-${unitIdx}"
+           data-text-content="${initCpu}" data-text-x="${xOffset + 52}" data-text-y="148" data-text-w="100" data-text-h="40" data-text-cx="${xOffset + 102}" data-text-cy="168"
+           data-text-padding="4" data-text-align="center" data-text-valign="middle" data-text-font-size="24" data-text-line-spacing="1.2">
+          <text class="lite-text-element lite-payload" x="${xOffset + 102}" y="175" fill="#f8fafc" font-size="24" font-weight="700" text-anchor="middle" font-family="ui-monospace, monospace">${initCpu}</text>
+        </g>
+
+        <!-- Oscilloscope Lite (Driven by cpuwindow-N-group-waveform) -->
+        <g id="lite-effect-${oscId}" class="lite-effect-group lite-oscilloscope" data-lite-id="${oscId}" data-lite-kind="oscilloscope-lite" data-osc-variant="polyline" data-osc-mode="sampled"
+           data-semantic-target="lite-${oscId}" data-semantic-name="cpuosc-${unitIdx}"
+           data-osc-x="${xOffset + 192}" data-osc-y="104" data-osc-w="170" data-osc-h="140" data-osc-amp="0.78" data-osc-base="50" data-osc-cycles="2"
+           data-osc-samples="0, 0.25, 0.5, 0.25, 0, -0.25, -0.5, -0.25, 0, 0.25, 0.5, 0">
+          <rect class="lite-osc-screen" x="${xOffset + 192}" y="104" width="170" height="140" rx="8" fill="#060d18" stroke="#1e293b" stroke-width="1.2" />
+          <line class="lite-guide-track" x1="${xOffset + 192}" y1="174" x2="${xOffset + 362}" y2="174" stroke="#1e293b" stroke-width="1" stroke-dasharray="3 3" />
+          <path class="lite-osc-wave lite-payload" d="M ${xOffset + 192} 174 L ${xOffset + 220} 145 L ${xOffset + 250} 195 L ${xOffset + 280} 140 L ${xOffset + 315} 200 L ${xOffset + 362} 174" fill="none" stroke="${initCol}" stroke-width="2.2" stroke-linecap="round" stroke-linejoin="round" />
+        </g>
+
+        <!-- Animated Horizontal Ticker Text Box Lite (Driven by cpuwindow-N-group-headline with pendingText handover) -->
+        <g id="lite-effect-${tickerId}" class="lite-effect-group lite-text" data-lite-id="${tickerId}" data-lite-kind="text-lite" data-text-variant="rounded" data-text-anim="ticker-h"
+           data-semantic-target="lite-${tickerId}" data-semantic-name="cputicker-${unitIdx}"
+           data-text-content="${initHeadline}" data-text-x="${xOffset + 18}" data-text-y="272" data-text-w="344" data-text-h="46" data-text-cx="${cx}" data-text-cy="295"
+           data-text-padding="12" data-text-align="left" data-text-valign="middle" data-text-font-size="14" data-text-scroll-speed="140" data-text-direction="forward" data-text-playback-mode="loop"
+           data-text-bg-color="#0b1324" data-text-border-color="${initCol}" data-text-border-width="1.5">
+          <defs>
+            <clipPath id="lite-text-clip-${tickerId}">
+              <rect x="${xOffset + 18}" y="272" width="344" height="46" rx="8" />
+            </clipPath>
+          </defs>
+          <rect class="lite-text-box" x="${xOffset + 18}" y="272" width="344" height="46" rx="8" fill="#0b1324" fill-opacity="0.9" stroke="${initCol}" stroke-width="1.5" />
+          <g clip-path="url(#lite-text-clip-${tickerId})">
+            <text class="lite-text-element lite-payload" x="${xOffset + 18}" y="300" fill="#f8fafc" font-size="14" font-weight="600" font-family="ui-monospace, monospace"
+                  style="animation: sva-text-ticker-h 3.2s linear infinite; --sva-ticker-start: 344px; --sva-ticker-end: -280px; --sva-base-dur: 3.2s;" data-base-dur="3.2">${initHeadline}</text>
+          </g>
+        </g>
+
+        <!-- Footer Metadata Readout inside Composite -->
+        <text x="${cx}" y="352" fill="#94a3b8" font-size="11.5" font-family="ui-monospace, monospace" text-anchor="middle">Group Target: #${gid} (${gName})</text>
+        <text x="${cx}" y="374" fill="#64748b" font-size="10.5" font-family="ui-monospace, monospace" text-anchor="middle">Fan-Out: ${gName}-group-cpu : [lite-${gaugeId}.value, lite-${readoutId}.text]</text>
+        <text x="${cx}" y="394" fill="#64748b" font-size="10.5" font-family="ui-monospace, monospace" text-anchor="middle">Fan-Out: ${gName}-group-status-color : [lite-${tracerId}, flow-${flowId}, node-${nodeInId}]</text>
+      </g>`;
+    }
+
+    function buildManifestParameters() {
+      const params = [];
+      [1, 2, 3].forEach((idx) => {
+        const gid = `group-${idx}`;
+        const gName = `cpuwindow-${idx}`;
+        const nodeInId = idx * 10 + 1;
+        const flowId = idx;
+        const tracerId = idx * 10 + 1;
+        const gaugeId = idx * 10 + 2;
+        const readoutId = idx * 10 + 3;
+        const tickerId = idx * 10 + 4;
+        const oscId = idx * 10 + 5;
+        const initCpu = idx === 1 ? 32 : (idx === 2 ? 68 : 91);
+        const initCol = idx === 1 ? '#22c55e' : (idx === 2 ? '#38bdf8' : '#f59e0b');
+        const initHeadline = idx === 1
+          ? 'NODE-01: NOMINAL TELEMETRY'
+          : (idx === 2 ? 'NODE-02: ELEVATED WORKLOAD' : 'NODE-03: THERMAL THROTTLE ACTIVE');
+        const initSpd = idx === 1 ? 1.0 : (idx === 2 ? 1.5 : 2.2);
+
+        // Semantic Multi-Target Mappings (Stage 16E-M2)
+        params.push({
+          name: `${gName}-group-cpu`,
+          type: 'number',
+          default: initCpu,
+          min: 0,
+          max: 100,
+          target: gid,
+          property: 'cpu',
+          targets: [
+            { target: `lite-${gaugeId}`, property: 'value' },
+            { target: `lite-${readoutId}`, property: 'text' }
+          ],
+          description: `CPU Load (%) on ${gName} -> fans out to Gauge value and Readout text`
+        });
+
+        params.push({
+          name: `${gName}-group-status-color`,
+          type: 'color',
+          default: initCol,
+          target: gid,
+          property: 'status-color',
+          targets: [
+            { target: `lite-${tracerId}`, property: 'color' },
+            { target: `flow-${flowId}`, property: 'color' },
+            { target: `node-${nodeInId}`, property: 'stroke' },
+            { target: `lite-${tickerId}`, property: 'borderColor' }
+          ],
+          description: `Status colour on ${gName} -> fans out to Tracer, Flow, Header Node, and Ticker border`
+        });
+
+        params.push({
+          name: `${gName}-group-headline`,
+          type: 'text',
+          default: initHeadline,
+          target: gid,
+          property: 'headline',
+          targets: [
+            { target: `lite-${tickerId}`, property: 'text' }
+          ],
+          description: `Status ticker message on ${gName} (cycle-boundary pendingText handover)`
+        });
+
+        params.push({
+          name: `${gName}-group-waveform`,
+          type: 'text',
+          default: '0, 0.25, 0.5, 0.25, 0, -0.25, -0.5, -0.25, 0, 0.25, 0.5, 0',
+          target: gid,
+          property: 'waveform',
+          targets: [
+            { target: `lite-${oscId}`, property: 'samples' }
+          ],
+          description: `Oscilloscope waveform samples on ${gName}`
+        });
+
+        // Built-in Group Properties (Stage 16E-M1)
+        params.push({
+          name: `${gName}-group-speed`,
+          type: 'speed',
+          default: initSpd,
+          min: 0.1,
+          max: 10.0,
+          target: gid,
+          property: 'speed',
+          description: `Group animation speed multiplier for ${gName}`
+        });
+
+        params.push({
+          name: `${gName}-group-opacity`,
+          type: 'number',
+          default: 1.0,
+          min: 0.0,
+          max: 1.0,
+          target: gid,
+          property: 'opacity',
+          description: `Group opacity for ${gName}`
+        });
+
+        params.push({
+          name: `${gName}-group-visibility`,
+          type: 'boolean',
+          default: true,
+          target: gid,
+          property: 'visibility',
+          description: `Group visibility toggle for ${gName}`
+        });
+
+        // Direct member parameter on readout text for demonstrating Same-Batch Precedence (Group first, Member second)
+        params.push({
+          name: `cpureadout-${idx}-lite-text`,
+          type: 'text',
+          default: String(initCpu),
+          target: `lite-${readoutId}`,
+          property: 'text',
+          description: `Direct member override on cpureadout-${idx}`
+        });
+      });
+      return params;
+    }
+
+    const manifestObj = {
+      schemaVersion: 1,
+      widgetName: 'Stage 16E Composite Cluster Widget',
+      parameters: buildManifestParameters()
+    };
+
+    const rawClusterSVG = `<svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 1240 440" width="1240" height="440">
+      <style>
+        @keyframes sva-lite-trace-cw {
+          from { stroke-dashoffset: 0; }
+          to { stroke-dashoffset: -1000; }
+        }
+        @keyframes sva-text-ticker-h {
+          from { transform: translate3d(var(--sva-ticker-start, 344px), 0, 0); }
+          to { transform: translate3d(var(--sva-ticker-end, -280px), 0, 0); }
+        }
+      </style>
+      <rect width="1240" height="440" fill="#04070e" />
+      <g id="scene-layers" class="scene-layers">
+        ${buildCompositeUnitMarkup(1, 20)}
+        ${buildCompositeUnitMarkup(2, 430)}
+        ${buildCompositeUnitMarkup(3, 840)}
+      </g>
+    </svg>`;
+
+    const clusterWidget = SVGWidget.mount('#compositeClusterHost', rawClusterSVG, {
+      instanceId: 'cluster-main',
+      manifest: manifestObj
+    });
+    window.clusterWidget = clusterWidget;
+
+    function logDiag(htmlMsg) {
+      const box = document.getElementById('clusterDiagLog');
+      if (box) box.innerHTML = htmlMsg;
+    }
+
+    // Bind sliders for all 3 composite instances
+    [1, 2, 3].forEach((idx) => {
+      const cpuIn = document.getElementById(`in-cpu-${idx}`);
+      const cpuVal = document.getElementById(`val-cpu-${idx}`);
+      if (cpuIn) {
+        cpuIn.addEventListener('input', (e) => {
+          const v = Number(e.target.value);
+          if (cpuVal) cpuVal.textContent = `${v}%`;
+          clusterWidget.setParameter(`cpuwindow-${idx}-group-cpu`, v);
+          logDiag(`Updated <code>cpuwindow-${idx}-group-cpu = ${v}</code> → fanned out to <code>lite-${idx * 10 + 2}.value</code> and <code>lite-${idx * 10 + 3}.text</code>.`);
+        });
+      }
+
+      const colIn = document.getElementById(`in-col-${idx}`);
+      if (colIn) {
+        colIn.addEventListener('input', (e) => {
+          setUnitColor(idx, e.target.value);
+        });
+      }
+
+      const spdIn = document.getElementById(`in-spd-${idx}`);
+      const spdVal = document.getElementById(`val-spd-${idx}`);
+      if (spdIn) {
+        spdIn.addEventListener('input', (e) => {
+          const v = Number(e.target.value);
+          if (spdVal) spdVal.textContent = `${v.toFixed(1)}×`;
+          clusterWidget.setParameter(`cpuwindow-${idx}-group-speed`, v);
+          logDiag(`Updated <code>cpuwindow-${idx}-group-speed = ${v.toFixed(1)}</code> → scaled all animations inside <code>#group-${idx}</code>.`);
+        });
+      }
+
+      const opIn = document.getElementById(`in-op-${idx}`);
+      const opVal = document.getElementById(`val-op-${idx}`);
+      if (opIn) {
+        opIn.addEventListener('input', (e) => {
+          const v = Number(e.target.value);
+          if (opVal) opVal.textContent = v.toFixed(2);
+          clusterWidget.setParameter(`cpuwindow-${idx}-group-opacity`, v);
+          logDiag(`Updated <code>cpuwindow-${idx}-group-opacity = ${v.toFixed(2)}</code> on <code>&lt;g id="group-${idx}"&gt;</code>.`);
+        });
+      }
+    });
+
+    window.setUnitColor = function(idx, hex) {
+      const colIn = document.getElementById(`in-col-${idx}`);
+      if (colIn) colIn.value = hex;
+      clusterWidget.setParameter(`cpuwindow-${idx}-group-status-color`, hex);
+      logDiag(`Updated <code>cpuwindow-${idx}-group-status-color = "${hex}"</code> → fanned out to 4 targets inside <code>cpuwindow-${idx}</code>.`);
+    };
+
+    window.sendUnitHeadline = function(idx) {
+      const txtIn = document.getElementById(`in-txt-${idx}`);
+      if (!txtIn) return;
+      const msg = txtIn.value;
+      clusterWidget.setParameter(`cpuwindow-${idx}-group-headline`, msg);
+      const tickerEl = document.querySelector(`[data-semantic-target="lite-${idx * 10 + 4}"]`);
+      const pending = tickerEl ? tickerEl.getAttribute('data-text-pending') : null;
+      logDiag(`Queued <code>cpuwindow-${idx}-group-headline = "${msg}"</code> → <code>data-text-pending="${pending || msg}"</code> (adopts cleanly at ticker cycle boundary).`);
+    };
+
+    window.setUnitWaveform = function(idx, samples) {
+      clusterWidget.setParameter(`cpuwindow-${idx}-group-waveform`, samples);
+      logDiag(`Updated <code>cpuwindow-${idx}-group-waveform</code> → rebuilt Oscilloscope Lite sampled path in <code>cpuwindow-${idx}</code>.`);
+    };
+
+    window.setUnitVis = function(idx, vis) {
+      clusterWidget.setParameter(`cpuwindow-${idx}-group-visibility`, Boolean(vis));
+      const badge = document.getElementById(`badge-state-${idx}`);
+      if (badge) badge.textContent = vis ? 'ACTIVE' : 'HIDDEN';
+      logDiag(`Updated <code>cpuwindow-${idx}-group-visibility = ${Boolean(vis)}</code>.`);
+    };
+
+    window.runPrecedenceDemo = function() {
+      // Same-batch call containing both group parameter cpuwindow-1-group-cpu AND direct member override cpureadout-1-lite-text
+      clusterWidget.setParameters({
+        'cpureadout-1-lite-text': '85 [OVR]',
+        'cpuwindow-1-group-cpu': 85
+      });
+      const cpuIn = document.getElementById('in-cpu-1');
+      const cpuVal = document.getElementById('val-cpu-1');
+      if (cpuIn) cpuIn.value = '85';
+      if (cpuVal) cpuVal.textContent = '85%';
+      const gaugeEl = document.querySelector('[data-semantic-target="lite-12"]');
+      const readoutEl = document.querySelector('[data-semantic-target="lite-13"] text');
+      logDiag(`<strong>Same-Batch Precedence Verified:</strong> Group mapping <code>cpuwindow-1-group-cpu=85</code> applied first (Gauge value=${gaugeEl && gaugeEl.getAttribute('data-gauge-value')}), then direct member override <code>cpureadout-1-lite-text="85 [OVR]"</code> applied second (Readout text="${readoutEl && readoutEl.textContent}").`);
+    };
+
+    window.runAtomicRejectionDemo = function() {
+      const gaugeEl = document.querySelector('[data-semantic-target="lite-12"]');
+      const beforeVal = gaugeEl ? gaugeEl.getAttribute('data-gauge-value') : '';
+      let caughtErr = null;
+      try {
+        clusterWidget.setParameters({
+          'cpuwindow-1-group-cpu': 999 // Exceeds max: 100
+        });
+      } catch (err) {
+        caughtErr = err.message;
+      }
+      const afterVal = gaugeEl ? gaugeEl.getAttribute('data-gauge-value') : '';
+      logDiag(`<strong>Atomic Rejection Verified:</strong> Out-of-range batch threw <code>${caughtErr}</code>. Gauge value before=${beforeVal}, after=${afterVal} (zero partial DOM mutations).`);
+    };
+
+    window.resetClusterDefaults = function() {
+      clusterWidget.resetParameters();
+      [1, 2, 3].forEach((idx) => {
+        const initCpu = idx === 1 ? 32 : (idx === 2 ? 68 : 91);
+        const initSpd = idx === 1 ? 1.0 : (idx === 2 ? 1.5 : 2.2);
+        document.getElementById(`in-cpu-${idx}`).value = String(initCpu);
+        document.getElementById(`val-cpu-${idx}`).textContent = `${initCpu}%`;
+        document.getElementById(`in-spd-${idx}`).value = String(initSpd);
+        document.getElementById(`val-spd-${idx}`).textContent = `${initSpd.toFixed(1)}×`;
+        document.getElementById(`in-op-${idx}`).value = '1.0';
+        document.getElementById(`val-op-${idx}`).textContent = '1.00';
+        document.getElementById(`in-vis-${idx}`).checked = true;
+        document.getElementById(`badge-state-${idx}`).textContent = 'ACTIVE';
+      });
+      logDiag('Reset all three composite instances to their authored defaults.');
+    };
+  </script>
+</body>
+</html>

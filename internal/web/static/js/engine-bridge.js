@@ -1383,7 +1383,12 @@
       }
 
       if (window.ObjectGroups) {
-        window.ObjectGroups.setState({ groups: snap.groups || [], groupsCounter: snap.groupsCounter || 0 });
+        window.ObjectGroups.setState({
+          groups: snap.groups || [],
+          groupsCounter: snap.groupsCounter || 0,
+          composites: snap.composites || [],
+          compositesCounter: snap.compositesCounter || 0
+        });
       }
 
       if (window.ImageObjects) {
@@ -1525,6 +1530,95 @@
         return window.ObjectGroups.removeGroupMapping(groupId, alias);
       }
       return { success: false, error: 'Go/WASM engine is unavailable' };
+    },
+
+    createCompositeFromGroup(groupId, name = '', description = '') {
+      if (this.isReady() && groupId) {
+        const res = this.dispatch('Composite.CreateFromGroup', {
+          groupId: String(groupId),
+          name: String(name || ''),
+          description: String(description || '')
+        });
+        if (res && res.success) {
+          if (res.snapshot) this.syncFromEngineSnapshot(res.snapshot);
+          return res;
+        }
+        return { success: false, error: (res && res.error) || 'Failed to create composite template' };
+      }
+      return { success: false, error: 'Go/WASM engine is unavailable' };
+    },
+
+    instantiateComposite(compositeId, instanceName = '', offsetX = 5.0, offsetY = 5.0) {
+      if (this.isReady() && compositeId) {
+        const res = this.dispatch('Composite.Instantiate', {
+          compositeId: String(compositeId),
+          instanceName: String(instanceName || ''),
+          offsetX: Number(offsetX) || 0,
+          offsetY: Number(offsetY) || 0
+        });
+        if (res && res.success) {
+          if (res.snapshot) this.syncFromEngineSnapshot(res.snapshot);
+          if (Array.isArray(res.parameters)) {
+            this._widgetParameters = res.parameters;
+          }
+          return res;
+        }
+        return { success: false, error: (res && res.error) || 'Failed to instantiate composite template' };
+      }
+      return { success: false, error: 'Go/WASM engine is unavailable' };
+    },
+
+    deleteComposite(compositeId) {
+      if (this.isReady() && compositeId) {
+        const res = this.dispatch('Composite.Delete', {
+          compositeId: String(compositeId)
+        });
+        if (res && res.success) {
+          if (res.snapshot) this.syncFromEngineSnapshot(res.snapshot);
+          return res;
+        }
+        return { success: false, error: (res && res.error) || 'Failed to delete composite template' };
+      }
+      return { success: false, error: 'Go/WASM engine is unavailable' };
+    },
+
+    getComposite(compositeId) {
+      if (this.isReady() && compositeId) {
+        const res = this.dispatch('Composite.Get', { compositeId: String(compositeId) });
+        if (res && res.found) return res.composite;
+      }
+      if (window.ObjectGroups && typeof window.ObjectGroups.getComposite === 'function') {
+        return window.ObjectGroups.getComposite(compositeId);
+      }
+      return null;
+    },
+
+    listComposites() {
+      if (this.isReady()) {
+        const res = this.dispatch('Composite.List', {});
+        if (res && Array.isArray(res.composites)) {
+          if (res.compositesCounter !== undefined) this._compositesCounter = res.compositesCounter;
+          return res.composites;
+        }
+      }
+      if (window.ObjectGroups && Array.isArray(window.ObjectGroups.composites)) {
+        return window.ObjectGroups.composites;
+      }
+      return [];
+    },
+
+    getCompositesCounter() {
+      if (this.isReady()) {
+        const res = this.dispatch('Composite.List', {});
+        if (res && res.compositesCounter !== undefined) {
+          this._compositesCounter = res.compositesCounter;
+          return this._compositesCounter;
+        }
+      }
+      if (window.ObjectGroups) {
+        return window.ObjectGroups.compositesCounter || 0;
+      }
+      return 0;
     },
 
     copySelection(items, groupId = null) {
@@ -2762,9 +2856,13 @@
       const groups = rawGroups.map((g) => ({
         id: String(g.id || ''),
         name: String(g.name || ''),
+        compositeId: g.compositeId ? String(g.compositeId) : undefined,
         members: Array.isArray(g.members)
           ? g.members.map((m) => ({ type: String(m.type || ''), id: String(m.id || '') }))
           : [],
+        mappings: Array.isArray(g.mappings) ? g.mappings : undefined,
+        visible: g.visible !== undefined ? g.visible : undefined,
+        locked: g.locked !== undefined ? !!g.locked : undefined,
         metadata: (g.metadata && typeof g.metadata === 'object') ? g.metadata : undefined
       }));
       let groupsCounter = Number(raw.groupsCounter) || 0;
@@ -2774,6 +2872,18 @@
           if (m) {
             const num = parseInt(m[1], 10);
             if (num > groupsCounter) groupsCounter = num;
+          }
+        });
+      }
+
+      const composites = Array.isArray(raw.composites) ? raw.composites : [];
+      let compositesCounter = Number(raw.compositesCounter) || 0;
+      if (compositesCounter === 0 && composites.length > 0) {
+        composites.forEach((c) => {
+          const m = String(c.id).match(/comp-(\d+)/);
+          if (m) {
+            const num = parseInt(m[1], 10);
+            if (num > compositesCounter) compositesCounter = num;
           }
         });
       }
@@ -2870,8 +2980,10 @@
           target: String(p.target || ''),
           property: String(p.property || '')
         };
+        if (Array.isArray(p.targets) && p.targets.length > 0) item.targets = p.targets;
         if (typeof p.min === 'number') item.min = p.min;
         if (typeof p.max === 'number') item.max = p.max;
+        if (typeof p.step === 'number') item.step = p.step;
         if (Array.isArray(p.options)) item.options = p.options.map(String);
         if (p.description != null) item.description = String(p.description);
         return item;
@@ -2918,6 +3030,8 @@
         liteEffectsCounter: liteEffectsCounter,
         groups: groups,
         groupsCounter: groupsCounter,
+        composites: composites,
+        compositesCounter: compositesCounter,
         images: images,
         imagesCounter: imagesCounter,
         layers: layers,
@@ -2962,12 +3076,18 @@
 
       let groups = [];
       let groupsCounter = 0;
+      let composites = [];
+      let compositesCounter = 0;
       if (typeof window !== 'undefined' && window.ObjectGroups && Array.isArray(window.ObjectGroups.list)) {
         groups = window.ObjectGroups.list;
         groupsCounter = window.ObjectGroups.counter || 0;
+        composites = window.ObjectGroups.composites || [];
+        compositesCounter = window.ObjectGroups.compositesCounter || 0;
       } else if (this.isReady()) {
         groups = this.listGroups() || [];
         groupsCounter = this.getGroupsCounter() || 0;
+        composites = this.listComposites() || [];
+        compositesCounter = this.getCompositesCounter() || 0;
       }
 
       const images = (typeof window !== 'undefined' && window.ImageObjects && Array.isArray(window.ImageObjects.list))
@@ -3004,6 +3124,8 @@
         liteEffectsCounter: liteEffectsCounter,
         groups: groups,
         groupsCounter: groupsCounter,
+        composites: composites,
+        compositesCounter: compositesCounter,
         images: images,
         imagesCounter: imagesCounter,
         layers: layers,
@@ -3474,15 +3596,28 @@
   const ObjectGroups = {
     list: [],
     counter: 0,
+    composites: [],
+    compositesCounter: 0,
 
     getAllGroups() {
       return this.list;
     },
 
+    getAllComposites() {
+      return this.composites;
+    },
+
+    getComposite(id) {
+      const strId = String(id);
+      return this.composites.find((c) => String(c.id) === strId) || null;
+    },
+
     getState() {
       return {
         groups: JSON.parse(JSON.stringify(this.list)),
-        groupsCounter: this.counter
+        groupsCounter: this.counter,
+        composites: JSON.parse(JSON.stringify(this.composites)),
+        compositesCounter: this.compositesCounter
       };
     },
 
@@ -3498,6 +3633,12 @@
             if (num > this.counter) this.counter = num;
           }
         });
+      }
+      if (Array.isArray(state.composites)) {
+        this.composites = JSON.parse(JSON.stringify(state.composites));
+      }
+      if (state.compositesCounter !== undefined) {
+        this.compositesCounter = parseInt(state.compositesCounter, 10) || 0;
       }
     },
 

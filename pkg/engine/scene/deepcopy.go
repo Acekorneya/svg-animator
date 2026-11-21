@@ -188,6 +188,83 @@ func DeepCopyLiteEffect(l LiteEffect) LiteEffect {
 	return cp
 }
 
+// DeepCopyClipboardPayload creates an isolated deep copy of a ClipboardPayload.
+func DeepCopyClipboardPayload(p ClipboardPayload) ClipboardPayload {
+	cp := p
+	if p.Nodes != nil {
+		cp.Nodes = make([]Node, len(p.Nodes))
+		for i, n := range p.Nodes {
+			cp.Nodes[i] = DeepCopyNode(n)
+		}
+	}
+	if p.Flows != nil {
+		cp.Flows = make([]Flow, len(p.Flows))
+		for i, f := range p.Flows {
+			cp.Flows[i] = DeepCopyFlow(f)
+		}
+	}
+	if p.Glows != nil {
+		cp.Glows = make([]Glow, len(p.Glows))
+		for i, g := range p.Glows {
+			cp.Glows[i] = DeepCopyGlow(g)
+		}
+	}
+	if p.Ripples != nil {
+		cp.Ripples = make([]Ripple, len(p.Ripples))
+		for i, r := range p.Ripples {
+			cp.Ripples[i] = DeepCopyRipple(r)
+		}
+	}
+	if p.Images != nil {
+		cp.Images = make([]Image, len(p.Images))
+		for i, img := range p.Images {
+			cp.Images[i] = DeepCopyImage(img)
+		}
+	}
+	if p.LiteEffects != nil {
+		cp.LiteEffects = make([]LiteEffect, len(p.LiteEffects))
+		for i, le := range p.LiteEffects {
+			cp.LiteEffects[i] = DeepCopyLiteEffect(le)
+		}
+	}
+	if p.Groups != nil {
+		cp.Groups = make([]Group, len(p.Groups))
+		for i, g := range p.Groups {
+			cp.Groups[i] = DeepCopyGroup(g)
+		}
+	}
+	if p.Parameters != nil {
+		cp.Parameters = make([]WidgetParameter, len(p.Parameters))
+		for i, wp := range p.Parameters {
+			wpCopy := wp
+			wpCopy.Min = deepCopyFloatPtr(wp.Min)
+			wpCopy.Max = deepCopyFloatPtr(wp.Max)
+			wpCopy.Step = deepCopyFloatPtr(wp.Step)
+			if wp.Options != nil {
+				wpCopy.Options = append([]string(nil), wp.Options...)
+			}
+			if wp.Targets != nil {
+				wpCopy.Targets = append([]WidgetTargetBinding(nil), wp.Targets...)
+			}
+			cp.Parameters[i] = wpCopy
+		}
+	}
+	return cp
+}
+
+// DeepCopyCompositeDef creates an isolated deep copy of a CompositeDef.
+func DeepCopyCompositeDef(c CompositeDef) CompositeDef {
+	cp := c
+	cp.Payload = DeepCopyClipboardPayload(c.Payload)
+	if c.Mappings != nil {
+		cp.Mappings = make([]GroupPropertyMapping, len(c.Mappings))
+		for i, m := range c.Mappings {
+			cp.Mappings[i] = DeepCopyGroupPropertyMapping(m)
+		}
+	}
+	return cp
+}
+
 // DeepCopySnapshot creates a complete, deeply isolated copy of a Snapshot.
 func DeepCopySnapshot(snap Snapshot) Snapshot {
 	cp := snap
@@ -236,6 +313,15 @@ func DeepCopySnapshot(snap Snapshot) Snapshot {
 		}
 	} else {
 		cp.Groups = make([]Group, 0)
+	}
+
+	if snap.Composites != nil {
+		cp.Composites = make([]CompositeDef, len(snap.Composites))
+		for i, c := range snap.Composites {
+			cp.Composites[i] = DeepCopyCompositeDef(c)
+		}
+	} else {
+		cp.Composites = make([]CompositeDef, 0)
 	}
 
 	if snap.Images != nil {

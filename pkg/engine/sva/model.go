@@ -73,6 +73,8 @@ type SceneData struct {
 	LiteEffectsCounter int                     `json:"liteEffectsCounter,omitempty"`
 	Groups             []scene.Group           `json:"groups,omitempty"`
 	GroupsCounter      int                     `json:"groupsCounter,omitempty"`
+	Composites         []scene.CompositeDef    `json:"composites,omitempty"`
+	CompositesCounter  int                     `json:"compositesCounter,omitempty"`
 	Images             []scene.Image           `json:"images,omitempty"`
 	ImagesCounter      int                     `json:"imagesCounter,omitempty"`
 	Layers             []scene.LayerEntry      `json:"layers,omitempty"`
@@ -117,6 +119,8 @@ func (s *SceneData) ToSnapshot() scene.Snapshot {
 		LiteEffectsCounter: int64(s.LiteEffectsCounter),
 		Groups:             s.Groups,
 		GroupsCounter:      int64(groupsCounter),
+		Composites:         s.Composites,
+		CompositesCounter:  int64(s.CompositesCounter),
 		Images:             s.Images,
 		ImagesCounter:      int64(s.ImagesCounter),
 		Layers:             s.Layers,

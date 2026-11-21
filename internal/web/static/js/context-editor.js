@@ -1807,6 +1807,15 @@ window.FloatingPropertiesEditor = {
       });
     }
 
+    const btnSaveComp = document.getElementById('fctx-btnSaveComposite');
+    if (btnSaveComp) {
+      btnSaveComp.addEventListener('click', () => {
+        if (window.AppCoordinator && typeof window.AppCoordinator.saveSelectedGroupAsComposite === 'function') {
+          window.AppCoordinator.saveSelectedGroupAsComposite();
+        }
+      });
+    }
+
     const btnDelGrp = document.getElementById('fctx-btnDeleteGroup');
     if (btnDelGrp) {
       btnDelGrp.addEventListener('click', () => {

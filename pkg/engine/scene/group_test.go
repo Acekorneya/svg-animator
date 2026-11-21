@@ -732,3 +732,241 @@ func TestStage16EM2GroupSemanticPropertyMappings(t *testing.T) {
 	}
 }
 
+func TestStage16EM3CompositeLifecycleAndSequentialInstantiation(t *testing.T) {
+	sc := NewScene()
+
+	// Build canonical cpuwindow-1 group with Node, Flow, GaugeLite, TextLite, TracerLite
+	nLeft := sc.CreateNode(Node{Shape: "rounded", X: 15, Y: 25, Width: 90, Height: 50, Name: "CoreIn"}, nil, false)
+	nRight := sc.CreateNode(Node{Shape: "rounded", X: 25, Y: 25, Width: 90, Height: 50, Name: "CoreOut"}, nil, false)
+	fl := Flow{
+		ID:         "1",
+		FromNodeID: nLeft.ID,
+		ToNodeID:   nRight.ID,
+		Color:      "#38bdf8",
+		Speed:      1.0,
+		Nodes: []geometry.Point{
+			{X: 15, Y: 25},
+			{X: 25, Y: 25},
+		},
+	}
+	sc.UpdateFlow(fl)
+
+	v42 := 42.0
+	v0 := 0.0
+	v100 := 100.0
+	leGauge := sc.CreateLiteEffect(LiteEffect{
+		Kind:     "gauge-lite",
+		Variant:  "ring",
+		Name:     "CpuGauge",
+		X:        250,
+		Y:        200,
+		Width:    130,
+		Height:   130,
+		Value:    &v42,
+		MinValue: &v0,
+		MaxValue: &v100,
+	})
+	leText := sc.CreateLiteEffect(LiteEffect{
+		Kind:      "text-lite",
+		Variant:   "rounded",
+		Name:      "CpuReadout",
+		X:         250,
+		Y:         310,
+		Width:     150,
+		Height:    38,
+		LabelText: "42",
+	})
+	leTracer := sc.CreateLiteEffect(LiteEffect{
+		Kind:    "perimeter-tracer",
+		Variant: "rounded",
+		Name:    "CpuFrame",
+		X:       250,
+		Y:       230,
+		Width:   220,
+		Height:  240,
+		Color:   "#22c55e",
+	})
+
+	grp1, err := sc.CreateGroup("cpuwindow-1", []GroupMember{
+		{Type: SelectionNode, ID: nLeft.ID},
+		{Type: SelectionNode, ID: nRight.ID},
+		{Type: SelectionFlow, ID: fl.ID},
+		{Type: SelectionLite, ID: leGauge.ID},
+		{Type: SelectionLite, ID: leText.ID},
+		{Type: SelectionLite, ID: leTracer.ID},
+	})
+	if err != nil {
+		t.Fatalf("CreateGroup failed: %v", err)
+	}
+
+	// Add semantic mappings "cpu" (number -> gauge.value + text.text) and "status-color" (color -> tracer.color + flow.color)
+	if _, err := sc.SetGroupPropertyMapping(grp1.ID, GroupPropertyMapping{
+		Alias:   "cpu",
+		Label:   "CPU Load (%)",
+		Type:    "number",
+		Default: 42.0,
+		Min:     &v0,
+		Max:     &v100,
+		Targets: []GroupTargetBinding{
+			{MemberType: SelectionLite, MemberID: leGauge.ID, Property: "value"},
+			{MemberType: SelectionLite, MemberID: leText.ID, Property: "text"},
+		},
+	}); err != nil {
+		t.Fatalf("SetGroupPropertyMapping 'cpu' failed: %v", err)
+	}
+
+	if _, err := sc.SetGroupPropertyMapping(grp1.ID, GroupPropertyMapping{
+		Alias:   "status-color",
+		Label:   "Status Colour",
+		Type:    "color",
+		Default: "#22c55e",
+		Targets: []GroupTargetBinding{
+			{MemberType: SelectionLite, MemberID: leTracer.ID, Property: "color"},
+			{MemberType: SelectionFlow, MemberID: fl.ID, Property: "color"},
+		},
+	}); err != nil {
+		t.Fatalf("SetGroupPropertyMapping 'status-color' failed: %v", err)
+	}
+
+	// Also expose built-in group speed on grp1
+	minSpd := 0.1
+	maxSpd := 10.0
+	if err := sc.AddParameter(WidgetParameter{
+		Name:     "cpuwindow-1-group-speed",
+		Type:     "speed",
+		Target:   string(grp1.ID),
+		Property: "speed",
+		Default:  1.0,
+		Min:      &minSpd,
+		Max:      &maxSpd,
+	}); err != nil {
+		t.Fatalf("AddParameter group speed failed: %v", err)
+	}
+
+	// 1. Save as Composite Template ("cpuwindow")
+	comp, err := sc.CreateCompositeFromGroup(grp1.ID, "cpuwindow", "Reusable CPU Monitor Window")
+	if err != nil {
+		t.Fatalf("CreateCompositeFromGroup failed: %v", err)
+	}
+	if comp.ID != "comp-1" || comp.Name != "cpuwindow" {
+		t.Fatalf("unexpected composite ID/Name: %+v", comp)
+	}
+	if len(comp.Mappings) != 2 {
+		t.Fatalf("expected 2 mappings in CompositeDef, got %d", len(comp.Mappings))
+	}
+
+	// 2. Instantiate 2nd and 3rd instances -> sequential naming cpuwindow-2, cpuwindow-3
+	grp2, items2, err := sc.InstantiateComposite(comp.ID, "", 30.0, 0.0)
+	if err != nil {
+		t.Fatalf("InstantiateComposite #2 failed: %v", err)
+	}
+	if grp2.Name != "cpuwindow-2" {
+		t.Fatalf("expected sequential instance name 'cpuwindow-2', got %q", grp2.Name)
+	}
+	if grp2.CompositeID != comp.ID {
+		t.Fatalf("expected CompositeID %q on grp2, got %q", comp.ID, grp2.CompositeID)
+	}
+	if len(items2) != 6 {
+		t.Fatalf("expected 6 member items instantiated for grp2, got %d", len(items2))
+	}
+
+	grp3, items3, err := sc.InstantiateComposite(comp.ID, "", 60.0, 0.0)
+	if err != nil {
+		t.Fatalf("InstantiateComposite #3 failed: %v", err)
+	}
+	if grp3.Name != "cpuwindow-3" {
+		t.Fatalf("expected sequential instance name 'cpuwindow-3', got %q", grp3.Name)
+	}
+	if len(items3) != 6 {
+		t.Fatalf("expected 6 member items instantiated for grp3, got %d", len(items3))
+	}
+
+	// 3. Verify internal flow remapping inside grp2 and grp3
+	for _, grp := range []Group{grp2, grp3} {
+		nodeSet := make(map[StringID]bool)
+		var flowID StringID
+		for _, m := range grp.Members {
+			if m.Type == SelectionNode {
+				nodeSet[m.ID] = true
+			} else if m.Type == SelectionFlow {
+				flowID = m.ID
+			}
+		}
+		f := sc.GetFlow(flowID)
+		if f == nil {
+			t.Fatalf("flow %s not found in group %s", flowID, grp.Name)
+		}
+		if !nodeSet[f.FromNodeID] || !nodeSet[f.ToNodeID] {
+			t.Fatalf("expected flow %s in %s to connect internal group nodes (%v), got from=%s to=%s",
+				flowID, grp.Name, nodeSet, f.FromNodeID, f.ToNodeID)
+		}
+	}
+
+	// 4. Verify deterministic widget parameters across all 3 instances
+	paramMap := make(map[string]WidgetParameter)
+	for _, p := range sc.GetParameters() {
+		paramMap[p.Name] = p
+	}
+	expectedParams := []string{
+		"cpuwindow-1-group-cpu",
+		"cpuwindow-1-group-status-color",
+		"cpuwindow-1-group-speed",
+		"cpuwindow-2-group-cpu",
+		"cpuwindow-2-group-status-color",
+		"cpuwindow-2-group-speed",
+		"cpuwindow-3-group-cpu",
+		"cpuwindow-3-group-status-color",
+		"cpuwindow-3-group-speed",
+	}
+	for _, ep := range expectedParams {
+		p, ok := paramMap[ep]
+		if !ok {
+			t.Fatalf("expected deterministic widget parameter %q to exist, got parameters: %+v", ep, sc.GetParameters())
+		}
+		if err := ValidateWidgetParameter(p); err != nil {
+			t.Fatalf("ValidateWidgetParameter failed for %q: %v", ep, err)
+		}
+	}
+
+	// Verify grp1, grp2, grp3 semantic target bindings are completely disjoint (no cross-instance leakage!)
+	seenMemberBinding := make(map[string]string)
+	for _, ep := range []string{"cpuwindow-1-group-cpu", "cpuwindow-2-group-cpu", "cpuwindow-3-group-cpu"} {
+		p := paramMap[ep]
+		if len(p.Targets) != 2 {
+			t.Fatalf("expected 2 targets on %s, got %d", ep, len(p.Targets))
+		}
+		for _, tb := range p.Targets {
+			key := tb.Target + "." + tb.Property
+			if prev, exists := seenMemberBinding[key]; exists {
+				t.Fatalf("cross-instance target collision: %s bound to both %s and %s", key, prev, ep)
+			}
+			seenMemberBinding[key] = ep
+		}
+	}
+
+	// 5. Snapshot round-trip preserves Composites, Groups, Mappings, and Parameters
+	snap := sc.GetSnapshot()
+	if len(snap.Composites) != 1 || snap.Composites[0].Name != "cpuwindow" {
+		t.Fatalf("expected 1 composite in snapshot, got: %+v", snap.Composites)
+	}
+	scRestored := NewScene()
+	scRestored.SetFromSnapshot(snap)
+	if len(scRestored.GetAllComposites()) != 1 {
+		t.Fatalf("expected 1 composite after SetFromSnapshot, got %d", len(scRestored.GetAllComposites()))
+	}
+	if len(scRestored.GetAllGroups()) != 3 {
+		t.Fatalf("expected 3 groups after SetFromSnapshot, got %d", len(scRestored.GetAllGroups()))
+	}
+
+	// 6. DeleteComposite leaves placed instances intact
+	if err := sc.DeleteComposite(comp.ID); err != nil {
+		t.Fatalf("DeleteComposite failed: %v", err)
+	}
+	if len(sc.GetAllComposites()) != 0 {
+		t.Fatalf("expected 0 composites after DeleteComposite")
+	}
+	if len(sc.GetAllGroups()) != 3 {
+		t.Fatalf("expected all 3 placed group instances to remain intact after DeleteComposite")
+	}
+}
+

@@ -460,6 +460,8 @@ func ExtractStudioState(proj *Project) ([]byte, error) {
 		"liteEffectsCounter": s.LiteEffectsCounter,
 		"groups":             resolvedGroups,
 		"groupsCounter":      groupsCounter,
+		"composites":         s.Composites,
+		"compositesCounter":  s.CompositesCounter,
 		"images":             resolvedImages,
 		"imagesCounter":      s.ImagesCounter,
 		"layers":             s.Layers,

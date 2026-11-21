@@ -117,11 +117,20 @@
     const rootId = `sva-widget-${instanceId}`;
     const scopeCss = options.scopeCss !== false;
 
+    // 0. Temporarily strip embedded <script id="...sva-widget-manifest"> blocks so regex attribute
+    // transforms do not match '>' characters inside JSON descriptions before re-injecting at the end.
+    const embeddedManifestBlocks = [];
+    const reManifestScript = new RegExp(/<script\b[^>]*\bid=["'](?:[^"']*__)?sva-widget-manifest["'][^>]*>[\s\S]*?<\//.source + 'script>', 'gi');
+    const svgWithoutManifest = rawSvg.replace(reManifestScript, (block) => {
+      embeddedManifestBlocks.push(block);
+      return '';
+    });
+
     // 1. Scan and collect declared IDs: id="VALUE" or id='VALUE'
     const idMap = {};
     const reIDDecl = /\bid\s*=\s*(["'])([^"']+)\1/g;
     let m;
-    while ((m = reIDDecl.exec(rawSvg)) !== null) {
+    while ((m = reIDDecl.exec(svgWithoutManifest)) !== null) {
       const oldId = m[2];
       if (oldId && !idMap[oldId]) {
         idMap[oldId] = `${prefix}${oldId}`;
@@ -131,7 +140,7 @@
     // 2. Scan and collect @keyframes in <style>
     const keyframeMap = {};
     const reKF = /@keyframes\s+([a-zA-Z0-9_-]+)/g;
-    while ((m = reKF.exec(rawSvg)) !== null) {
+    while ((m = reKF.exec(svgWithoutManifest)) !== null) {
       const oldKF = m[1];
       if (oldKF && !keyframeMap[oldKF]) {
         keyframeMap[oldKF] = `${prefix}${oldKF}`;
@@ -139,7 +148,7 @@
     }
 
     // 3. Transform CSS in <style> blocks
-    let transformed = rawSvg.replace(/<style\b([^>]*)>([\s\S]*?)<\/style>/gi, (match, attrs, css) => {
+    let transformed = svgWithoutManifest.replace(/<style\b([^>]*)>([\s\S]*?)<\/style>/gi, (match, attrs, css) => {
       let scopedCSS = css;
       if (scopeCss) {
         scopedCSS = scopeCSSRules(css, rootId, idMap, keyframeMap);
@@ -223,19 +232,29 @@
       return `<${tagName}${tagAttrs}>`;
     });
 
-    // 5. Inject manifest if provided and not already present
+    // 5. Re-inject stripped embedded manifest block or inject options.manifest if provided
     if (options.manifest && Array.isArray(options.manifest.parameters) && options.manifest.parameters.length > 0) {
-      const reExistingManifest = new RegExp(/<script\b[^>]*\bid=["'](?:[^"']*__)?sva-widget-manifest["']/i.source, 'i');
-      if (!reExistingManifest.test(transformed)) {
-        const manifestJson = JSON.stringify(options.manifest);
-        const manifestTag = '\n  <script type="application/json" id="' + prefix + 'sva-widget-manifest">' + manifestJson + '<' + '/script>\n';
-        const lastSvgIdx = transformed.lastIndexOf('</svg>');
-        if (lastSvgIdx !== -1) {
-          transformed = transformed.slice(0, lastSvgIdx) + manifestTag + transformed.slice(lastSvgIdx);
-        } else {
-          transformed += manifestTag;
-        }
+      const manifestJson = JSON.stringify(options.manifest);
+      const manifestTag = '\n  <script type="application/json" id="' + prefix + 'sva-widget-manifest">' + manifestJson + '<' + '/script>\n';
+      const lastSvgIdx = transformed.lastIndexOf('</svg>');
+      if (lastSvgIdx !== -1) {
+        transformed = transformed.slice(0, lastSvgIdx) + manifestTag + transformed.slice(lastSvgIdx);
+      } else {
+        transformed += manifestTag;
       }
+      idMap['sva-widget-manifest'] = `${prefix}sva-widget-manifest`;
+    } else if (embeddedManifestBlocks.length > 0) {
+      const restoredBlock = embeddedManifestBlocks[0].replace(
+        /\bid\s*=\s*(["'])(?:[^"']*__)?sva-widget-manifest\1/i,
+        `id="${prefix}sva-widget-manifest"`
+      );
+      const lastSvgIdx = transformed.lastIndexOf('</svg>');
+      if (lastSvgIdx !== -1) {
+        transformed = transformed.slice(0, lastSvgIdx) + '\n  ' + restoredBlock + '\n' + transformed.slice(lastSvgIdx);
+      } else {
+        transformed += '\n  ' + restoredBlock + '\n';
+      }
+      idMap['sva-widget-manifest'] = `${prefix}sva-widget-manifest`;
     }
 
     if (options.rawDetails) {

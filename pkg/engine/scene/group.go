@@ -41,13 +41,14 @@ type GroupPropertyMapping struct {
 
 // Group represents a persistent named visual object group entity.
 type Group struct {
-	ID       StringID               `json:"id"`
-	Name     string                 `json:"name,omitempty"` // User-editable display name
-	Members  []GroupMember          `json:"members"`
-	Mappings []GroupPropertyMapping `json:"mappings,omitempty"`
-	Visible  *bool                  `json:"visible,omitempty"`
-	Locked   bool                   `json:"locked,omitempty"`
-	Metadata map[string]any         `json:"metadata,omitempty"` // Forward-compatible extension metadata
+	ID          StringID               `json:"id"`
+	Name        string                 `json:"name,omitempty"`        // User-editable display name
+	CompositeID StringID               `json:"compositeId,omitempty"` // Optional composite template provenance (Stage 16E-M3)
+	Members     []GroupMember          `json:"members"`
+	Mappings    []GroupPropertyMapping `json:"mappings,omitempty"`
+	Visible     *bool                  `json:"visible,omitempty"`
+	Locked      bool                   `json:"locked,omitempty"`
+	Metadata    map[string]any         `json:"metadata,omitempty"` // Forward-compatible extension metadata
 }
 
 func (grp Group) IsVisible() bool {

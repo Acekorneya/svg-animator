@@ -694,6 +694,80 @@
       return false;
     },
 
+    renameGroup(grpId, newName) {
+      if (!grpId) return { success: false };
+      let res = null;
+      if (window.EngineBridge && typeof window.EngineBridge.renameGroup === 'function') {
+        res = window.EngineBridge.renameGroup(grpId, newName);
+      } else if (window.ObjectGroups && typeof window.ObjectGroups.renameGroup === 'function') {
+        res = window.ObjectGroups.renameGroup(grpId, newName);
+      }
+      if (res && res.success) {
+        if (this.activeSelection && this.activeSelection.type === 'group' && String(this.activeSelection.id) === String(grpId)) {
+          this.activeSelection.name = newName;
+        }
+        this.emit('selection:changed', this.getActiveSelection());
+        return res;
+      }
+      return res || { success: false };
+    },
+
+    saveSelectedGroupAsComposite(name = '', description = '') {
+      let groupId = null;
+      if (this.activeSelection && this.activeSelection.type === 'group' && this.activeSelection.id) {
+        groupId = this.activeSelection.id;
+      }
+      if (!groupId) {
+        this.showNotification('Select a group to save as a composite template.', 'warning', 2500);
+        return null;
+      }
+      const grp = this.getGroup(groupId);
+      const compName = (name && String(name).trim()) || (grp && grp.name) || String(groupId);
+      if (window.EngineBridge && typeof window.EngineBridge.createCompositeFromGroup === 'function') {
+        const res = window.EngineBridge.createCompositeFromGroup(groupId, compName, description);
+        if (res && res.success && res.composite) {
+          this._refreshAllInstanceLists();
+          if (typeof window.renderCompositesList === 'function') window.renderCompositesList();
+          if (typeof window.renderWidgetParametersOverview === 'function') window.renderWidgetParametersOverview();
+          this.showNotification(`Saved composite template "${res.composite.name}" (${res.composite.id})`, 'success', 2500);
+          return res.composite;
+        }
+        this.showNotification((res && res.error) || 'Failed to save composite template.', 'error', 3000);
+      }
+      return null;
+    },
+
+    instantiateComposite(compositeId, instanceName = '', offsetX = 5.0, offsetY = 5.0) {
+      if (!compositeId) return null;
+      if (window.EngineBridge && typeof window.EngineBridge.instantiateComposite === 'function') {
+        const res = window.EngineBridge.instantiateComposite(compositeId, instanceName, offsetX, offsetY);
+        if (res && res.success && res.group) {
+          this._refreshAllInstanceLists();
+          this.selectGroup(res.group.id);
+          this.requestRender();
+          if (typeof window.renderCompositesList === 'function') window.renderCompositesList();
+          if (typeof window.renderWidgetParametersOverview === 'function') window.renderWidgetParametersOverview();
+          this.showNotification(`Placed composite instance "${res.group.name}" (${res.group.id})`, 'success', 2200);
+          return res.group;
+        }
+        this.showNotification((res && res.error) || 'Failed to instantiate composite template.', 'error', 3000);
+      }
+      return null;
+    },
+
+    deleteComposite(compositeId) {
+      if (!compositeId) return false;
+      if (window.EngineBridge && typeof window.EngineBridge.deleteComposite === 'function') {
+        const res = window.EngineBridge.deleteComposite(compositeId);
+        if (res && res.success) {
+          if (typeof window.renderCompositesList === 'function') window.renderCompositesList();
+          this.showNotification(`Deleted composite template ${compositeId}`, 'info', 2000);
+          return true;
+        }
+      }
+      return false;
+    },
+
     duplicateSelection() {
       let items = [], groupId = null;
       if (this.activeSelection.type === 'group' && this.activeSelection.id) {

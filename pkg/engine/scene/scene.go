@@ -44,6 +44,10 @@ type Scene struct {
 	groups        map[StringID]Group
 	groupIDs      []StringID
 
+	compositesCounter int64
+	composites        map[StringID]CompositeDef
+	compositeIDs      []StringID
+
 	imagesCounter int64
 	images        map[StringID]Image
 	imageIDs      []StringID
@@ -107,6 +111,7 @@ func NewScene() *Scene {
 		glows:     make(map[StringID]Glow),
 		ripples:   make(map[StringID]Ripple),
 		groups:          make(map[StringID]Group),
+		composites:      make(map[StringID]CompositeDef),
 		images:          make(map[StringID]Image),
 		liteEffects:     make(map[StringID]LiteEffect),
 		nodeIDs:         make([]StringID, 0),
@@ -114,6 +119,7 @@ func NewScene() *Scene {
 		glowIDs:         make([]StringID, 0),
 		rippleIDs:       make([]StringID, 0),
 		groupIDs:        make([]StringID, 0),
+		compositeIDs:    make([]StringID, 0),
 		imageIDs:        make([]StringID, 0),
 		liteEffectOrder: make([]StringID, 0),
 		layers:    make([]LayerEntry, 0),
@@ -897,6 +903,22 @@ func (s *Scene) setFromSnapshotLocked(snap Snapshot) {
 		s.groupIDs = append(s.groupIDs, g.ID)
 	}
 
+	s.composites = make(map[StringID]CompositeDef, len(snap.Composites))
+	s.compositeIDs = make([]StringID, 0, len(snap.Composites))
+	s.compositesCounter = snap.CompositesCounter
+	for _, c := range snap.Composites {
+		rawID := string(c.ID)
+		if strings.HasPrefix(rawID, "comp-") {
+			if idNum, err := strconv.ParseInt(strings.TrimPrefix(rawID, "comp-"), 10, 64); err == nil && idNum > s.compositesCounter {
+				s.compositesCounter = idNum
+			}
+		} else if idNum, err := strconv.ParseInt(rawID, 10, 64); err == nil && idNum > s.compositesCounter {
+			s.compositesCounter = idNum
+		}
+		s.composites[c.ID] = DeepCopyCompositeDef(c)
+		s.compositeIDs = append(s.compositeIDs, c.ID)
+	}
+
 	s.images = make(map[StringID]Image, len(snap.Images))
 	s.imageIDs = make([]StringID, 0, len(snap.Images))
 	s.imagesCounter = snap.ImagesCounter
@@ -1002,6 +1024,7 @@ func (s *Scene) Reset() {
 	s.glows = make(map[StringID]Glow)
 	s.ripples = make(map[StringID]Ripple)
 	s.groups = make(map[StringID]Group)
+	s.composites = make(map[StringID]CompositeDef)
 	s.images = make(map[StringID]Image)
 	s.liteEffects = make(map[StringID]LiteEffect)
 
@@ -1010,6 +1033,7 @@ func (s *Scene) Reset() {
 	s.glowIDs = make([]StringID, 0)
 	s.rippleIDs = make([]StringID, 0)
 	s.groupIDs = make([]StringID, 0)
+	s.compositeIDs = make([]StringID, 0)
 	s.imageIDs = make([]StringID, 0)
 	s.liteEffectOrder = make([]StringID, 0)
 
@@ -1018,6 +1042,7 @@ func (s *Scene) Reset() {
 	s.glowsCounter = 0
 	s.ripplesCounter = 0
 	s.groupsCounter = 0
+	s.compositesCounter = 0
 	s.imagesCounter = 0
 	s.liteEffectsCounter = 0
 
@@ -1284,6 +1309,11 @@ func (s *Scene) getSnapshotLocked() Snapshot {
 		groups[i] = DeepCopyGroup(s.groups[id])
 	}
 
+	composites := make([]CompositeDef, len(s.compositeIDs))
+	for i, id := range s.compositeIDs {
+		composites[i] = DeepCopyCompositeDef(s.composites[id])
+	}
+
 	images := make([]Image, len(s.imageIDs))
 	for i, id := range s.imageIDs {
 		images[i] = DeepCopyImage(s.images[id])
@@ -1318,6 +1348,8 @@ func (s *Scene) getSnapshotLocked() Snapshot {
 		LiteEffectsCounter: s.liteEffectsCounter,
 		Groups:             groups,
 		GroupsCounter:      s.groupsCounter,
+		Composites:         composites,
+		CompositesCounter:  s.compositesCounter,
 		Images:             images,
 		ImagesCounter:      s.imagesCounter,
 		Layers:             layers,

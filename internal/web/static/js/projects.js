@@ -102,10 +102,20 @@ window.ProjectManager = {
 
     let groupsList = [];
     let groupsCounter = 0;
-    if (window.EngineBridge && typeof window.EngineBridge.isReady === 'function' && window.EngineBridge.isReady() && typeof window.EngineBridge.listGroups === 'function') {
-      groupsList = window.EngineBridge.listGroups() || [];
+    let compositesList = [];
+    let compositesCounter = 0;
+    if (window.EngineBridge && typeof window.EngineBridge.isReady === 'function' && window.EngineBridge.isReady()) {
+      if (typeof window.EngineBridge.listGroups === 'function') {
+        groupsList = window.EngineBridge.listGroups() || [];
+      }
       if (typeof window.EngineBridge.getGroupsCounter === 'function') {
         groupsCounter = window.EngineBridge.getGroupsCounter() || 0;
+      }
+      if (typeof window.EngineBridge.listComposites === 'function') {
+        compositesList = window.EngineBridge.listComposites() || [];
+      }
+      if (typeof window.EngineBridge.getCompositesCounter === 'function') {
+        compositesCounter = window.EngineBridge.getCompositesCounter() || 0;
       }
     }
     if ((!groupsList || groupsList.length === 0) && window.ObjectGroups) {
@@ -113,9 +123,13 @@ window.ProjectManager = {
         const gs = window.ObjectGroups.getState();
         groupsList = gs.groups || [];
         groupsCounter = gs.groupsCounter || 0;
+        compositesList = gs.composites || [];
+        compositesCounter = gs.compositesCounter || 0;
       } else {
         groupsList = window.ObjectGroups.list || [];
         groupsCounter = window.ObjectGroups.counter || 0;
+        compositesList = window.ObjectGroups.composites || [];
+        compositesCounter = window.ObjectGroups.compositesCounter || 0;
       }
     }
     if (groupsCounter === 0 && Array.isArray(groupsList) && groupsList.length > 0) {
@@ -179,6 +193,10 @@ window.ProjectManager = {
           groupsList = snap.groups;
           groupsCounter = snap.groupsCounter !== undefined ? snap.groupsCounter : groupsCounter;
         }
+        if (Array.isArray(snap.composites)) {
+          compositesList = snap.composites;
+          compositesCounter = snap.compositesCounter !== undefined ? snap.compositesCounter : compositesCounter;
+        }
         if (Array.isArray(snap.layers) && snap.layers.length > 0) {
           layerState = snap.layers;
         }
@@ -218,6 +236,8 @@ window.ProjectManager = {
       liteEffectsCounter: liteState.liteEffectsCounter,
       groups: groupsList,
       groupsCounter: groupsCounter,
+      composites: compositesList,
+      compositesCounter: compositesCounter,
       images: imageState.images,
       imagesCounter: imageState.imagesCounter,
       layers: layerState
@@ -341,11 +361,15 @@ window.ProjectManager = {
       if (typeof window.ObjectGroups.setState === 'function') {
         window.ObjectGroups.setState({
           groups: data.groups || [],
-          groupsCounter: data.groupsCounter || 0
+          groupsCounter: data.groupsCounter || 0,
+          composites: data.composites || [],
+          compositesCounter: data.compositesCounter || 0
         });
       } else {
         window.ObjectGroups.list = data.groups || [];
         window.ObjectGroups.counter = data.groupsCounter || 0;
+        window.ObjectGroups.composites = data.composites || [];
+        window.ObjectGroups.compositesCounter = data.compositesCounter || 0;
       }
     }
 
@@ -379,6 +403,8 @@ window.ProjectManager = {
         liteEffectsCounter: Number(data.liteEffectsCounter) || 0,
         groups: Array.isArray(data.groups) ? data.groups : [],
         groupsCounter: Number(data.groupsCounter) || 0,
+        composites: Array.isArray(data.composites) ? data.composites : [],
+        compositesCounter: Number(data.compositesCounter) || 0,
         images: Array.isArray(data.images) ? data.images : [],
         imagesCounter: Number(data.imagesCounter) || 0,
         layers: Array.isArray(data.layers) ? data.layers : [],

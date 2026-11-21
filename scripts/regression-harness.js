@@ -12084,6 +12084,178 @@ async function runHarness() {
   }
   console.log('[HARNESS] Scenario 93 PASS: Stage 16D-C Text and Typography (T1-T4) verified.');
 
+  // ===========================================================================
+  // Scenario 94: Stage 16E Groups, Semantic Property Mappings & Reusable Composite Objects (M1–M3)
+  // ===========================================================================
+  console.log('\n[HARNESS] Testing Scenario 94: Stage 16E Groups, Semantic Property Mappings & Reusable Composite Objects (M1-M3)...');
+  {
+    window.ProjectManager.resetToNewProject();
+    window.EngineBridge.setWidgetParameters([]);
+
+    // 1. M1: Create a mixed-member group (Node, Flow, Gauge Lite, Text Lite, Tracer Lite)
+    const nIn = window.DiagramNodes.createNode({ shape: 'rounded', text: 'CoreIn', name: 'CoreIn', x: 18, y: 24, width: 80, height: 40 });
+    const nOut = window.DiagramNodes.createNode({ shape: 'rounded', text: 'CoreOut', name: 'CoreOut', x: 30, y: 24, width: 80, height: 40 });
+    const fl = window.DataFlows.createFlow({
+      fromNodeId: nIn.id,
+      toNodeId: nOut.id,
+      color: '#38bdf8',
+      speed: 1.0,
+      nodes: [{ x: 18, y: 24 }, { x: 30, y: 24 }]
+    });
+    const leGauge = window.LiteEffects.createLiteEffect({
+      kind: 'gauge-lite',
+      variant: 'ring',
+      name: 'CpuGauge',
+      x: 300,
+      y: 260,
+      width: 120,
+      height: 120,
+      value: 35,
+      minValue: 0,
+      maxValue: 100
+    });
+    const leText = window.LiteEffects.createLiteEffect({
+      kind: 'text-lite',
+      variant: 'rounded',
+      name: 'CpuReadout',
+      x: 300,
+      y: 360,
+      width: 150,
+      height: 40,
+      labelText: '35'
+    });
+    const leTracer = window.LiteEffects.createLiteEffect({
+      kind: 'perimeter-tracer',
+      variant: 'rounded',
+      name: 'PodFrame',
+      x: 300,
+      y: 270,
+      width: 240,
+      height: 260,
+      color: '#22c55e'
+    });
+
+    window.AppCoordinator.setMultiSelection([
+      { type: 'node', id: String(nIn.id) },
+      { type: 'node', id: String(nOut.id) },
+      { type: 'flow', id: String(fl.id) },
+      { type: 'lite', id: String(leGauge.id) },
+      { type: 'lite', id: String(leText.id) },
+      { type: 'lite', id: String(leTracer.id) }
+    ]);
+    const grp1 = window.AppCoordinator.createGroupFromSelection('cpuwindow-1');
+    assert(grp1 && grp1.id === 'group-1', 'W16E-01: Created mixed-type group cpuwindow-1');
+
+    // Verify buildFullSVG emits <g id="group-1" class="scene-group" data-group-id="group-1" ...> wrapper
+    const svgM1 = window.buildFullSVG();
+    assert(svgM1.includes('id="group-1" class="scene-group" data-group-id="group-1" data-semantic-target="group-1" data-semantic-name="cpuwindow-1"'), 'W16E-02: buildFullSVG emits group-1 <g> container');
+
+    // Verify group eligible properties include opacity, visibility, speed
+    const grpEligible = window.EngineBridge.getEligibleWidgetProperties('group');
+    assert(Array.isArray(grpEligible) && grpEligible.some(p => p.property === 'speed' && p.type === 'speed'), 'W16E-03: Group eligible properties include speed');
+
+    // Expose built-in group speed parameter
+    const addSpdRes = window.EngineBridge.addWidgetParameter({
+      name: 'cpuwindow-1-group-speed',
+      type: 'speed',
+      target: grp1.id,
+      property: 'speed',
+      default: 1.0,
+      min: 0.1,
+      max: 10.0
+    });
+    assert(addSpdRes && addSpdRes.success !== false, 'W16E-04: Exposed group speed parameter');
+
+    // 2. M2: Define Semantic Group Property Mappings (1-to-many fan-out)
+    const mapCpuRes = window.EngineBridge.setGroupMapping(grp1.id, {
+      alias: 'cpu',
+      label: 'CPU Load (%)',
+      type: 'number',
+      default: 35,
+      min: 0,
+      max: 100,
+      targets: [
+        { memberType: 'lite', memberId: String(leGauge.id), target: `lite-${leGauge.id}`, property: 'value' },
+        { memberType: 'lite', memberId: String(leText.id), target: `lite-${leText.id}`, property: 'text' }
+      ]
+    });
+    assert(mapCpuRes && mapCpuRes.success, 'W16E-05: Created semantic mapping cpu -> gauge.value + text.text');
+
+    const mapColRes = window.EngineBridge.setGroupMapping(grp1.id, {
+      alias: 'status-color',
+      label: 'Status Colour',
+      type: 'color',
+      default: '#22c55e',
+      targets: [
+        { memberType: 'lite', memberId: String(leTracer.id), target: `lite-${leTracer.id}`, property: 'color' },
+        { memberType: 'flow', memberId: String(fl.id), target: `flow-${fl.id}`, property: 'color' },
+        { memberType: 'node', memberId: String(nIn.id), target: `node-${nIn.id}`, property: 'stroke' }
+      ]
+    });
+    assert(mapColRes && mapColRes.success, 'W16E-06: Created semantic mapping status-color -> 3 member targets');
+
+    // Verify incompatible mapping type is rejected
+    const badMapRes = window.EngineBridge.setGroupMapping(grp1.id, {
+      alias: 'bad-color',
+      type: 'color',
+      default: '#ff0000',
+      targets: [{ memberType: 'lite', memberId: String(leGauge.id), target: `lite-${leGauge.id}`, property: 'value' }]
+    });
+    assert(badMapRes && badMapRes.success === false, 'W16E-07: Incompatible mapping type rejected');
+
+    // 3. M3: Save as Reusable Composite Template ("cpuwindow") and place 2 more instances
+    window.AppCoordinator.selectGroup(grp1.id);
+    const comp = window.AppCoordinator.saveSelectedGroupAsComposite('cpuwindow', 'CPU Monitor Composite Template');
+    assert(comp && comp.id === 'comp-1' && comp.name === 'cpuwindow', 'W16E-08: Saved composite template cpuwindow');
+
+    const grp2 = window.AppCoordinator.instantiateComposite(comp.id, '', 32.0, 0.0);
+    assert(grp2 && grp2.name === 'cpuwindow-2', `W16E-09: Sequential composite instance named cpuwindow-2 (got ${grp2 && grp2.name})`);
+
+    const grp3 = window.AppCoordinator.instantiateComposite(comp.id, '', 64.0, 0.0);
+    assert(grp3 && grp3.name === 'cpuwindow-3', `W16E-10: Sequential composite instance named cpuwindow-3 (got ${grp3 && grp3.name})`);
+
+    // Verify all 9 deterministic widget parameters exist across the 3 placed composite instances
+    const allParams94 = window.EngineBridge.getWidgetParameters();
+    const paramNames94 = allParams94.map(p => p.name);
+    for (const expectedName of [
+      'cpuwindow-1-group-cpu', 'cpuwindow-1-group-status-color', 'cpuwindow-1-group-speed',
+      'cpuwindow-2-group-cpu', 'cpuwindow-2-group-status-color', 'cpuwindow-2-group-speed',
+      'cpuwindow-3-group-cpu', 'cpuwindow-3-group-status-color', 'cpuwindow-3-group-speed'
+    ]) {
+      assert(paramNames94.includes(expectedName), `W16E-11: Deterministic parameter ${expectedName} exists`);
+    }
+
+    // Verify full SVG contains all 3 group wrappers
+    const fullSvg94 = window.buildFullSVG();
+    assert(fullSvg94.includes('data-group-id="group-1"') && fullSvg94.includes('data-group-id="group-2"') && fullSvg94.includes('data-group-id="group-3"'), 'W16E-12: All 3 composite group wrappers present in SVG');
+
+    // Verify widget isolation and package export succeeds with multi-target group parameters
+    const pkgRes94 = window.EngineBridge.buildWidgetPackage('CPU Cluster Widget', fullSvg94);
+    assert(pkgRes94 && pkgRes94.success && pkgRes94.zipB64, `W16E-13: buildWidgetPackage succeeded for composite scene (${pkgRes94 && pkgRes94.error})`);
+    assert(pkgRes94.guideMarkdown && pkgRes94.guideMarkdown.includes('cpuwindow-1-group-cpu') && pkgRes94.guideMarkdown.includes('Fan-out:'), 'W16E-14: Generated Widget Properties Guide documents group semantic fan-out bindings');
+
+    // 4. Persistence Round-Trip (SQLite schema_json & .sva package)
+    const serialized94 = window.ProjectManager.serializeStudioState();
+    const svaEnc94 = window.EngineBridge.encodeSVA('Stage 16E Composite Test', 'M1-M3 round trip', JSON.parse(serialized94));
+    assert(svaEnc94 && svaEnc94.success && svaEnc94.dataB64, 'W16E-15: encodeSVA succeeded for composite project');
+
+    window.ProjectManager.resetToNewProject();
+    assert.strictEqual(window.EngineBridge.listGroups().length, 0, 'W16E-16: Reset cleared groups');
+    assert.strictEqual(window.EngineBridge.listComposites().length, 0, 'W16E-17: Reset cleared composites');
+
+    const svaDec94 = window.EngineBridge.decodeSVA(svaEnc94.dataB64);
+    assert(svaDec94 && svaDec94.success && svaDec94.state, 'W16E-18: decodeSVA succeeded');
+    window.ProjectManager.applyStudioState(svaDec94.state);
+
+    assert.strictEqual(window.EngineBridge.listGroups().length, 3, 'W16E-19: All 3 composite groups restored after .sva round-trip');
+    assert.strictEqual(window.EngineBridge.listComposites().length, 1, 'W16E-20: Composite template definition restored after .sva round-trip');
+    assert.strictEqual(window.EngineBridge.getWidgetParameters().length, 9, 'W16E-21: All 9 widget parameters restored after .sva round-trip');
+
+    window.ProjectManager.resetToNewProject();
+    window.EngineBridge.setWidgetParameters([]);
+  }
+  console.log('[HARNESS] Scenario 94 PASS: Stage 16E Groups, Semantic Property Mappings & Reusable Composite Objects (M1-M3) verified.');
+
   console.log('[HARNESS] REG-03 PASS: Stage 3, 4, 5, 6, 7, 8, 9, 11, 12, 13, 14, 15 & 16 non-destructive cropping, background extraction, image baking, dedicated crop clip & snip workspace, object-local clipping, unified layer management, independent image objects, persistent groups, duplication, copy/paste with flow remapping, multi-selection, alignment, distribution, colour tools, selection retention, notifications, naming sync, history(50), schema 1.2.0, .sva packaging, background photo restoration, SVG compilation, export payload builders, collision-free widgets, external runtime parameters, and Go WASM engines verified.');
 }
 

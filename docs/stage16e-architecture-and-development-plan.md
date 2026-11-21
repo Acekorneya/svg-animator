@@ -2,11 +2,13 @@
 
 - **Project:** SVG Animator Studio
 - **Stage:** Stage 16E — Group-Level Data Inputs, Semantic Property Mappings & Custom Composite Objects
-- **Document Status:** `PROPOSED — AWAITING USER REVIEW AND APPROVAL`
-- **Implementation Authorisation:** `NOT GRANTED` (Planning, architecture review, and non-invasive verification only)
-- **Repository Baseline Commit:** `84edf1d` (`fix(testlab): enforce managed browser session lifecycle and cleanup`)
+- **Document Status:** `IMPLEMENTED — AWAITING USER ACCEPTANCE`
+- **Implementation Authorisation:** `GRANTED & COMPLETED (M1 → M2 → M3 Integrated Programme)`
+- **Planning Baseline Commit:** `bdf14fe`
+- **M1 Implementation Commit:** `5b846b6` (`feat(stage16e-m1): group widget targets, multiplicative group speed, and LiteEffect clipboard support`)
+- **M2 Implementation Commit:** `059f9c6` (`feat(stage16e-m2): group semantic property mappings, atomic multi-target fan-out, and batch precedence`)
 - **Stage 16D-C Baseline Commit:** `5e1ac87` (`Stage 16D-C — CORRECTIONS IMPLEMENTED, AWAITING USER ACCEPTANCE`)
-- **BookStack Reference:** Book `353` (`SVG-Animator Project Log`)
+- **BookStack Reference:** Book `353` (`SVG-Animator Project Log`, Page `476`)
 
 ---
 
@@ -487,11 +489,29 @@ Stage 16E directly enables the Digital Twin authoring pattern without coupling S
 
 ---
 
-## 10. Unresolved Decisions Requiring Owner Approval
+## 10. Approved Design Decisions & Stage 16E Implementation Report (M1–M3)
 
-Before Stage 16E implementation begins, owner confirmation is requested on four concise design choices:
+### 10.1 Approved Owner Decisions
 
-1. **Stage 16D-C Visual Acceptance Status:** Does the owner wish to formally accept Stage 16D-C (`5e1ac87`) first, or authorise Stage 16E implementation in parallel while Stage 16D-C remains in review?
-2. **Stage 16E Execution Cadence:** Does the owner prefer **Option A** (implement `16E-M1`, `16E-M2`, and `16E-M3` consecutively with automated verification checkpoints and one consolidated visual review) or **Option B** (separate user acceptance gates after each milestone)?
-3. **Placed Composite Instance Naming Convention:** When placing or duplicating a composite group named `cpuwindow`, should Studio auto-number instances sequentially as `cpuwindow-1`, `cpuwindow-2`, `cpuwindow-3` (producing clean widget parameter names `cpuwindow-1-group-cpu`, `cpuwindow-2-group-cpu`) instead of appending `" Copy"` (`cpuwindow-copy-group-cpu`)? *(Recommended: sequential `-1`, `-2`, `-3` numbering).*
-4. **Composite Instance Independence:** Confirm that placed composite instances (`cpuwindow-1`, `cpuwindow-2`) should be independent concrete `Group` instances in the scene (retaining `compositeId` provenance metadata, while allowing per-instance position/property tweaks or ungrouping without mutating other placed instances).
+1. **Stage 16D-C Status Preserved:** Stage 16D-C (`5e1ac87`) remains recorded as **`CORRECTIONS IMPLEMENTED, AWAITING USER ACCEPTANCE`**.
+2. **Execution Cadence:** Approved **Option A** — one continuous development programme covering `16E-M1 → 16E-M2 → 16E-M3` with internal automated verification gates and one consolidated visual acceptance session.
+3. **Sequential Composite Instance Naming:** Approved sequential numbering (`cpuwindow-1`, `cpuwindow-2`, `cpuwindow-3`) producing deterministic widget parameter names (`cpuwindow-1-group-cpu`, `cpuwindow-2-group-cpu`, `cpuwindow-3-group-cpu`).
+4. **Independent Concrete Placed Instances:** Confirmed that placed composite instances are independent concrete `Group` objects in the current scene (`CompositeID` provenance metadata only), not live-linked clones.
+
+### 10.2 Implemented Milestones & Verification Evidence
+
+- **Milestone 1 (`16E-M1`, Commit `5b846b6`) — Group-Level Widget Targets, Built-In Properties & LiteEffect Clipboard Parity:**
+  - Extended `ObjectPropertyCatalog["group"]` (`pkg/engine/scene/widget.go`) with `speed` (`0.1..10.0`, default `1.0`) alongside `opacity` (`0.0..1.0`) and `visibility` (`boolean`).
+  - Wired `s.groups` into `getObjectNameForTargetLocked`, `ValidateWidgetExport`, `RenameGroup`, `Ungroup`, `DeleteGroup`, `RemoveGroupMembers`, `pruneGroupMembersLocked`, and `removeLiteEffectLocked`.
+  - Updated `buildFullSVG` (`internal/web/static/js/scene-state.js`) to wrap contiguous group members in `<g id="group-N" class="scene-group" data-group-id="group-N" data-semantic-target="group-N" data-semantic-name="...">`.
+  - Implemented multiplicative speed composition (`Effective Speed = Master Speed × Group Speed × Member Speed` via `data-local-speed`) in `internal/web/static/js/svg-widget.js`.
+  - Extended `ClipboardPayload`, `CopySelection`, `PastePayload`, `DuplicateSelection`, and `.sva` encoding/decoding (`pkg/engine/scene/clipboard.go`, `pkg/engine/sva/`) to copy, offset, and remap `LiteEffect` (`SelectionLite`) members and `WidgetParameter` bindings.
+- **Milestone 2 (`16E-M2`, Commit `059f9c6`) — Semantic Group Property Mappings & Atomic Multi-Target Fan-Out:**
+  - Implemented `GroupTargetBinding`, `GroupPropertyMapping`, `Group.Mappings`, `WidgetTargetBinding`, and `WidgetParameter.Targets` (`pkg/engine/scene/group.go`, `model.go`, `widget.go`) with `Scene.SetGroupPropertyMapping`, `Scene.RemoveGroupPropertyMapping`, and `syncGroupMappingsToWidgetParamsLocked`.
+  - Added `Group.SetMapping` and `Group.RemoveMapping` protocol commands (`pkg/engine/protocol/commands.go`, `engine-bridge.js`) and the Studio Semantic Group Property Mappings authoring panel (`window.renderGroupSemanticMappingsSection` in `app.js`).
+  - Upgraded `SVGWidget.setParameters()` (`internal/web/static/js/svg-widget.js`) with two-phase atomic validation across all fan-out targets, deterministic same-batch precedence (group mappings applied first, direct member overrides applied second), numeric-to-text fan-out coercion, and full preservation of `TextLiteController` cycle-boundary `pendingText` handover.
+- **Milestone 3 (`16E-M3`) — Reusable Composite Object Definitions, Sequential Placed Instances & Consolidated Showcase:**
+  - Implemented `CompositeDef` (`pkg/engine/scene/composite.go`) with `CreateCompositeFromGroup`, `InstantiateComposite`, `DeleteComposite`, `GetComposite`, `GetAllComposites`, and `nextSequentialGroupNameLocked`.
+  - Wired `Composites` and `CompositesCounter` through `Scene`, `Snapshot`, `DeepCopySnapshot`, `sva.SceneData`, `protocol/commands.go` (`Composite.CreateFromGroup`, `Composite.Instantiate`, `Composite.Delete`, `Composite.Get`, `Composite.List`), `engine-bridge.js`, `coordinator.js`, `projects.js`, `layers-ui.js`, `context-editor.js`, and `index.html`.
+  - Delivered the consolidated showcase at `internal/web/static/composite-widget-demo.html` (`http://192.168.100.40:8088/composite-widget-demo.html`) and managed headless browser verifier `scripts/cmd/verify-stage16e/main.go`.
+  - Verified with `go test ./pkg/engine/... ./internal/...`, `node scripts/regression-harness.js` (94 scenarios, including Scenario 94 `W16E-01`..`W16E-21`), and `go run ./scripts/cmd/verify-stage16e` (`16E-GATE-01`..`16E-GATE-04` PASS, `0` orphaned Chromium processes on Kiwiberry).
