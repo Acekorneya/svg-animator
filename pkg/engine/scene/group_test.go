@@ -567,3 +567,168 @@ func TestStage16EM1GroupWidgetTargetsAndLiteClipboard(t *testing.T) {
 	}
 }
 
+func TestStage16EM2GroupSemanticPropertyMappings(t *testing.T) {
+	sc := NewScene()
+
+	n1 := sc.CreateNode(Node{Shape: "rect", X: 20, Y: 20, Width: 160, Height: 80, Name: "Frame"}, nil, false)
+	v50 := 50.0
+	v0 := 0.0
+	v100 := 100.0
+	leGauge := sc.CreateLiteEffect(LiteEffect{
+		Kind:     "gauge-lite",
+		Variant:  "ring",
+		Name:     "CpuGauge",
+		X:        300,
+		Y:        200,
+		Width:    140,
+		Height:   140,
+		Value:    &v50,
+		MinValue: &v0,
+		MaxValue: &v100,
+	})
+	leText := sc.CreateLiteEffect(LiteEffect{
+		Kind:      "text-lite",
+		Variant:   "rounded",
+		Name:      "CpuLabel",
+		X:         300,
+		Y:         340,
+		Width:     160,
+		Height:    40,
+		LabelText: "50",
+	})
+	leTracer := sc.CreateLiteEffect(LiteEffect{
+		Kind:    "perimeter-tracer",
+		Variant: "rounded",
+		Name:    "BorderTracer",
+		X:       300,
+		Y:       240,
+		Width:   200,
+		Height:  240,
+		Color:   "#38bdf8",
+	})
+
+	grp, err := sc.CreateGroup("cpuwindow", []GroupMember{
+		{Type: SelectionNode, ID: n1.ID},
+		{Type: SelectionLite, ID: leGauge.ID},
+		{Type: SelectionLite, ID: leText.ID},
+		{Type: SelectionLite, ID: leTracer.ID},
+	})
+	if err != nil {
+		t.Fatalf("CreateGroup failed: %v", err)
+	}
+
+	// 1. Multi-target semantic mapping: numeric "cpu" -> Gauge value AND TextLite text
+	updatedGrp, err := sc.SetGroupPropertyMapping(grp.ID, GroupPropertyMapping{
+		Alias:   "cpu",
+		Label:   "CPU Load (%)",
+		Type:    "number",
+		Default: 65.0,
+		Min:     &v0,
+		Max:     &v100,
+		Targets: []GroupTargetBinding{
+			{MemberType: SelectionLite, MemberID: leGauge.ID, Property: "value"},
+			{MemberType: SelectionLite, MemberID: leText.ID, Property: "text"},
+		},
+	})
+	if err != nil {
+		t.Fatalf("SetGroupPropertyMapping for 'cpu' failed: %v", err)
+	}
+	if len(updatedGrp.Mappings) != 1 || len(updatedGrp.Mappings[0].Targets) != 2 {
+		t.Fatalf("expected 1 mapping with 2 targets, got: %+v", updatedGrp.Mappings)
+	}
+
+	// 2. Multi-target semantic mapping: color "status-color" -> Node stroke, Tracer color, Text borderColor
+	updatedGrp, err = sc.SetGroupPropertyMapping(grp.ID, GroupPropertyMapping{
+		Alias:   "status-color",
+		Label:   "Status Colour",
+		Type:    "color",
+		Default: "#22c55e",
+		Targets: []GroupTargetBinding{
+			{MemberType: SelectionNode, MemberID: n1.ID, Property: "stroke"},
+			{MemberType: SelectionLite, MemberID: leTracer.ID, Property: "color"},
+			{MemberType: SelectionLite, MemberID: leText.ID, Property: "borderColor"},
+		},
+	})
+	if err != nil {
+		t.Fatalf("SetGroupPropertyMapping for 'status-color' failed: %v", err)
+	}
+	if len(updatedGrp.Mappings) != 2 {
+		t.Fatalf("expected 2 mappings on group, got %d", len(updatedGrp.Mappings))
+	}
+
+	// Verify synchronized WidgetParameters
+	params := sc.GetParameters()
+	if len(params) != 2 {
+		t.Fatalf("expected 2 synchronized WidgetParameters, got %d: %+v", len(params), params)
+	}
+	if params[0].Name != "cpuwindow-group-cpu" || len(params[0].Targets) != 2 {
+		t.Fatalf("expected cpuwindow-group-cpu with 2 targets, got: %+v", params[0])
+	}
+	if params[1].Name != "cpuwindow-group-status-color" || len(params[1].Targets) != 3 {
+		t.Fatalf("expected cpuwindow-group-status-color with 3 targets, got: %+v", params[1])
+	}
+
+	// 3. Reject invalid mappings: reserved alias, non-member target, incompatible type
+	if _, err := sc.SetGroupPropertyMapping(grp.ID, GroupPropertyMapping{
+		Alias:   "opacity", // reserved
+		Type:    "number",
+		Default: 1.0,
+		Targets: []GroupTargetBinding{{MemberType: SelectionNode, MemberID: n1.ID, Property: "opacity"}},
+	}); err == nil {
+		t.Fatalf("expected error for reserved alias 'opacity'")
+	}
+
+	nOutside := sc.CreateNode(Node{Shape: "circle", X: 80, Y: 80, Width: 50, Height: 50}, nil, false)
+	if _, err := sc.SetGroupPropertyMapping(grp.ID, GroupPropertyMapping{
+		Alias:   "external-fill",
+		Type:    "color",
+		Default: "#ff0000",
+		Targets: []GroupTargetBinding{{MemberType: SelectionNode, MemberID: nOutside.ID, Property: "fill"}},
+	}); err == nil {
+		t.Fatalf("expected error for non-member target binding")
+	}
+
+	if _, err := sc.SetGroupPropertyMapping(grp.ID, GroupPropertyMapping{
+		Alias:   "bad-type",
+		Type:    "color",
+		Default: "#ff0000",
+		Targets: []GroupTargetBinding{{MemberType: SelectionLite, MemberID: leGauge.ID, Property: "value"}},
+	}); err == nil {
+		t.Fatalf("expected error for incompatible color mapping to numeric gauge value")
+	}
+
+	// 4. RenameGroup updates semantic parameter names
+	if _, err := sc.RenameGroup(grp.ID, "rackunit"); err != nil {
+		t.Fatalf("RenameGroup failed: %v", err)
+	}
+	params = sc.GetParameters()
+	if params[0].Name != "rackunit-group-cpu" || params[1].Name != "rackunit-group-status-color" {
+		t.Fatalf("expected renamed semantic parameters, got: %+v", params)
+	}
+
+	// 5. Removing a member prunes its target bindings from mappings while keeping remaining valid bindings
+	remGrp, dissolved, err := sc.RemoveGroupMembers(grp.ID, []GroupMember{
+		{Type: SelectionLite, ID: leTracer.ID},
+	})
+	if err != nil || dissolved {
+		t.Fatalf("RemoveGroupMembers failed: err=%v, dissolved=%v", err, dissolved)
+	}
+	for _, m := range remGrp.Mappings {
+		if m.Alias == "status-color" && len(m.Targets) != 2 {
+			t.Fatalf("expected status-color targets pruned from 3 to 2 after removing leTracer, got %d", len(m.Targets))
+		}
+	}
+
+	// 6. RemoveGroupPropertyMapping removes mapping and prunes parameter
+	remGrp, err = sc.RemoveGroupPropertyMapping(grp.ID, "status-color")
+	if err != nil {
+		t.Fatalf("RemoveGroupPropertyMapping failed: %v", err)
+	}
+	if len(remGrp.Mappings) != 1 {
+		t.Fatalf("expected 1 mapping remaining, got %d", len(remGrp.Mappings))
+	}
+	if len(sc.GetParameters()) != 1 {
+		t.Fatalf("expected 1 parameter remaining, got %d", len(sc.GetParameters()))
+	}
+}
+

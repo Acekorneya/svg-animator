@@ -68,14 +68,34 @@ func GenerateWidgetPropertiesGuide(sc *Scene, widgetName, svgFilename string, ma
 			// Also map numeric IDs to "node-X"
 			if !strings.HasPrefix(p.Target, "node-") && !strings.HasPrefix(p.Target, "flow-") &&
 				!strings.HasPrefix(p.Target, "glow-") && !strings.HasPrefix(p.Target, "ripple-") &&
-				!strings.HasPrefix(p.Target, "image-") {
+				!strings.HasPrefix(p.Target, "image-") && !strings.HasPrefix(p.Target, "lite-") &&
+				!strings.HasPrefix(p.Target, "group-") {
 				targetParamMap["node-"+p.Target] = append(targetParamMap["node-"+p.Target], "`"+p.Name+"`")
+			}
+			for _, tb := range p.Targets {
+				targetParamMap[tb.Target] = append(targetParamMap[tb.Target], fmt.Sprintf("`%s` (%s)", p.Name, tb.Property))
 			}
 		}
 	}
 
 	if sc != nil {
 		sc.mu.RLock()
+		// Groups
+		for _, gid := range sc.groupIDs {
+			grp := sc.groups[gid]
+			targetId := string(grp.ID)
+			name := grp.Name
+			if name == "" {
+				name = targetId
+			}
+			params := targetParamMap[targetId]
+			pStr := "-"
+			if len(params) > 0 {
+				pStr = strings.Join(params, ", ")
+			}
+			sb.WriteString(fmt.Sprintf("| `%s` | %s | Object Group (%d members) | Composite Group | Group | %s |\n",
+				targetId, escapeMD(name), len(grp.Members), pStr))
+		}
 		// Nodes
 		for _, nid := range sc.nodeIDs {
 			n := sc.nodes[nid]
@@ -97,6 +117,25 @@ func GenerateWidgetPropertiesGuide(sc *Scene, widgetName, svgFilename string, ma
 			}
 			sb.WriteString(fmt.Sprintf("| `%s` | %s | Node (%s) | (%.1f, %.1f) %.0f×%.0f | Base | %s |\n",
 				targetId, escapeMD(name), n.Shape, n.X, n.Y, n.Width, n.Height, pStr))
+		}
+		// LiteEffects
+		for _, lid := range sc.liteEffectOrder {
+			le := sc.liteEffects[lid]
+			targetId := fmt.Sprintf("lite-%s", le.ID)
+			name := le.Name
+			if name == "" {
+				name = targetId
+			}
+			params := targetParamMap[targetId]
+			if len(params) == 0 {
+				params = targetParamMap[string(le.ID)]
+			}
+			pStr := "-"
+			if len(params) > 0 {
+				pStr = strings.Join(params, ", ")
+			}
+			sb.WriteString(fmt.Sprintf("| `%s` | %s | Lite Effect (%s) | (%.1f, %.1f) %.0f×%.0f | Lite | %s |\n",
+				targetId, escapeMD(name), le.Kind, le.X, le.Y, le.Width, le.Height, pStr))
 		}
 		// Glows
 		for _, gid := range sc.glowIDs {
@@ -219,6 +258,13 @@ func GenerateWidgetPropertiesGuide(sc *Scene, widgetName, svgFilename string, ma
 			descStr := p.Description
 			if descStr == "" {
 				descStr = fmt.Sprintf("Controls %s property on %s", p.Property, p.Target)
+			}
+			if len(p.Targets) > 0 {
+				var tList []string
+				for _, tb := range p.Targets {
+					tList = append(tList, fmt.Sprintf("`%s.%s`", tb.Target, tb.Property))
+				}
+				descStr = fmt.Sprintf("%s → Fan-out: %s", descStr, strings.Join(tList, ", "))
 			}
 
 			sb.WriteString(fmt.Sprintf("| **`%s`** | `%s` | `%s` | `%s` | %s | %s | %s | %s |\n",

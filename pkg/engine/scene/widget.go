@@ -755,7 +755,44 @@ func ValidateWidgetParameter(p WidgetParameter) error {
 
 	// Check property eligibility against ObjectPropertyCatalog if target type is recognized
 	targetType := InferTargetType(target)
-	if targetType != "" {
+	if len(p.Targets) > 0 {
+		if targetType != "group" {
+			return fmt.Errorf("multi-target bindings (Targets) are only supported on group parameters (got target %q of type %q)", target, targetType)
+		}
+		if !reGroupAlias.MatchString(prop) {
+			return fmt.Errorf("invalid group semantic property alias %q", prop)
+		}
+		for _, tb := range p.Targets {
+			mTarget := strings.TrimSpace(tb.Target)
+			mProp := strings.TrimSpace(tb.Property)
+			if mTarget == "" || mProp == "" {
+				return fmt.Errorf("group parameter %q contains an empty target or property binding", name)
+			}
+			mType := InferTargetType(mTarget)
+			if mType == "" || mType == "root" || mType == "group" {
+				return fmt.Errorf("group parameter %q cannot map to non-member target %q", name, mTarget)
+			}
+			allowed := GetEligibleProperties(mType)
+			var found *EligibleProperty
+			for i := range allowed {
+				ep := &allowed[i]
+				if ep.Property == mProp ||
+					(mType == "flow" && mProp == "playbackRate" && ep.Property == "speed") ||
+					(mType == "flow" && mProp == "stroke" && ep.Property == "color") ||
+					(mType == "flow" && mProp == "color" && ep.Property == "stroke") {
+					found = ep
+					break
+				}
+			}
+			if found == nil {
+				return fmt.Errorf("group parameter %q maps to unsupported property %q on %q (%s)", name, mProp, mTarget, mType)
+			}
+			compatible := (p.Type == found.Type) || (p.Type == "number" && found.Type == "text")
+			if !compatible {
+				return fmt.Errorf("group parameter %q of type %q is incompatible with mapped property %q (type %q) on %q", name, p.Type, mProp, found.Type, mTarget)
+			}
+		}
+	} else if targetType != "" {
 		allowed := GetEligibleProperties(targetType)
 		if len(allowed) > 0 {
 			var found *EligibleProperty
@@ -777,24 +814,30 @@ func ValidateWidgetParameter(p WidgetParameter) error {
 		}
 	}
 
-	// Validate property compatibility with type
+	// Validate property compatibility with type (for direct single-target parameters)
+	if len(p.Targets) == 0 {
+		switch p.Type {
+		case "color":
+			if prop != "fill" && prop != "stroke" && prop != "color" && prop != "bgColor" && prop != "borderColor" {
+				return fmt.Errorf("color parameter does not support property %q (allowed: fill, stroke, color, bgColor, borderColor)", prop)
+			}
+		case "boolean":
+			if prop != "visibility" && prop != "display" && prop != "showGuide" && prop != "repeat" {
+				return fmt.Errorf("boolean parameter does not support property %q (allowed: visibility, display, showGuide, repeat)", prop)
+			}
+		case "text":
+			if prop != "text" && prop != "textContent" && prop != "lineGapRatio" && prop != "samples" {
+				return fmt.Errorf("text parameter does not support property %q (allowed: text, textContent, lineGapRatio, samples)", prop)
+			}
+		case "speed":
+			if prop != "playbackRate" && prop != "speed" {
+				return fmt.Errorf("speed parameter does not support property %q (allowed: playbackRate, speed)", prop)
+			}
+		}
+	}
+
 	switch p.Type {
-	case "color":
-		if prop != "fill" && prop != "stroke" && prop != "color" && prop != "bgColor" && prop != "borderColor" {
-			return fmt.Errorf("color parameter does not support property %q (allowed: fill, stroke, color, bgColor, borderColor)", prop)
-		}
-	case "boolean":
-		if prop != "visibility" && prop != "display" && prop != "showGuide" && prop != "repeat" {
-			return fmt.Errorf("boolean parameter does not support property %q (allowed: visibility, display, showGuide, repeat)", prop)
-		}
-	case "text":
-		if prop != "text" && prop != "textContent" && prop != "lineGapRatio" && prop != "samples" {
-			return fmt.Errorf("text parameter does not support property %q (allowed: text, textContent, lineGapRatio, samples)", prop)
-		}
 	case "speed":
-		if prop != "playbackRate" && prop != "speed" {
-			return fmt.Errorf("speed parameter does not support property %q (allowed: playbackRate, speed)", prop)
-		}
 		if p.Min != nil && p.Max != nil && *p.Min > *p.Max {
 			return fmt.Errorf("speed min (%v) cannot be greater than max (%v)", *p.Min, *p.Max)
 		}
@@ -969,6 +1012,64 @@ func ValidateWidgetExport(manifest *WidgetManifest, isolatedSVG string, sc *Scen
 			}
 			if !targetResolved {
 				return fmt.Errorf("widget export validation failed: target element %q for parameter %q could not be resolved in the exported SVG", p.Target, p.Name)
+			}
+		}
+
+		// 5. Multi-target bindings resolution for group semantic properties (Stage 16E-M2)
+		for _, tb := range p.Targets {
+			mTarget := strings.TrimSpace(tb.Target)
+			mType := InferTargetType(mTarget)
+			cleanID := mTarget
+			for _, prefix := range []string{"node-", "flow-", "glow-", "ripple-", "image-", "lite-", "group-"} {
+				cleanID = strings.TrimPrefix(cleanID, prefix)
+			}
+			if hasSceneObjects && mType != "" && mType != "root" {
+				existsInScene := false
+				switch mType {
+				case "node":
+					existsInScene = (sc.GetNode(StringID(cleanID)) != nil || sc.GetNode(StringID(mTarget)) != nil)
+				case "flow":
+					existsInScene = (sc.GetFlow(StringID(cleanID)) != nil || sc.GetFlow(StringID(mTarget)) != nil)
+				case "glow":
+					existsInScene = (sc.GetGlow(StringID(cleanID)) != nil || sc.GetGlow(StringID(mTarget)) != nil)
+				case "ripple":
+					existsInScene = (sc.GetRipple(StringID(cleanID)) != nil || sc.GetRipple(StringID(mTarget)) != nil)
+				case "image":
+					_, ok1 := sc.GetImage(StringID(cleanID))
+					_, ok2 := sc.GetImage(StringID(mTarget))
+					existsInScene = ok1 || ok2
+				case "lite":
+					_, ok1 := sc.GetLiteEffect(StringID(cleanID))
+					_, ok2 := sc.GetLiteEffect(StringID(mTarget))
+					existsInScene = ok1 || ok2
+				}
+				if !existsInScene {
+					return fmt.Errorf("widget export validation failed: mapped member target %q for group parameter %q does not exist in scene", mTarget, p.Name)
+				}
+			}
+			if isolatedSVG != "" && mTarget != "" {
+				mResolved := false
+				patterns := []string{
+					fmt.Sprintf(`data-semantic-target="%s"`, mTarget),
+					fmt.Sprintf(`data-semantic-target='%s'`, mTarget),
+					fmt.Sprintf(`id="%s"`, mTarget),
+					fmt.Sprintf(`__%s"`, mTarget),
+					fmt.Sprintf(`data-node-id="%s"`, cleanID),
+					fmt.Sprintf(`data-flow-id="%s"`, cleanID),
+					fmt.Sprintf(`data-glow-id="%s"`, cleanID),
+					fmt.Sprintf(`data-ripple-id="%s"`, cleanID),
+					fmt.Sprintf(`data-image-id="%s"`, cleanID),
+					fmt.Sprintf(`data-lite-id="%s"`, cleanID),
+				}
+				for _, pat := range patterns {
+					if strings.Contains(isolatedSVG, pat) {
+						mResolved = true
+						break
+					}
+				}
+				if !mResolved {
+					return fmt.Errorf("widget export validation failed: mapped member target %q for group parameter %q could not be resolved in the exported SVG", mTarget, p.Name)
+				}
 			}
 		}
 	}

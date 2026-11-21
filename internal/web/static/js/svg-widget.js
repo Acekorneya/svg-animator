@@ -2536,15 +2536,61 @@
             if (!targetEl && !isGlobalTarget) {
               throw new Error(`Target element '${paramDef.target}' not found in widget for parameter '${key}'.`);
             }
-            validatedUpdates.push({ paramDef, targetEl, cleanVal: valRes.value });
+
+            const hasMultiTargets = Array.isArray(paramDef.targets) && paramDef.targets.length > 0;
+            const resolvedTargets = [];
+            if (hasMultiTargets) {
+              for (const tb of paramDef.targets) {
+                const mTarget = tb && (tb.target || tb.Target);
+                const mProp = tb && (tb.property || tb.Property);
+                if (!mTarget || !mProp) {
+                  throw new Error(`Invalid empty target binding in group parameter '${key}'.`);
+                }
+                const memberEl = resolveTargetElement(svgEl, details.idMap, mTarget);
+                if (!memberEl) {
+                  throw new Error(`Mapped target element '${mTarget}' not found in widget for group parameter '${key}'.`);
+                }
+                resolvedTargets.push({ el: memberEl, target: mTarget, property: mProp });
+              }
+            }
+
+            const isGroupUpdate = hasMultiTargets || (typeof paramDef.target === 'string' && paramDef.target.startsWith('group-'));
+            validatedUpdates.push({
+              paramDef,
+              targetEl,
+              cleanVal: valRes.value,
+              hasMultiTargets,
+              resolvedTargets,
+              isGroupUpdate
+            });
           }
 
           // Phase 2: Atomic DOM and state application
+          // Precedence contract: Group-level updates apply first; direct member updates apply second within the same batch
+          const orderedUpdates = [
+            ...validatedUpdates.filter((u) => u.isGroupUpdate),
+            ...validatedUpdates.filter((u) => !u.isGroupUpdate)
+          ];
+
           const changed = {};
-          for (const { paramDef, targetEl, cleanVal } of validatedUpdates) {
+          for (const { paramDef, targetEl, cleanVal, hasMultiTargets, resolvedTargets } of orderedUpdates) {
             currentValues[paramDef.name] = cleanVal;
             changed[paramDef.name] = cleanVal;
-            applyPropertyToElement(targetEl, paramDef.property, cleanVal, paramDef, handle, isInit);
+            if (hasMultiTargets) {
+              for (const rt of resolvedTargets) {
+                let targetVal = cleanVal;
+                if ((rt.property === 'text' || rt.property === 'textContent') && typeof cleanVal !== 'string') {
+                  targetVal = String(cleanVal);
+                }
+                const syntheticDef = Object.assign({}, paramDef, {
+                  target: rt.target,
+                  property: rt.property
+                });
+                applyPropertyToElement(rt.el, rt.property, targetVal, syntheticDef, handle, isInit);
+              }
+            } else {
+              applyPropertyToElement(targetEl, paramDef.property, cleanVal, paramDef, handle, isInit);
+            }
           }
 
           handle._emit('change', { instanceId: handle.instanceId, parameters: changed });
@@ -2657,10 +2703,22 @@
               anims.forEach((a) => { try { a.playbackRate = rate; } catch (err) {} });
             } catch (e) {}
           }
-          // Re-evaluate targeted speeds so: Effective Speed = Master Playback Rate × Targeted Flow Speed
+          // Re-evaluate targeted speeds so: Effective Speed = Master Playback Rate × Group Speed × Member Speed
           if (manifest && Array.isArray(manifest.parameters)) {
             for (const p of manifest.parameters) {
-              if ((p.property === 'speed' || p.property === 'playbackRate') && p.target && p.target !== 'root' && p.target !== 'global') {
+              if (Array.isArray(p.targets) && p.targets.length > 0 && p.type === 'speed') {
+                const targetSpeed = Number(currentValues[p.name]);
+                if (!isNaN(targetSpeed) && targetSpeed > 0) {
+                  for (const tb of p.targets) {
+                    const mTarget = tb && (tb.target || tb.Target);
+                    const mProp = tb && (tb.property || tb.Property);
+                    if (mTarget && (mProp === 'speed' || mProp === 'playbackRate')) {
+                      const memberEl = resolveTargetElement(svgEl, details.idMap, mTarget);
+                      if (memberEl) applyTargetedSpeed(memberEl, targetSpeed, rate);
+                    }
+                  }
+                }
+              } else if ((p.property === 'speed' || p.property === 'playbackRate') && p.target && p.target !== 'root' && p.target !== 'global') {
                 const targetSpeed = Number(currentValues[p.name]);
                 if (!isNaN(targetSpeed) && targetSpeed > 0) {
                   const targetEl = resolveTargetElement(svgEl, details.idMap, p.target);

@@ -562,16 +562,53 @@ func (s *Scene) PastePayload(payload ClipboardPayload, offsetX float64, offsetY 
 
 		if len(remappedMembers) >= 2 {
 			groupIDMap[g.ID] = newGID
+			var remappedMappings []GroupPropertyMapping
+			for _, m := range g.Mappings {
+				var newTargets []GroupTargetBinding
+				for _, t := range m.Targets {
+					var newMemberID StringID
+					var ok bool
+					switch t.MemberType {
+					case SelectionNode:
+						newMemberID, ok = nodeIDMap[t.MemberID]
+					case SelectionFlow:
+						newMemberID, ok = flowIDMap[t.MemberID]
+					case SelectionGlow:
+						newMemberID, ok = glowIDMap[t.MemberID]
+					case SelectionRipple:
+						newMemberID, ok = rippleIDMap[t.MemberID]
+					case SelectionImage:
+						newMemberID, ok = imageIDMap[t.MemberID]
+					case SelectionLite:
+						newMemberID, ok = liteIDMap[t.MemberID]
+					}
+					if ok && newMemberID != "" {
+						newTargets = append(newTargets, GroupTargetBinding{
+							MemberType: t.MemberType,
+							MemberID:   newMemberID,
+							Target:     canonicalMemberTargetID(t.MemberType, newMemberID),
+							Property:   t.Property,
+						})
+					}
+				}
+				if len(newTargets) > 0 {
+					mCopy := DeepCopyGroupPropertyMapping(m)
+					mCopy.Targets = newTargets
+					remappedMappings = append(remappedMappings, mCopy)
+				}
+			}
 			clonedGroup := Group{
 				ID:       newGID,
 				Name:     g.Name + " Copy",
 				Members:  remappedMembers,
+				Mappings: remappedMappings,
 				Metadata: deepCopyMetadata(g.Metadata),
 			}
 			s.groups[newGID] = clonedGroup
 			s.groupIDs = append(s.groupIDs, newGID)
 			s.ensureLayersInitializedLocked()
 			s.coalesceGroupMembersInLayersLocked(clonedGroup)
+			s.syncGroupMappingsToWidgetParamsLocked(newGID)
 			newGroupID = newGID
 		}
 	}
@@ -641,6 +678,10 @@ func (s *Scene) PastePayload(payload ClipboardPayload, offsetX float64, offsetY 
 	}
 
 	for _, p := range payload.Parameters {
+		if len(p.Targets) > 0 && InferTargetType(p.Target) == "group" {
+			// Group semantic parameters are already synchronized via syncGroupMappingsToWidgetParamsLocked
+			continue
+		}
 		if newTarget, ok := remapTargetID(p.Target); ok {
 			clonedParam := p
 			clonedParam.Target = newTarget

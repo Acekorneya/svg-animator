@@ -761,6 +761,26 @@ type GroupBoundsResponse struct {
 	Error   string  `json:"error,omitempty"`
 }
 
+// GroupSetMappingRequest payload for "Group.SetMapping".
+type GroupSetMappingRequest struct {
+	GroupID scene.StringID             `json:"groupId"`
+	Mapping scene.GroupPropertyMapping `json:"mapping"`
+}
+
+// GroupRemoveMappingRequest payload for "Group.RemoveMapping".
+type GroupRemoveMappingRequest struct {
+	GroupID scene.StringID `json:"groupId"`
+	Alias   string         `json:"alias"`
+}
+
+// GroupMappingResponse response for "Group.SetMapping" and "Group.RemoveMapping".
+type GroupMappingResponse struct {
+	Success    bool                    `json:"success"`
+	Group      scene.Group             `json:"group,omitempty"`
+	Parameters []scene.WidgetParameter `json:"parameters,omitempty"`
+	Error      string                  `json:"error,omitempty"`
+}
+
 // ImageCreateRequest payload for "Image.Create".
 type ImageCreateRequest struct {
 	Image scene.Image `json:"image"`
@@ -3032,6 +3052,36 @@ func Dispatch(command string, payloadJSON []byte) ([]byte, error) {
 			MinY:    minY,
 			MaxX:    maxX,
 			MaxY:    maxY,
+		})
+
+	case "Group.SetMapping":
+		var req GroupSetMappingRequest
+		if err := json.Unmarshal(payloadJSON, &req); err != nil {
+			return nil, fmt.Errorf("decoding GroupSetMappingRequest: %w", err)
+		}
+		grp, err := activeScene.SetGroupPropertyMapping(req.GroupID, req.Mapping)
+		if err != nil {
+			return json.Marshal(GroupMappingResponse{Success: false, Error: err.Error()})
+		}
+		return json.Marshal(GroupMappingResponse{
+			Success:    true,
+			Group:      grp,
+			Parameters: activeScene.GetParameters(),
+		})
+
+	case "Group.RemoveMapping":
+		var req GroupRemoveMappingRequest
+		if err := json.Unmarshal(payloadJSON, &req); err != nil {
+			return nil, fmt.Errorf("decoding GroupRemoveMappingRequest: %w", err)
+		}
+		grp, err := activeScene.RemoveGroupPropertyMapping(req.GroupID, req.Alias)
+		if err != nil {
+			return json.Marshal(GroupMappingResponse{Success: false, Error: err.Error()})
+		}
+		return json.Marshal(GroupMappingResponse{
+			Success:    true,
+			Group:      grp,
+			Parameters: activeScene.GetParameters(),
 		})
 
 	case "Scene.Copy":

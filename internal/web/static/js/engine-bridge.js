@@ -1479,6 +1479,54 @@
       return null;
     },
 
+    setGroupMapping(groupId, mapping) {
+      if (this.isReady() && groupId && mapping) {
+        const res = this.dispatch('Group.SetMapping', {
+          groupId: String(groupId),
+          mapping: mapping
+        });
+        if (res && res.success) {
+          if (res.group && window.ObjectGroups) {
+            const idx = window.ObjectGroups.list.findIndex((g) => String(g.id) === String(groupId));
+            if (idx >= 0) window.ObjectGroups.list[idx] = res.group;
+          }
+          if (Array.isArray(res.parameters)) {
+            this._widgetParameters = res.parameters;
+          }
+          return res;
+        }
+        return { success: false, error: (res && res.error) || 'Failed to set group property mapping' };
+      }
+      if (window.ObjectGroups && typeof window.ObjectGroups.setGroupMapping === 'function') {
+        return window.ObjectGroups.setGroupMapping(groupId, mapping);
+      }
+      return { success: false, error: 'Go/WASM engine is unavailable' };
+    },
+
+    removeGroupMapping(groupId, alias) {
+      if (this.isReady() && groupId && alias) {
+        const res = this.dispatch('Group.RemoveMapping', {
+          groupId: String(groupId),
+          alias: String(alias)
+        });
+        if (res && res.success) {
+          if (res.group && window.ObjectGroups) {
+            const idx = window.ObjectGroups.list.findIndex((g) => String(g.id) === String(groupId));
+            if (idx >= 0) window.ObjectGroups.list[idx] = res.group;
+          }
+          if (Array.isArray(res.parameters)) {
+            this._widgetParameters = res.parameters;
+          }
+          return res;
+        }
+        return { success: false, error: (res && res.error) || 'Failed to remove group property mapping' };
+      }
+      if (window.ObjectGroups && typeof window.ObjectGroups.removeGroupMapping === 'function') {
+        return window.ObjectGroups.removeGroupMapping(groupId, alias);
+      }
+      return { success: false, error: 'Go/WASM engine is unavailable' };
+    },
+
     copySelection(items, groupId = null) {
       if (this.isReady()) {
         const res = this.dispatch('Scene.Copy', {
@@ -3512,6 +3560,20 @@
         const res = window.EngineBridge.deleteGroup(groupId, deleteMembers);
         if (res && res.success) return res;
         return res || { success: false, error: 'Delete group rejected by Go engine' };
+      }
+      return { success: false, error: 'Go/WASM engine is unavailable' };
+    },
+
+    setGroupMapping(groupId, mapping) {
+      if (typeof window !== 'undefined' && window.EngineBridge && typeof window.EngineBridge.isReady === 'function' && window.EngineBridge.isReady()) {
+        return window.EngineBridge.setGroupMapping(groupId, mapping);
+      }
+      return { success: false, error: 'Go/WASM engine is unavailable' };
+    },
+
+    removeGroupMapping(groupId, alias) {
+      if (typeof window !== 'undefined' && window.EngineBridge && typeof window.EngineBridge.isReady === 'function' && window.EngineBridge.isReady()) {
+        return window.EngineBridge.removeGroupMapping(groupId, alias);
       }
       return { success: false, error: 'Go/WASM engine is unavailable' };
     },

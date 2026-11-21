@@ -4,6 +4,7 @@ import (
 	"errors"
 	"fmt"
 	"math"
+	"regexp"
 	"strconv"
 	"strings"
 
@@ -12,18 +13,41 @@ import (
 
 // GroupMember represents an object instance member in a persistent group.
 type GroupMember struct {
-	Type SelectionType `json:"type"` // "node", "flow", "glow", "ripple", "image"
+	Type SelectionType `json:"type"` // "node", "flow", "glow", "ripple", "image", "lite"
 	ID   StringID      `json:"id"`
+}
+
+// GroupTargetBinding maps a group-level semantic property to a specific member object property.
+type GroupTargetBinding struct {
+	MemberType SelectionType `json:"memberType"` // "node", "flow", "glow", "ripple", "image", "lite"
+	MemberID   StringID      `json:"memberId"`
+	Target     string        `json:"target"`   // Canonical target ID (e.g. "lite-1", "node-2")
+	Property   string        `json:"property"` // Eligible property on that member (e.g. "value", "text", "color")
+}
+
+// GroupPropertyMapping defines a user-authored semantic property exposed on a Group.
+type GroupPropertyMapping struct {
+	Alias       string               `json:"alias"`       // Semantic property suffix (e.g. "cpu", "status-color", "headline")
+	Label       string               `json:"label"`       // Human-friendly label
+	Type        string               `json:"type"`        // "number", "color", "text", "boolean", "enum", "speed"
+	Default     any                  `json:"default"`     // Authored default value
+	Min         *float64             `json:"min,omitempty"`
+	Max         *float64             `json:"max,omitempty"`
+	Step        *float64             `json:"step,omitempty"`
+	Options     []string             `json:"options,omitempty"`
+	Description string               `json:"description,omitempty"`
+	Targets     []GroupTargetBinding `json:"targets"` // 1 or more member property bindings
 }
 
 // Group represents a persistent named visual object group entity.
 type Group struct {
-	ID       StringID       `json:"id"`
-	Name     string         `json:"name,omitempty"` // User-editable display name
-	Members  []GroupMember  `json:"members"`
-	Visible  *bool          `json:"visible,omitempty"`
-	Locked   bool           `json:"locked,omitempty"`
-	Metadata map[string]any `json:"metadata,omitempty"` // Forward-compatible extension metadata
+	ID       StringID               `json:"id"`
+	Name     string                 `json:"name,omitempty"` // User-editable display name
+	Members  []GroupMember          `json:"members"`
+	Mappings []GroupPropertyMapping `json:"mappings,omitempty"`
+	Visible  *bool                  `json:"visible,omitempty"`
+	Locked   bool                   `json:"locked,omitempty"`
+	Metadata map[string]any         `json:"metadata,omitempty"` // Forward-compatible extension metadata
 }
 
 func (grp Group) IsVisible() bool {
@@ -262,9 +286,11 @@ func (s *Scene) RemoveGroupMembers(groupID StringID, membersToRemove []GroupMemb
 		return Group{}, true, nil
 	}
 
-	// 4. Update group with remaining members
+	// 4. Update group with remaining members and prune any mappings bound to removed members
 	grp.Members = filtered
+	grp.Mappings = pruneGroupMappingsForMembers(grp.Mappings, toRemoveMap)
 	s.groups[groupID] = grp
+	s.syncGroupMappingsToWidgetParamsLocked(groupID)
 	s.revision++
 
 	return grp, false, nil
@@ -381,9 +407,14 @@ func (s *Scene) pruneGroupMembersLocked(deletedType SelectionType, deletedID Str
 		}
 		if changed {
 			g.Members = filtered
+			g.Mappings = pruneGroupMappingsForMembers(g.Mappings, map[string]bool{
+				string(deletedType) + ":" + string(deletedID): true,
+			})
 			s.groups[gID] = g
 			if len(filtered) < 2 {
 				emptyOrSingle = append(emptyOrSingle, gID)
+			} else {
+				s.syncGroupMappingsToWidgetParamsLocked(gID)
 			}
 		}
 	}
@@ -673,3 +704,371 @@ func (s *Scene) ComputeGroupBounds(groupID StringID, canvasW, canvasH float64) (
 
 	return minX, minY, maxX, maxY, nil
 }
+
+var reGroupAlias = regexp.MustCompile(`^[a-zA-Z][a-zA-Z0-9_-]{0,47}$`)
+
+var reservedGroupPropertyAliases = map[string]bool{
+	"opacity":        true,
+	"visibility":     true,
+	"speed":          true,
+	"playbackrate":   true,
+	"state":          true,
+	"operatingstate": true,
+}
+
+func canonicalMemberTargetID(mType SelectionType, mID StringID) string {
+	raw := string(mID)
+	prefix := PrefixForType(mType)
+	if strings.HasPrefix(raw, prefix) {
+		return raw
+	}
+	return prefix + raw
+}
+
+func pruneGroupMappingsForMembers(mappings []GroupPropertyMapping, removedKeys map[string]bool) []GroupPropertyMapping {
+	if len(mappings) == 0 || len(removedKeys) == 0 {
+		return mappings
+	}
+	var keptMappings []GroupPropertyMapping
+	for _, m := range mappings {
+		var keptTargets []GroupTargetBinding
+		for _, t := range m.Targets {
+			key := string(t.MemberType) + ":" + string(t.MemberID)
+			if !removedKeys[key] {
+				keptTargets = append(keptTargets, t)
+			}
+		}
+		if len(keptTargets) > 0 {
+			mCopy := DeepCopyGroupPropertyMapping(m)
+			mCopy.Targets = keptTargets
+			keptMappings = append(keptMappings, mCopy)
+		}
+	}
+	return keptMappings
+}
+
+func (s *Scene) validateGroupPropertyMappingLocked(grp Group, mapping GroupPropertyMapping) (GroupPropertyMapping, error) {
+	alias := strings.TrimSpace(mapping.Alias)
+	if alias == "" {
+		return GroupPropertyMapping{}, errors.New("group property mapping alias cannot be empty")
+	}
+	if !reGroupAlias.MatchString(alias) {
+		return GroupPropertyMapping{}, fmt.Errorf("invalid mapping alias %q: must start with a letter and contain only letters, digits, underscores, or hyphens (max 48 chars)", alias)
+	}
+	lowerAlias := strings.ToLower(alias)
+	if reservedGroupPropertyAliases[lowerAlias] {
+		return GroupPropertyMapping{}, fmt.Errorf("mapping alias %q is reserved for built-in group properties", alias)
+	}
+
+	mType := strings.TrimSpace(strings.ToLower(mapping.Type))
+	switch mType {
+	case "color", "number", "boolean", "text", "enum", "speed":
+		// valid
+	default:
+		return GroupPropertyMapping{}, fmt.Errorf("unsupported mapping type %q: must be color, number, boolean, text, enum, or speed", mapping.Type)
+	}
+
+	if mType != "number" && mType != "speed" {
+		if mapping.Min != nil || mapping.Max != nil {
+			return GroupPropertyMapping{}, fmt.Errorf("mapping %q of type %q cannot define numeric min or max limits", alias, mType)
+		}
+	}
+	if mapping.Min != nil && mapping.Max != nil && *mapping.Min > *mapping.Max {
+		return GroupPropertyMapping{}, fmt.Errorf("mapping %q min (%v) cannot be greater than max (%v)", alias, *mapping.Min, *mapping.Max)
+	}
+	if mType == "enum" {
+		if len(mapping.Options) == 0 {
+			return GroupPropertyMapping{}, fmt.Errorf("enum mapping %q must specify at least one option", alias)
+		}
+		for _, opt := range mapping.Options {
+			if strings.TrimSpace(opt) == "" {
+				return GroupPropertyMapping{}, fmt.Errorf("enum mapping %q options cannot contain empty strings", alias)
+			}
+		}
+	}
+	if (mType == "number" || mType == "speed") && mapping.Default != nil {
+		defNum := toFloat64(mapping.Default, math.NaN())
+		if !math.IsNaN(defNum) {
+			if mapping.Min != nil && defNum < *mapping.Min {
+				return GroupPropertyMapping{}, fmt.Errorf("mapping %q default (%v) cannot be less than min (%v)", alias, defNum, *mapping.Min)
+			}
+			if mapping.Max != nil && defNum > *mapping.Max {
+				return GroupPropertyMapping{}, fmt.Errorf("mapping %q default (%v) cannot be greater than max (%v)", alias, defNum, *mapping.Max)
+			}
+		}
+	}
+
+	if len(mapping.Targets) == 0 {
+		return GroupPropertyMapping{}, fmt.Errorf("mapping %q must bind to at least one member target property", alias)
+	}
+
+	memberSet := make(map[string]GroupMember, len(grp.Members))
+	for _, gm := range grp.Members {
+		memberSet[string(gm.Type)+":"+string(gm.ID)] = gm
+		memberSet[canonicalMemberTargetID(gm.Type, gm.ID)] = gm
+	}
+
+	normalizedTargets := make([]GroupTargetBinding, 0, len(mapping.Targets))
+	seenBinding := make(map[string]bool)
+
+	for _, t := range mapping.Targets {
+		var gm GroupMember
+		var foundMember bool
+		if t.MemberType != "" && t.MemberID != "" {
+			gm, foundMember = memberSet[string(t.MemberType)+":"+string(t.MemberID)]
+			if !foundMember {
+				// Try stripping prefix from MemberID
+				cleanID := strings.TrimPrefix(string(t.MemberID), PrefixForType(t.MemberType))
+				gm, foundMember = memberSet[string(t.MemberType)+":"+cleanID]
+				if !foundMember && t.MemberType == SelectionImage {
+					gm, foundMember = memberSet[string(t.MemberType)+":image-"+cleanID]
+				}
+			}
+		}
+		if !foundMember && t.Target != "" {
+			gm, foundMember = memberSet[strings.TrimSpace(t.Target)]
+		}
+		if !foundMember {
+			targetDesc := t.Target
+			if targetDesc == "" {
+				targetDesc = string(t.MemberType) + "-" + string(t.MemberID)
+			}
+			return GroupPropertyMapping{}, fmt.Errorf("target %q does not belong to group %q (%s)", targetDesc, grp.Name, grp.ID)
+		}
+		if !s.objectExistsLocked(gm.Type, gm.ID) {
+			return GroupPropertyMapping{}, fmt.Errorf("member object %s %s does not exist in scene", gm.Type, gm.ID)
+		}
+
+		prop := strings.TrimSpace(t.Property)
+		if prop == "" {
+			return GroupPropertyMapping{}, fmt.Errorf("target property cannot be empty for member %s %s", gm.Type, gm.ID)
+		}
+
+		catalogProps := GetEligibleProperties(string(gm.Type))
+		var eligible *EligibleProperty
+		for i := range catalogProps {
+			ep := &catalogProps[i]
+			if ep.Property == prop ||
+				(gm.Type == SelectionFlow && prop == "playbackRate" && ep.Property == "speed") ||
+				(gm.Type == SelectionFlow && prop == "stroke" && ep.Property == "color") ||
+				(gm.Type == SelectionFlow && prop == "color" && ep.Property == "stroke") {
+				eligible = ep
+				break
+			}
+		}
+		if eligible == nil {
+			return GroupPropertyMapping{}, fmt.Errorf("property %q is not eligible on member %s %s", prop, gm.Type, gm.ID)
+		}
+
+		// Type compatibility check: exact match OR numeric group mapping driving a text property
+		compatible := (mType == eligible.Type) || (mType == "number" && eligible.Type == "text")
+		if !compatible {
+			return GroupPropertyMapping{}, fmt.Errorf("mapping %q of type %q is incompatible with property %q (type %q) on member %s %s", alias, mType, prop, eligible.Type, gm.Type, gm.ID)
+		}
+
+		canonTarget := canonicalMemberTargetID(gm.Type, gm.ID)
+		bKey := canonTarget + "::" + prop
+		if seenBinding[bKey] {
+			continue
+		}
+		seenBinding[bKey] = true
+
+		normalizedTargets = append(normalizedTargets, GroupTargetBinding{
+			MemberType: gm.Type,
+			MemberID:   gm.ID,
+			Target:     canonTarget,
+			Property:   prop,
+		})
+	}
+
+	if len(normalizedTargets) == 0 {
+		return GroupPropertyMapping{}, fmt.Errorf("mapping %q has no valid member targets", alias)
+	}
+
+	label := strings.TrimSpace(mapping.Label)
+	if label == "" {
+		label = alias
+	}
+
+	out := DeepCopyGroupPropertyMapping(mapping)
+	out.Alias = alias
+	out.Label = label
+	out.Type = mType
+	out.Targets = normalizedTargets
+	if out.Default == nil {
+		// Provide sensible default if omitted
+		switch mType {
+		case "number":
+			out.Default = 0.0
+		case "speed":
+			out.Default = 1.0
+		case "boolean":
+			out.Default = true
+		case "color":
+			out.Default = "#38bdf8"
+		case "text":
+			out.Default = ""
+		case "enum":
+			if len(out.Options) > 0 {
+				out.Default = out.Options[0]
+			}
+		}
+	}
+	return out, nil
+}
+
+// syncGroupMappingsToWidgetParamsLocked synchronizes a group's semantic property mappings with the scene's WidgetParameters.
+func (s *Scene) syncGroupMappingsToWidgetParamsLocked(groupID StringID) {
+	grp, exists := s.groups[groupID]
+	targetID := string(groupID)
+	prefixedID := targetID
+	if !strings.HasPrefix(prefixedID, "group-") {
+		prefixedID = "group-" + prefixedID
+	}
+
+	builtInProps := map[string]bool{
+		"opacity":    true,
+		"visibility": true,
+		"speed":      true,
+	}
+
+	// Keep all non-group parameters and built-in group parameters
+	kept := make([]WidgetParameter, 0, len(s.parameters))
+	for _, p := range s.parameters {
+		if p.Target == targetID || p.Target == prefixedID {
+			if builtInProps[p.Property] && len(p.Targets) == 0 {
+				kept = append(kept, p)
+			}
+			continue
+		}
+		kept = append(kept, p)
+	}
+
+	if !exists || len(grp.Mappings) == 0 {
+		s.parameters = kept
+		return
+	}
+
+	grpName := grp.Name
+	if grpName == "" {
+		grpName = string(grp.ID)
+	}
+
+	for _, m := range grp.Mappings {
+		wTargets := make([]WidgetTargetBinding, len(m.Targets))
+		for i, t := range m.Targets {
+			canon := t.Target
+			if canon == "" {
+				canon = canonicalMemberTargetID(t.MemberType, t.MemberID)
+			}
+			wTargets[i] = WidgetTargetBinding{
+				Target:   canon,
+				Property: t.Property,
+			}
+		}
+		paramName := GenerateParameterName(grpName, m.Alias, "group")
+		desc := m.Description
+		if desc == "" {
+			desc = fmt.Sprintf("%s on group %s (%d mapped target(s))", m.Label, grpName, len(wTargets))
+		}
+		wp := WidgetParameter{
+			Name:        paramName,
+			Type:        m.Type,
+			Default:     m.Default,
+			Target:      string(grp.ID),
+			Property:    m.Alias,
+			Targets:     wTargets,
+			Min:         deepCopyFloatPtr(m.Min),
+			Max:         deepCopyFloatPtr(m.Max),
+			Step:        deepCopyFloatPtr(m.Step),
+			Options:     append([]string(nil), m.Options...),
+			Description: desc,
+		}
+		kept = append(kept, wp)
+	}
+
+	s.parameters = kept
+}
+
+// SetGroupPropertyMapping creates or updates a semantic property mapping on a group and synchronizes its WidgetParameter.
+func (s *Scene) SetGroupPropertyMapping(groupID StringID, mapping GroupPropertyMapping) (Group, error) {
+	s.mu.Lock()
+	defer s.mu.Unlock()
+
+	grp, exists := s.groups[groupID]
+	if !exists {
+		return Group{}, fmt.Errorf("group not found: %s", groupID)
+	}
+	if grp.IsLocked() {
+		return Group{}, fmt.Errorf("cannot modify mappings on locked group: %s", groupID)
+	}
+
+	validated, err := s.validateGroupPropertyMappingLocked(grp, mapping)
+	if err != nil {
+		return Group{}, err
+	}
+
+	updated := false
+	for i := range grp.Mappings {
+		if strings.EqualFold(grp.Mappings[i].Alias, validated.Alias) {
+			grp.Mappings[i] = validated
+			updated = true
+			break
+		}
+	}
+	if !updated {
+		grp.Mappings = append(grp.Mappings, validated)
+	}
+
+	s.groups[groupID] = grp
+	s.syncGroupMappingsToWidgetParamsLocked(groupID)
+	s.revision++
+	if s.history != nil {
+		s.history.Record(s.getSnapshotLocked(), s.selection)
+	}
+
+	return DeepCopyGroup(grp), nil
+}
+
+// RemoveGroupPropertyMapping removes a semantic property mapping by alias from a group and prunes its WidgetParameter.
+func (s *Scene) RemoveGroupPropertyMapping(groupID StringID, alias string) (Group, error) {
+	s.mu.Lock()
+	defer s.mu.Unlock()
+
+	grp, exists := s.groups[groupID]
+	if !exists {
+		return Group{}, fmt.Errorf("group not found: %s", groupID)
+	}
+	if grp.IsLocked() {
+		return Group{}, fmt.Errorf("cannot modify mappings on locked group: %s", groupID)
+	}
+
+	cleanAlias := strings.TrimSpace(alias)
+	if cleanAlias == "" {
+		return Group{}, errors.New("mapping alias cannot be empty")
+	}
+
+	var kept []GroupPropertyMapping
+	found := false
+	for _, m := range grp.Mappings {
+		if strings.EqualFold(m.Alias, cleanAlias) {
+			found = true
+			continue
+		}
+		kept = append(kept, m)
+	}
+	if !found {
+		return Group{}, fmt.Errorf("mapping %q not found on group %s", cleanAlias, groupID)
+	}
+
+	grp.Mappings = kept
+	s.groups[groupID] = grp
+	s.syncGroupMappingsToWidgetParamsLocked(groupID)
+	s.revision++
+	if s.history != nil {
+		s.history.Record(s.getSnapshotLocked(), s.selection)
+	}
+
+	return DeepCopyGroup(grp), nil
+}
+

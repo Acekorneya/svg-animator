@@ -3116,6 +3116,425 @@ window.renderWidgetPropertyCards = function(containerEl, sel, statusMsgEl) {
 
     containerEl.appendChild(card);
   });
+
+  // Stage 16E-M2: Group Semantic Property Mappings Authoring UI
+  if (sel.type === 'group') {
+    window.renderGroupSemanticMappingsSection(containerEl, sel, statusMsgEl);
+  }
+};
+
+window.renderGroupSemanticMappingsSection = function(containerEl, sel, statusMsgEl) {
+  if (!containerEl || !sel || sel.type !== 'group' || !sel.id) return;
+  const grp = (window.AppCoordinator && typeof window.AppCoordinator.getGroup === 'function')
+    ? window.AppCoordinator.getGroup(sel.id)
+    : (window.EngineBridge && typeof window.EngineBridge.getGroup === 'function' ? window.EngineBridge.getGroup(sel.id) : null);
+  if (!grp) return;
+
+  const secWrap = document.createElement('div');
+  secWrap.className = 'group-semantic-mappings-section';
+  secWrap.style.cssText = 'margin-top: 10px; padding-top: 10px; border-top: 1px solid #30363d; display: flex; flex-direction: column; gap: 8px;';
+
+  const titleRow = document.createElement('div');
+  titleRow.style.cssText = 'display: flex; justify-content: space-between; align-items: center;';
+  titleRow.innerHTML = `<span style="font-size: 0.76rem; font-weight: 600; color: #58a6ff;">🔗 Semantic Group Property Mappings</span>`;
+
+  const addMappingBtn = document.createElement('button');
+  addMappingBtn.type = 'button';
+  addMappingBtn.className = 'btn-floating-action btn-add-group-mapping';
+  addMappingBtn.style.cssText = 'background: #238636; border: 1px solid #3fb950; color: #ffffff; font-size: 0.70rem; padding: 3px 8px; border-radius: 4px; cursor: pointer; font-weight: 600;';
+  addMappingBtn.textContent = '+ Add Mapping';
+  titleRow.appendChild(addMappingBtn);
+  secWrap.appendChild(titleRow);
+
+  const mappings = Array.isArray(grp.mappings) ? grp.mappings : [];
+  const members = Array.isArray(grp.members) ? grp.members : [];
+  const grpName = grp.name || grp.id;
+
+  const getMemberLabel = (m) => {
+    if (m.type === 'node' && window.DiagramNodes) {
+      const n = window.DiagramNodes.getNode(m.id);
+      if (n) return `Node #${m.id} (${n.name || n.text || n.shape || 'node'})`;
+    } else if (m.type === 'flow' && window.DataFlows) {
+      const f = window.DataFlows.getFlow(m.id);
+      if (f) return `Flow #${m.id} (${f.name || 'flow'})`;
+    } else if (m.type === 'glow' && window.Glows) {
+      const g = window.Glows.getGlow(m.id);
+      if (g) return `Glow #${m.id} (${g.name || 'glow'})`;
+    } else if (m.type === 'ripple' && window.Ripples) {
+      const r = window.Ripples.getRipple(m.id);
+      if (r) return `Ripple #${m.id} (${r.name || 'ripple'})`;
+    } else if (m.type === 'image' && window.ImageObjects) {
+      const img = window.ImageObjects.getImage(m.id);
+      if (img) return `Image ${m.id} (${img.name || img.filename || 'image'})`;
+    } else if (m.type === 'lite' && window.LiteEffects) {
+      const le = window.LiteEffects.getLiteEffect(m.id);
+      if (le) return `Lite #${m.id} (${le.name || le.kind || 'lite'})`;
+    }
+    return `${m.type} #${m.id}`;
+  };
+
+  // Existing Mappings List
+  const listWrap = document.createElement('div');
+  listWrap.style.cssText = 'display: flex; flex-direction: column; gap: 6px;';
+  if (mappings.length === 0) {
+    listWrap.innerHTML = `<div style="font-size: 0.71rem; color: #8b949e; font-style: italic; padding: 4px 0;">No semantic mappings defined. Click "+ Add Mapping" to expose a group property that fans out to 1 or more member properties.</div>`;
+  } else {
+    mappings.forEach((m) => {
+      const mCard = document.createElement('div');
+      mCard.className = 'widget-prop-card is-exposed group-mapping-card';
+      mCard.dataset.alias = m.alias;
+      mCard.style.cssText = 'background: #161b22; border: 1px solid #388bfd; border-radius: 6px; padding: 7px; display: flex; flex-direction: column; gap: 5px;';
+
+      const paramName = (window.EngineBridge && typeof window.EngineBridge.generateParameterName === 'function')
+        ? window.EngineBridge.generateParameterName(grpName, m.alias, 'group')
+        : `${grpName}-group-${m.alias}`;
+
+      const hdr = document.createElement('div');
+      hdr.style.cssText = 'display: flex; justify-content: space-between; align-items: center;';
+      hdr.innerHTML = `<span style="font-size: 0.74rem; color: #e6edf3;"><strong>${m.label || m.alias}</strong> <span style="color:#8b949e; font-size:0.68rem;">(${m.type})</span></span>`;
+
+      const rightHdr = document.createElement('div');
+      rightHdr.style.cssText = 'display: flex; align-items: center; gap: 4px;';
+      const badge = document.createElement('code');
+      badge.className = 'widget-prop-badge';
+      badge.textContent = paramName;
+      rightHdr.appendChild(badge);
+
+      const delBtn = document.createElement('button');
+      delBtn.type = 'button';
+      delBtn.style.cssText = 'background: #21262d; border: 1px solid #da3633; color: #f85149; font-size: 0.66rem; padding: 1px 5px; border-radius: 3px; cursor: pointer;';
+      delBtn.textContent = '✕';
+      delBtn.title = `Remove semantic mapping "${m.alias}"`;
+      delBtn.addEventListener('click', (ev) => {
+        ev.stopPropagation();
+        if (window.EngineBridge && typeof window.EngineBridge.removeGroupMapping === 'function') {
+          const res = window.EngineBridge.removeGroupMapping(grp.id, m.alias);
+          if (res && res.success) {
+            if (window.AppCoordinator) {
+              window.AppCoordinator.recordHistoryImmediate();
+              window.AppCoordinator.showNotification(`Removed group mapping '${m.alias}'`, 'info');
+            }
+            if (typeof window.renderWidgetParametersOverview === 'function') window.renderWidgetParametersOverview();
+            if (window.FloatingPropertiesEditor && typeof window.FloatingPropertiesEditor.syncSelection === 'function') {
+              window.FloatingPropertiesEditor.syncSelection();
+            }
+          }
+        }
+      });
+      rightHdr.appendChild(delBtn);
+      hdr.appendChild(rightHdr);
+      mCard.appendChild(hdr);
+
+      const targetsDesc = (Array.isArray(m.targets) ? m.targets : []).map((t) => `${t.target}.${t.property}`).join(' , ');
+      const meta = document.createElement('div');
+      meta.style.cssText = 'font-size: 0.69rem; color: #8b949e; display: flex; justify-content: space-between; gap: 6px; flex-wrap: wrap;';
+      meta.innerHTML = `<span>🎯 Fan-out (${(m.targets || []).length}): <code style="color:#79c0ff;">${targetsDesc}</code></span><span>Default: <strong style="color:#e6edf3;">${m.default}</strong></span>`;
+      mCard.appendChild(meta);
+
+      listWrap.appendChild(mCard);
+    });
+  }
+  secWrap.appendChild(listWrap);
+
+  // Add Mapping Form (collapsible)
+  const formWrap = document.createElement('div');
+  formWrap.className = 'group-mapping-form';
+  formWrap.style.cssText = 'display: none; background: #0d1117; border: 1px solid #30363d; border-radius: 6px; padding: 8px; flex-direction: column; gap: 6px; font-size: 0.72rem;';
+
+  const formTitle = document.createElement('div');
+  formTitle.style.cssText = 'font-weight: 600; color: #e6edf3; margin-bottom: 2px;';
+  formTitle.textContent = 'New Group Semantic Mapping';
+  formWrap.appendChild(formTitle);
+
+  const row1 = document.createElement('div');
+  row1.style.cssText = 'display: grid; grid-template-columns: 1fr 1fr; gap: 6px;';
+  const aliasIn = document.createElement('input');
+  aliasIn.type = 'text';
+  aliasIn.className = 'gm-alias-in';
+  aliasIn.placeholder = 'cpu';
+  aliasIn.style.cssText = 'width:100%; padding:3px 5px; background:#161b22; border:1px solid #30363d; color:#e6edf3; border-radius:3px; font-size:0.72rem;';
+  const labelIn = document.createElement('input');
+  labelIn.type = 'text';
+  labelIn.className = 'gm-label-in';
+  labelIn.placeholder = 'CPU Load (%)';
+  labelIn.style.cssText = 'width:100%; padding:3px 5px; background:#161b22; border:1px solid #30363d; color:#e6edf3; border-radius:3px; font-size:0.72rem;';
+
+  const col1a = document.createElement('div');
+  const lbl1a = document.createElement('label');
+  lbl1a.style.cssText = 'display:block; color:#8b949e; font-size:0.68rem;';
+  lbl1a.textContent = 'Alias (e.g. cpu, status-color)';
+  col1a.appendChild(lbl1a);
+  col1a.appendChild(aliasIn);
+
+  const col1b = document.createElement('div');
+  const lbl1b = document.createElement('label');
+  lbl1b.style.cssText = 'display:block; color:#8b949e; font-size:0.68rem;';
+  lbl1b.textContent = 'Display Label';
+  col1b.appendChild(lbl1b);
+  col1b.appendChild(labelIn);
+
+  row1.appendChild(col1a);
+  row1.appendChild(col1b);
+  formWrap.appendChild(row1);
+
+  const row2 = document.createElement('div');
+  row2.style.cssText = 'display: grid; grid-template-columns: 1fr 1fr 1fr; gap: 6px;';
+
+  const typeSelEl = document.createElement('select');
+  typeSelEl.className = 'gm-type-sel';
+  typeSelEl.style.cssText = 'width:100%; padding:3px 4px; background:#161b22; border:1px solid #30363d; color:#e6edf3; border-radius:3px; font-size:0.72rem;';
+  ['number', 'color', 'text', 'boolean', 'speed'].forEach((t) => {
+    const o = document.createElement('option');
+    o.value = t;
+    o.textContent = t;
+    typeSelEl.appendChild(o);
+  });
+  const col2a = document.createElement('div');
+  const lbl2a = document.createElement('label');
+  lbl2a.style.cssText = 'display:block; color:#8b949e; font-size:0.68rem;';
+  lbl2a.textContent = 'Type';
+  col2a.appendChild(lbl2a);
+  col2a.appendChild(typeSelEl);
+
+  const defIn = document.createElement('input');
+  defIn.type = 'text';
+  defIn.className = 'gm-default-in';
+  defIn.value = '50';
+  defIn.style.cssText = 'width:100%; padding:3px 5px; background:#161b22; border:1px solid #30363d; color:#e6edf3; border-radius:3px; font-size:0.72rem;';
+  const col2b = document.createElement('div');
+  const lbl2b = document.createElement('label');
+  lbl2b.style.cssText = 'display:block; color:#8b949e; font-size:0.68rem;';
+  lbl2b.textContent = 'Default';
+  col2b.appendChild(lbl2b);
+  col2b.appendChild(defIn);
+
+  const minMaxWrap = document.createElement('div');
+  minMaxWrap.className = 'gm-minmax-wrap';
+  minMaxWrap.style.cssText = 'display:flex; gap:3px;';
+  const minIn = document.createElement('input');
+  minIn.type = 'number';
+  minIn.className = 'gm-min-in';
+  minIn.value = '0';
+  minIn.style.cssText = 'width:100%; padding:3px 3px; background:#161b22; border:1px solid #30363d; color:#e6edf3; border-radius:3px; font-size:0.72rem;';
+  const maxIn = document.createElement('input');
+  maxIn.type = 'number';
+  maxIn.className = 'gm-max-in';
+  maxIn.value = '100';
+  maxIn.style.cssText = 'width:100%; padding:3px 3px; background:#161b22; border:1px solid #30363d; color:#e6edf3; border-radius:3px; font-size:0.72rem;';
+
+  const minCol = document.createElement('div');
+  minCol.style.cssText = 'flex:1;';
+  const minLbl = document.createElement('label');
+  minLbl.style.cssText = 'display:block; color:#8b949e; font-size:0.68rem;';
+  minLbl.textContent = 'Min';
+  minCol.appendChild(minLbl);
+  minCol.appendChild(minIn);
+
+  const maxCol = document.createElement('div');
+  maxCol.style.cssText = 'flex:1;';
+  const maxLbl = document.createElement('label');
+  maxLbl.style.cssText = 'display:block; color:#8b949e; font-size:0.68rem;';
+  maxLbl.textContent = 'Max';
+  maxCol.appendChild(maxLbl);
+  maxCol.appendChild(maxIn);
+
+  minMaxWrap.appendChild(minCol);
+  minMaxWrap.appendChild(maxCol);
+
+  row2.appendChild(col2a);
+  row2.appendChild(col2b);
+  row2.appendChild(minMaxWrap);
+  formWrap.appendChild(row2);
+
+  const targetsSec = document.createElement('div');
+  const targetsHdr = document.createElement('div');
+  targetsHdr.style.cssText = 'display:flex; justify-content:space-between; align-items:center; margin-bottom:4px;';
+  const targetsLbl = document.createElement('label');
+  targetsLbl.style.cssText = 'color:#8b949e; font-size:0.68rem;';
+  targetsLbl.textContent = 'Mapped Member Targets (1..N fan-out)';
+  const addTargetBtn = document.createElement('button');
+  addTargetBtn.type = 'button';
+  addTargetBtn.className = 'gm-add-target-btn';
+  addTargetBtn.style.cssText = 'background:#21262d; border:1px solid #30363d; color:#58a6ff; font-size:0.66rem; padding:1px 6px; border-radius:3px; cursor:pointer;';
+  addTargetBtn.textContent = '+ Target';
+  targetsHdr.appendChild(targetsLbl);
+  targetsHdr.appendChild(addTargetBtn);
+
+  const targetsListEl = document.createElement('div');
+  targetsListEl.className = 'gm-targets-list';
+  targetsListEl.style.cssText = 'display:flex; flex-direction:column; gap:4px;';
+  targetsSec.appendChild(targetsHdr);
+  targetsSec.appendChild(targetsListEl);
+  formWrap.appendChild(targetsSec);
+
+  const actionsRow = document.createElement('div');
+  actionsRow.style.cssText = 'display:flex; justify-content:flex-end; gap:6px; margin-top:4px;';
+  const cancelBtn = document.createElement('button');
+  cancelBtn.type = 'button';
+  cancelBtn.className = 'gm-cancel-btn';
+  cancelBtn.style.cssText = 'background:#21262d; border:1px solid #30363d; color:#c9d1d9; font-size:0.70rem; padding:3px 8px; border-radius:4px; cursor:pointer;';
+  cancelBtn.textContent = 'Cancel';
+  const saveBtn = document.createElement('button');
+  saveBtn.type = 'button';
+  saveBtn.className = 'gm-save-btn';
+  saveBtn.style.cssText = 'background:#238636; border:1px solid #3fb950; color:#ffffff; font-size:0.70rem; padding:3px 10px; border-radius:4px; cursor:pointer; font-weight:600;';
+  saveBtn.textContent = 'Save Mapping';
+  actionsRow.appendChild(cancelBtn);
+  actionsRow.appendChild(saveBtn);
+  formWrap.appendChild(actionsRow);
+
+  const targetRowRefs = [];
+
+  const addTargetRow = () => {
+    if (!targetsListEl || members.length === 0) return;
+    const row = document.createElement('div');
+    row.className = 'gm-target-row';
+    row.style.cssText = 'display: flex; gap: 4px; align-items: center;';
+
+    const memSel = document.createElement('select');
+    memSel.className = 'gm-member-sel';
+    memSel.style.cssText = 'flex: 1.3; padding: 2px 4px; background: #161b22; border: 1px solid #30363d; color: #e6edf3; border-radius: 3px; font-size: 0.70rem;';
+    members.forEach((m, idx) => {
+      const opt = document.createElement('option');
+      opt.value = `${m.type}:${m.id}`;
+      opt.textContent = getMemberLabel(m);
+      if (idx === 0) opt.selected = true;
+      memSel.appendChild(opt);
+    });
+
+    const propSel = document.createElement('select');
+    propSel.className = 'gm-prop-sel';
+    propSel.style.cssText = 'flex: 1; padding: 2px 4px; background: #161b22; border: 1px solid #30363d; color: #e6edf3; border-radius: 3px; font-size: 0.70rem;';
+
+    const populateProps = () => {
+      const [mType] = (memSel.value || '').split(':');
+      const mKindType = typeSelEl ? typeSelEl.value : 'number';
+      const allProps = getDrawerWidgetPropDefs(mType) || [];
+      propSel.innerHTML = '';
+      allProps.forEach((p) => {
+        const compatible = (p.type === mKindType) || (mKindType === 'number' && p.type === 'text');
+        if (compatible) {
+          const opt = document.createElement('option');
+          opt.value = p.prop;
+          opt.textContent = `${p.prop} (${p.type})`;
+          propSel.appendChild(opt);
+        }
+      });
+    };
+
+    memSel.addEventListener('change', populateProps);
+    populateProps();
+
+    const rowRef = { row, memSel, propSel, populateProps };
+    targetRowRefs.push(rowRef);
+
+    const remBtn = document.createElement('button');
+    remBtn.type = 'button';
+    remBtn.style.cssText = 'background:none; border:none; color:#f85149; cursor:pointer; font-size:0.8rem; padding:0 3px;';
+    remBtn.textContent = '✕';
+    remBtn.addEventListener('click', () => {
+      if (targetRowRefs.length > 1) {
+        const idx = targetRowRefs.indexOf(rowRef);
+        if (idx >= 0) targetRowRefs.splice(idx, 1);
+        if (typeof row.remove === 'function') row.remove();
+        else if (row.parentNode) row.parentNode.removeChild(row);
+      }
+    });
+
+    row.appendChild(memSel);
+    row.appendChild(propSel);
+    row.appendChild(remBtn);
+    targetsListEl.appendChild(row);
+  };
+
+  typeSelEl.addEventListener('change', () => {
+    const t = typeSelEl.value;
+    if (minMaxWrap) {
+      minMaxWrap.style.display = (t === 'number' || t === 'speed') ? 'flex' : 'none';
+    }
+    if (t === 'color') defIn.value = '#38bdf8';
+    else if (t === 'boolean') defIn.value = 'true';
+    else if (t === 'speed') defIn.value = '1.0';
+    else if (t === 'text') defIn.value = 'OK';
+    else defIn.value = '50';
+    targetRowRefs.forEach((r) => r.populateProps());
+  });
+
+  addTargetBtn.addEventListener('click', addTargetRow);
+  addMappingBtn.addEventListener('click', () => {
+    formWrap.style.display = 'flex';
+    if (targetRowRefs.length === 0) addTargetRow();
+  });
+  cancelBtn.addEventListener('click', () => {
+    formWrap.style.display = 'none';
+  });
+
+  saveBtn.addEventListener('click', () => {
+    const alias = (aliasIn.value || '').trim();
+    const label = (labelIn.value || '').trim() || alias;
+    const mType = typeSelEl.value;
+    const rawDef = defIn.value;
+    let defVal = rawDef;
+    if (mType === 'number' || mType === 'speed') defVal = parseFloat(rawDef) || 0;
+    else if (mType === 'boolean') defVal = (rawDef === 'true' || rawDef === '1');
+
+    const targets = [];
+    targetRowRefs.forEach((ref) => {
+      const mVal = ref.memSel.value;
+      const pVal = ref.propSel.value;
+      if (mVal && pVal) {
+        const [mTypeStr, mIdStr] = mVal.split(':');
+        targets.push({
+          memberType: mTypeStr,
+          memberId: mIdStr,
+          target: mIdStr.startsWith(mTypeStr + '-') ? mIdStr : `${mTypeStr}-${mIdStr}`,
+          property: pVal
+        });
+      }
+    });
+
+    const mappingPayload = {
+      alias,
+      label,
+      type: mType,
+      default: defVal,
+      targets
+    };
+    if (mType === 'number' || mType === 'speed') {
+      const minV = parseFloat(minIn.value);
+      const maxV = parseFloat(maxIn.value);
+      if (!isNaN(minV)) mappingPayload.min = minV;
+      if (!isNaN(maxV)) mappingPayload.max = maxV;
+    }
+
+    if (window.EngineBridge && typeof window.EngineBridge.setGroupMapping === 'function') {
+      const res = window.EngineBridge.setGroupMapping(grp.id, mappingPayload);
+      if (res && res.success) {
+        if (statusMsgEl) {
+          statusMsgEl.style.color = '#3fb950';
+          statusMsgEl.textContent = `✓ Saved group semantic mapping "${alias}" (${targets.length} target(s))`;
+        }
+        if (window.AppCoordinator) {
+          window.AppCoordinator.recordHistoryImmediate();
+          window.AppCoordinator.showNotification(`Saved group mapping '${alias}'`, 'success');
+        }
+        if (typeof window.renderWidgetParametersOverview === 'function') window.renderWidgetParametersOverview();
+        if (window.FloatingPropertiesEditor && typeof window.FloatingPropertiesEditor.syncSelection === 'function') {
+          window.FloatingPropertiesEditor.syncSelection();
+        }
+      } else {
+        const err = (res && res.error) || 'Failed to save group mapping';
+        if (statusMsgEl) {
+          statusMsgEl.style.color = '#f85149';
+          statusMsgEl.textContent = err;
+        }
+        alert(`Could not save group mapping: ${err}`);
+      }
+    }
+  });
+
+  secWrap.appendChild(formWrap);
+  containerEl.appendChild(secWrap);
 };
 
 window.initDrawerWidgetEvents = function() {
@@ -3562,16 +3981,19 @@ window.renderWidgetParametersOverview = function(selectionPayload) {
     delBtn.addEventListener('click', (e) => {
       e.stopPropagation();
       if (confirm(`Remove exposed parameter "${param.name}"?`)) {
-        if (window.EngineBridge && typeof window.EngineBridge.removeWidgetParameter === 'function') {
+        const isGroupMapping = Array.isArray(param.targets) && param.targets.length > 0 && param.target && String(param.target).startsWith('group-');
+        if (isGroupMapping && window.EngineBridge && typeof window.EngineBridge.removeGroupMapping === 'function') {
+          window.EngineBridge.removeGroupMapping(param.target, param.property);
+        } else if (window.EngineBridge && typeof window.EngineBridge.removeWidgetParameter === 'function') {
           window.EngineBridge.removeWidgetParameter(param.name);
-          if (window.AppCoordinator) {
-            window.AppCoordinator.recordHistoryImmediate();
-            window.AppCoordinator.showNotification(`Removed parameter '${param.name}'`, 'info');
-          }
-          window.renderWidgetParametersOverview();
-          if (window.FloatingPropertiesEditor && typeof window.FloatingPropertiesEditor.syncSelection === 'function') {
-            window.FloatingPropertiesEditor.syncSelection();
-          }
+        }
+        if (window.AppCoordinator) {
+          window.AppCoordinator.recordHistoryImmediate();
+          window.AppCoordinator.showNotification(`Removed parameter '${param.name}'`, 'info');
+        }
+        window.renderWidgetParametersOverview();
+        if (window.FloatingPropertiesEditor && typeof window.FloatingPropertiesEditor.syncSelection === 'function') {
+          window.FloatingPropertiesEditor.syncSelection();
         }
       }
     });
@@ -3584,9 +4006,13 @@ window.renderWidgetParametersOverview = function(selectionPayload) {
 
     // Target & Property metadata
     const metaRow = document.createElement('div');
-    metaRow.style.cssText = 'color: #8b949e; font-size: 0.71rem; display: flex; justify-content: space-between;';
+    metaRow.style.cssText = 'color: #8b949e; font-size: 0.71rem; display: flex; justify-content: space-between; flex-wrap: wrap; gap: 4px;';
     const targetLabel = document.createElement('span');
-    targetLabel.textContent = `Target: ${param.target || 'root'}`;
+    if (Array.isArray(param.targets) && param.targets.length > 0) {
+      targetLabel.textContent = `Target: ${param.target} → [${param.targets.map(t => `${t.target}.${t.property}`).join(', ')}]`;
+    } else {
+      targetLabel.textContent = `Target: ${param.target || 'root'}`;
+    }
     const propLabel = document.createElement('span');
     propLabel.textContent = `Property: ${param.property}`;
     metaRow.appendChild(targetLabel);
@@ -3619,6 +4045,20 @@ window.renderWidgetParametersOverview = function(selectionPayload) {
       if (!svgContainer) return;
       const svgEl = svgContainer.querySelector('svg');
       if (!svgEl) return;
+      if (Array.isArray(param.targets) && param.targets.length > 0) {
+        param.targets.forEach((tb) => {
+          const mTarget = tb.target || tb.Target;
+          const mProp = tb.property || tb.Property;
+          const memberEl = (window.SVGWidget && typeof window.SVGWidget.resolveTargetElement === 'function')
+            ? window.SVGWidget.resolveTargetElement(svgEl, null, mTarget)
+            : svgEl.querySelector(`[data-semantic-target="${mTarget}"], [id="${mTarget}"]`);
+          if (memberEl && window.SVGWidget && typeof window.SVGWidget.applyPropertyToElement === 'function') {
+            const targetVal = ((mProp === 'text' || mProp === 'textContent') && typeof val !== 'string') ? String(val) : val;
+            window.SVGWidget.applyPropertyToElement(memberEl, mProp, targetVal, Object.assign({}, param, { target: mTarget, property: mProp }), null);
+          }
+        });
+        return;
+      }
       const targetEl = (window.SVGWidget && typeof window.SVGWidget.resolveTargetElement === 'function')
         ? window.SVGWidget.resolveTargetElement(svgEl, null, param.target)
         : (svgEl.querySelector(`[data-semantic-target="${param.target}"], [data-node-id="${param.target}"], [id="${param.target}"]`));

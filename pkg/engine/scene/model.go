@@ -413,19 +413,26 @@ type BackgroundConfig struct {
 	ActiveCropVersionID string                  `json:"activeCropVersionId,omitempty"`
 }
 
+// WidgetTargetBinding represents a resolved member target and property driven by a semantic group parameter.
+type WidgetTargetBinding struct {
+	Target   string `json:"target"`   // Canonical member target ID (e.g. "lite-1", "node-2")
+	Property string `json:"property"` // Member property (e.g. "value", "text", "color")
+}
+
 // WidgetParameter defines an externally controllable runtime parameter for a widget.
 type WidgetParameter struct {
-	Name        string   `json:"name"`
-	Type        string   `json:"type"` // "color", "number", "boolean", "text", "enum", "speed"
-	Default     any      `json:"default"`
-	Target      string   `json:"target"`   // Semantic target ID (e.g. "node-1", "flow-1", "status-indicator")
-	Property    string   `json:"property"` // "fill", "stroke", "visibility", "opacity", "text", "playbackRate", "state"
-	Min         *float64 `json:"min,omitempty"`
-	Max         *float64 `json:"max,omitempty"`
-	Step        *float64 `json:"step,omitempty"`
-	Unit        string   `json:"unit,omitempty"`
-	Options     []string `json:"options,omitempty"` // Permitted enum values
-	Description string   `json:"description,omitempty"`
+	Name        string                `json:"name"`
+	Type        string                `json:"type"` // "color", "number", "boolean", "text", "enum", "speed"
+	Default     any                   `json:"default"`
+	Target      string                `json:"target"`             // Semantic target ID (e.g. "node-1", "flow-1", "group-1")
+	Property    string                `json:"property"`           // "fill", "stroke", "visibility", "opacity", "text", "playbackRate", "state", or semantic group alias
+	Targets     []WidgetTargetBinding `json:"targets,omitempty"`  // Optional 1..N mapped member targets for group semantic properties (Stage 16E-M2)
+	Min         *float64              `json:"min,omitempty"`
+	Max         *float64              `json:"max,omitempty"`
+	Step        *float64              `json:"step,omitempty"`
+	Unit        string                `json:"unit,omitempty"`
+	Options     []string              `json:"options,omitempty"` // Permitted enum values
+	Description string                `json:"description,omitempty"`
 }
 
 // WidgetManifest describes the external parameter schema of an exported widget.

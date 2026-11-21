@@ -59,12 +59,35 @@ func DeepCopyRipple(r Ripple) Ripple {
 	return cp
 }
 
+// DeepCopyGroupPropertyMapping creates an isolated deep copy of a GroupPropertyMapping.
+func DeepCopyGroupPropertyMapping(m GroupPropertyMapping) GroupPropertyMapping {
+	cp := m
+	cp.Min = deepCopyFloatPtr(m.Min)
+	cp.Max = deepCopyFloatPtr(m.Max)
+	cp.Step = deepCopyFloatPtr(m.Step)
+	if m.Options != nil {
+		cp.Options = make([]string, len(m.Options))
+		copy(cp.Options, m.Options)
+	}
+	if m.Targets != nil {
+		cp.Targets = make([]GroupTargetBinding, len(m.Targets))
+		copy(cp.Targets, m.Targets)
+	}
+	return cp
+}
+
 // DeepCopyGroup creates an isolated deep copy of a Group.
 func DeepCopyGroup(g Group) Group {
 	cp := g
 	if g.Members != nil {
 		cp.Members = make([]GroupMember, len(g.Members))
 		copy(cp.Members, g.Members)
+	}
+	if g.Mappings != nil {
+		cp.Mappings = make([]GroupPropertyMapping, len(g.Mappings))
+		for i, m := range g.Mappings {
+			cp.Mappings[i] = DeepCopyGroupPropertyMapping(m)
+		}
 	}
 	cp.Visible = deepCopyBoolPtr(g.Visible)
 	cp.Metadata = deepCopyMetadata(g.Metadata)
@@ -254,8 +277,15 @@ func DeepCopySnapshot(snap Snapshot) Snapshot {
 				v := *p.Max
 				pCopy.Max = &v
 			}
+			if p.Step != nil {
+				v := *p.Step
+				pCopy.Step = &v
+			}
 			if p.Options != nil {
 				pCopy.Options = append([]string(nil), p.Options...)
+			}
+			if p.Targets != nil {
+				pCopy.Targets = append([]WidgetTargetBinding(nil), p.Targets...)
 			}
 			cp.Parameters[i] = pCopy
 		}
