@@ -707,6 +707,7 @@ func (s *Scene) ComputeGroupBounds(groupID StringID, canvasW, canvasH float64) (
 }
 
 var reGroupAlias = regexp.MustCompile(`^[a-zA-Z][a-zA-Z0-9_-]{0,47}$`)
+var reHexOrCSSColor = regexp.MustCompile(`^(#[0-9a-fA-F]{3,8}|rgba?\([^)]+\)|hsla?\([^)]+\)|[a-zA-Z]{3,24})$`)
 
 var reservedGroupPropertyAliases = map[string]bool{
 	"opacity":        true,
@@ -715,6 +716,46 @@ var reservedGroupPropertyAliases = map[string]bool{
 	"playbackrate":   true,
 	"state":          true,
 	"operatingstate": true,
+}
+
+func isLiteEffectPropertySupportedByKind(kind, prop string) bool {
+	if kind == "" {
+		return true
+	}
+	switch prop {
+	case "text", "borderColor", "scrollSpeed", "typeSpeed":
+		return kind == "text-lite"
+	case "segments", "lineGapRatio", "burstCycles", "pauseSeconds", "pauseVisibility":
+		return kind == "perimeter-tracer"
+	case "strokeWidth", "showGuide":
+		return kind == "perimeter-tracer" || kind == "flow-lite" || kind == "radar-lite" || kind == "gauge-lite" || kind == "oscilloscope-lite" || kind == "text-lite"
+	case "startOffset":
+		return kind == "perimeter-tracer" || kind == "text-lite"
+	case "value", "minValue", "maxValue":
+		return kind == "gauge-lite"
+	case "bgColor":
+		return kind == "gauge-lite" || kind == "oscilloscope-lite" || kind == "text-lite"
+	case "direction":
+		return kind == "perimeter-tracer" || kind == "flow-lite" || kind == "oscilloscope-lite" || kind == "text-lite"
+	case "playbackMode":
+		return kind == "perimeter-tracer" || kind == "flow-lite"
+	case "dashLength", "gapLength", "dotSize":
+		return kind == "flow-lite"
+	case "scale", "period":
+		return kind == "pulse" || kind == "radar-lite"
+	case "trigger", "duration", "repeat", "repeatInterval":
+		return kind == "flash"
+	case "intensity":
+		return kind == "pulse" || kind == "flash" || kind == "oscilloscope-lite"
+	case "samples":
+		return kind == "oscilloscope-lite"
+	case "armThickness":
+		return kind == "pulse" || kind == "flash"
+	case "speed":
+		return kind == "perimeter-tracer" || kind == "pulse" || kind == "flow-lite" || kind == "radar-lite" || kind == "oscilloscope-lite" || kind == "text-lite"
+	default:
+		return true
+	}
 }
 
 func canonicalMemberTargetID(mType SelectionType, mID StringID) string {
@@ -789,13 +830,33 @@ func (s *Scene) validateGroupPropertyMappingLocked(grp Group, mapping GroupPrope
 	}
 	if (mType == "number" || mType == "speed") && mapping.Default != nil {
 		defNum := toFloat64(mapping.Default, math.NaN())
-		if !math.IsNaN(defNum) {
-			if mapping.Min != nil && defNum < *mapping.Min {
-				return GroupPropertyMapping{}, fmt.Errorf("mapping %q default (%v) cannot be less than min (%v)", alias, defNum, *mapping.Min)
+		if math.IsNaN(defNum) {
+			return GroupPropertyMapping{}, fmt.Errorf("mapping %q default (%v) must be a finite number", alias, mapping.Default)
+		}
+		if mapping.Min != nil && defNum < *mapping.Min {
+			return GroupPropertyMapping{}, fmt.Errorf("mapping %q default (%v) cannot be less than min (%v)", alias, defNum, *mapping.Min)
+		}
+		if mapping.Max != nil && defNum > *mapping.Max {
+			return GroupPropertyMapping{}, fmt.Errorf("mapping %q default (%v) cannot be greater than max (%v)", alias, defNum, *mapping.Max)
+		}
+	}
+	if mType == "color" && mapping.Default != nil {
+		colStr := strings.TrimSpace(fmt.Sprintf("%v", mapping.Default))
+		if colStr == "" || !reHexOrCSSColor.MatchString(colStr) {
+			return GroupPropertyMapping{}, fmt.Errorf("mapping %q default (%q) is not a valid colour", alias, colStr)
+		}
+	}
+	if mType == "enum" && mapping.Default != nil {
+		defStr := strings.TrimSpace(fmt.Sprintf("%v", mapping.Default))
+		foundOpt := false
+		for _, opt := range mapping.Options {
+			if strings.TrimSpace(opt) == defStr {
+				foundOpt = true
+				break
 			}
-			if mapping.Max != nil && defNum > *mapping.Max {
-				return GroupPropertyMapping{}, fmt.Errorf("mapping %q default (%v) cannot be greater than max (%v)", alias, defNum, *mapping.Max)
-			}
+		}
+		if !foundOpt {
+			return GroupPropertyMapping{}, fmt.Errorf("enum mapping %q default (%q) must be one of its declared options (%v)", alias, defStr, mapping.Options)
 		}
 	}
 
@@ -861,16 +922,62 @@ func (s *Scene) validateGroupPropertyMappingLocked(grp Group, mapping GroupPrope
 			return GroupPropertyMapping{}, fmt.Errorf("property %q is not eligible on member %s %s", prop, gm.Type, gm.ID)
 		}
 
+		// Lite-kind-specific property eligibility check (e.g. value is only supported on gauge-lite, text on text-lite)
+		if gm.Type == SelectionLite {
+			if le, ok := s.liteEffects[gm.ID]; ok {
+				if !isLiteEffectPropertySupportedByKind(le.Kind, prop) {
+					return GroupPropertyMapping{}, fmt.Errorf("property %q is not supported by %s member %s %s", prop, le.Kind, gm.Type, gm.ID)
+				}
+			}
+		}
+
 		// Type compatibility check: exact match OR numeric group mapping driving a text property
 		compatible := (mType == eligible.Type) || (mType == "number" && eligible.Type == "text")
 		if !compatible {
 			return GroupPropertyMapping{}, fmt.Errorf("mapping %q of type %q is incompatible with property %q (type %q) on member %s %s", alias, mType, prop, eligible.Type, gm.Type, gm.ID)
 		}
 
+		// Constraint compatibility check across all bindings (e.g. opacity [0..1], speed [0.1..10], enum options)
+		if (mType == "number" || mType == "speed") && eligible.Type == mType {
+			if eligible.Min != nil {
+				if mapping.Min != nil && *mapping.Min < *eligible.Min {
+					return GroupPropertyMapping{}, fmt.Errorf("mapping %q min (%v) is below minimum allowed (%v) for property %q on member %s %s", alias, *mapping.Min, *eligible.Min, prop, gm.Type, gm.ID)
+				}
+				if mapping.Default != nil {
+					defNum := toFloat64(mapping.Default, math.NaN())
+					if !math.IsNaN(defNum) && defNum < *eligible.Min {
+						return GroupPropertyMapping{}, fmt.Errorf("mapping %q default (%v) is below minimum allowed (%v) for property %q on member %s %s", alias, defNum, *eligible.Min, prop, gm.Type, gm.ID)
+					}
+				}
+			}
+			if eligible.Max != nil {
+				if mapping.Max != nil && *mapping.Max > *eligible.Max {
+					return GroupPropertyMapping{}, fmt.Errorf("mapping %q max (%v) exceeds maximum allowed (%v) for property %q on member %s %s", alias, *mapping.Max, *eligible.Max, prop, gm.Type, gm.ID)
+				}
+				if mapping.Default != nil {
+					defNum := toFloat64(mapping.Default, math.NaN())
+					if !math.IsNaN(defNum) && defNum > *eligible.Max {
+						return GroupPropertyMapping{}, fmt.Errorf("mapping %q default (%v) exceeds maximum allowed (%v) for property %q on member %s %s", alias, defNum, *eligible.Max, prop, gm.Type, gm.ID)
+					}
+				}
+			}
+		}
+		if mType == "enum" && len(eligible.Options) > 0 {
+			allowedOpts := make(map[string]bool, len(eligible.Options))
+			for _, o := range eligible.Options {
+				allowedOpts[o] = true
+			}
+			for _, o := range mapping.Options {
+				if !allowedOpts[strings.TrimSpace(o)] {
+					return GroupPropertyMapping{}, fmt.Errorf("enum mapping %q option %q is not supported by property %q on member %s %s (allowed: %v)", alias, o, prop, gm.Type, gm.ID, eligible.Options)
+				}
+			}
+		}
+
 		canonTarget := canonicalMemberTargetID(gm.Type, gm.ID)
 		bKey := canonTarget + "::" + prop
 		if seenBinding[bKey] {
-			continue
+			return GroupPropertyMapping{}, fmt.Errorf("mapping %q contains duplicate target binding %s.%s", alias, canonTarget, prop)
 		}
 		seenBinding[bKey] = true
 

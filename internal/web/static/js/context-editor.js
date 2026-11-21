@@ -168,7 +168,7 @@ window.FloatingPropertiesEditor = {
   },
 
   handleSelectionChanged(sel) {
-    if (!sel || !sel.type || sel.id === null || !['node', 'flow', 'glow', 'ripple', 'group', 'image'].includes(sel.type)) {
+    if (!sel || !sel.type || sel.id === null || !['node', 'flow', 'glow', 'ripple', 'lite', 'group', 'image'].includes(sel.type)) {
       if (this.isOpen) this.close(false);
       return;
     }
@@ -2427,7 +2427,7 @@ window.FloatingPropertiesEditor = {
             return;
           }
 
-          const accordionIds = { node: 'acc-nodes', flow: 'acc-flows', glow: 'acc-glows', ripple: 'acc-ripples', image: 'acc-layers' };
+          const accordionIds = { node: 'acc-nodes', flow: 'acc-flows', glow: 'acc-glows', ripple: 'acc-ripples', lite: 'acc-lite-effects', image: 'acc-layers' };
           if (window.AppCoordinator && typeof window.AppCoordinator.selectObject === 'function') {
             window.AppCoordinator.selectObject(obj.type, obj.id, { openAccordionId: accordionIds[obj.type] });
           }
@@ -2440,7 +2440,7 @@ window.FloatingPropertiesEditor = {
 
         if (window.AppCoordinator && window.AppCoordinator.activeSelection && window.AppCoordinator.activeSelection.type && window.AppCoordinator.activeSelection.id !== null) {
           const sel = window.AppCoordinator.activeSelection;
-          if (['node', 'flow', 'glow', 'ripple', 'group', 'image'].includes(sel.type)) {
+          if (['node', 'flow', 'glow', 'ripple', 'lite', 'group', 'image'].includes(sel.type)) {
             this.openFor(sel.type, sel.id);
           }
         }

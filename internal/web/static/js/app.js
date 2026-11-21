@@ -3123,6 +3123,682 @@ window.renderWidgetPropertyCards = function(containerEl, sel, statusMsgEl) {
   }
 };
 
+function getSupportedPropertiesForMember(mType, mId) {
+  let propDefs = getDrawerWidgetPropDefs(mType) || [];
+  if (mType === 'lite' && window.LiteEffects) {
+    const le = window.LiteEffects.getLiteEffect(mId);
+    const liteKind = (le && le.kind) ? le.kind : '';
+    if (liteKind) {
+      propDefs = propDefs.filter((p) => {
+        if (['text', 'borderColor', 'scrollSpeed', 'typeSpeed'].includes(p.prop)) return liteKind === 'text-lite';
+        if (['segments', 'lineGapRatio', 'burstCycles', 'pauseSeconds', 'pauseVisibility'].includes(p.prop)) return liteKind === 'perimeter-tracer';
+        if (['strokeWidth', 'showGuide'].includes(p.prop)) {
+          return liteKind === 'perimeter-tracer' || liteKind === 'flow-lite' || liteKind === 'radar-lite' || liteKind === 'gauge-lite' || liteKind === 'oscilloscope-lite' || liteKind === 'text-lite';
+        }
+        if (p.prop === 'startOffset') return liteKind === 'perimeter-tracer' || liteKind === 'text-lite';
+        if (['value', 'minValue', 'maxValue'].includes(p.prop)) return liteKind === 'gauge-lite';
+        if (p.prop === 'bgColor') return liteKind === 'gauge-lite' || liteKind === 'oscilloscope-lite' || liteKind === 'text-lite';
+        if (p.prop === 'direction') return liteKind === 'perimeter-tracer' || liteKind === 'flow-lite' || liteKind === 'oscilloscope-lite' || liteKind === 'text-lite';
+        if (p.prop === 'playbackMode') return liteKind === 'perimeter-tracer' || liteKind === 'flow-lite';
+        if (['dashLength', 'gapLength', 'dotSize'].includes(p.prop)) return liteKind === 'flow-lite';
+        if (['scale', 'period'].includes(p.prop)) return liteKind === 'pulse' || liteKind === 'radar-lite';
+        if (['trigger', 'duration', 'repeat', 'repeatInterval'].includes(p.prop)) return liteKind === 'flash';
+        if (p.prop === 'intensity') return liteKind === 'pulse' || liteKind === 'flash' || liteKind === 'oscilloscope-lite';
+        if (p.prop === 'samples') return liteKind === 'oscilloscope-lite';
+        if (p.prop === 'armThickness') return liteKind === 'pulse' || liteKind === 'flash';
+        if (p.prop === 'speed') return liteKind === 'perimeter-tracer' || liteKind === 'pulse' || liteKind === 'flow-lite' || liteKind === 'radar-lite' || liteKind === 'oscilloscope-lite' || liteKind === 'text-lite';
+        return true;
+      }).map((p) => {
+        if (p.prop === 'direction') {
+          return Object.assign({}, p, {
+            options: (liteKind === 'flow-lite' || liteKind === 'oscilloscope-lite' || liteKind === 'text-lite') ? ['forward', 'reverse'] : ['cw', 'ccw']
+          });
+        }
+        return p;
+      });
+    }
+  }
+  return propDefs;
+}
+
+function getGroupMemberDisplayLabel(m) {
+  if (!m) return 'Unknown Member';
+  if (m.type === 'node' && window.DiagramNodes) {
+    const n = window.DiagramNodes.getNode(m.id);
+    if (n) return `Node #${m.id} — ${n.name || n.text || n.shape || 'node'}`;
+  } else if (m.type === 'flow' && window.DataFlows) {
+    const f = window.DataFlows.getFlow(m.id);
+    if (f) return `Flow #${m.id} — ${f.name || 'flow'}`;
+  } else if (m.type === 'glow' && window.Glows) {
+    const g = window.Glows.getGlow(m.id);
+    if (g) return `Glow #${m.id} — ${g.name || 'glow'}`;
+  } else if (m.type === 'ripple' && window.Ripples) {
+    const r = window.Ripples.getRipple(m.id);
+    if (r) return `Ripple #${m.id} — ${r.name || 'ripple'}`;
+  } else if (m.type === 'image' && window.ImageObjects) {
+    const img = window.ImageObjects.getImage(m.id);
+    if (img) return `Image ${m.id} — ${img.name || img.filename || 'image'}`;
+  } else if (m.type === 'lite' && window.LiteEffects) {
+    const le = window.LiteEffects.getLiteEffect(m.id);
+    if (le) {
+      const kindMap = { 'perimeter-tracer': 'Tracer', 'pulse': 'Pulse', 'flash': 'Flash', 'flow-lite': 'Flow Lite', 'radar-lite': 'Radar Lite', 'gauge-lite': 'Gauge Lite', 'oscilloscope-lite': 'Oscilloscope Lite', 'text-lite': 'Text Box Lite' };
+      return `${kindMap[le.kind] || le.kind} #${m.id} — ${le.name || le.kind}`;
+    }
+  }
+  return `${m.type} #${m.id}`;
+}
+
+window.GroupMappingDialog = {
+  activeGroupId: null,
+  originalAlias: null,
+  statusMsgEl: null,
+  targetRows: [],
+  _bound: false,
+
+  _ensureBound() {
+    if (this._bound) return;
+    const modal = document.getElementById('groupMappingModal');
+    if (!modal) return;
+    this._bound = true;
+
+    const closeBtn = document.getElementById('btnGroupMappingModalClose');
+    const cancelBtn = document.getElementById('btnGroupMappingModalCancel');
+    const saveBtn = document.getElementById('btnGroupMappingModalSave');
+    const addTargetBtn = document.getElementById('btnGmModalAddTarget');
+    const aliasIn = document.getElementById('gmModalAliasInput');
+    const labelIn = document.getElementById('gmModalLabelInput');
+    const typeSel = document.getElementById('gmModalTypeSelect');
+    const defIn = document.getElementById('gmModalDefaultInput');
+    const defCol = document.getElementById('gmModalDefaultColorPicker');
+    const minIn = document.getElementById('gmModalMinInput');
+    const maxIn = document.getElementById('gmModalMaxInput');
+    const optIn = document.getElementById('gmModalOptionsInput');
+
+    if (closeBtn) closeBtn.addEventListener('click', () => this.close());
+    if (cancelBtn) cancelBtn.addEventListener('click', () => this.close());
+    if (addTargetBtn) addTargetBtn.addEventListener('click', () => {
+      this.addTargetRow();
+      this.validateForm();
+    });
+    if (saveBtn) saveBtn.addEventListener('click', () => this.save());
+
+    [aliasIn, labelIn, defIn, minIn, maxIn, optIn].forEach((el) => {
+      if (el) {
+        el.addEventListener('input', () => this.validateForm());
+        el.addEventListener('change', () => this.validateForm());
+      }
+    });
+
+    if (defCol && defIn) {
+      defCol.addEventListener('input', (e) => {
+        defIn.value = e.target.value;
+        this.validateForm();
+      });
+    }
+
+    if (typeSel) {
+      typeSel.addEventListener('change', () => {
+        this._syncTypeControls(true);
+        this.targetRows.forEach((r) => r.populateProps(true));
+        this.validateForm();
+      });
+    }
+  },
+
+  _getGroup() {
+    if (!this.activeGroupId) return null;
+    if (window.AppCoordinator && typeof window.AppCoordinator.getGroup === 'function') {
+      const g = window.AppCoordinator.getGroup(this.activeGroupId);
+      if (g) return g;
+    }
+    if (window.EngineBridge && typeof window.EngineBridge.getGroup === 'function') {
+      return window.EngineBridge.getGroup(this.activeGroupId);
+    }
+    return null;
+  },
+
+  _syncTypeControls(resetDefaults) {
+    const typeSel = document.getElementById('gmModalTypeSelect');
+    const defIn = document.getElementById('gmModalDefaultInput');
+    const defCol = document.getElementById('gmModalDefaultColorPicker');
+    const minWrap = document.getElementById('gmModalMinWrap');
+    const maxWrap = document.getElementById('gmModalMaxWrap');
+    const enumWrap = document.getElementById('gmModalEnumWrap');
+    const minIn = document.getElementById('gmModalMinInput');
+    const maxIn = document.getElementById('gmModalMaxInput');
+    const optIn = document.getElementById('gmModalOptionsInput');
+    if (!typeSel) return;
+
+    const t = typeSel.value || 'number';
+    const isNum = (t === 'number' || t === 'speed');
+    if (minWrap) minWrap.style.display = isNum ? 'block' : 'none';
+    if (maxWrap) maxWrap.style.display = isNum ? 'block' : 'none';
+    if (enumWrap) enumWrap.style.display = (t === 'enum') ? 'block' : 'none';
+    if (defCol) defCol.style.display = (t === 'color') ? 'inline-block' : 'none';
+
+    if (resetDefaults && defIn) {
+      if (t === 'color') {
+        defIn.value = '#38bdf8';
+        if (defCol) defCol.value = '#38bdf8';
+      } else if (t === 'boolean') {
+        defIn.value = 'true';
+      } else if (t === 'speed') {
+        defIn.value = '1.0';
+        if (minIn) minIn.value = '0.1';
+        if (maxIn) maxIn.value = '10';
+      } else if (t === 'text') {
+        defIn.value = 'Nominal';
+      } else if (t === 'enum') {
+        if (optIn && !optIn.value) optIn.value = 'loop, pingpong, once';
+        defIn.value = 'loop';
+      } else {
+        defIn.value = '50';
+        if (minIn) minIn.value = '0';
+        if (maxIn) maxIn.value = '100';
+      }
+    }
+  },
+
+  open(groupId, existingMapping = null, statusMsgEl = null) {
+    this._ensureBound();
+    this.activeGroupId = groupId;
+    this.originalAlias = existingMapping ? existingMapping.alias : null;
+    this.statusMsgEl = statusMsgEl || null;
+    this.targetRows = [];
+
+    const grp = this._getGroup();
+    if (!grp) return;
+
+    const modal = document.getElementById('groupMappingModal');
+    const titleEl = document.getElementById('groupMappingModalTitle');
+    const grpNameEl = document.getElementById('groupMappingModalGroupName');
+    const aliasIn = document.getElementById('gmModalAliasInput');
+    const labelIn = document.getElementById('gmModalLabelInput');
+    const descIn = document.getElementById('gmModalDescInput');
+    const typeSel = document.getElementById('gmModalTypeSelect');
+    const defIn = document.getElementById('gmModalDefaultInput');
+    const defCol = document.getElementById('gmModalDefaultColorPicker');
+    const minIn = document.getElementById('gmModalMinInput');
+    const maxIn = document.getElementById('gmModalMaxInput');
+    const optIn = document.getElementById('gmModalOptionsInput');
+    const targetsListEl = document.getElementById('gmModalTargetsList');
+
+    if (titleEl) {
+      titleEl.textContent = existingMapping
+        ? `✏️ Edit Semantic Group Property Mapping ("${existingMapping.alias}")`
+        : '🔗 Add Semantic Group Property Mapping';
+    }
+    if (grpNameEl) grpNameEl.textContent = grp.name || grp.id;
+    if (targetsListEl) targetsListEl.innerHTML = '';
+
+    if (existingMapping) {
+      if (aliasIn) aliasIn.value = existingMapping.alias || '';
+      if (labelIn) labelIn.value = existingMapping.label || existingMapping.alias || '';
+      if (descIn) descIn.value = existingMapping.description || '';
+      if (typeSel) typeSel.value = existingMapping.type || 'number';
+      this._syncTypeControls(false);
+      if (defIn) defIn.value = existingMapping.default !== undefined && existingMapping.default !== null ? String(existingMapping.default) : '';
+      if (defCol && existingMapping.type === 'color' && typeof existingMapping.default === 'string' && existingMapping.default.startsWith('#')) {
+        defCol.value = existingMapping.default;
+      }
+      if (minIn) minIn.value = (existingMapping.min !== undefined && existingMapping.min !== null) ? String(existingMapping.min) : '';
+      if (maxIn) maxIn.value = (existingMapping.max !== undefined && existingMapping.max !== null) ? String(existingMapping.max) : '';
+      if (optIn) optIn.value = Array.isArray(existingMapping.options) ? existingMapping.options.join(', ') : '';
+      const existingTargets = Array.isArray(existingMapping.targets) ? existingMapping.targets : [];
+      if (existingTargets.length > 0) {
+        existingTargets.forEach((t) => {
+          const mType = t.memberType || (t.target ? t.target.split('-')[0] : '');
+          const mId = t.memberId || (t.target ? t.target.replace(/^[^-]+-/, '') : '');
+          this.addTargetRow(`${mType}:${mId}`, t.property);
+        });
+      } else {
+        this.addTargetRow();
+      }
+    } else {
+      if (aliasIn) aliasIn.value = '';
+      if (labelIn) labelIn.value = '';
+      if (descIn) descIn.value = '';
+      if (typeSel) typeSel.value = 'number';
+      if (optIn) optIn.value = '';
+      this._syncTypeControls(true);
+      this.addTargetRow();
+    }
+
+    if (modal) modal.style.display = 'flex';
+    this.validateForm();
+  },
+
+  close() {
+    const modal = document.getElementById('groupMappingModal');
+    if (modal) modal.style.display = 'none';
+    this.activeGroupId = null;
+    this.originalAlias = null;
+  },
+
+  addTargetRow(initialMemberKey = '', initialProperty = '') {
+    const grp = this._getGroup();
+    const targetsListEl = document.getElementById('gmModalTargetsList');
+    const typeSel = document.getElementById('gmModalTypeSelect');
+    if (!grp || !targetsListEl) return null;
+    const members = Array.isArray(grp.members) ? grp.members : [];
+    if (members.length === 0) return null;
+
+    const row = document.createElement('div');
+    row.className = 'gm-target-row';
+    row.style.cssText = 'display: grid; grid-template-columns: 1.3fr 1.3fr auto; gap: 8px; align-items: center; background: #0d1117; border: 1px solid #30363d; border-radius: 6px; padding: 8px 10px;';
+
+    const memWrap = document.createElement('div');
+    const memLbl = document.createElement('label');
+    memLbl.style.cssText = 'display: block; font-size: 0.68rem; color: #8b949e; margin-bottom: 2px;';
+    memLbl.textContent = 'Target Group Member';
+    const memSel = document.createElement('select');
+    memSel.className = 'gm-member-sel';
+    memSel.style.cssText = 'width: 100%; padding: 5px 7px; background: #161b22; border: 1px solid #30363d; color: #e6edf3; border-radius: 4px; font-size: 0.76rem;';
+    members.forEach((m, idx) => {
+      const opt = document.createElement('option');
+      const key = `${m.type}:${m.id}`;
+      opt.value = key;
+      opt.textContent = getGroupMemberDisplayLabel(m);
+      if (initialMemberKey ? key === initialMemberKey : idx === (this.targetRows.length % members.length)) {
+        opt.selected = true;
+      }
+      memSel.appendChild(opt);
+    });
+    memWrap.appendChild(memLbl);
+    memWrap.appendChild(memSel);
+
+    const propWrap = document.createElement('div');
+    const propLbl = document.createElement('label');
+    propLbl.style.cssText = 'display: block; font-size: 0.68rem; color: #8b949e; margin-bottom: 2px;';
+    propLbl.textContent = 'Target Property (Compatibility Filtered)';
+    const propSel = document.createElement('select');
+    propSel.className = 'gm-prop-sel';
+    propSel.style.cssText = 'width: 100%; padding: 5px 7px; background: #161b22; border: 1px solid #30363d; color: #e6edf3; border-radius: 4px; font-size: 0.76rem;';
+    const propHint = document.createElement('div');
+    propHint.className = 'gm-prop-hint';
+    propHint.style.cssText = 'font-size: 0.68rem; color: #8b949e; margin-top: 3px;';
+    propWrap.appendChild(propLbl);
+    propWrap.appendChild(propSel);
+    propWrap.appendChild(propHint);
+
+    const populateProps = (preserveCurrent) => {
+      const [mType, mId] = (memSel.value || '').split(':');
+      const mKindType = (typeSel && typeSel.value) ? typeSel.value : 'number';
+      const supportedProps = getSupportedPropertiesForMember(mType, mId);
+      const prevVal = preserveCurrent ? propSel.value : initialProperty;
+      propSel.innerHTML = '';
+
+      let firstCompatibleVal = '';
+      let compatibleCount = 0;
+
+      supportedProps.forEach((p) => {
+        const compatible = (p.type === mKindType) || (mKindType === 'number' && p.type === 'text');
+        const opt = document.createElement('option');
+        opt.value = p.prop;
+        if (compatible) {
+          compatibleCount++;
+          if (!firstCompatibleVal) firstCompatibleVal = p.prop;
+          const convNote = (mKindType === 'number' && p.type === 'text') ? ' [number→text readout]' : '';
+          const rangeNote = (p.min !== undefined || p.max !== undefined) ? ` [${p.min ?? '−∞'}..${p.max ?? '+∞'}]` : '';
+          opt.textContent = `✓ ${p.prop} — ${p.label} (${p.type}${rangeNote}${convNote})`;
+        } else {
+          opt.disabled = true;
+          opt.textContent = `✕ ${p.prop} (${p.type} — requires ${p.type}, incompatible with ${mKindType})`;
+        }
+        propSel.appendChild(opt);
+      });
+
+      if (compatibleCount === 0) {
+        const emptyOpt = document.createElement('option');
+        emptyOpt.value = '';
+        emptyOpt.textContent = `No properties on ${mType} #${mId} accept type "${mKindType}"`;
+        propSel.appendChild(emptyOpt);
+        propSel.value = '';
+        propHint.style.color = '#f85149';
+        propHint.textContent = `⚠️ This member has no properties compatible with "${mKindType}". Choose another member or change Parameter Type.`;
+      } else {
+        const canSelectPrev = prevVal && Array.from(propSel.options).some((o) => o.value === prevVal && !o.disabled);
+        propSel.value = canSelectPrev ? prevVal : firstCompatibleVal;
+        const selectedDef = supportedProps.find((p) => p.prop === propSel.value);
+        if (selectedDef) {
+          propHint.style.color = '#8b949e';
+          if (mKindType === 'number' && selectedDef.type === 'text') {
+            propHint.textContent = `ℹ️ Numeric value converts automatically to text readout on ${mType}-${mId}.${selectedDef.prop}.`;
+          } else if (selectedDef.min !== undefined || selectedDef.max !== undefined) {
+            propHint.textContent = `ℹ️ Target domain constraint: ${selectedDef.min ?? '−∞'} to ${selectedDef.max ?? '+∞'}.`;
+          } else if (Array.isArray(selectedDef.options)) {
+            propHint.textContent = `ℹ️ Allowed target options: ${selectedDef.options.join(', ')}.`;
+          } else {
+            propHint.textContent = selectedDef.desc || '';
+          }
+        }
+      }
+    };
+
+    memSel.addEventListener('change', () => {
+      populateProps(false);
+      this.validateForm();
+    });
+    propSel.addEventListener('change', () => {
+      populateProps(true);
+      this.validateForm();
+    });
+
+    populateProps(false);
+
+    const remBtn = document.createElement('button');
+    remBtn.type = 'button';
+    remBtn.className = 'gm-remove-target-btn';
+    remBtn.style.cssText = 'background: #21262d; border: 1px solid #30363d; color: #f85149; cursor: pointer; font-size: 0.78rem; padding: 5px 8px; border-radius: 4px; align-self: start; margin-top: 16px;';
+    remBtn.textContent = '✕ Remove';
+    remBtn.title = 'Remove this target binding';
+
+    const rowRef = { row, memSel, propSel, propHint, populateProps };
+    this.targetRows.push(rowRef);
+
+    remBtn.addEventListener('click', () => {
+      if (this.targetRows.length <= 1) {
+        this.validateForm('A semantic mapping must have at least one target binding.');
+        return;
+      }
+      const idx = this.targetRows.indexOf(rowRef);
+      if (idx >= 0) this.targetRows.splice(idx, 1);
+      if (typeof row.remove === 'function') row.remove();
+      else if (row.parentNode) row.parentNode.removeChild(row);
+      this.validateForm();
+    });
+
+    row.appendChild(memWrap);
+    row.appendChild(propWrap);
+    row.appendChild(remBtn);
+    targetsListEl.appendChild(row);
+    return rowRef;
+  },
+
+  buildCandidatePayload() {
+    const aliasIn = document.getElementById('gmModalAliasInput');
+    const labelIn = document.getElementById('gmModalLabelInput');
+    const descIn = document.getElementById('gmModalDescInput');
+    const typeSel = document.getElementById('gmModalTypeSelect');
+    const defIn = document.getElementById('gmModalDefaultInput');
+    const minIn = document.getElementById('gmModalMinInput');
+    const maxIn = document.getElementById('gmModalMaxInput');
+    const optIn = document.getElementById('gmModalOptionsInput');
+
+    const alias = (aliasIn && aliasIn.value ? aliasIn.value : '').trim();
+    const label = (labelIn && labelIn.value ? labelIn.value : '').trim() || alias;
+    const description = (descIn && descIn.value ? descIn.value : '').trim();
+    const mType = (typeSel && typeSel.value) ? typeSel.value : 'number';
+    const rawDef = (defIn && defIn.value !== undefined) ? String(defIn.value).trim() : '';
+
+    let defVal = rawDef;
+    if (mType === 'number' || mType === 'speed') {
+      defVal = rawDef === '' ? NaN : Number(rawDef);
+    } else if (mType === 'boolean') {
+      defVal = (rawDef.toLowerCase() === 'true' || rawDef === '1');
+    }
+
+    const payload = {
+      alias,
+      label,
+      description,
+      type: mType,
+      default: defVal,
+      targets: []
+    };
+
+    if (mType === 'number' || mType === 'speed') {
+      const minStr = (minIn && minIn.value !== undefined) ? String(minIn.value).trim() : '';
+      const maxStr = (maxIn && maxIn.value !== undefined) ? String(maxIn.value).trim() : '';
+      if (minStr !== '') payload.min = Number(minStr);
+      if (maxStr !== '') payload.max = Number(maxStr);
+    } else if (mType === 'enum') {
+      const rawOpts = (optIn && optIn.value) ? optIn.value : '';
+      payload.options = rawOpts.split(',').map((s) => s.trim()).filter(Boolean);
+    }
+
+    this.targetRows.forEach((ref) => {
+      const mVal = ref.memSel ? ref.memSel.value : '';
+      const pVal = ref.propSel ? ref.propSel.value : '';
+      if (mVal) {
+        const [mTypeStr, mIdStr] = mVal.split(':');
+        payload.targets.push({
+          memberType: mTypeStr,
+          memberId: mIdStr,
+          target: mIdStr.startsWith(mTypeStr + '-') ? mIdStr : `${mTypeStr}-${mIdStr}`,
+          property: pVal
+        });
+      }
+    });
+
+    return payload;
+  },
+
+  validateCandidate(payload) {
+    const grp = this._getGroup();
+    if (!grp) return { valid: false, errors: ['Active group no longer exists in scene.'] };
+
+    const errors = [];
+    const alias = payload.alias;
+    const reAlias = /^[a-zA-Z][a-zA-Z0-9_-]{0,47}$/;
+    const reserved = ['opacity', 'visibility', 'speed', 'playbackrate', 'state', 'operatingstate'];
+
+    // 1. Unique & valid semantic alias
+    if (!alias) {
+      errors.push('Semantic Alias is required (e.g. cpu, status-color, headline).');
+    } else if (!reAlias.test(alias)) {
+      errors.push(`Invalid alias "${alias}": must start with a letter and contain only letters, digits, underscores, or hyphens (max 48 chars).`);
+    } else if (reserved.includes(alias.toLowerCase())) {
+      errors.push(`Alias "${alias}" is reserved for built-in group properties.`);
+    } else {
+      const existingMappings = Array.isArray(grp.mappings) ? grp.mappings : [];
+      const collision = existingMappings.find((m) => m.alias.toLowerCase() === alias.toLowerCase() && (!this.originalAlias || m.alias.toLowerCase() !== this.originalAlias.toLowerCase()));
+      if (collision) {
+        errors.push(`Alias "${alias}" is already defined on group "${grp.name || grp.id}".`);
+      }
+    }
+
+    // 2. Valid declared type
+    const validTypes = ['number', 'color', 'text', 'boolean', 'speed', 'enum'];
+    if (!validTypes.includes(payload.type)) {
+      errors.push(`Unsupported parameter type "${payload.type}".`);
+    }
+
+    // 3 & 4. Default value and numeric/enum constraints
+    if (payload.type === 'number' || payload.type === 'speed') {
+      if (typeof payload.default !== 'number' || !Number.isFinite(payload.default)) {
+        errors.push('Default value must be a valid finite number.');
+      }
+      if (payload.min !== undefined && !Number.isFinite(payload.min)) {
+        errors.push('Min bound must be a valid number.');
+      }
+      if (payload.max !== undefined && !Number.isFinite(payload.max)) {
+        errors.push('Max bound must be a valid number.');
+      }
+      if (Number.isFinite(payload.min) && Number.isFinite(payload.max) && payload.min > payload.max) {
+        errors.push(`Min bound (${payload.min}) cannot be greater than Max bound (${payload.max}).`);
+      }
+      if (Number.isFinite(payload.default)) {
+        if (Number.isFinite(payload.min) && payload.default < payload.min) {
+          errors.push(`Default value (${payload.default}) cannot be less than Min bound (${payload.min}).`);
+        }
+        if (Number.isFinite(payload.max) && payload.default > payload.max) {
+          errors.push(`Default value (${payload.default}) cannot be greater than Max bound (${payload.max}).`);
+        }
+      }
+    } else if (payload.type === 'color') {
+      const reCol = /^(#[0-9a-fA-F]{3,8}|rgba?\([^)]+\)|hsla?\([^)]+\)|[a-zA-Z]{3,24})$/;
+      if (!payload.default || !reCol.test(String(payload.default).trim())) {
+        errors.push(`Default value "${payload.default}" is not a valid hex/CSS colour.`);
+      }
+    } else if (payload.type === 'enum') {
+      if (!Array.isArray(payload.options) || payload.options.length === 0) {
+        errors.push('Enum mapping must declare at least one allowed option.');
+      } else if (!payload.options.includes(String(payload.default))) {
+        errors.push(`Enum default "${payload.default}" must be one of the declared options (${payload.options.join(', ')}).`);
+      }
+    }
+
+    // 5..10. Target object membership, property existence, type conversion, compatible constraints, no duplicate bindings
+    if (!Array.isArray(payload.targets) || payload.targets.length === 0) {
+      errors.push('At least one member target binding is required.');
+    } else {
+      const members = Array.isArray(grp.members) ? grp.members : [];
+      const seenBindings = new Set();
+      payload.targets.forEach((t, idx) => {
+        const rowNum = idx + 1;
+        const inGroup = members.some((gm) => gm.type === t.memberType && String(gm.id) === String(t.memberId));
+        if (!inGroup) {
+          errors.push(`Target #${rowNum} (${t.target}) is not a member of group "${grp.name || grp.id}".`);
+          return;
+        }
+        if (!t.property) {
+          errors.push(`Target #${rowNum} (${t.target}) has no selected property.`);
+          return;
+        }
+        const bKey = `${t.target}::${t.property}`;
+        if (seenBindings.has(bKey)) {
+          errors.push(`Duplicate target binding "${t.target}.${t.property}" in row #${rowNum}.`);
+        }
+        seenBindings.add(bKey);
+
+        const supportedProps = getSupportedPropertiesForMember(t.memberType, t.memberId);
+        const propDef = supportedProps.find((p) => p.prop === t.property);
+        if (!propDef) {
+          errors.push(`Property "${t.property}" is not supported on member ${t.target}.`);
+          return;
+        }
+        const compatible = (propDef.type === payload.type) || (payload.type === 'number' && propDef.type === 'text');
+        if (!compatible) {
+          errors.push(`Type "${payload.type}" is incompatible with "${t.target}.${t.property}" (requires "${propDef.type}").`);
+          return;
+        }
+        if ((payload.type === 'number' || payload.type === 'speed') && propDef.type === payload.type) {
+          if (propDef.min !== undefined) {
+            if (Number.isFinite(payload.min) && payload.min < propDef.min) {
+              errors.push(`Min bound (${payload.min}) is below "${t.target}.${t.property}" minimum (${propDef.min}).`);
+            }
+            if (Number.isFinite(payload.default) && payload.default < propDef.min) {
+              errors.push(`Default (${payload.default}) is below "${t.target}.${t.property}" minimum (${propDef.min}).`);
+            }
+          }
+          if (propDef.max !== undefined) {
+            if (Number.isFinite(payload.max) && payload.max > propDef.max) {
+              errors.push(`Max bound (${payload.max}) exceeds "${t.target}.${t.property}" maximum (${propDef.max}).`);
+            }
+            if (Number.isFinite(payload.default) && payload.default > propDef.max) {
+              errors.push(`Default (${payload.default}) exceeds "${t.target}.${t.property}" maximum (${propDef.max}).`);
+            }
+          }
+        }
+        if (payload.type === 'enum' && Array.isArray(propDef.options) && propDef.options.length > 0 && Array.isArray(payload.options)) {
+          payload.options.forEach((opt) => {
+            if (!propDef.options.includes(opt)) {
+              errors.push(`Enum option "${opt}" is not supported by "${t.target}.${t.property}" (allowed: ${propDef.options.join(', ')}).`);
+            }
+          });
+        }
+      });
+    }
+
+    return { valid: errors.length === 0, errors };
+  },
+
+  validateForm(extraError = '') {
+    const grp = this._getGroup();
+    const payload = this.buildCandidatePayload();
+    const res = this.validateCandidate(payload);
+    if (extraError) {
+      res.valid = false;
+      res.errors.unshift(extraError);
+    }
+
+    const derivedEl = document.getElementById('groupMappingModalDerivedName');
+    if (derivedEl && grp) {
+      const grpName = grp.name || grp.id;
+      const cleanAlias = payload.alias || 'alias';
+      derivedEl.textContent = (window.EngineBridge && typeof window.EngineBridge.generateParameterName === 'function')
+        ? window.EngineBridge.generateParameterName(grpName, cleanAlias, 'group')
+        : `${grpName}-group-${cleanAlias}`;
+    }
+
+    const footerSum = document.getElementById('gmModalFooterSummary');
+    if (footerSum) {
+      footerSum.textContent = `${payload.targets.length} target binding(s) configured`;
+    }
+
+    const valBox = document.getElementById('gmModalValidationBox');
+    const saveBtn = document.getElementById('btnGroupMappingModalSave');
+    if (valBox) {
+      if (res.valid) {
+        valBox.style.borderColor = 'rgba(63, 185, 80, 0.45)';
+        valBox.style.background = 'rgba(35, 134, 54, 0.12)';
+        valBox.style.color = '#7ee787';
+        const targetList = payload.targets.map((t) => `${t.target}.${t.property}`).join(', ');
+        valBox.innerHTML = `✓ <strong>Valid Semantic Mapping:</strong> <code>${payload.alias}</code> (${payload.type}) → fans out atomically to <code>[${targetList}]</code>.`;
+      } else {
+        valBox.style.borderColor = 'rgba(248, 81, 73, 0.55)';
+        valBox.style.background = 'rgba(248, 81, 73, 0.10)';
+        valBox.style.color = '#ffa198';
+        valBox.innerHTML = `<strong>⚠️ Please resolve before saving:</strong><ul style="margin: 4px 0 0 18px; padding: 0;">${res.errors.map((e) => `<li>${e}</li>`).join('')}</ul>`;
+      }
+    }
+    if (saveBtn) {
+      saveBtn.disabled = !res.valid;
+      saveBtn.style.opacity = res.valid ? '1' : '0.45';
+      saveBtn.style.cursor = res.valid ? 'pointer' : 'not-allowed';
+    }
+    return res;
+  },
+
+  save() {
+    const grp = this._getGroup();
+    if (!grp) return false;
+    const payload = this.buildCandidatePayload();
+    const check = this.validateCandidate(payload);
+    if (!check.valid) {
+      this.validateForm();
+      return false;
+    }
+
+    if (window.EngineBridge && typeof window.EngineBridge.setGroupMapping === 'function') {
+      // If editing and alias was renamed, remove old alias first after validating new alias
+      if (this.originalAlias && this.originalAlias !== payload.alias && typeof window.EngineBridge.removeGroupMapping === 'function') {
+        const oldSnapshot = (Array.isArray(grp.mappings) ? grp.mappings : []).find((m) => m.alias === this.originalAlias);
+        window.EngineBridge.removeGroupMapping(grp.id, this.originalAlias);
+        const res = window.EngineBridge.setGroupMapping(grp.id, payload);
+        if (!res || !res.success) {
+          if (oldSnapshot) window.EngineBridge.setGroupMapping(grp.id, oldSnapshot);
+          this.validateForm((res && res.error) || 'Go engine rejected the mapping.');
+          return false;
+        }
+      } else {
+        const res = window.EngineBridge.setGroupMapping(grp.id, payload);
+        if (!res || !res.success) {
+          this.validateForm((res && res.error) || 'Go engine rejected the mapping.');
+          return false;
+        }
+      }
+
+      if (this.statusMsgEl) {
+        this.statusMsgEl.style.color = '#3fb950';
+        this.statusMsgEl.textContent = `✓ Saved group semantic mapping "${payload.alias}" (${payload.targets.length} target(s))`;
+      }
+      if (window.AppCoordinator) {
+        window.AppCoordinator.recordHistoryImmediate();
+        window.AppCoordinator.showNotification(`Saved group mapping '${payload.alias}'`, 'success');
+      }
+      this.close();
+      if (typeof window.renderWidgetParametersOverview === 'function') window.renderWidgetParametersOverview();
+      if (window.FloatingPropertiesEditor && typeof window.FloatingPropertiesEditor.syncSelection === 'function') {
+        window.FloatingPropertiesEditor.syncSelection();
+      }
+      return true;
+    }
+    return false;
+  }
+};
+
 window.renderGroupSemanticMappingsSection = function(containerEl, sel, statusMsgEl) {
   if (!containerEl || !sel || sel.type !== 'group' || !sel.id) return;
   const grp = (window.AppCoordinator && typeof window.AppCoordinator.getGroup === 'function')
@@ -3143,41 +3819,21 @@ window.renderGroupSemanticMappingsSection = function(containerEl, sel, statusMsg
   addMappingBtn.className = 'btn-floating-action btn-add-group-mapping';
   addMappingBtn.style.cssText = 'background: #238636; border: 1px solid #3fb950; color: #ffffff; font-size: 0.70rem; padding: 3px 8px; border-radius: 4px; cursor: pointer; font-weight: 600;';
   addMappingBtn.textContent = '+ Add Mapping';
+  addMappingBtn.title = 'Open the Semantic Group Property Mapping Dialog';
+  addMappingBtn.addEventListener('click', (e) => {
+    e.stopPropagation();
+    window.GroupMappingDialog.open(grp.id, null, statusMsgEl);
+  });
   titleRow.appendChild(addMappingBtn);
   secWrap.appendChild(titleRow);
 
   const mappings = Array.isArray(grp.mappings) ? grp.mappings : [];
-  const members = Array.isArray(grp.members) ? grp.members : [];
   const grpName = grp.name || grp.id;
 
-  const getMemberLabel = (m) => {
-    if (m.type === 'node' && window.DiagramNodes) {
-      const n = window.DiagramNodes.getNode(m.id);
-      if (n) return `Node #${m.id} (${n.name || n.text || n.shape || 'node'})`;
-    } else if (m.type === 'flow' && window.DataFlows) {
-      const f = window.DataFlows.getFlow(m.id);
-      if (f) return `Flow #${m.id} (${f.name || 'flow'})`;
-    } else if (m.type === 'glow' && window.Glows) {
-      const g = window.Glows.getGlow(m.id);
-      if (g) return `Glow #${m.id} (${g.name || 'glow'})`;
-    } else if (m.type === 'ripple' && window.Ripples) {
-      const r = window.Ripples.getRipple(m.id);
-      if (r) return `Ripple #${m.id} (${r.name || 'ripple'})`;
-    } else if (m.type === 'image' && window.ImageObjects) {
-      const img = window.ImageObjects.getImage(m.id);
-      if (img) return `Image ${m.id} (${img.name || img.filename || 'image'})`;
-    } else if (m.type === 'lite' && window.LiteEffects) {
-      const le = window.LiteEffects.getLiteEffect(m.id);
-      if (le) return `Lite #${m.id} (${le.name || le.kind || 'lite'})`;
-    }
-    return `${m.type} #${m.id}`;
-  };
-
-  // Existing Mappings List
   const listWrap = document.createElement('div');
   listWrap.style.cssText = 'display: flex; flex-direction: column; gap: 6px;';
   if (mappings.length === 0) {
-    listWrap.innerHTML = `<div style="font-size: 0.71rem; color: #8b949e; font-style: italic; padding: 4px 0;">No semantic mappings defined. Click "+ Add Mapping" to expose a group property that fans out to 1 or more member properties.</div>`;
+    listWrap.innerHTML = `<div style="font-size: 0.71rem; color: #8b949e; font-style: italic; padding: 4px 0;">No semantic mappings defined. Click "+ Add Mapping" to open the mapping dialog and expose a group property that fans out to 1 or more member properties.</div>`;
   } else {
     mappings.forEach((m) => {
       const mCard = document.createElement('div');
@@ -3190,7 +3846,7 @@ window.renderGroupSemanticMappingsSection = function(containerEl, sel, statusMsg
         : `${grpName}-group-${m.alias}`;
 
       const hdr = document.createElement('div');
-      hdr.style.cssText = 'display: flex; justify-content: space-between; align-items: center;';
+      hdr.style.cssText = 'display: flex; justify-content: space-between; align-items: center; gap: 6px;';
       hdr.innerHTML = `<span style="font-size: 0.74rem; color: #e6edf3;"><strong>${m.label || m.alias}</strong> <span style="color:#8b949e; font-size:0.68rem;">(${m.type})</span></span>`;
 
       const rightHdr = document.createElement('div');
@@ -3200,8 +3856,21 @@ window.renderGroupSemanticMappingsSection = function(containerEl, sel, statusMsg
       badge.textContent = paramName;
       rightHdr.appendChild(badge);
 
+      const editBtn = document.createElement('button');
+      editBtn.type = 'button';
+      editBtn.className = 'btn-edit-group-mapping';
+      editBtn.style.cssText = 'background: #21262d; border: 1px solid #30363d; color: #58a6ff; font-size: 0.66rem; padding: 1px 6px; border-radius: 3px; cursor: pointer;';
+      editBtn.textContent = '✏️ Edit';
+      editBtn.title = `Edit semantic mapping "${m.alias}"`;
+      editBtn.addEventListener('click', (ev) => {
+        ev.stopPropagation();
+        window.GroupMappingDialog.open(grp.id, m, statusMsgEl);
+      });
+      rightHdr.appendChild(editBtn);
+
       const delBtn = document.createElement('button');
       delBtn.type = 'button';
+      delBtn.className = 'btn-remove-group-mapping';
       delBtn.style.cssText = 'background: #21262d; border: 1px solid #da3633; color: #f85149; font-size: 0.66rem; padding: 1px 5px; border-radius: 3px; cursor: pointer;';
       delBtn.textContent = '✕';
       delBtn.title = `Remove semantic mapping "${m.alias}"`;
@@ -3226,314 +3895,18 @@ window.renderGroupSemanticMappingsSection = function(containerEl, sel, statusMsg
       mCard.appendChild(hdr);
 
       const targetsDesc = (Array.isArray(m.targets) ? m.targets : []).map((t) => `${t.target}.${t.property}`).join(' , ');
+      const rangeInfo = (m.type === 'number' || m.type === 'speed') && (m.min !== undefined || m.max !== undefined)
+        ? ` [${m.min ?? '−∞'}..${m.max ?? '+∞'}]`
+        : '';
       const meta = document.createElement('div');
       meta.style.cssText = 'font-size: 0.69rem; color: #8b949e; display: flex; justify-content: space-between; gap: 6px; flex-wrap: wrap;';
-      meta.innerHTML = `<span>🎯 Fan-out (${(m.targets || []).length}): <code style="color:#79c0ff;">${targetsDesc}</code></span><span>Default: <strong style="color:#e6edf3;">${m.default}</strong></span>`;
+      meta.innerHTML = `<span>🎯 Fan-out (${(m.targets || []).length}): <code style="color:#79c0ff;">${targetsDesc}</code></span><span>Default: <strong style="color:#e6edf3;">${m.default}</strong>${rangeInfo}</span>`;
       mCard.appendChild(meta);
 
       listWrap.appendChild(mCard);
     });
   }
   secWrap.appendChild(listWrap);
-
-  // Add Mapping Form (collapsible)
-  const formWrap = document.createElement('div');
-  formWrap.className = 'group-mapping-form';
-  formWrap.style.cssText = 'display: none; background: #0d1117; border: 1px solid #30363d; border-radius: 6px; padding: 8px; flex-direction: column; gap: 6px; font-size: 0.72rem;';
-
-  const formTitle = document.createElement('div');
-  formTitle.style.cssText = 'font-weight: 600; color: #e6edf3; margin-bottom: 2px;';
-  formTitle.textContent = 'New Group Semantic Mapping';
-  formWrap.appendChild(formTitle);
-
-  const row1 = document.createElement('div');
-  row1.style.cssText = 'display: grid; grid-template-columns: 1fr 1fr; gap: 6px;';
-  const aliasIn = document.createElement('input');
-  aliasIn.type = 'text';
-  aliasIn.className = 'gm-alias-in';
-  aliasIn.placeholder = 'cpu';
-  aliasIn.style.cssText = 'width:100%; padding:3px 5px; background:#161b22; border:1px solid #30363d; color:#e6edf3; border-radius:3px; font-size:0.72rem;';
-  const labelIn = document.createElement('input');
-  labelIn.type = 'text';
-  labelIn.className = 'gm-label-in';
-  labelIn.placeholder = 'CPU Load (%)';
-  labelIn.style.cssText = 'width:100%; padding:3px 5px; background:#161b22; border:1px solid #30363d; color:#e6edf3; border-radius:3px; font-size:0.72rem;';
-
-  const col1a = document.createElement('div');
-  const lbl1a = document.createElement('label');
-  lbl1a.style.cssText = 'display:block; color:#8b949e; font-size:0.68rem;';
-  lbl1a.textContent = 'Alias (e.g. cpu, status-color)';
-  col1a.appendChild(lbl1a);
-  col1a.appendChild(aliasIn);
-
-  const col1b = document.createElement('div');
-  const lbl1b = document.createElement('label');
-  lbl1b.style.cssText = 'display:block; color:#8b949e; font-size:0.68rem;';
-  lbl1b.textContent = 'Display Label';
-  col1b.appendChild(lbl1b);
-  col1b.appendChild(labelIn);
-
-  row1.appendChild(col1a);
-  row1.appendChild(col1b);
-  formWrap.appendChild(row1);
-
-  const row2 = document.createElement('div');
-  row2.style.cssText = 'display: grid; grid-template-columns: 1fr 1fr 1fr; gap: 6px;';
-
-  const typeSelEl = document.createElement('select');
-  typeSelEl.className = 'gm-type-sel';
-  typeSelEl.style.cssText = 'width:100%; padding:3px 4px; background:#161b22; border:1px solid #30363d; color:#e6edf3; border-radius:3px; font-size:0.72rem;';
-  ['number', 'color', 'text', 'boolean', 'speed'].forEach((t) => {
-    const o = document.createElement('option');
-    o.value = t;
-    o.textContent = t;
-    typeSelEl.appendChild(o);
-  });
-  const col2a = document.createElement('div');
-  const lbl2a = document.createElement('label');
-  lbl2a.style.cssText = 'display:block; color:#8b949e; font-size:0.68rem;';
-  lbl2a.textContent = 'Type';
-  col2a.appendChild(lbl2a);
-  col2a.appendChild(typeSelEl);
-
-  const defIn = document.createElement('input');
-  defIn.type = 'text';
-  defIn.className = 'gm-default-in';
-  defIn.value = '50';
-  defIn.style.cssText = 'width:100%; padding:3px 5px; background:#161b22; border:1px solid #30363d; color:#e6edf3; border-radius:3px; font-size:0.72rem;';
-  const col2b = document.createElement('div');
-  const lbl2b = document.createElement('label');
-  lbl2b.style.cssText = 'display:block; color:#8b949e; font-size:0.68rem;';
-  lbl2b.textContent = 'Default';
-  col2b.appendChild(lbl2b);
-  col2b.appendChild(defIn);
-
-  const minMaxWrap = document.createElement('div');
-  minMaxWrap.className = 'gm-minmax-wrap';
-  minMaxWrap.style.cssText = 'display:flex; gap:3px;';
-  const minIn = document.createElement('input');
-  minIn.type = 'number';
-  minIn.className = 'gm-min-in';
-  minIn.value = '0';
-  minIn.style.cssText = 'width:100%; padding:3px 3px; background:#161b22; border:1px solid #30363d; color:#e6edf3; border-radius:3px; font-size:0.72rem;';
-  const maxIn = document.createElement('input');
-  maxIn.type = 'number';
-  maxIn.className = 'gm-max-in';
-  maxIn.value = '100';
-  maxIn.style.cssText = 'width:100%; padding:3px 3px; background:#161b22; border:1px solid #30363d; color:#e6edf3; border-radius:3px; font-size:0.72rem;';
-
-  const minCol = document.createElement('div');
-  minCol.style.cssText = 'flex:1;';
-  const minLbl = document.createElement('label');
-  minLbl.style.cssText = 'display:block; color:#8b949e; font-size:0.68rem;';
-  minLbl.textContent = 'Min';
-  minCol.appendChild(minLbl);
-  minCol.appendChild(minIn);
-
-  const maxCol = document.createElement('div');
-  maxCol.style.cssText = 'flex:1;';
-  const maxLbl = document.createElement('label');
-  maxLbl.style.cssText = 'display:block; color:#8b949e; font-size:0.68rem;';
-  maxLbl.textContent = 'Max';
-  maxCol.appendChild(maxLbl);
-  maxCol.appendChild(maxIn);
-
-  minMaxWrap.appendChild(minCol);
-  minMaxWrap.appendChild(maxCol);
-
-  row2.appendChild(col2a);
-  row2.appendChild(col2b);
-  row2.appendChild(minMaxWrap);
-  formWrap.appendChild(row2);
-
-  const targetsSec = document.createElement('div');
-  const targetsHdr = document.createElement('div');
-  targetsHdr.style.cssText = 'display:flex; justify-content:space-between; align-items:center; margin-bottom:4px;';
-  const targetsLbl = document.createElement('label');
-  targetsLbl.style.cssText = 'color:#8b949e; font-size:0.68rem;';
-  targetsLbl.textContent = 'Mapped Member Targets (1..N fan-out)';
-  const addTargetBtn = document.createElement('button');
-  addTargetBtn.type = 'button';
-  addTargetBtn.className = 'gm-add-target-btn';
-  addTargetBtn.style.cssText = 'background:#21262d; border:1px solid #30363d; color:#58a6ff; font-size:0.66rem; padding:1px 6px; border-radius:3px; cursor:pointer;';
-  addTargetBtn.textContent = '+ Target';
-  targetsHdr.appendChild(targetsLbl);
-  targetsHdr.appendChild(addTargetBtn);
-
-  const targetsListEl = document.createElement('div');
-  targetsListEl.className = 'gm-targets-list';
-  targetsListEl.style.cssText = 'display:flex; flex-direction:column; gap:4px;';
-  targetsSec.appendChild(targetsHdr);
-  targetsSec.appendChild(targetsListEl);
-  formWrap.appendChild(targetsSec);
-
-  const actionsRow = document.createElement('div');
-  actionsRow.style.cssText = 'display:flex; justify-content:flex-end; gap:6px; margin-top:4px;';
-  const cancelBtn = document.createElement('button');
-  cancelBtn.type = 'button';
-  cancelBtn.className = 'gm-cancel-btn';
-  cancelBtn.style.cssText = 'background:#21262d; border:1px solid #30363d; color:#c9d1d9; font-size:0.70rem; padding:3px 8px; border-radius:4px; cursor:pointer;';
-  cancelBtn.textContent = 'Cancel';
-  const saveBtn = document.createElement('button');
-  saveBtn.type = 'button';
-  saveBtn.className = 'gm-save-btn';
-  saveBtn.style.cssText = 'background:#238636; border:1px solid #3fb950; color:#ffffff; font-size:0.70rem; padding:3px 10px; border-radius:4px; cursor:pointer; font-weight:600;';
-  saveBtn.textContent = 'Save Mapping';
-  actionsRow.appendChild(cancelBtn);
-  actionsRow.appendChild(saveBtn);
-  formWrap.appendChild(actionsRow);
-
-  const targetRowRefs = [];
-
-  const addTargetRow = () => {
-    if (!targetsListEl || members.length === 0) return;
-    const row = document.createElement('div');
-    row.className = 'gm-target-row';
-    row.style.cssText = 'display: flex; gap: 4px; align-items: center;';
-
-    const memSel = document.createElement('select');
-    memSel.className = 'gm-member-sel';
-    memSel.style.cssText = 'flex: 1.3; padding: 2px 4px; background: #161b22; border: 1px solid #30363d; color: #e6edf3; border-radius: 3px; font-size: 0.70rem;';
-    members.forEach((m, idx) => {
-      const opt = document.createElement('option');
-      opt.value = `${m.type}:${m.id}`;
-      opt.textContent = getMemberLabel(m);
-      if (idx === 0) opt.selected = true;
-      memSel.appendChild(opt);
-    });
-
-    const propSel = document.createElement('select');
-    propSel.className = 'gm-prop-sel';
-    propSel.style.cssText = 'flex: 1; padding: 2px 4px; background: #161b22; border: 1px solid #30363d; color: #e6edf3; border-radius: 3px; font-size: 0.70rem;';
-
-    const populateProps = () => {
-      const [mType] = (memSel.value || '').split(':');
-      const mKindType = typeSelEl ? typeSelEl.value : 'number';
-      const allProps = getDrawerWidgetPropDefs(mType) || [];
-      propSel.innerHTML = '';
-      allProps.forEach((p) => {
-        const compatible = (p.type === mKindType) || (mKindType === 'number' && p.type === 'text');
-        if (compatible) {
-          const opt = document.createElement('option');
-          opt.value = p.prop;
-          opt.textContent = `${p.prop} (${p.type})`;
-          propSel.appendChild(opt);
-        }
-      });
-    };
-
-    memSel.addEventListener('change', populateProps);
-    populateProps();
-
-    const rowRef = { row, memSel, propSel, populateProps };
-    targetRowRefs.push(rowRef);
-
-    const remBtn = document.createElement('button');
-    remBtn.type = 'button';
-    remBtn.style.cssText = 'background:none; border:none; color:#f85149; cursor:pointer; font-size:0.8rem; padding:0 3px;';
-    remBtn.textContent = '✕';
-    remBtn.addEventListener('click', () => {
-      if (targetRowRefs.length > 1) {
-        const idx = targetRowRefs.indexOf(rowRef);
-        if (idx >= 0) targetRowRefs.splice(idx, 1);
-        if (typeof row.remove === 'function') row.remove();
-        else if (row.parentNode) row.parentNode.removeChild(row);
-      }
-    });
-
-    row.appendChild(memSel);
-    row.appendChild(propSel);
-    row.appendChild(remBtn);
-    targetsListEl.appendChild(row);
-  };
-
-  typeSelEl.addEventListener('change', () => {
-    const t = typeSelEl.value;
-    if (minMaxWrap) {
-      minMaxWrap.style.display = (t === 'number' || t === 'speed') ? 'flex' : 'none';
-    }
-    if (t === 'color') defIn.value = '#38bdf8';
-    else if (t === 'boolean') defIn.value = 'true';
-    else if (t === 'speed') defIn.value = '1.0';
-    else if (t === 'text') defIn.value = 'OK';
-    else defIn.value = '50';
-    targetRowRefs.forEach((r) => r.populateProps());
-  });
-
-  addTargetBtn.addEventListener('click', addTargetRow);
-  addMappingBtn.addEventListener('click', () => {
-    formWrap.style.display = 'flex';
-    if (targetRowRefs.length === 0) addTargetRow();
-  });
-  cancelBtn.addEventListener('click', () => {
-    formWrap.style.display = 'none';
-  });
-
-  saveBtn.addEventListener('click', () => {
-    const alias = (aliasIn.value || '').trim();
-    const label = (labelIn.value || '').trim() || alias;
-    const mType = typeSelEl.value;
-    const rawDef = defIn.value;
-    let defVal = rawDef;
-    if (mType === 'number' || mType === 'speed') defVal = parseFloat(rawDef) || 0;
-    else if (mType === 'boolean') defVal = (rawDef === 'true' || rawDef === '1');
-
-    const targets = [];
-    targetRowRefs.forEach((ref) => {
-      const mVal = ref.memSel.value;
-      const pVal = ref.propSel.value;
-      if (mVal && pVal) {
-        const [mTypeStr, mIdStr] = mVal.split(':');
-        targets.push({
-          memberType: mTypeStr,
-          memberId: mIdStr,
-          target: mIdStr.startsWith(mTypeStr + '-') ? mIdStr : `${mTypeStr}-${mIdStr}`,
-          property: pVal
-        });
-      }
-    });
-
-    const mappingPayload = {
-      alias,
-      label,
-      type: mType,
-      default: defVal,
-      targets
-    };
-    if (mType === 'number' || mType === 'speed') {
-      const minV = parseFloat(minIn.value);
-      const maxV = parseFloat(maxIn.value);
-      if (!isNaN(minV)) mappingPayload.min = minV;
-      if (!isNaN(maxV)) mappingPayload.max = maxV;
-    }
-
-    if (window.EngineBridge && typeof window.EngineBridge.setGroupMapping === 'function') {
-      const res = window.EngineBridge.setGroupMapping(grp.id, mappingPayload);
-      if (res && res.success) {
-        if (statusMsgEl) {
-          statusMsgEl.style.color = '#3fb950';
-          statusMsgEl.textContent = `✓ Saved group semantic mapping "${alias}" (${targets.length} target(s))`;
-        }
-        if (window.AppCoordinator) {
-          window.AppCoordinator.recordHistoryImmediate();
-          window.AppCoordinator.showNotification(`Saved group mapping '${alias}'`, 'success');
-        }
-        if (typeof window.renderWidgetParametersOverview === 'function') window.renderWidgetParametersOverview();
-        if (window.FloatingPropertiesEditor && typeof window.FloatingPropertiesEditor.syncSelection === 'function') {
-          window.FloatingPropertiesEditor.syncSelection();
-        }
-      } else {
-        const err = (res && res.error) || 'Failed to save group mapping';
-        if (statusMsgEl) {
-          statusMsgEl.style.color = '#f85149';
-          statusMsgEl.textContent = err;
-        }
-        alert(`Could not save group mapping: ${err}`);
-      }
-    }
-  });
-
-  secWrap.appendChild(formWrap);
   containerEl.appendChild(secWrap);
 };
 
@@ -3614,82 +3987,83 @@ window.initDrawerWidgetEvents = function() {
   }
 
   // Whole Widget Controls (Global)
+  const toggleGlobalParam = (propMatchers, createDef, friendlyName) => {
+    if (!window.EngineBridge || typeof window.EngineBridge.addWidgetParameter !== 'function') return;
+    const allP = (typeof window.EngineBridge.getWidgetParameters === 'function')
+      ? (window.EngineBridge.getWidgetParameters() || [])
+      : [];
+    const existing = allP.find((p) => {
+      const t = (p.Target || p.target || '').toLowerCase();
+      const pr = (p.Property || p.property || '');
+      return (t === 'root' || t === 'global' || t === '') && propMatchers.includes(pr);
+    });
+    if (existing) {
+      const pName = existing.Name || existing.name;
+      if (typeof window.EngineBridge.removeWidgetParameter === 'function') {
+        window.EngineBridge.removeWidgetParameter(pName);
+        if (window.AppCoordinator) {
+          window.AppCoordinator.recordHistoryImmediate();
+          window.AppCoordinator.showNotification(`Removed global parameter "${pName}"`, 'info');
+        }
+        window.renderWidgetParametersOverview();
+      }
+      return;
+    }
+    const res = window.EngineBridge.addWidgetParameter(createDef);
+    if (res && (!res.error || res.success !== false)) {
+      if (window.AppCoordinator) {
+        window.AppCoordinator.recordHistoryImmediate();
+        window.AppCoordinator.showNotification(`Added global parameter "${friendlyName}"`, 'success');
+      }
+      window.renderWidgetParametersOverview();
+    } else {
+      alert('Failed to add parameter: ' + ((res && res.error) || window.EngineBridge.getLastError()));
+    }
+  };
+
   const btnAddSpeed = document.getElementById('btnAddGlobalSpeedParam');
   if (btnAddSpeed) {
     btnAddSpeed.addEventListener('click', () => {
-      if (window.EngineBridge && typeof window.EngineBridge.addWidgetParameter === 'function') {
-        const res = window.EngineBridge.addWidgetParameter({
-          name: 'playbackRate',
-          target: 'root',
-          property: 'playbackRate',
-          type: 'speed',
-          default: 1.0,
-          min: 0.1,
-          max: 5.0,
-          step: 0.1,
-          description: 'Global widget animation playback speed (instance-wide clock)'
-        });
-        if (res && (!res.error || res.success !== false)) {
-          if (window.AppCoordinator) {
-            window.AppCoordinator.recordHistoryImmediate();
-            window.AppCoordinator.showNotification('Added global parameter "playbackRate"', 'success');
-          }
-          window.renderWidgetParametersOverview();
-        } else {
-          alert('Failed to add parameter: ' + ((res && res.error) || window.EngineBridge.getLastError()));
-        }
-      }
+      toggleGlobalParam(['playbackRate', 'speed'], {
+        name: 'playbackRate',
+        target: 'root',
+        property: 'playbackRate',
+        type: 'speed',
+        default: 1.0,
+        min: 0.1,
+        max: 5.0,
+        step: 0.1,
+        description: 'Global widget animation playback speed (instance-wide clock)'
+      }, 'playbackRate');
     });
   }
 
   const btnAddVis = document.getElementById('btnAddGlobalVisParam');
   if (btnAddVis) {
     btnAddVis.addEventListener('click', () => {
-      if (window.EngineBridge && typeof window.EngineBridge.addWidgetParameter === 'function') {
-        const res = window.EngineBridge.addWidgetParameter({
-          name: 'widgetVisible',
-          target: 'root',
-          property: 'visibility',
-          type: 'boolean',
-          default: true,
-          description: 'Master visibility toggle for entire widget instance'
-        });
-        if (res && (!res.error || res.success !== false)) {
-          if (window.AppCoordinator) {
-            window.AppCoordinator.recordHistoryImmediate();
-            window.AppCoordinator.showNotification('Added global parameter "widgetVisible"', 'success');
-          }
-          window.renderWidgetParametersOverview();
-        } else {
-          alert('Failed to add parameter: ' + ((res && res.error) || window.EngineBridge.getLastError()));
-        }
-      }
+      toggleGlobalParam(['visibility'], {
+        name: 'widgetVisible',
+        target: 'root',
+        property: 'visibility',
+        type: 'boolean',
+        default: true,
+        description: 'Master visibility toggle for entire widget instance'
+      }, 'widgetVisible');
     });
   }
 
   const btnAddState = document.getElementById('btnAddGlobalStateParam');
   if (btnAddState) {
     btnAddState.addEventListener('click', () => {
-      if (window.EngineBridge && typeof window.EngineBridge.addWidgetParameter === 'function') {
-        const res = window.EngineBridge.addWidgetParameter({
-          name: 'operatingState',
-          target: 'root',
-          property: 'state',
-          type: 'enum',
-          default: 'running',
-          options: ['running', 'paused', 'stopped'],
-          description: 'Operating lifecycle state control (running, paused, stopped)'
-        });
-        if (res && (!res.error || res.success !== false)) {
-          if (window.AppCoordinator) {
-            window.AppCoordinator.recordHistoryImmediate();
-            window.AppCoordinator.showNotification('Added global parameter "operatingState"', 'success');
-          }
-          window.renderWidgetParametersOverview();
-        } else {
-          alert('Failed to add parameter: ' + ((res && res.error) || window.EngineBridge.getLastError()));
-        }
-      }
+      toggleGlobalParam(['operatingState', 'state'], {
+        name: 'operatingState',
+        target: 'root',
+        property: 'operatingState',
+        type: 'enum',
+        default: 'running',
+        options: ['running', 'paused', 'stopped'],
+        description: 'Operating lifecycle state control (running, paused, stopped)'
+      }, 'operatingState');
     });
   }
 };
@@ -3765,6 +4139,26 @@ window.renderWidgetParametersOverview = function(selectionPayload) {
   updateSidebarBtn('btnGlowExposeWidget', 'glow');
   updateSidebarBtn('btnRippleExposeWidget', 'ripple');
   updateSidebarBtn('btnLiteExposeWidget', 'lite');
+
+  // Update Whole Widget Global Buttons badge state
+  const updateGlobalBtnState = (btnId, propMatchers) => {
+    const btn = document.getElementById(btnId);
+    if (!btn) return;
+    const isBound = params.some((p) => {
+      const t = (p.Target || p.target || '').toLowerCase();
+      const pr = (p.Property || p.property || '');
+      return (t === 'root' || t === 'global' || t === '') && propMatchers.includes(pr);
+    });
+    const statusSpan = btn.querySelector('span:last-child');
+    if (statusSpan) {
+      statusSpan.textContent = isBound ? '✓ Bound (Click to remove)' : '+ Add';
+      statusSpan.style.color = isBound ? '#58a6ff' : '#7ee787';
+    }
+    btn.style.borderColor = isBound ? '#388bfd' : '#30363d';
+  };
+  updateGlobalBtnState('btnAddGlobalSpeedParam', ['playbackRate', 'speed']);
+  updateGlobalBtnState('btnAddGlobalVisParam', ['visibility']);
+  updateGlobalBtnState('btnAddGlobalStateParam', ['operatingState', 'state']);
 
   // Synchronize Right Drawer Inline Parameter Authoring Deck
   const drawerNoSel = document.getElementById('drawerWidgetNoSelection');
@@ -3951,6 +4345,18 @@ window.renderWidgetParametersOverview = function(selectionPayload) {
             if (window.AppCoordinator && typeof window.AppCoordinator.selectGroup === 'function') {
               window.AppCoordinator.selectGroup(target);
             }
+            if (Array.isArray(param.targets) && param.targets.length > 0 && window.GroupMappingDialog) {
+              const grp = (window.AppCoordinator && typeof window.AppCoordinator.getGroup === 'function')
+                ? window.AppCoordinator.getGroup(target)
+                : null;
+              const existingMap = (grp && Array.isArray(grp.mappings))
+                ? grp.mappings.find((m) => m.alias === param.property)
+                : null;
+              if (existingMap) {
+                window.GroupMappingDialog.open(target, existingMap, document.getElementById('drawerWidgetStatusMsg'));
+                return;
+              }
+            }
           } else {
             const objId = parseInt(parts[1], 10);
             if (window.AppCoordinator && typeof window.AppCoordinator.selectObject === 'function') {
@@ -4058,6 +4464,48 @@ window.renderWidgetParametersOverview = function(selectionPayload) {
           }
         });
         return;
+      }
+      const isGlobalRoot = !param.target || param.target === 'root' || param.target === 'global' || param.target === 'svg';
+      if (isGlobalRoot) {
+        if (param.property === 'operatingState' || param.property === 'state') {
+          const st = String(val || 'running');
+          svgEl.setAttribute('data-state', st);
+          svgContainer.setAttribute('data-state', st);
+          const paused = (st === 'paused' || st === 'stopped');
+          if (st === 'stopped' && typeof svgEl.setCurrentTime === 'function') {
+            try { svgEl.setCurrentTime(0); } catch (_) {}
+          }
+          if (paused && typeof svgEl.pauseAnimations === 'function') {
+            try { svgEl.pauseAnimations(); } catch (_) {}
+          } else if (!paused && typeof svgEl.unpauseAnimations === 'function') {
+            try { svgEl.unpauseAnimations(); } catch (_) {}
+          }
+          if (typeof svgEl.getAnimations === 'function') {
+            try {
+              svgEl.getAnimations({ subtree: true }).forEach((a) => {
+                try { if (paused) a.pause(); else a.play(); } catch (_) {}
+              });
+            } catch (_) {}
+          }
+          svgEl.querySelectorAll('.lite-payload, .lite-flow-seg, .lite-osc-wave, .lite-text-element').forEach((n) => {
+            if (n.style) n.style.animationPlayState = paused ? 'paused' : 'running';
+          });
+          return;
+        }
+        if (param.property === 'playbackRate' || param.property === 'speed') {
+          const rate = Math.max(0.1, parseFloat(val) || 1.0);
+          svgEl.setAttribute('data-master-speed', String(rate));
+          if (window.SVGWidget && typeof window.SVGWidget.applyPropertyToElement === 'function') {
+            window.SVGWidget.applyPropertyToElement(svgEl, 'speed', rate, Object.assign({}, param, { target: 'svg-root' }), null);
+          }
+          return;
+        }
+        if (param.property === 'visibility') {
+          const isVis = val !== false && val !== 'hidden' && val !== 0 && val !== '0';
+          svgEl.style.visibility = isVis ? 'visible' : 'hidden';
+          svgEl.setAttribute('visibility', isVis ? 'visible' : 'hidden');
+          return;
+        }
       }
       const targetEl = (window.SVGWidget && typeof window.SVGWidget.resolveTargetElement === 'function')
         ? window.SVGWidget.resolveTargetElement(svgEl, null, param.target)

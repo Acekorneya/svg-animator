@@ -97,6 +97,20 @@ func run() int {
 			window.ProjectManager.resetToNewProject();
 			window.EngineBridge.setWidgetParameters([]);
 
+			// 1. Pure Low-Load Effects Grouping & Toolbar Verification
+			const pureL1 = window.LiteEffects.createLiteEffect({ kind: 'gauge-lite', variant: 'ring', name: 'PureGauge', x: 180, y: 180, width: 100, height: 100, value: 45 });
+			const pureL2 = window.LiteEffects.createLiteEffect({ kind: 'radar-lite', variant: 'multi', name: 'PureRadar', x: 320, y: 180, width: 100, height: 100 });
+			window.AppCoordinator.setMultiSelection([
+				{ type: 'lite', id: String(pureL1.id) },
+				{ type: 'lite', id: String(pureL2.id) }
+			]);
+			window.DiagramNodes.updateMultiSelectToolbar();
+			const liteToolbarVis = document.getElementById('liteMultiSelectToolbar')?.style.display !== 'none';
+			const pureGrp = window.AppCoordinator.createGroupFromSelection('pure-lite-grp');
+			const pureGrpOk = Boolean(pureGrp && pureGrp.members && pureGrp.members.length === 2);
+			window.AppCoordinator.ungroupSelectedGroup();
+
+			// 2. Mixed Group Creation (Nodes + Flow + LiteEffects)
 			const nIn = window.DiagramNodes.createNode({ shape: 'rounded', text: 'CoreIn', name: 'CoreIn', x: 18, y: 24, width: 80, height: 40 });
 			const nOut = window.DiagramNodes.createNode({ shape: 'rounded', text: 'CoreOut', name: 'CoreOut', x: 30, y: 24, width: 80, height: 40 });
 			const fl = window.DataFlows.createFlow({
@@ -143,21 +157,50 @@ func run() int {
 			const deckVis = document.getElementById('drawerWidgetAuthoringDeck')?.style.display !== 'none';
 			const semanticSecVis = Boolean(document.querySelector('.group-semantic-mappings-section'));
 
-			// M2: Define semantic mapping cpu -> gauge.value + text.text
-			const mapRes = window.EngineBridge.setGroupMapping(grp1.id, {
-				alias: 'cpu',
-				label: 'CPU Load (%)',
-				type: 'number',
-				default: 40,
-				min: 0,
-				max: 100,
-				targets: [
-					{ memberType: 'lite', memberId: String(leGauge.id), target: 'lite-' + leGauge.id, property: 'value' },
-					{ memberType: 'lite', memberId: String(leText.id), target: 'lite-' + leText.id, property: 'text' }
-				]
-			});
+			// 3. Dedicated Add/Edit Mapping Modal Dialog & Compatibility Filtering
+			document.querySelector('.btn-add-group-mapping')?.click();
+			const modalOpen1 = document.getElementById('groupMappingModal')?.style.display === 'flex';
+			// Empty alias -> Save button disabled
+			const saveDisabledWhenEmpty = Boolean(document.getElementById('btnGroupMappingModalSave')?.disabled);
+			// Cancel closes modal without changes
+			document.getElementById('btnGroupMappingModalCancel')?.click();
+			const modalClosedAfterCancel = document.getElementById('groupMappingModal')?.style.display === 'none';
 
-			// M3: Save as Composite Template & place 2 more instances
+			// Re-open modal and author 'cpu' mapping (number -> gauge.value + text.text)
+			window.GroupMappingDialog.open(grp1.id, null, document.getElementById('drawerWidgetStatusMsg'));
+			document.getElementById('gmModalAliasInput').value = 'cpu';
+			document.getElementById('gmModalLabelInput').value = 'CPU Load (%)';
+			document.getElementById('gmModalTypeSelect').value = 'number';
+			window.GroupMappingDialog._syncTypeControls(false);
+			document.getElementById('gmModalDefaultInput').value = '40';
+			document.getElementById('gmModalMinInput').value = '0';
+			document.getElementById('gmModalMaxInput').value = '100';
+
+			// Configure row 1: leGauge.value, add row 2: leText.text
+			window.GroupMappingDialog.targetRows[0].memSel.value = 'lite:' + leGauge.id;
+			window.GroupMappingDialog.targetRows[0].populateProps(false);
+			window.GroupMappingDialog.targetRows[0].propSel.value = 'value';
+			// Verify incompatible color property on leGauge is disabled in dropdown when type is 'number'
+			const colorOptDisabledWhenNumber = Array.from(window.GroupMappingDialog.targetRows[0].propSel.options)
+				.some(o => o.value === 'color' && o.disabled);
+
+			window.GroupMappingDialog.addTargetRow('lite:' + leText.id, 'text');
+			const valRes = window.GroupMappingDialog.validateForm();
+			const saveSuccess = window.GroupMappingDialog.save();
+
+			// Open Edit Mapping dialog for 'cpu' and cancel without changes
+			document.querySelector('.btn-edit-group-mapping')?.click();
+			const editModalOpen = document.getElementById('groupMappingModal')?.style.display === 'flex' &&
+				document.getElementById('gmModalAliasInput')?.value === 'cpu';
+			document.getElementById('gmModalAliasInput').value = 'mutated-unsaved';
+			document.getElementById('btnGroupMappingModalCancel')?.click();
+			const unchangedAfterEditCancel = window.AppCoordinator.getGroup(grp1.id).mappings[0].alias === 'cpu';
+
+			// 4. Whole-Widget Operating State button (#btnAddGlobalStateParam) in Studio
+			document.getElementById('btnAddGlobalStateParam')?.click();
+			const hasGlobalOperatingState = window.EngineBridge.getWidgetParameters().some(p => p.name === 'operatingState');
+
+			// 5. M3: Save as Composite Template & place 2 more instances
 			const comp = window.AppCoordinator.saveSelectedGroupAsComposite('cpuwindow', 'CPU Monitor Template');
 			const grp2 = window.AppCoordinator.instantiateComposite(comp.id, '', 30, 0);
 			const grp3 = window.AppCoordinator.instantiateComposite(comp.id, '', 60, 0);
@@ -167,16 +210,28 @@ func run() int {
 			const paramNames = window.EngineBridge.getWidgetParameters().map(p => p.name);
 
 			return JSON.stringify({
-				ok: Boolean(grp1 && deckVis && semanticSecVis && mapRes && mapRes.success && comp && grp2 && grp3 &&
+				ok: Boolean(liteToolbarVis && pureGrpOk && grp1 && deckVis && semanticSecVis &&
+					modalOpen1 && saveDisabledWhenEmpty && modalClosedAfterCancel &&
+					colorOptDisabledWhenNumber && valRes.valid && saveSuccess &&
+					editModalOpen && unchangedAfterEditCancel && hasGlobalOperatingState &&
+					comp && grp2 && grp3 &&
 					grp2.name === 'cpuwindow-2' && grp3.name === 'cpuwindow-3' && compListCount === 1 &&
 					paramNames.includes('cpuwindow-1-group-cpu') &&
 					paramNames.includes('cpuwindow-2-group-cpu') &&
-					paramNames.includes('cpuwindow-3-group-cpu')),
+					paramNames.includes('cpuwindow-3-group-cpu') &&
+					paramNames.includes('operatingState')),
+				liteToolbarVis,
+				pureGrpOk,
+				modalOpen1,
+				saveDisabledWhenEmpty,
+				colorOptDisabledWhenNumber,
+				editModalOpen,
+				unchangedAfterEditCancel,
+				hasGlobalOperatingState,
 				grp1Name: grp1 && grp1.name,
 				grp2Name: grp2 && grp2.name,
 				grp3Name: grp3 && grp3.name,
-				compListCount,
-				paramNames
+				compListCount
 			});
 		} catch (e) {
 			return JSON.stringify({ ok: false, error: e.message });
@@ -265,10 +320,17 @@ func run() int {
 			w.setParameter('cpuwindow-1-group-headline', 'CLUSTER-01: HANDOVER QUEUED');
 			const pendingAttr = document.querySelector('[data-semantic-target="lite-14"]')?.getAttribute('data-text-pending');
 
+			// 4. Whole-Widget Operating State controls on showcase (paused -> stopped -> running)
+			window.setGlobalOperatingState('paused');
+			const isPausedWhenPaused = w.isPaused();
+			window.setGlobalOperatingState('running');
+			const isRunningWhenRunning = !w.isPaused();
+
 			return JSON.stringify({
 				ok: g12AfterPrec === '85' && r13AfterPrec === '85 [OVR]' &&
-					g12AfterReject === '85' && pendingAttr === 'CLUSTER-01: HANDOVER QUEUED',
-				g12AfterPrec, r13AfterPrec, g12AfterReject, pendingAttr
+					g12AfterReject === '85' && pendingAttr === 'CLUSTER-01: HANDOVER QUEUED' &&
+					isPausedWhenPaused && isRunningWhenRunning,
+				g12AfterPrec, r13AfterPrec, g12AfterReject, pendingAttr, isPausedWhenPaused, isRunningWhenRunning
 			});
 		} catch (e) {
 			return JSON.stringify({ ok: false, error: e.message });

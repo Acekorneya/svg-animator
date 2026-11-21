@@ -970,3 +970,116 @@ func TestStage16EM3CompositeLifecycleAndSequentialInstantiation(t *testing.T) {
 	}
 }
 
+func TestStage16EVisualAcceptanceCorrections(t *testing.T) {
+	sc := NewScene()
+
+	// 1. Reproduce & verify fix for whole-widget operatingState parameter ("state" vs "operatingState")
+	if err := sc.AddParameter(WidgetParameter{
+		Name:        "operatingState",
+		Target:      "root",
+		Property:    "state",
+		Type:        "enum",
+		Default:     "running",
+		Options:     []string{"running", "paused", "stopped"},
+		Description: "Operating lifecycle state control",
+	}); err != nil {
+		t.Fatalf("expected root parameter with property 'state' to be accepted, got error: %v", err)
+	}
+	if err := sc.AddParameter(WidgetParameter{
+		Name:        "operatingState",
+		Target:      "root",
+		Property:    "operatingState",
+		Type:        "enum",
+		Default:     "running",
+		Options:     []string{"running", "paused", "stopped"},
+		Description: "Operating lifecycle state control",
+	}); err != nil {
+		t.Fatalf("expected root parameter with property 'operatingState' to be accepted, got error: %v", err)
+	}
+
+	// 2. Pure Low-Load Effects group creation and mapping compatibility validation
+	v0, v40, v100 := 0.0, 40.0, 100.0
+	leGauge := sc.CreateLiteEffect(LiteEffect{
+		Kind:     "gauge-lite",
+		Variant:  "ring",
+		Name:     "CoreGauge",
+		X:        200,
+		Y:        200,
+		Width:    120,
+		Height:   120,
+		Value:    &v40,
+		MinValue: &v0,
+		MaxValue: &v100,
+	})
+	leRadar := sc.CreateLiteEffect(LiteEffect{
+		Kind:    "radar-lite",
+		Variant: "multi",
+		Name:    "CoreRadar",
+		X:       380,
+		Y:       200,
+		Width:   120,
+		Height:  120,
+	})
+
+	liteGrp, err := sc.CreateGroup("lite-telemetry", []GroupMember{
+		{Type: SelectionLite, ID: leGauge.ID},
+		{Type: SelectionLite, ID: leRadar.ID},
+	})
+	if err != nil {
+		t.Fatalf("CreateGroup for two Low-Load Effects failed: %v", err)
+	}
+
+	// Reject Lite-kind-incompatible property (e.g. "value" on radar-lite)
+	if _, err := sc.SetGroupPropertyMapping(liteGrp.ID, GroupPropertyMapping{
+		Alias:   "bad-radar-val",
+		Type:    "number",
+		Default: 50.0,
+		Targets: []GroupTargetBinding{
+			{MemberType: SelectionLite, MemberID: leRadar.ID, Property: "value"},
+		},
+	}); err == nil {
+		t.Fatalf("expected SetGroupPropertyMapping to reject 'value' on radar-lite member")
+	}
+
+	// Reject constraint-incompatible range (e.g. max=100 on opacity [0..1])
+	v200 := 200.0
+	if _, err := sc.SetGroupPropertyMapping(liteGrp.ID, GroupPropertyMapping{
+		Alias:   "bad-opacity-range",
+		Type:    "number",
+		Default: 0.5,
+		Min:     &v0,
+		Max:     &v200,
+		Targets: []GroupTargetBinding{
+			{MemberType: SelectionLite, MemberID: leGauge.ID, Property: "opacity"},
+		},
+	}); err == nil {
+		t.Fatalf("expected SetGroupPropertyMapping to reject max=200 on opacity [0..1]")
+	}
+
+	// Reject duplicate target binding in the same mapping
+	if _, err := sc.SetGroupPropertyMapping(liteGrp.ID, GroupPropertyMapping{
+		Alias:   "dup-target",
+		Type:    "color",
+		Default: "#22c55e",
+		Targets: []GroupTargetBinding{
+			{MemberType: SelectionLite, MemberID: leGauge.ID, Property: "color"},
+			{MemberType: SelectionLite, MemberID: leGauge.ID, Property: "color"},
+		},
+	}); err == nil {
+		t.Fatalf("expected SetGroupPropertyMapping to reject duplicate target binding")
+	}
+
+	// Reject invalid color default
+	if _, err := sc.SetGroupPropertyMapping(liteGrp.ID, GroupPropertyMapping{
+		Alias:   "bad-default-col",
+		Type:    "color",
+		Default: "not a valid color!",
+		Targets: []GroupTargetBinding{
+			{MemberType: SelectionLite, MemberID: leGauge.ID, Property: "color"},
+		},
+	}); err == nil {
+		t.Fatalf("expected SetGroupPropertyMapping to reject invalid colour default")
+	}
+}
+
+

@@ -12251,6 +12251,59 @@ async function runHarness() {
     assert.strictEqual(window.EngineBridge.listComposites().length, 1, 'W16E-20: Composite template definition restored after .sva round-trip');
     assert.strictEqual(window.EngineBridge.getWidgetParameters().length, 9, 'W16E-21: All 9 widget parameters restored after .sva round-trip');
 
+    // 5. Visual Acceptance Corrections: Whole-Widget operatingState ('state' & 'operatingState'), Pure Lite Group, and Compatibility Validation
+    const addStateRes1 = window.EngineBridge.addWidgetParameter({
+      name: 'operatingState',
+      target: 'root',
+      property: 'state',
+      type: 'enum',
+      default: 'running',
+      options: ['running', 'paused', 'stopped'],
+      description: 'Operating lifecycle state control'
+    });
+    assert(addStateRes1 && addStateRes1.success !== false, `W16E-22: Whole-widget operatingState parameter with property 'state' accepted (${addStateRes1 && addStateRes1.error})`);
+
+    const addStateRes2 = window.EngineBridge.addWidgetParameter({
+      name: 'operatingState',
+      target: 'root',
+      property: 'operatingState',
+      type: 'enum',
+      default: 'running',
+      options: ['running', 'paused', 'stopped'],
+      description: 'Operating lifecycle state control'
+    });
+    assert(addStateRes2 && addStateRes2.success !== false, `W16E-23: Whole-widget operatingState parameter with property 'operatingState' accepted`);
+
+    // Pure Low-Load Effects Group (2 LiteEffects)
+    const pureLite1 = window.LiteEffects.createLiteEffect({ kind: 'gauge-lite', variant: 'ring', name: 'LiteG1', x: 140, y: 140, width: 100, height: 100, value: 55 });
+    const pureLite2 = window.LiteEffects.createLiteEffect({ kind: 'radar-lite', variant: 'multi', name: 'LiteR1', x: 260, y: 140, width: 100, height: 100 });
+    window.AppCoordinator.setMultiSelection([
+      { type: 'lite', id: String(pureLite1.id) },
+      { type: 'lite', id: String(pureLite2.id) }
+    ]);
+    const pureLiteGrp = window.AppCoordinator.createGroupFromSelection('pure-lite-group');
+    assert(pureLiteGrp && pureLiteGrp.members && pureLiteGrp.members.length === 2, 'W16E-24: Pure Low-Load Effects group created');
+
+    // Reject Lite-kind-incompatible property ('value' on radar-lite)
+    const badRadarVal = window.EngineBridge.setGroupMapping(pureLiteGrp.id, {
+      alias: 'bad-radar-val',
+      type: 'number',
+      default: 50,
+      targets: [{ memberType: 'lite', memberId: String(pureLite2.id), target: `lite-${pureLite2.id}`, property: 'value' }]
+    });
+    assert(badRadarVal && badRadarVal.success === false, 'W16E-25: Rejected gauge value property on radar-lite member');
+
+    // Reject constraint-incompatible range (max=100 on opacity [0..1])
+    const badOpRange = window.EngineBridge.setGroupMapping(pureLiteGrp.id, {
+      alias: 'bad-op-range',
+      type: 'number',
+      default: 0.5,
+      min: 0,
+      max: 100,
+      targets: [{ memberType: 'lite', memberId: String(pureLite1.id), target: `lite-${pureLite1.id}`, property: 'opacity' }]
+    });
+    assert(badOpRange && badOpRange.success === false, 'W16E-26: Rejected max=100 on opacity [0..1] member property');
+
     window.ProjectManager.resetToNewProject();
     window.EngineBridge.setWidgetParameters([]);
   }

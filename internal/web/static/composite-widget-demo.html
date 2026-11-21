@@ -400,8 +400,38 @@
       </div>
     </div>
 
-    <!-- Batch Precedence, Atomic Validation & Diagnostics Deck -->
+    <!-- Batch Precedence, Atomic Validation & Whole-Widget Operating State Deck -->
     <div class="controls-grid" style="margin-top: 14px;">
+      <div class="ctrl-card">
+        <h3>
+          <span>🌐 Whole-Widget Operating State, Master Speed &amp; Visibility (Root Target)</span>
+          <span class="param-tag" id="badge-global-state">RUNNING</span>
+        </h3>
+        <div class="ctrl-row">
+          <label>Operating State</label>
+          <select id="in-global-state" onchange="setGlobalOperatingState(this.value)">
+            <option value="running" selected>running (Active Playback)</option>
+            <option value="paused">paused (Suspend All Animations)</option>
+            <option value="stopped">stopped (Suspend &amp; Rewind to t=0)</option>
+          </select>
+          <div class="btn-bar">
+            <button type="button" onclick="setGlobalOperatingState('running')">▶ Play</button>
+            <button type="button" onclick="setGlobalOperatingState('paused')">⏸ Pause</button>
+            <button type="button" onclick="setGlobalOperatingState('stopped')">⏹ Stop</button>
+          </div>
+        </div>
+        <div class="ctrl-row">
+          <label>Master Speed (<code>root</code>)</label>
+          <input type="range" id="in-global-speed" min="0.2" max="4.0" step="0.1" value="1.0" oninput="setGlobalMasterSpeed(this.value)" />
+          <span class="val-pill" id="val-global-speed">1.0×</span>
+        </div>
+        <div class="ctrl-row">
+          <label>Master Visibility</label>
+          <input type="checkbox" id="in-global-vis" checked onchange="setGlobalVisibility(this.checked)" />
+          <span style="font-size:11px; color:#94a3b8;">Controls root <code>widgetVisible</code> parameter across all 3 composite groups</span>
+        </div>
+      </div>
+
       <div class="ctrl-card">
         <h3>
           <span>⚡ Stage 16E-M2 Contracts: Atomic Fan-Out, Batch Precedence &amp; Error Rejection</span>
@@ -409,10 +439,13 @@
         </h3>
         <div class="btn-bar">
           <button type="button" class="primary" id="btn-test-precedence" onclick="runPrecedenceDemo()">
-            1. Test Same-Batch Precedence (Group cpu=85 + Member Override readout="85% [LOCKED]")
+            1. Test Same-Batch Precedence (Group cpu=85 + Member Override readout="85 [OVR]")
           </button>
           <button type="button" class="danger" id="btn-test-atomic-reject" onclick="runAtomicRejectionDemo()">
             2. Test Atomic Invalid Rejection (cpu=999 Out-of-Range → 0 Partial Mutations)
+          </button>
+          <button type="button" class="danger" id="btn-test-invalid-color" onclick="runInvalidColorRejectionDemo()">
+            3. Test Incompatible Colour Rejection (status-color="not-a-color" → 0 Partial Mutations)
           </button>
           <button type="button" onclick="resetClusterDefaults()">
             ↺ Reset All 3 Composite Units to Defaults
@@ -420,6 +453,48 @@
         </div>
         <div class="diag-box" id="clusterDiagLog">
           Ready. Adjust any control above or run the contract verifiers to inspect atomic multi-target updates.
+        </div>
+      </div>
+    </div>
+  </section>
+
+  <!-- ===================================================================== -->
+  <!-- SECTION 2: PURE LOW-LOAD EFFECTS GROUP vs MIXED GROUP & MAPPING DIALOG -->
+  <!-- ===================================================================== -->
+  <section id="sec-lite-and-mixed-groups">
+    <h2>2. Low-Load Effects Grouping, Mixed Group Compatibility &amp; Studio Mapping Dialog</h2>
+    <p class="sub">
+      Demonstrates a <strong>Pure Low-Load Effects Group</strong> (<code>telemetry-lite-group</code> containing Gauge Lite + Radar Ping Lite + Flow Lite + Text Box Lite)
+      alongside a <strong>Mixed Group</strong> (<code>hybrid-unit-group</code> combining conventional SVG Diagram Nodes &amp; Connector Flows with Perimeter Tracer Lite &amp; Oscilloscope Lite),
+      plus a summary of the dedicated <strong>Add / Edit Semantic Group Property Mapping Dialog</strong> and its compatibility rules.
+    </p>
+    <div class="controls-grid">
+      <div class="ctrl-card">
+        <h3>
+          <span>⚡ Pure Low-Load Effects Group (<code>telemetry-lite-group</code>)</span>
+          <span class="param-tag">4 LiteEffect Members</span>
+        </h3>
+        <div style="font-size:12px; color:#cbd5e1; line-height:1.5;">
+          All 8 Low-Load Effect kinds (<code>perimeter-tracer</code>, <code>pulse</code>, <code>flash</code>, <code>flow-lite</code>, <code>radar-lite</code>, <code>gauge-lite</code>, <code>oscilloscope-lite</code>, <code>text-lite</code>)
+          support Shift/Ctrl canvas &amp; list multi-selection, marquee box selection, <code>#liteMultiSelectToolbar</code> Group/Ungroup/Duplicate actions, and semantic mappings.
+        </div>
+        <div class="diag-box">
+          • <code>telemetry-lite-group-load</code> (number 0..100) → fans out to <code>lite-12.value</code> (Gauge Lite) + <code>lite-13.text</code> (Text Box Lite readout)<br/>
+          • <code>telemetry-lite-group-speed</code> (speed 0.1..10×) → scales Flow Lite, Radar Ping Lite &amp; Ticker Lite together
+        </div>
+      </div>
+
+      <div class="ctrl-card">
+        <h3>
+          <span>🔗 Dedicated Add / Edit Semantic Group Mapping Dialog</span>
+          <span class="param-tag">#groupMappingModal</span>
+        </h3>
+        <div style="font-size:12px; color:#cbd5e1; line-height:1.5;">
+          In SVG Animator Studio (<code>:8088</code>), clicking <strong>+ Add Mapping</strong> or <strong>✏️ Edit</strong> in the Group Inspector opens the dedicated 680px modal dialog with proactive compatibility filtering and Go-authoritative validation:
+        </div>
+        <div class="diag-box">
+          • <strong>Valid Example:</strong> <code>cpu</code> (<code>number</code>, <code>0..100</code>) → <code>Gauge Lite .value</code> (<code>number</code>) + <code>Text Box Lite .text</code> (<code>number → text</code> conversion)<br/>
+          • <strong>Filtered / Rejected Example:</strong> Selecting <code>color</code> disables numeric <code>value</code> / <code>period</code> targets; setting <code>opacity</code> max &gt; <code>1.0</code> or duplicate target bindings keeps <strong>Save Mapping</strong> disabled with field-specific feedback.
         </div>
       </div>
     </div>
@@ -651,6 +726,36 @@
           description: `Direct member override on cpureadout-${idx}`
         });
       });
+
+      // Whole-Widget Global Parameters (Root Target)
+      params.push({
+        name: 'operatingState',
+        type: 'enum',
+        default: 'running',
+        options: ['running', 'paused', 'stopped'],
+        target: 'root',
+        property: 'operatingState',
+        description: 'Whole-widget lifecycle operating state (running, paused, stopped)'
+      });
+      params.push({
+        name: 'playbackRate',
+        type: 'speed',
+        default: 1.0,
+        min: 0.1,
+        max: 5.0,
+        target: 'root',
+        property: 'playbackRate',
+        description: 'Whole-widget master animation playback speed multiplier'
+      });
+      params.push({
+        name: 'widgetVisible',
+        type: 'boolean',
+        default: true,
+        target: 'root',
+        property: 'visibility',
+        description: 'Whole-widget master visibility toggle'
+      });
+
       return params;
     }
 
@@ -790,6 +895,43 @@
       }
       const afterVal = gaugeEl ? gaugeEl.getAttribute('data-gauge-value') : '';
       logDiag(`<strong>Atomic Rejection Verified:</strong> Out-of-range batch threw <code>${caughtErr}</code>. Gauge value before=${beforeVal}, after=${afterVal} (zero partial DOM mutations).`);
+    };
+
+    window.runInvalidColorRejectionDemo = function() {
+      const tracerEl = document.querySelector('[data-semantic-target="lite-11"] .lite-payload');
+      const beforeStroke = tracerEl ? tracerEl.getAttribute('stroke') : '';
+      let caughtErr = null;
+      try {
+        clusterWidget.setParameters({
+          'cpuwindow-1-group-status-color': 'not-a-valid-hex-color-123'
+        });
+      } catch (err) {
+        caughtErr = err.message;
+      }
+      const afterStroke = tracerEl ? tracerEl.getAttribute('stroke') : '';
+      logDiag(`<strong>Colour Validation Verified:</strong> Invalid colour threw <code>${caughtErr}</code>. Tracer stroke before=${beforeStroke}, after=${afterStroke}.`);
+    };
+
+    window.setGlobalOperatingState = function(stateStr) {
+      clusterWidget.setParameter('operatingState', stateStr);
+      const sel = document.getElementById('in-global-state');
+      if (sel) sel.value = stateStr;
+      const badge = document.getElementById('badge-global-state');
+      if (badge) badge.textContent = String(stateStr).toUpperCase();
+      logDiag(`Updated whole-widget <code>operatingState = "${stateStr}"</code> (paused=${clusterWidget.isPaused()}).`);
+    };
+
+    window.setGlobalMasterSpeed = function(val) {
+      const num = Number(val);
+      clusterWidget.setParameter('playbackRate', num);
+      const pill = document.getElementById('val-global-speed');
+      if (pill) pill.textContent = `${num.toFixed(1)}×`;
+      logDiag(`Updated whole-widget <code>playbackRate = ${num.toFixed(1)}</code> → composes multiplicatively with each group speed.`);
+    };
+
+    window.setGlobalVisibility = function(vis) {
+      clusterWidget.setParameter('widgetVisible', Boolean(vis));
+      logDiag(`Updated whole-widget <code>widgetVisible = ${Boolean(vis)}</code>.`);
     };
 
     window.resetClusterDefaults = function() {

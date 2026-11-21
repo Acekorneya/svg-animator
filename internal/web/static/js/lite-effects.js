@@ -2246,7 +2246,49 @@ window.LiteEffects = {
     };
 
     const deselectBtn = document.getElementById('btnDeselectLite');
-    if (deselectBtn) deselectBtn.addEventListener('click', () => this.deselectLite());
+    if (deselectBtn) {
+      deselectBtn.addEventListener('click', () => {
+        if (window.AppCoordinator && typeof window.AppCoordinator.clearSelection === 'function') {
+          window.AppCoordinator.clearSelection({ reason: 'sidebar_deselect_lite' });
+        } else {
+          this.deselectLite();
+        }
+      });
+    }
+
+    const btnGroupLite = document.getElementById('btnGroupLiteSelection');
+    if (btnGroupLite) {
+      btnGroupLite.addEventListener('click', () => {
+        if (window.AppCoordinator) {
+          const sel = window.AppCoordinator.getActiveSelection();
+          if (sel && sel.type === 'group' && typeof window.AppCoordinator.ungroupSelectedGroup === 'function') {
+            window.AppCoordinator.ungroupSelectedGroup();
+          } else if (typeof window.AppCoordinator.createGroupFromSelection === 'function') {
+            window.AppCoordinator.createGroupFromSelection();
+          }
+        }
+      });
+    }
+
+    const btnDupLite = document.getElementById('btnDuplicateLiteSelection');
+    if (btnDupLite) {
+      btnDupLite.addEventListener('click', () => {
+        if (window.AppCoordinator && typeof window.AppCoordinator.duplicateSelection === 'function') {
+          window.AppCoordinator.duplicateSelection();
+        }
+      });
+    }
+
+    const btnDeselectAllLites = document.getElementById('btnDeselectAllLites');
+    if (btnDeselectAllLites) {
+      btnDeselectAllLites.addEventListener('click', () => {
+        if (window.AppCoordinator && typeof window.AppCoordinator.clearSelection === 'function') {
+          window.AppCoordinator.clearSelection({ reason: 'lite_multi_toolbar_deselect' });
+        } else {
+          this.deselectLite();
+        }
+      });
+    }
 
     bindField('liteNameInput', 'name');
     bindField('liteXNum', 'x', true);
@@ -3224,8 +3266,13 @@ window.LiteEffects = {
     const kindShort = { 'perimeter-tracer': 'Tracer', 'pulse': 'Pulse', 'flash': 'Flash', 'flow-lite': 'Flow', 'radar-lite': 'Radar', 'gauge-lite': 'Gauge', 'oscilloscope-lite': 'Osc', 'text-lite': 'Text' };
     this.list.forEach((le) => {
       const row = document.createElement('div');
-      const isActive = String(this.activeId) === String(le.id);
-      row.className = 'flow-list-item compact-instance-row' + (isActive ? ' active' : '');
+      const isSel = (window.AppCoordinator && typeof window.AppCoordinator.isObjectSelected === 'function')
+        ? window.AppCoordinator.isObjectSelected('lite', le.id)
+        : (String(this.activeId) === String(le.id));
+      const isPrimary = String(this.activeId) === String(le.id);
+      row.className = 'flow-list-item compact-instance-row' +
+        (isPrimary ? ' active primary-selected' : '') +
+        (isSel ? ' selected' : '');
       row.dataset.liteListId = String(le.id);
       const label = le.name || `${kindShort[le.kind] || le.kind}-${le.id}`;
       const meta = kindShort[le.kind] || le.kind;
@@ -3236,6 +3283,20 @@ window.LiteEffects = {
       row.addEventListener('click', (e) => {
         if (e.target.closest('.btn-row-delete')) {
           this.removeLite(le.id);
+          return;
+        }
+        if (e && (e.shiftKey || e.ctrlKey || e.metaKey)) {
+          if (window.AppCoordinator && typeof window.AppCoordinator.toggleObjectSelection === 'function') {
+            window.AppCoordinator.toggleObjectSelection('lite', String(le.id));
+            return;
+          }
+        }
+        if (isPrimary && (!window.AppCoordinator || window.AppCoordinator.getSelectedItems().length <= 1)) {
+          if (window.AppCoordinator && typeof window.AppCoordinator.clearSelection === 'function') {
+            window.AppCoordinator.clearSelection({ reason: 'sidebar_toggle_lite' });
+          } else {
+            this.deselectLite();
+          }
         } else {
           this.selectLite(le.id);
         }

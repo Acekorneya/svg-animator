@@ -798,6 +798,9 @@ func ValidateWidgetParameter(p WidgetParameter) error {
 			var found *EligibleProperty
 			for _, ep := range allowed {
 				if ep.Property == prop ||
+					(targetType == "root" && prop == "state" && ep.Property == "operatingState") ||
+					(targetType == "root" && prop == "operatingState" && ep.Property == "state") ||
+					(targetType == "root" && prop == "speed" && ep.Property == "playbackRate") ||
 					(targetType == "flow" && prop == "playbackRate" && ep.Property == "speed") ||
 					(targetType == "flow" && prop == "stroke" && ep.Property == "color") ||
 					(targetType == "flow" && prop == "color" && ep.Property == "stroke") {

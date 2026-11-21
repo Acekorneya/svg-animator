@@ -2,11 +2,12 @@
 
 - **Project:** SVG Animator Studio
 - **Stage:** Stage 16E — Group-Level Data Inputs, Semantic Property Mappings & Custom Composite Objects
-- **Document Status:** `IMPLEMENTED — AWAITING USER ACCEPTANCE`
-- **Implementation Authorisation:** `GRANTED & COMPLETED (M1 → M2 → M3 Integrated Programme)`
+- **Document Status:** `Stage 16E — CORRECTIONS IMPLEMENTED, AWAITING USER ACCEPTANCE`
+- **Implementation Authorisation:** `GRANTED & COMPLETED (M1 → M2 → M3 + Visual Acceptance Corrections)`
 - **Planning Baseline Commit:** `bdf14fe`
 - **M1 Implementation Commit:** `5b846b6` (`feat(stage16e-m1): group widget targets, multiplicative group speed, and LiteEffect clipboard support`)
 - **M2 Implementation Commit:** `059f9c6` (`feat(stage16e-m2): group semantic property mappings, atomic multi-target fan-out, and batch precedence`)
+- **M3 Implementation Commit:** `617b1ed` (`feat(stage16e-m3): reusable composite definitions, sequential placed instances, and composite showcase`)
 - **Stage 16D-C Baseline Commit:** `5e1ac87` (`Stage 16D-C — CORRECTIONS IMPLEMENTED, AWAITING USER ACCEPTANCE`)
 - **BookStack Reference:** Book `353` (`SVG-Animator Project Log`, Page `476`)
 
@@ -515,3 +516,39 @@ Stage 16E directly enables the Digital Twin authoring pattern without coupling S
   - Wired `Composites` and `CompositesCounter` through `Scene`, `Snapshot`, `DeepCopySnapshot`, `sva.SceneData`, `protocol/commands.go` (`Composite.CreateFromGroup`, `Composite.Instantiate`, `Composite.Delete`, `Composite.Get`, `Composite.List`), `engine-bridge.js`, `coordinator.js`, `projects.js`, `layers-ui.js`, `context-editor.js`, and `index.html`.
   - Delivered the consolidated showcase at `internal/web/static/composite-widget-demo.html` (`http://192.168.100.40:8088/composite-widget-demo.html`) and managed headless browser verifier `scripts/cmd/verify-stage16e/main.go`.
   - Verified with `go test ./pkg/engine/... ./internal/...`, `node scripts/regression-harness.js` (94 scenarios, including Scenario 94 `W16E-01`..`W16E-21`), and `go run ./scripts/cmd/verify-stage16e` (`16E-GATE-01`..`16E-GATE-04` PASS, `0` orphaned Chromium processes on Kiwiberry).
+
+### 10.3 Stage 16E Visual Acceptance Corrections Report
+
+Following initial user visual acceptance testing of `M1–M3` (`5b846b6`, `059f9c6`, `617b1ed`), four targeted functional and UI corrections were investigated, root-caused, implemented, and verified:
+
+#### 1. Low-Load Effects Grouping Parity (`SelectionLite`)
+- **Root Cause:** While Go engine `Scene.CreateGroup` already accepted `SelectionLite`, four frontend presentation paths omitted `'lite'`:
+  1. The Low-Load Effects accordion (`#acc-lite-effects` in `index.html`) lacked the `#liteMultiSelectToolbar` (`👥 Group` / `🔓 Ungroup`, `📋 Duplicate`, `Deselect`) present in Shapes, Flows, Glows, and Ripples.
+  2. `LiteEffects.renderList()` (`lite-effects.js`) unconditionally called `this.selectLite(le.id)` on click, ignoring `Shift`/`Ctrl`/`Meta` multi-select modifiers.
+  3. Canvas pointer hit-testing (`stage.js` section `5b`) and marquee box selection (`stage.js` `isMarqueeSelecting`) did not check `e.shiftKey || e.ctrlKey || e.metaKey`, parent group resolution (`findGroupByMember`), or `LiteEffect` bounding boxes; additionally, `_startMixedDrag` in `stage.js` referenced `deltaXPx`/`deltaYPx` without defining them at the top of the group drag loop.
+  4. `DiagramNodes.updateUIOverlay` (`nodes.js`) did not render dashed multi-selection highlight boxes for `it.type === 'lite'`.
+- **Correction Implemented:** Added `#liteMultiSelectToolbar` to `index.html`, wired `lite` into `updateMultiSelectToolbar()` and `updateUIOverlay()` in `nodes.js`, enabled `Shift`/`Ctrl`/`Meta` multi-select in `lite-effects.js`, added `Shift`/`Ctrl` toggle, group-member drag resolution, `deltaXPx`/`deltaYPx` calculation, and marquee hit-testing for `LiteEffects` in `stage.js`, and ensured `context-editor.js` supports `'lite'` across selection changes and double-clicks.
+
+#### 2. Dedicated Add / Edit Semantic Group Property Mapping Dialog (`#groupMappingModal`)
+- **Root Cause:** The inline collapsible `.group-mapping-form` inside the 420px Right Drawer / 360px Floating Context Editor compressed alias, label, type, default, min/max, and multi-target rows into a narrow column.
+- **Correction Implemented:** Replaced the inline form with a compact inspector summary list (`+ Add Mapping`, `✏️ Edit`, `✕` remove, fan-out target summary, and default/range pill) backed by a dedicated 680px modal dialog (`#groupMappingModal` in `index.html` and `window.GroupMappingDialog` in `app.js`) organised into three clear sections:
+  1. *Semantic Property Identity & Type* (`alias`, `label`, `type`, `description`, plus live derived parameter name preview `<group>-group-<alias>`).
+  2. *Default Value & Constraints* (with colour picker sync for `color`, `min`/`max` bounds for `number`/`speed`, and comma-separated `options` for `enum`).
+  3. *Member Target Bindings (`1..N` Atomic Fan-Out)* with spacious member and compatibility-filtered property selectors.
+
+#### 3. Proactive Compatibility Filtering & Authoritative Go Validation
+- **Root Cause:** Previously, the target property dropdown offered all generic `lite` properties regardless of the specific `LiteEffect.Kind` (e.g., showing `value` on a `radar-lite` or `text` on a `pulse`), and Go's `validateGroupPropertyMappingLocked` (`pkg/engine/scene/group.go`) did not enforce Lite-kind property eligibility, target domain bounds (such as `opacity` `[0..1]`), colour format validity, or duplicate target bindings.
+- **Correction Implemented:**
+  - In `window.GroupMappingDialog` (`app.js`), target properties are filtered by the member's actual `LiteEffect.Kind` (`getSupportedPropertiesForMember`), incompatible properties for the chosen mapping type are disabled with explicit explanations (`✕ color (color — requires color, incompatible with number)`), compatible conversions are annotated (`✓ text — Text Content (text [number→text readout])`), and **Save Mapping** remains disabled with a live validation checklist until all 10 validation rules pass.
+  - In Go (`pkg/engine/scene/group.go`), `validateGroupPropertyMappingLocked` now enforces `isLiteEffectPropertySupportedByKind`, target numeric domain bounds (`eligible.Min` / `eligible.Max`), enum option subset compatibility, colour default syntax (`reHexOrCSSColor`), finite numeric defaults, and duplicate target binding rejection.
+
+#### 4. Whole-Widget Operating-State Controls (`operatingState` / `state`)
+- **Root Cause:** Three concrete defects were reproduced when testing Whole-Widget controls:
+  1. Clicking **`⚡ Operating State`** (`#btnAddGlobalStateParam` in `app.js:3674`) sent `target: "root", property: "state"`, while `ObjectPropertyCatalog["root"]` (`pkg/engine/scene/widget.go:509`) registered `Property: "operatingState", ParamSuffix: "state"`. `ValidateWidgetParameter` rejected the request with: `Failed to add parameter: property "state" is not eligible for target "root" of type "root"`.
+  2. Clicking any of the three Whole-Widget buttons (`Global Playback Speed`, `Widget Visibility`, `Operating State`) a second time re-sent `addWidgetParameter` instead of toggling or indicating bound state.
+  3. In Studio's Active Parameters live preview (`applyPreview` in `app.js`), `target: "root"` resolved to `<svg>` without a mounted `SVGWidget` `instance`, so changing `operatingState` in the Studio preview dropdown was a no-op on CSS/SMIL animations.
+- **Correction Implemented:**
+  - Updated `ValidateWidgetParameter` (`pkg/engine/scene/widget.go`) to accept both `"operatingState"` and `"state"` (as well as `"playbackRate"` and `"speed"`) on `"root"` targets for backward compatibility with Stage 16B manifests (`barrel.svg`, `demo-widgets.html`), and updated `#btnAddGlobalStateParam` in `app.js` to use `property: "operatingState"`.
+  - Updated `#btnAddGlobalSpeedParam`, `#btnAddGlobalVisParam`, and `#btnAddGlobalStateParam` in `app.js` to toggle cleanly and display `✓ Bound (Click to remove)` when active.
+  - Updated `applyPreview` in `app.js` to pause/unpause/rewind live Studio canvas SVG animations when previewing root `operatingState`, `playbackRate`, and `visibility`.
+  - Added whole-widget `operatingState`, `playbackRate`, and `widgetVisible` controls to the consolidated showcase (`http://192.168.100.40:8088/composite-widget-demo.html`).

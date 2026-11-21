@@ -729,6 +729,48 @@ window.Stage = {
             }
           }
           if (liteId) {
+            const isModifier = e.shiftKey || e.ctrlKey || e.metaKey;
+            if (isModifier) {
+              if (window.AppCoordinator && typeof window.AppCoordinator.toggleObjectSelection === 'function') {
+                window.AppCoordinator.toggleObjectSelection('lite', liteId);
+              }
+              this.isDragging = false;
+              return;
+            }
+
+            const le = window.LiteEffects.getLiteEffect(liteId);
+            const leAnchorPct = (() => {
+              if (!le) return { x: coords.x, y: coords.y };
+              if (le.kind === 'flow-lite' && Array.isArray(le.points) && le.points.length > 0) {
+                return { x: Number(le.points[0].x) || coords.x, y: Number(le.points[0].y) || coords.y };
+              }
+              const cxPx = Number(le.x) || 240;
+              const cyPx = Number(le.y) || 180;
+              return {
+                x: (cxPx / (this.canvasWidth || 1280)) * 100,
+                y: (cyPx / (this.canvasHeight || 720)) * 100
+              };
+            })();
+
+            const memberGroup = (window.AppCoordinator && !window.AppCoordinator.isInGroupEditMode())
+              ? window.AppCoordinator.findGroupByMember('lite', liteId)
+              : null;
+            if (memberGroup) {
+              window.AppCoordinator.selectGroup(memberGroup.id);
+              this._startMixedDrag(memberGroup.members, leAnchorPct, coords, e);
+              return;
+            }
+
+            const currentSelectedItems = (window.AppCoordinator && typeof window.AppCoordinator.getSelectedItems === 'function')
+              ? window.AppCoordinator.getSelectedItems()
+              : [];
+            const isLiteSelected = currentSelectedItems.some((it) => it.type === 'lite' && String(it.id) === String(liteId));
+            if (currentSelectedItems.length > 1 && isLiteSelected) {
+              this._startMixedDrag(currentSelectedItems, leAnchorPct, coords, e, 'lite', liteId);
+              return;
+            }
+
+            // Single selection
             this.isGroupDragging = false;
             this.potentialSingleSelectType = null;
             this.potentialSingleSelectId = null;
@@ -738,7 +780,6 @@ window.Stage = {
             } else {
               window.LiteEffects.selectLite(liteId);
             }
-            const le = window.LiteEffects.getLiteEffect(liteId);
             if (le) {
               if (le.kind === 'flow-lite' && Array.isArray(le.points)) {
                 window.LiteEffects._dragMode = 'translate';
@@ -748,12 +789,8 @@ window.Stage = {
                 this.nodeGrabOffsetY = 0;
               } else {
                 window.LiteEffects._dragMode = null;
-                const cxPx = Number(le.x) || 240;
-                const cyPx = Number(le.y) || 180;
-                const cxPct = (cxPx / (this.canvasWidth || 1280)) * 100;
-                const cyPct = (cyPx / (this.canvasHeight || 720)) * 100;
-                this.nodeGrabOffsetX = cxPct - coords.x;
-                this.nodeGrabOffsetY = cyPct - coords.y;
+                this.nodeGrabOffsetX = leAnchorPct.x - coords.x;
+                this.nodeGrabOffsetY = leAnchorPct.y - coords.y;
               }
             } else {
               this.nodeGrabOffsetX = 0;
@@ -1018,6 +1055,8 @@ window.Stage = {
           const snapped = this.snapPctToGrid(rawTargetX, rawTargetY);
           const deltaX = snapped.x - this.dragInitialAnchorPct.x;
           const deltaY = snapped.y - this.dragInitialAnchorPct.y;
+          const deltaXPx = (deltaX / 100) * (this.canvasWidth || 1280);
+          const deltaYPx = (deltaY / 100) * (this.canvasHeight || 720);
 
           this.groupDragInitialPositions.items.forEach((item) => {
             if (item.type === 'node') {
@@ -1287,6 +1326,26 @@ window.Stage = {
               if (Array.isArray(f.nodes)) {
                 const hasPtInBox = f.nodes.some((p) => p.x >= minX && p.x <= maxX && p.y >= minY && p.y <= maxY);
                 if (hasPtInBox && isEligible('flow', f.id)) hits.push({ type: 'flow', id: f.id });
+              }
+            });
+
+            // 6. Low-Load Effects (LiteEffects)
+            const allLites = window.LiteEffects && Array.isArray(window.LiteEffects.list) ? window.LiteEffects.list : [];
+            allLites.forEach((le) => {
+              if (le.kind === 'flow-lite' && Array.isArray(le.points)) {
+                const hasPtInBox = le.points.some((p) => p.x >= minX && p.x <= maxX && p.y >= minY && p.y <= maxY);
+                if (hasPtInBox && isEligible('lite', le.id)) hits.push({ type: 'lite', id: String(le.id) });
+              } else {
+                const cxPct = ((Number(le.x) || 240) / (this.canvasWidth || 1280)) * 100;
+                const cyPct = ((Number(le.y) || 180) / (this.canvasHeight || 720)) * 100;
+                const hwPct = ((Number(le.width) || 56) / (this.canvasWidth || 1280)) * 50;
+                const hhPct = ((Number(le.height) || 56) / (this.canvasHeight || 720)) * 50;
+                const lMinX = cxPct - hwPct;
+                const lMaxX = cxPct + hwPct;
+                const lMinY = cyPct - hhPct;
+                const lMaxY = cyPct + hhPct;
+                const intersects = !(lMaxX < minX || lMinX > maxX || lMaxY < minY || lMinY > maxY);
+                if (intersects && isEligible('lite', le.id)) hits.push({ type: 'lite', id: String(le.id) });
               }
             });
 

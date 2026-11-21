@@ -910,6 +910,39 @@ window.DiagramNodes = {
               highlight.setAttribute('vector-effect', 'non-scaling-stroke');
               multiGroup.appendChild(highlight);
             }
+          } else if (it.type === 'lite' && window.LiteEffects) {
+            const le = window.LiteEffects.getLiteEffect(it.id);
+            if (!le) return;
+            if (le.kind === 'flow-lite' && Array.isArray(le.points) && le.points.length >= 2) {
+              const geom = window.LiteEffects._computeFlowLiteGeometry(le, 0, 0);
+              if (geom && geom.pathD) {
+                const highlight = document.createElementNS('http://www.w3.org/2000/svg', 'path');
+                highlight.setAttribute('d', geom.pathD);
+                highlight.setAttribute('fill', 'none');
+                highlight.setAttribute('stroke', '#38bdf8');
+                highlight.setAttribute('stroke-width', '4');
+                highlight.setAttribute('stroke-dasharray', '6,4');
+                highlight.setAttribute('vector-effect', 'non-scaling-stroke');
+                multiGroup.appendChild(highlight);
+              }
+            } else {
+              const cx = Number(le.x) || 240;
+              const cy = Number(le.y) || 180;
+              const w = (Number(le.width) || 56) + pad * 2;
+              const h = (Number(le.height) || 56) + pad * 2;
+              const rect = document.createElementNS('http://www.w3.org/2000/svg', 'rect');
+              rect.setAttribute('x', (cx - w / 2).toFixed(1));
+              rect.setAttribute('y', (cy - h / 2).toFixed(1));
+              rect.setAttribute('width', w.toFixed(1));
+              rect.setAttribute('height', h.toFixed(1));
+              rect.setAttribute('rx', '6');
+              rect.setAttribute('fill', 'rgba(56, 189, 248, 0.08)');
+              rect.setAttribute('stroke', '#38bdf8');
+              rect.setAttribute('stroke-width', '2');
+              rect.setAttribute('stroke-dasharray', '5,3');
+              rect.setAttribute('vector-effect', 'non-scaling-stroke');
+              multiGroup.appendChild(rect);
+            }
           }
         });
       }
@@ -974,8 +1007,8 @@ window.DiagramNodes = {
       }
     }
 
-    // Also update flow, glow, ripple toolbars if present
-    ['flow', 'glow', 'ripple'].forEach((typ) => {
+    // Also update flow, glow, ripple, lite toolbars if present
+    ['flow', 'glow', 'ripple', 'lite'].forEach((typ) => {
       const tb = document.getElementById(typ + 'MultiSelectToolbar');
       const bg = document.getElementById(typ + 'MultiSelectionBadge');
       const bgBtn = document.getElementById('btnGroup' + typ.charAt(0).toUpperCase() + typ.slice(1) + 'Selection');
