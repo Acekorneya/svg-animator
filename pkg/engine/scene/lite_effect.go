@@ -98,12 +98,15 @@ func ValidateLiteEffect(l *LiteEffect) error {
 		return errors.New("nil lite effect")
 	}
 	switch l.Kind {
-	case "perimeter-tracer", "pulse", "flash", "flow-lite", "radar-lite", "gauge-lite", "oscilloscope-lite":
+	case "perimeter-tracer", "pulse", "flash", "flow-lite", "radar-lite", "gauge-lite", "oscilloscope-lite", "text-lite":
 	default:
 		return fmt.Errorf("unsupported lite effect kind %q", l.Kind)
 	}
 	if l.Opacity < 0 || l.Opacity > 1.0 {
 		return errors.New("opacity must be between 0.0 and 1.0")
+	}
+	if l.Rotation < -360 || l.Rotation > 360 {
+		return errors.New("rotation must be between -360 and 360 degrees")
 	}
 	if l.Kind == "perimeter-tracer" {
 		if l.Segments < 1 || l.Segments > 16 {
@@ -291,6 +294,76 @@ func ValidateLiteEffect(l *LiteEffect) error {
 			}
 		}
 	}
+	if l.Kind == "text-lite" {
+		switch l.Variant {
+		case "", "none", "rect", "rounded", "pill", "curved":
+		default:
+			return fmt.Errorf("unsupported text-lite variant %q", l.Variant)
+		}
+		switch l.FontFamily {
+		case "", "modern-sans", "humanist-sans", "geometric-sans", "formal-serif", "traditional-serif", "tech-mono", "condensed-display", "casual-lettering", "informal-hand", "classic-script":
+		default:
+			return fmt.Errorf("unsupported text-lite fontFamily %q", l.FontFamily)
+		}
+		if l.FontSize < 8.0 || l.FontSize > 120.0 {
+			return errors.New("text-lite fontSize must be between 8.0 and 120.0")
+		}
+		switch l.FontWeight {
+		case "", "400", "500", "600", "700":
+		default:
+			return fmt.Errorf("unsupported text-lite fontWeight %q", l.FontWeight)
+		}
+		if l.LetterSpacing < -2.0 || l.LetterSpacing > 20.0 {
+			return errors.New("text-lite letterSpacing must be between -2.0 and 20.0")
+		}
+		switch l.TextAlign {
+		case "", "left", "center", "right":
+		default:
+			return fmt.Errorf("unsupported text-lite textAlign %q", l.TextAlign)
+		}
+		switch l.VerticalAlign {
+		case "", "top", "middle", "bottom":
+		default:
+			return fmt.Errorf("unsupported text-lite verticalAlign %q", l.VerticalAlign)
+		}
+		if l.Padding < 0 || l.Padding > 60.0 {
+			return errors.New("text-lite padding must be between 0.0 and 60.0")
+		}
+		if l.StrokeWidth < 0 || l.StrokeWidth > 24.0 {
+			return errors.New("text-lite strokeWidth must be between 0.0 and 24.0")
+		}
+		if l.BgOpacity != nil && (*l.BgOpacity < 0 || *l.BgOpacity > 1.0) {
+			return errors.New("text-lite bgOpacity must be between 0.0 and 1.0")
+		}
+		if l.Curvature < -100 || l.Curvature > 100 {
+			return errors.New("text-lite curvature must be between -100 and 100")
+		}
+		switch l.TextAnim {
+		case "", "none", "ticker-h", "ticker-v", "typewriter", "fade", "flash", "slide", "blur-in", "blur-out", "scramble", "overtype":
+		default:
+			return fmt.Errorf("unsupported text-lite textAnim %q", l.TextAnim)
+		}
+		if l.Variant == "curved" {
+			switch l.TextAnim {
+			case "ticker-h", "ticker-v", "slide", "scramble", "overtype":
+				return fmt.Errorf("text-lite curved variant does not support textAnim %q (allowed: none, fade, flash, typewriter, blur-in, blur-out)", l.TextAnim)
+			}
+		}
+		if l.ScrollSpeed != 0 && (l.ScrollSpeed < 10.0 || l.ScrollSpeed > 600.0) {
+			return errors.New("text-lite scrollSpeed must be between 10.0 and 600.0 px/s")
+		}
+		if l.TypeSpeed != 0 && (l.TypeSpeed < 1.0 || l.TypeSpeed > 120.0) {
+			return errors.New("text-lite typeSpeed must be between 1.0 and 120.0 chars/s")
+		}
+		if l.HoldDelay < 0 || l.HoldDelay > 30.0 {
+			return errors.New("text-lite holdDelay must be between 0.0 and 30.0 seconds")
+		}
+		switch l.TypeMode {
+		case "", "once", "hold", "delete", "loop":
+		default:
+			return fmt.Errorf("unsupported text-lite typeMode %q", l.TypeMode)
+		}
+	}
 	return nil
 }
 
@@ -340,14 +413,20 @@ func applyLiteEffectDefaults(l *LiteEffect) {
 			l.Color = "#f59e0b"
 		case "pulse", "radar-lite":
 			l.Color = "#22c55e"
+		case "text-lite":
+			l.Color = "#f8fafc"
 		default:
 			l.Color = "#38bdf8"
 		}
 	}
 	if l.Opacity <= 0 {
-		l.Opacity = 0.9
+		if l.Kind == "text-lite" || l.Kind == "gauge-lite" || l.Kind == "oscilloscope-lite" {
+			l.Opacity = 1.0
+		} else {
+			l.Opacity = 0.9
+		}
 	}
-	if l.StrokeWidth <= 0 {
+	if l.StrokeWidth <= 0 && l.Kind != "text-lite" {
 		if l.Kind == "radar-lite" {
 			l.StrokeWidth = 2.0
 		} else {
@@ -731,6 +810,131 @@ func applyLiteEffectDefaults(l *LiteEffect) {
 			l.Width = 180
 			l.Height = 76
 		}
+	case "text-lite":
+		if l.Variant == "" {
+			l.Variant = "rounded"
+		}
+		if l.Width <= 0 || (l.Width == 140 && l.Height == 80) {
+			l.Width = 220
+			l.Height = 56
+		}
+		if l.BgColor == "" {
+			l.BgColor = "#0f172a"
+		}
+		if l.BorderColor == "" {
+			l.BorderColor = "#38bdf8"
+		}
+		if l.BgOpacity == nil {
+			bgo := 0.85
+			if l.Variant == "none" || l.Variant == "curved" {
+				bgo = 0.0
+			}
+			l.BgOpacity = &bgo
+		} else if *l.BgOpacity < 0 {
+			bgo := 0.0
+			l.BgOpacity = &bgo
+		} else if *l.BgOpacity > 1.0 {
+			bgo := 1.0
+			l.BgOpacity = &bgo
+		}
+		if l.StrokeWidth < 0 {
+			l.StrokeWidth = 0
+		} else if l.StrokeWidth == 0 && l.Variant != "none" && l.Variant != "curved" {
+			// Leave explicit 0 border valid when patched; set 1.5 default on fresh creation in JS/CreateLiteEffect
+		} else if l.StrokeWidth > 24.0 {
+			l.StrokeWidth = 24.0
+		}
+		if l.CornerRadius < 0 {
+			l.CornerRadius = 0
+		} else if l.CornerRadius == 0 && l.Variant == "rounded" {
+			l.CornerRadius = 8
+		}
+		if l.FontFamily == "" {
+			l.FontFamily = "modern-sans"
+		}
+		if l.FontSize <= 0 {
+			l.FontSize = 18.0
+		} else if l.FontSize < 8.0 {
+			l.FontSize = 8.0
+		} else if l.FontSize > 120.0 {
+			l.FontSize = 120.0
+		}
+		if l.FontWeight == "" {
+			l.FontWeight = "600"
+		}
+		if l.LetterSpacing < -2.0 {
+			l.LetterSpacing = -2.0
+		} else if l.LetterSpacing > 20.0 {
+			l.LetterSpacing = 20.0
+		}
+		if l.TextAlign == "" {
+			l.TextAlign = "center"
+		}
+		if l.VerticalAlign == "" {
+			l.VerticalAlign = "middle"
+		}
+		if l.Padding < 0 {
+			l.Padding = 0
+		} else if l.Padding > 60.0 {
+			l.Padding = 60.0
+		}
+		if l.TextAnim == "" {
+			l.TextAnim = "none"
+		}
+		if l.Variant == "curved" {
+			switch l.TextAnim {
+			case "ticker-h", "ticker-v", "slide", "scramble", "overtype":
+				l.TextAnim = "none"
+			}
+			if l.StartOffset <= 0 {
+				l.StartOffset = 50
+			}
+		}
+		if l.ScrollSpeed <= 0 {
+			l.ScrollSpeed = 90.0
+		} else if l.ScrollSpeed < 10.0 {
+			l.ScrollSpeed = 10.0
+		} else if l.ScrollSpeed > 600.0 {
+			l.ScrollSpeed = 600.0
+		}
+		if l.TypeSpeed <= 0 {
+			l.TypeSpeed = 14.0
+		} else if l.TypeSpeed < 1.0 {
+			l.TypeSpeed = 1.0
+		} else if l.TypeSpeed > 120.0 {
+			l.TypeSpeed = 120.0
+		}
+		if l.HoldDelay < 0 {
+			l.HoldDelay = 0
+		} else if l.HoldDelay > 30.0 {
+			l.HoldDelay = 30.0
+		}
+		if l.TypeMode == "" {
+			l.TypeMode = "hold"
+		}
+		if l.Speed <= 0 {
+			l.Speed = 2.0
+		} else if l.Speed < 0.2 {
+			l.Speed = 0.2
+		} else if l.Speed > 30.0 {
+			l.Speed = 30.0
+		}
+		if l.Period <= 0 {
+			l.Period = l.Speed
+		}
+		if l.Direction == "" || l.Direction == "cw" {
+			l.Direction = "forward"
+		} else if l.Direction == "ccw" {
+			l.Direction = "reverse"
+		}
+		if l.ShowGuide == nil {
+			sg := false
+			l.ShowGuide = &sg
+		}
+		if l.MaintainAspectRatio == nil {
+			mar := false
+			l.MaintainAspectRatio = &mar
+		}
 	}
 }
 
@@ -805,14 +1009,21 @@ func (s *Scene) UpdateLiteEffect(id StringID, patch map[string]any) (LiteEffect,
 	if v, ok := toFloat(patch["cornerRadius"]); ok && v >= 0 {
 		existing.CornerRadius = v
 	}
+	if v, ok := toFloat(patch["rotation"]); ok {
+		existing.Rotation = math.Max(-360, math.Min(360, v))
+	}
 	if v, ok := patch["color"].(string); ok && v != "" {
 		existing.Color = v
 	}
 	if v, ok := toFloat(patch["opacity"]); ok {
 		existing.Opacity = math.Max(0, math.Min(1, v))
 	}
-	if v, ok := toFloat(patch["strokeWidth"]); ok && v > 0 {
-		existing.StrokeWidth = v
+	if v, ok := toFloat(patch["strokeWidth"]); ok {
+		if existing.Kind == "text-lite" && v >= 0 {
+			existing.StrokeWidth = math.Max(0, math.Min(24.0, v))
+		} else if v > 0 {
+			existing.StrokeWidth = v
+		}
 	}
 	if v, ok := toFloat(patch["segments"]); ok && v >= 1 {
 		existing.Segments = int(math.Round(v))
@@ -1134,12 +1345,62 @@ func (s *Scene) UpdateLiteEffect(id StringID, patch map[string]any) (LiteEffect,
 		existing.Unit = strings.TrimSpace(v)
 	}
 	if v, ok := patch["labelText"].(string); ok {
-		existing.LabelText = strings.TrimSpace(v)
+		if existing.Kind == "text-lite" {
+			existing.LabelText = v
+		} else {
+			existing.LabelText = strings.TrimSpace(v)
+		}
+	}
+	if v, ok := patch["text"].(string); ok && existing.Kind == "text-lite" {
+		existing.LabelText = v
 	}
 	if v, ok := patch["samples"].(string); ok {
 		existing.Samples = strings.TrimSpace(v)
 	}
-	if existing.Kind == "gauge-lite" || existing.Kind == "oscilloscope-lite" {
+	if v, ok := toFloat(patch["bgOpacity"]); ok {
+		bgo := math.Max(0, math.Min(1.0, v))
+		existing.BgOpacity = &bgo
+	}
+	if v, ok := patch["borderColor"].(string); ok && v != "" {
+		existing.BorderColor = v
+	}
+	if v, ok := patch["fontFamily"].(string); ok && v != "" {
+		existing.FontFamily = v
+	}
+	if v, ok := toFloat(patch["fontSize"]); ok && v > 0 {
+		existing.FontSize = math.Max(8.0, math.Min(120.0, v))
+	}
+	if v, ok := patch["fontWeight"].(string); ok && v != "" {
+		existing.FontWeight = v
+	}
+	if v, ok := toFloat(patch["letterSpacing"]); ok {
+		existing.LetterSpacing = math.Max(-2.0, math.Min(20.0, v))
+	}
+	if v, ok := patch["textAlign"].(string); ok && v != "" {
+		existing.TextAlign = v
+	}
+	if v, ok := patch["verticalAlign"].(string); ok && v != "" {
+		existing.VerticalAlign = v
+	}
+	if v, ok := toFloat(patch["padding"]); ok {
+		existing.Padding = math.Max(0, math.Min(60.0, v))
+	}
+	if v, ok := patch["textAnim"].(string); ok && v != "" {
+		existing.TextAnim = v
+	}
+	if v, ok := toFloat(patch["scrollSpeed"]); ok && v > 0 {
+		existing.ScrollSpeed = math.Max(10.0, math.Min(600.0, v))
+	}
+	if v, ok := toFloat(patch["typeSpeed"]); ok && v > 0 {
+		existing.TypeSpeed = math.Max(1.0, math.Min(120.0, v))
+	}
+	if v, ok := toFloat(patch["holdDelay"]); ok {
+		existing.HoldDelay = math.Max(0.0, math.Min(30.0, v))
+	}
+	if v, ok := patch["typeMode"].(string); ok && v != "" {
+		existing.TypeMode = v
+	}
+	if existing.Kind == "gauge-lite" || existing.Kind == "oscilloscope-lite" || existing.Kind == "text-lite" {
 		applyLiteEffectDefaults(&existing)
 	}
 

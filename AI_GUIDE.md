@@ -67,7 +67,7 @@ Because the frontend uses browser globals embedded via `//go:embed`, script load
 10. `js/flows.js` (`window.DataFlows`) — Data flow connector state, CRUD/waypoint API, path math, SVG generation, and flow UI.
 11. `js/glows.js` (`window.Glows`) — Hotspot/radar ping state, CRUD API, SVG generation, and glow UI.
 12. `js/ripples.js` (`window.Ripples`) — Refractive water ripple state, CRUD API, displacement filter/ring SVG generation, and ripple UI.
-13. `js/lite-effects.js` (`window.LiteEffects`) — Low-Load Effects (`perimeter-tracer`, `pulse`, `flash`, `flow-lite`, `radar-lite`, `gauge-lite`, `oscilloscope-lite`) state, multi-point Flow Lite waypoint CRUD, 4-threshold Gauge Lite evaluation, 7-preset Oscilloscope Lite path generation, and declarative SVG builders.
+13. `js/lite-effects.js` (`window.LiteEffects`) — Low-Load Effects (`perimeter-tracer`, `pulse`, `flash`, `flow-lite`, `radar-lite`, `gauge-lite`, `oscilloscope-lite`, `text-lite`) state, multi-point Flow Lite waypoint CRUD, 4-threshold Gauge Lite evaluation, 7-preset Oscilloscope Lite path generation, Text Box Lite containers/curved `<textPath>`/animations, and declarative SVG builders.
 14. `js/history.js` (`window.HistoryManager`) — Undo/redo snapshot stacks (`undoStack`, `redoStack`, `maxDepth: 50`) and `trackedControlIds` (95 DOM controls).
 15. `js/projects.js` (`window.ProjectManager`) — Schema `1.2.0` project serialization/deserialization, `/api/export/projects*` (and `/api/projects*`) REST client, and library modal UI.
 16. `js/shape-dropdown.js` (`window.ensureShapeInDropdown`, `window.populateShapeDropdowns`) — Shape selector population & preset synchronization.
@@ -81,7 +81,7 @@ Because the frontend uses browser globals embedded via `//go:embed`, script load
 24. `js/app.js` (`window.ImageToolsController`, `window.executeBakeImage`, `window.triggerRender`) — Studio bootstrapping, canvas image baking pipeline, crop-clip coordination, three-tier widget property cards, and master preview compilation.
 25. `js/still-export-modal.js` (`window.StillExportStudio`) — Still render configuration (`buildStillRenderConfig`), time-scrubbed SMIL frame evaluation (`bakeStaticSVGAtTime`, `evaluateSMILAnimate`), and still/print export modal.
 26. `js/export-modal.js` (`window.AnimatedExportStudio`) — Animated export payload builder (`constructExportJobPayload`) and multi-frame export modal (`POST /api/render`, progress polling, media downloads).
-27. `js/svg-widget.js` (`window.SVGWidget`) — Stage 16A–16D standalone reusable widget runtime with instance isolation, atomic `setParameter()` / `setParameters()` API, `IntersectionObserver` visibility-aware animation suspension, 4-threshold Gauge Lite evaluation, and live Oscilloscope Lite sample/amplitude updates.
+27. `js/svg-widget.js` (`window.SVGWidget`) — Stage 16A–16D standalone reusable widget runtime with instance isolation, atomic `setParameter()` / `setParameters()` API, `IntersectionObserver` visibility-aware animation suspension, 4-threshold Gauge Lite evaluation, live Oscilloscope Lite sample/amplitude updates, and `TextLiteController` cycle-boundary `pendingText` handover.
 
 ---
 
@@ -111,6 +111,7 @@ Because the frontend uses browser globals embedded via `//go:embed`, script load
 | Visibility-Aware Animation & Initial Low-Load Effects (`perimeter-tracer`, `pulse`, `flash`) | **Implemented & Accepted (Stage 16D-A)** | `pkg/engine/scene/lite_effect.go`, `js/lite-effects.js`, `js/svg-widget.js` (commit `7e8d4f6`) |
 | Permanent SVG Animation Test Lab & Engineering Guidance (M1–M6) | **Complete & Accepted** | `cmd/anim-test-lab/`, `pkg/animlab/`, `testlab/`, `docs/architecture/svg-animation-engineering-guidance.md` (commit `bf7ee3e`) |
 | Stage 16D-B Flows, Data Indicators & Waveforms (`flow-lite`, `radar-lite`, 4-threshold `gauge-lite`, `oscilloscope-lite`) | **Complete & Accepted (Stage 16D-B M1–M4)** | `pkg/engine/geometry/flow_geom.go`, `pkg/engine/scene/lite_effect.go`, `pkg/engine/scene/widget.go`, `js/lite-effects.js`, `js/svg-widget.js` (M1 `a3a7d24`, M2 `ad814bb`, M3 `a086170`, M4 `698e6cf`) |
+| Stage 16D-C Text and Typography (`text-lite` T1–T4: Static Text, Containers, 10 Fonts, 9-Way Align, Rotation, Curved `<textPath>`, Ticker, Typewriter, Cycle-Boundary `pendingText` Handover & T4 Effects) | **Implemented, Awaiting User Acceptance (Stage 16D-C)** | `pkg/engine/scene/lite_effect.go`, `pkg/engine/scene/widget.go`, `js/lite-effects.js`, `js/svg-widget.js`, `text-lite-demo.html` |
 | Three-layer frontend separation (`SceneState`, `ControlStateAdaptor`, `AppCoordinator`) | **Implemented (Phase 1)** | `internal/web/static/js/scene-state.js`, `coordinator.js` |
 | Operational APIs & UI separation across `presets`, `nodes`, `flows`, `glows`, `ripples`, `stage`, `history`, `projects`, `app`, export modals | **Implemented (Phase 1)** | `internal/web/static/js/*.js` |
 | Immutable SVG Shape Registry (`window.ShapeRegistry`) | **Implemented (Stage 2.1)** | `internal/web/static/js/shape-registry.js` (commit `f229c89`) |

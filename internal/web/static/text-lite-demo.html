@@ -1,0 +1,495 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+  <meta charset="UTF-8" />
+  <meta name="viewport" content="width=device-width, initial-scale=1.0" />
+  <title>SVG Animator Studio — Stage 16D-C Text &amp; Typography Showcase (T1–T4)</title>
+  <style>
+    :root {
+      --bg: #070b14;
+      --card: #0f172a;
+      --border: #1e293b;
+      --text: #f8fafc;
+      --muted: #94a3b8;
+      --accent: #38bdf8;
+    }
+    * { box-sizing: border-box; }
+    body {
+      margin: 0;
+      padding: 22px 28px 60px;
+      background: var(--bg);
+      color: var(--text);
+      font-family: Inter, system-ui, -apple-system, sans-serif;
+      line-height: 1.45;
+    }
+    header {
+      display: flex;
+      justify-content: space-between;
+      align-items: flex-start;
+      flex-wrap: wrap;
+      gap: 14px;
+      padding-bottom: 16px;
+      border-bottom: 1px solid var(--border);
+      margin-bottom: 24px;
+    }
+    header h1 {
+      margin: 0 0 6px;
+      font-size: 21px;
+      color: #e2e8f0;
+    }
+    header p {
+      margin: 0;
+      font-size: 13px;
+      color: var(--muted);
+    }
+    .badge-row {
+      display: flex;
+      gap: 8px;
+      flex-wrap: wrap;
+    }
+    .badge {
+      padding: 5px 10px;
+      border-radius: 6px;
+      font-size: 11px;
+      font-weight: 600;
+      background: rgba(56, 189, 248, 0.12);
+      border: 1px solid rgba(56, 189, 248, 0.35);
+      color: var(--accent);
+    }
+    section {
+      background: var(--card);
+      border: 1px solid var(--border);
+      border-radius: 10px;
+      padding: 18px 20px;
+      margin-bottom: 24px;
+    }
+    section h2 {
+      margin: 0 0 6px;
+      font-size: 16px;
+      color: #38bdf8;
+    }
+    section p.sub {
+      margin: 0 0 14px;
+      font-size: 12.5px;
+      color: var(--muted);
+    }
+    .stage-wrap {
+      background: #050912;
+      border: 1px solid #1e293b;
+      border-radius: 8px;
+      overflow: hidden;
+    }
+    .stage-wrap svg {
+      width: 100%;
+      height: auto;
+      display: block;
+    }
+    .runtime-grid {
+      display: grid;
+      grid-template-columns: repeat(auto-fit, minmax(340px, 1fr));
+      gap: 16px;
+      margin-top: 12px;
+    }
+    .runtime-card {
+      background: #080d19;
+      border: 1px solid #1e293b;
+      border-radius: 8px;
+      padding: 14px;
+      display: flex;
+      flex-direction: column;
+      gap: 10px;
+    }
+    .runtime-card h3 {
+      margin: 0;
+      font-size: 13.5px;
+      color: #e2e8f0;
+      display: flex;
+      justify-content: space-between;
+      align-items: center;
+    }
+    .widget-host {
+      height: 110px;
+      background: #030711;
+      border: 1px solid #1e293b;
+      border-radius: 6px;
+    }
+    .ctrl-bar {
+      display: flex;
+      flex-wrap: wrap;
+      gap: 6px;
+      align-items: center;
+    }
+    .ctrl-bar input[type="text"] {
+      flex: 1;
+      min-width: 140px;
+      padding: 6px 9px;
+      border-radius: 5px;
+      border: 1px solid #334155;
+      background: #0f172a;
+      color: #f8fafc;
+      font-size: 12px;
+    }
+    button {
+      padding: 6px 11px;
+      border-radius: 5px;
+      border: 1px solid rgba(56, 189, 248, 0.4);
+      background: rgba(56, 189, 248, 0.14);
+      color: #e0f2fe;
+      font-size: 11.5px;
+      font-weight: 600;
+      cursor: pointer;
+    }
+    button:hover {
+      background: rgba(56, 189, 248, 0.25);
+    }
+    button.warn {
+      border-color: rgba(245, 158, 11, 0.45);
+      background: rgba(245, 158, 11, 0.14);
+      color: #fef3c7;
+    }
+    button.success {
+      border-color: rgba(34, 197, 94, 0.45);
+      background: rgba(34, 197, 94, 0.14);
+      color: #dcfce7;
+    }
+    .status-line {
+      font-family: ui-monospace, SFMono-Regular, Menlo, monospace;
+      font-size: 11px;
+      color: #94a3b8;
+      background: #030711;
+      padding: 6px 8px;
+      border-radius: 4px;
+      border: 1px solid #1e293b;
+    }
+  </style>
+</head>
+<body>
+  <header>
+    <div>
+      <h1>Stage 16D-C — Text &amp; Typography Comprehensive Visual Acceptance Showcase (T1–T4)</h1>
+      <p>Generated live by authoritative <code>LiteEffects.renderLiteElement()</code> &amp; mounted via <code>SVGWidget.mount()</code>.</p>
+    </div>
+    <div class="badge-row">
+      <span class="badge">T1: 4 Straight Containers + 10 Fonts + 9-Way Align + Rotation</span>
+      <span class="badge">T2: True Curved &lt;textPath&gt; Arcs</span>
+      <span class="badge">T3: Distance-Per-Second Ticker + Grapheme Typewriter + Pending Handover</span>
+      <span class="badge">T4: Fade / Flash / Slide / Blur / Scramble / Overtype</span>
+    </div>
+  </header>
+
+  <!-- SECTION 1: T1 STATIC STYLING, CONTAINERS, 10 FONTS, 9-WAY ALIGNMENT & ROTATION -->
+  <section id="sec-t1">
+    <h2>1. T1 — Static Styling Gallery: Containers, 10 Curated Fonts, 9-Way Alignment, Transparency &amp; Rotation</h2>
+    <p class="sub">Four straight container variants (<code>none</code> floating text, <code>rect</code>, <code>rounded</code>, <code>pill</code>), all 10 curated font stacks including <code>classic-script</code> formal calligraphy, 9-way alignment grid, transparent backgrounds/borders, and whole-object rotation.</p>
+    <div class="stage-wrap" id="galleryT1"></div>
+  </section>
+
+  <!-- SECTION 2: T2 TRUE CURVED TEXT -->
+  <section id="sec-t2">
+    <h2>2. T2 — Curved Typography Gallery: True SVG &lt;textPath&gt; Quadratic-Bézier Arcs</h2>
+    <p class="sub">Upward convex (<code>+curvature</code>) and downward concave (<code>-curvature</code>) arcs with letter-spacing, start offset, visible vs. hidden guide curve, and formal calligraphy / serif / handwritten typography.</p>
+    <div class="stage-wrap" id="galleryT2"></div>
+  </section>
+
+  <!-- SECTION 3: T3 & T4 TEXT ANIMATION GALLERY -->
+  <section id="sec-t3-t4">
+    <h2>3. T3 &amp; T4 — Text Animation Gallery (All 10 Animated Modes + Distance-Per-Second Tickers)</h2>
+    <p class="sub">Horizontal Ticker (short &amp; long messages scrolling completely out at uniform px/s), Vertical Ticker, Typewriter (<code>once</code>, <code>hold</code>, <code>delete</code>, <code>loop</code> with Unicode emoji), <code>fade</code>, <code>flash</code>, <code>slide</code>, <code>blur-in</code>, <code>blur-out</code>, <code>scramble</code>, and <code>overtype</code>.</p>
+    <div class="stage-wrap" id="galleryT3T4"></div>
+  </section>
+
+  <!-- SECTION 4: INTERACTIVE STAGE 16C RUNTIME & PENDING-MESSAGE HANDOVER LAB -->
+  <section id="sec-runtime">
+    <h2>4. Stage 16C Interactive Runtime &amp; Pending-Message Cycle-Boundary Handover Lab</h2>
+    <p class="sub">Independent <code>SVGWidget.mount()</code> instances proving: (A) Static text updates immediately; (B) Animated ticker &amp; typewriter finish their active cycle before adopting <code>pendingText</code>; (C) Sending 3 rapid updates during one cycle adopts only the latest (<code>Update #3</code>) on the next cycle; (D) Multi-instance isolation; (E) Off-screen suspension &amp; resumption.</p>
+
+    <div class="runtime-grid">
+      <!-- Card A: Static Immediate Update -->
+      <div class="runtime-card">
+        <h3><span>A. Static Text Widget (Immediate Update)</span><span class="badge">anim: none</span></h3>
+        <div class="widget-host" id="hostStatic"></div>
+        <div class="ctrl-bar">
+          <input type="text" id="inputStatic" value="STATIC: ALL SYSTEMS GO" />
+          <button id="btnStaticApply">Apply Immediately</button>
+          <button id="btnStaticColor" class="success">Green Colour</button>
+        </div>
+        <div class="status-line" id="statusStatic">Ready</div>
+      </div>
+
+      <!-- Card B: Horizontal Ticker Pending Handover & 3-Burst Coalescing -->
+      <div class="runtime-card">
+        <h3><span>B. Horizontal Ticker (Cycle-Boundary Handover)</span><span class="badge">anim: ticker-h</span></h3>
+        <div class="widget-host" id="hostTicker"></div>
+        <div class="ctrl-bar">
+          <input type="text" id="inputTicker" value="NEXT CYCLE ALERT: COOLANT PUMP B ONLINE" />
+          <button id="btnTickerQueue">Send Update</button>
+          <button id="btnTickerBurst3" class="warn">Send 3 Rapid Updates (#1, #2, #3)</button>
+          <button id="btnTickerLong">Send Very Long Message</button>
+        </div>
+        <div class="status-line" id="statusTicker">Active cycle running...</div>
+      </div>
+
+      <!-- Card C: Typewriter Loop Pending Handover & Grapheme Emoji -->
+      <div class="runtime-card">
+        <h3><span>C. Typewriter Loop (Grapheme &amp; Cycle Handover)</span><span class="badge">anim: typewriter</span></h3>
+        <div class="widget-host" id="hostTypewriter"></div>
+        <div class="ctrl-bar">
+          <input type="text" id="inputTypewriter" value="Launch Sequence 🚀 Nominal ✓" />
+          <button id="btnTypeQueue">Send Update</button>
+          <button id="btnTypeBurst3" class="warn">Send 3 Rapid Updates (#1, #2, #3)</button>
+        </div>
+        <div class="status-line" id="statusTypewriter">Typing active cycle...</div>
+      </div>
+
+      <!-- Card D: Two Independent Instances + Suspension Handover -->
+      <div class="runtime-card">
+        <h3><span>D. Multi-Instance Isolation &amp; Suspension Lab</span><span class="badge">Instance A &amp; B</span></h3>
+        <div style="display:grid; grid-template-columns: 1fr 1fr; gap:8px;">
+          <div class="widget-host" id="hostInstA"></div>
+          <div class="widget-host" id="hostInstB"></div>
+        </div>
+        <div class="ctrl-bar">
+          <button id="btnInstADiff">Update Instance A Only</button>
+          <button id="btnInstBDiff">Update Instance B Only</button>
+          <button id="btnInstBSuspend" class="warn">Suspend B + Update + Resume</button>
+        </div>
+        <div class="status-line" id="statusMulti">Two isolated instances mounted from same SVG package.</div>
+      </div>
+    </div>
+  </section>
+
+  <script src="/js/lite-effects.js"></script>
+  <script src="/js/svg-widget.js"></script>
+  <script>
+    (function() {
+      const LE = window.LiteEffects;
+
+      function wrapSVG(w, h, items) {
+        LE.list = items.slice();
+        const defs = LE.getLiteDefs();
+        const body = items.map((it) => LE.renderLiteElement(it)).join('\n');
+        return `<svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 ${w} ${h}" width="${w}" height="${h}">
+          <rect width="${w}" height="${h}" fill="#050912" />
+          ${defs}
+          <g id="lite-effects-layer" class="lite-effects-layer">${body}</g>
+        </svg>`;
+      }
+
+      // -----------------------------------------------------------------------
+      // 1. Build T1 Gallery (1280 x 540)
+      // -----------------------------------------------------------------------
+      const t1Items = [
+        // Row 1: 4 container styles
+        { id: 't1-none', kind: 'text-lite', variant: 'none', labelText: '1. Floating Text (none)', fontFamily: 'modern-sans', fontSize: 18, fontWeight: '600', color: '#38bdf8', x: 165, y: 45, width: 280, height: 52, textAlign: 'center', verticalAlign: 'middle', padding: 10 },
+        { id: 't1-rect', kind: 'text-lite', variant: 'rect', labelText: '2. Sharp Rectangle (rect)', fontFamily: 'modern-sans', fontSize: 17, fontWeight: '600', color: '#f8fafc', bgColor: '#0f172a', bgOpacity: 0.95, borderColor: '#38bdf8', strokeWidth: 2, x: 475, y: 45, width: 280, height: 52, textAlign: 'center', verticalAlign: 'middle', padding: 10 },
+        { id: 't1-round', kind: 'text-lite', variant: 'rounded', labelText: '3. Rounded Box (r=12)', fontFamily: 'modern-sans', fontSize: 17, fontWeight: '600', color: '#f8fafc', bgColor: '#1e1b4b', bgOpacity: 0.9, borderColor: '#818cf8', strokeWidth: 2, cornerRadius: 12, x: 785, y: 45, width: 280, height: 52, textAlign: 'center', verticalAlign: 'middle', padding: 10 },
+        { id: 't1-pill', kind: 'text-lite', variant: 'pill', labelText: '4. Capsule Pill Badge', fontFamily: 'geometric-sans', fontSize: 17, fontWeight: '700', color: '#052e16', bgColor: '#22c55e', bgOpacity: 1.0, borderColor: '#86efac', strokeWidth: 2, x: 1095, y: 45, width: 280, height: 52, textAlign: 'center', verticalAlign: 'middle', padding: 12 },
+
+        // Rows 2 & 3: All 10 Curated Fonts
+        { id: 'f-1', kind: 'text-lite', variant: 'rounded', labelText: 'Modern Sans (Inter / UI)', fontFamily: 'modern-sans', fontSize: 16, fontWeight: '600', color: '#e2e8f0', bgColor: '#0f172a', bgOpacity: 0.85, borderColor: '#334155', strokeWidth: 1.5, cornerRadius: 8, x: 140, y: 125, width: 235, height: 48, textAlign: 'center', verticalAlign: 'middle', padding: 8 },
+        { id: 'f-2', kind: 'text-lite', variant: 'rounded', labelText: 'Humanist Sans (Gill/Trebuchet)', fontFamily: 'humanist-sans', fontSize: 16, fontWeight: '600', color: '#e2e8f0', bgColor: '#0f172a', bgOpacity: 0.85, borderColor: '#334155', strokeWidth: 1.5, cornerRadius: 8, x: 390, y: 125, width: 235, height: 48, textAlign: 'center', verticalAlign: 'middle', padding: 8 },
+        { id: 'f-3', kind: 'text-lite', variant: 'rounded', labelText: 'Geometric Sans (Montserrat)', fontFamily: 'geometric-sans', fontSize: 16, fontWeight: '600', color: '#e2e8f0', bgColor: '#0f172a', bgOpacity: 0.85, borderColor: '#334155', strokeWidth: 1.5, cornerRadius: 8, x: 640, y: 125, width: 235, height: 48, textAlign: 'center', verticalAlign: 'middle', padding: 8 },
+        { id: 'f-4', kind: 'text-lite', variant: 'rounded', labelText: 'Formal Serif (Georgia)', fontFamily: 'formal-serif', fontSize: 17, fontWeight: '600', color: '#fef08a', bgColor: '#0f172a', bgOpacity: 0.85, borderColor: '#334155', strokeWidth: 1.5, cornerRadius: 8, x: 890, y: 125, width: 235, height: 48, textAlign: 'center', verticalAlign: 'middle', padding: 8 },
+        { id: 'f-5', kind: 'text-lite', variant: 'rounded', labelText: 'Traditional Serif (Palatino)', fontFamily: 'traditional-serif', fontSize: 17, fontWeight: '600', color: '#fde68a', bgColor: '#0f172a', bgOpacity: 0.85, borderColor: '#334155', strokeWidth: 1.5, cornerRadius: 8, x: 1140, y: 125, width: 235, height: 48, textAlign: 'center', verticalAlign: 'middle', padding: 8 },
+
+        { id: 'f-6', kind: 'text-lite', variant: 'rounded', labelText: 'Tech Mono (01:42:99 UTC)', fontFamily: 'tech-mono', fontSize: 15, fontWeight: '600', color: '#38bdf8', bgColor: '#0f172a', bgOpacity: 0.85, borderColor: '#334155', strokeWidth: 1.5, cornerRadius: 8, x: 140, y: 190, width: 235, height: 48, textAlign: 'center', verticalAlign: 'middle', padding: 8 },
+        { id: 'f-7', kind: 'text-lite', variant: 'rounded', labelText: 'CONDENSED DISPLAY HEADER', fontFamily: 'condensed-display', fontSize: 18, fontWeight: '700', letterSpacing: 1.5, color: '#f97316', bgColor: '#0f172a', bgOpacity: 0.85, borderColor: '#334155', strokeWidth: 1.5, cornerRadius: 8, x: 390, y: 190, width: 235, height: 48, textAlign: 'center', verticalAlign: 'middle', padding: 8 },
+        { id: 'f-8', kind: 'text-lite', variant: 'rounded', labelText: 'Casual Lettering Note', fontFamily: 'casual-lettering', fontSize: 17, fontWeight: '600', color: '#a7f3d0', bgColor: '#0f172a', bgOpacity: 0.85, borderColor: '#334155', strokeWidth: 1.5, cornerRadius: 8, x: 640, y: 190, width: 235, height: 48, textAlign: 'center', verticalAlign: 'middle', padding: 8 },
+        { id: 'f-9', kind: 'text-lite', variant: 'rounded', labelText: 'Informal Handwritten', fontFamily: 'informal-hand', fontSize: 18, fontWeight: '600', color: '#f472b6', bgColor: '#0f172a', bgOpacity: 0.85, borderColor: '#334155', strokeWidth: 1.5, cornerRadius: 8, x: 890, y: 190, width: 235, height: 48, textAlign: 'center', verticalAlign: 'middle', padding: 8 },
+        { id: 'f-10', kind: 'text-lite', variant: 'rounded', labelText: 'Classic Calligraphy Script', fontFamily: 'classic-script', fontSize: 21, fontWeight: '600', color: '#c084fc', bgColor: '#0f172a', bgOpacity: 0.85, borderColor: '#a855f7', strokeWidth: 1.5, cornerRadius: 8, x: 1140, y: 190, width: 235, height: 48, textAlign: 'center', verticalAlign: 'middle', padding: 8 },
+
+        // Row 4: 9-Way Alignment Matrix (Left/Center/Right x Top/Middle/Bottom)
+        { id: 'al-lt', kind: 'text-lite', variant: 'rect', labelText: 'Left + Top', fontFamily: 'modern-sans', fontSize: 14, fontWeight: '600', color: '#38bdf8', bgColor: '#0b1322', bgOpacity: 0.9, borderColor: '#1e293b', strokeWidth: 1.5, x: 130, y: 280, width: 200, height: 64, textAlign: 'left', verticalAlign: 'top', padding: 8 },
+        { id: 'al-ct', kind: 'text-lite', variant: 'rect', labelText: 'Center + Top', fontFamily: 'modern-sans', fontSize: 14, fontWeight: '600', color: '#38bdf8', bgColor: '#0b1322', bgOpacity: 0.9, borderColor: '#1e293b', strokeWidth: 1.5, x: 345, y: 280, width: 200, height: 64, textAlign: 'center', verticalAlign: 'top', padding: 8 },
+        { id: 'al-rt', kind: 'text-lite', variant: 'rect', labelText: 'Right + Top', fontFamily: 'modern-sans', fontSize: 14, fontWeight: '600', color: '#38bdf8', bgColor: '#0b1322', bgOpacity: 0.9, borderColor: '#1e293b', strokeWidth: 1.5, x: 560, y: 280, width: 200, height: 64, textAlign: 'right', verticalAlign: 'top', padding: 8 },
+
+        { id: 'al-lm', kind: 'text-lite', variant: 'rect', labelText: 'Left + Middle', fontFamily: 'modern-sans', fontSize: 14, fontWeight: '600', color: '#22c55e', bgColor: '#0b1322', bgOpacity: 0.9, borderColor: '#1e293b', strokeWidth: 1.5, x: 130, y: 360, width: 200, height: 64, textAlign: 'left', verticalAlign: 'middle', padding: 8 },
+        { id: 'al-cm', kind: 'text-lite', variant: 'rect', labelText: 'Center + Middle', fontFamily: 'modern-sans', fontSize: 14, fontWeight: '600', color: '#22c55e', bgColor: '#0b1322', bgOpacity: 0.9, borderColor: '#1e293b', strokeWidth: 1.5, x: 345, y: 360, width: 200, height: 64, textAlign: 'center', verticalAlign: 'middle', padding: 8 },
+        { id: 'al-rm', kind: 'text-lite', variant: 'rect', labelText: 'Right + Middle', fontFamily: 'modern-sans', fontSize: 14, fontWeight: '600', color: '#22c55e', bgColor: '#0b1322', bgOpacity: 0.9, borderColor: '#1e293b', strokeWidth: 1.5, x: 560, y: 360, width: 200, height: 64, textAlign: 'right', verticalAlign: 'middle', padding: 8 },
+
+        { id: 'al-lb', kind: 'text-lite', variant: 'rect', labelText: 'Left + Bottom', fontFamily: 'modern-sans', fontSize: 14, fontWeight: '600', color: '#f59e0b', bgColor: '#0b1322', bgOpacity: 0.9, borderColor: '#1e293b', strokeWidth: 1.5, x: 130, y: 440, width: 200, height: 64, textAlign: 'left', verticalAlign: 'bottom', padding: 8 },
+        { id: 'al-cb', kind: 'text-lite', variant: 'rect', labelText: 'Center + Bottom', fontFamily: 'modern-sans', fontSize: 14, fontWeight: '600', color: '#f59e0b', bgColor: '#0b1322', bgOpacity: 0.9, borderColor: '#1e293b', strokeWidth: 1.5, x: 345, y: 440, width: 200, height: 64, textAlign: 'center', verticalAlign: 'bottom', padding: 8 },
+        { id: 'al-rb', kind: 'text-lite', variant: 'rect', labelText: 'Right + Bottom', fontFamily: 'modern-sans', fontSize: 14, fontWeight: '600', color: '#f59e0b', bgColor: '#0b1322', bgOpacity: 0.9, borderColor: '#1e293b', strokeWidth: 1.5, x: 560, y: 440, width: 200, height: 64, textAlign: 'right', verticalAlign: 'bottom', padding: 8 },
+
+        // Right side of rows 4-6: Transparency & Whole-Object Rotation
+        { id: 'rot-15', kind: 'text-lite', variant: 'rounded', labelText: 'Rotated -18° Pill/Box', fontFamily: 'geometric-sans', fontSize: 16, fontWeight: '700', color: '#38bdf8', bgColor: '#0f172a', bgOpacity: 0.45, borderColor: '#38bdf8', strokeWidth: 2, cornerRadius: 10, rotation: -18, x: 820, y: 315, width: 210, height: 50, textAlign: 'center', verticalAlign: 'middle', padding: 8 },
+        { id: 'rot-25', kind: 'text-lite', variant: 'pill', labelText: 'Rotated +22° Translucent', fontFamily: 'modern-sans', fontSize: 15, fontWeight: '700', color: '#f472b6', bgColor: '#500724', bgOpacity: 0.35, borderColor: '#f472b6', strokeWidth: 2, rotation: 22, x: 820, y: 435, width: 220, height: 50, textAlign: 'center', verticalAlign: 'middle', padding: 8 },
+        { id: 'rot-90', kind: 'text-lite', variant: 'rounded', labelText: 'VERTICAL RACK -90°', fontFamily: 'tech-mono', fontSize: 15, fontWeight: '700', letterSpacing: 1.5, color: '#22c55e', bgColor: '#052e16', bgOpacity: 0.75, borderColor: '#22c55e', strokeWidth: 2, cornerRadius: 8, rotation: -90, x: 1060, y: 375, width: 220, height: 48, textAlign: 'center', verticalAlign: 'middle', padding: 8 },
+        { id: 'rot-borderless', kind: 'text-lite', variant: 'rounded', labelText: 'Borderless Glass (sw=0)', fontFamily: 'formal-serif', fontSize: 16, fontWeight: '600', color: '#e2e8f0', bgColor: '#38bdf8', bgOpacity: 0.18, borderColor: '#38bdf8', strokeWidth: 0, cornerRadius: 12, rotation: 8, x: 1185, y: 375, width: 170, height: 54, textAlign: 'center', verticalAlign: 'middle', padding: 8 }
+      ];
+      document.getElementById('galleryT1').innerHTML = wrapSVG(1280, 500, t1Items);
+
+      // -----------------------------------------------------------------------
+      // 2. Build T2 Curved Typography Gallery (1280 x 320)
+      // -----------------------------------------------------------------------
+      const t2Items = [
+        { id: 'c-up-serif', kind: 'text-lite', variant: 'curved', labelText: 'NORTHERN HEMISPHERE TELEMETRY ARC (+65%)', fontFamily: 'formal-serif', fontSize: 18, fontWeight: '700', letterSpacing: 1.5, curvature: 65, startOffset: 50, showGuide: true, color: '#38bdf8', borderColor: '#38bdf8', strokeWidth: 1.5, x: 220, y: 95, width: 380, height: 130, textAlign: 'center', padding: 10 },
+        { id: 'c-down-script', kind: 'text-lite', variant: 'curved', labelText: 'Royal Observatory Ceremonial Crest (-65%)', fontFamily: 'classic-script', fontSize: 24, fontWeight: '600', letterSpacing: 1.0, curvature: -65, startOffset: 50, showGuide: true, color: '#c084fc', borderColor: '#a855f7', strokeWidth: 1.5, x: 640, y: 95, width: 380, height: 130, textAlign: 'center', padding: 10 },
+        { id: 'c-noguide-hand', kind: 'text-lite', variant: 'curved', labelText: 'Hidden Guide Curve • Pure Curved Crest (+50%)', fontFamily: 'informal-hand', fontSize: 20, fontWeight: '600', letterSpacing: 0.8, curvature: 50, startOffset: 50, showGuide: false, color: '#22c55e', borderColor: '#22c55e', strokeWidth: 1.5, x: 1060, y: 95, width: 380, height: 130, textAlign: 'center', padding: 10 },
+
+        { id: 'c-wide-track', kind: 'text-lite', variant: 'curved', labelText: 'WIDE LETTER TRACKING (+4.5PX) ON GENTLE ARC', fontFamily: 'geometric-sans', fontSize: 15, fontWeight: '700', letterSpacing: 4.5, curvature: 35, startOffset: 50, showGuide: true, color: '#f59e0b', borderColor: '#f59e0b', strokeWidth: 1.2, x: 340, y: 245, width: 520, height: 110, textAlign: 'center', padding: 10 },
+        { id: 'c-rot-curved', kind: 'text-lite', variant: 'curved', labelText: 'ROTATED CURVED CALLOUT (-15°)', fontFamily: 'tech-mono', fontSize: 16, fontWeight: '700', letterSpacing: 1.2, curvature: -55, startOffset: 50, showGuide: true, rotation: -15, color: '#f472b6', borderColor: '#f472b6', strokeWidth: 1.5, x: 960, y: 245, width: 360, height: 110, textAlign: 'center', padding: 10 }
+      ];
+      document.getElementById('galleryT2').innerHTML = wrapSVG(1280, 320, t2Items);
+
+      // -----------------------------------------------------------------------
+      // 3. Build T3 & T4 Text Animation Gallery (1280 x 430)
+      // -----------------------------------------------------------------------
+      const t3t4Items = [
+        { id: 'a-ticker-short', kind: 'text-lite', variant: 'rounded', labelText: 'SHORT TICKER: 90 PX/S LINEAR', fontFamily: 'tech-mono', fontSize: 16, fontWeight: '700', textAnim: 'ticker-h', scrollSpeed: 95, direction: 'forward', color: '#38bdf8', bgColor: '#0b1322', bgOpacity: 0.95, borderColor: '#38bdf8', strokeWidth: 1.8, cornerRadius: 8, x: 220, y: 55, width: 380, height: 54 },
+        { id: 'a-ticker-long', kind: 'text-lite', variant: 'rounded', labelText: 'LONG TELEMETRY STREAM: PRIMARY BUS 400V NOMINAL • SECONDARY BUS 28.4V • PACKET LOSS 0.000% • ALL NODES SYNCHRONIZED', fontFamily: 'tech-mono', fontSize: 16, fontWeight: '700', textAnim: 'ticker-h', scrollSpeed: 120, direction: 'forward', color: '#22c55e', bgColor: '#052e16', bgOpacity: 0.9, borderColor: '#22c55e', strokeWidth: 1.8, cornerRadius: 8, x: 640, y: 55, width: 380, height: 54 },
+        { id: 'a-ticker-v', kind: 'text-lite', variant: 'rounded', labelText: 'VERTICAL ROLLING STATUS FEED ↑', fontFamily: 'modern-sans', fontSize: 16, fontWeight: '700', textAnim: 'ticker-v', scrollSpeed: 45, direction: 'forward', color: '#f59e0b', bgColor: '#0b1322', bgOpacity: 0.95, borderColor: '#f59e0b', strokeWidth: 1.8, cornerRadius: 8, x: 1060, y: 55, width: 380, height: 54 },
+
+        { id: 'a-type-loop', kind: 'text-lite', variant: 'rounded', labelText: 'Typewriter Loop 🚀 Accents: Café ∆', fontFamily: 'tech-mono', fontSize: 16, fontWeight: '600', textAnim: 'typewriter', typeSpeed: 16, holdDelay: 1.0, typeMode: 'loop', color: '#e2e8f0', bgColor: '#0f172a', bgOpacity: 0.95, borderColor: '#818cf8', strokeWidth: 1.8, cornerRadius: 8, x: 220, y: 145, width: 380, height: 54 },
+        { id: 'a-type-del', kind: 'text-lite', variant: 'rounded', labelText: 'Type + Reverse Backspace Delete', fontFamily: 'tech-mono', fontSize: 16, fontWeight: '600', textAnim: 'typewriter', typeSpeed: 18, holdDelay: 0.8, typeMode: 'loop', color: '#f472b6', bgColor: '#0f172a', bgOpacity: 0.95, borderColor: '#f472b6', strokeWidth: 1.8, cornerRadius: 8, x: 640, y: 145, width: 380, height: 54 },
+        { id: 'a-fade', kind: 'text-lite', variant: 'pill', labelText: 'Smooth Fade In / Hold / Fade Out', fontFamily: 'modern-sans', fontSize: 16, fontWeight: '700', textAnim: 'fade', speed: 2.2, holdDelay: 0.8, color: '#38bdf8', bgColor: '#0c4a6e', bgOpacity: 0.65, borderColor: '#38bdf8', strokeWidth: 1.8, x: 1060, y: 145, width: 380, height: 54 },
+
+        { id: 'a-flash', kind: 'text-lite', variant: 'rounded', labelText: 'ALERT: HIGH TEMPERATURE WARNING', fontFamily: 'condensed-display', fontSize: 19, fontWeight: '700', letterSpacing: 1.2, textAnim: 'flash', speed: 0.9, color: '#fef08a', bgColor: '#7f1d1d', bgOpacity: 0.9, borderColor: '#ef4444', strokeWidth: 2, cornerRadius: 8, x: 220, y: 235, width: 380, height: 54 },
+        { id: 'a-slide', kind: 'text-lite', variant: 'rounded', labelText: 'Clipped Container Slide In / Out', fontFamily: 'geometric-sans', fontSize: 16, fontWeight: '700', textAnim: 'slide', speed: 2.0, holdDelay: 0.6, color: '#a7f3d0', bgColor: '#064e3b', bgOpacity: 0.8, borderColor: '#10b981', strokeWidth: 1.8, cornerRadius: 8, x: 640, y: 235, width: 380, height: 54 },
+        { id: 'a-blur-in', kind: 'text-lite', variant: 'rounded', labelText: 'Optical Blur-In Focus Reveal', fontFamily: 'formal-serif', fontSize: 18, fontWeight: '600', textAnim: 'blur-in', speed: 2.2, holdDelay: 0.8, color: '#e9d5ff', bgColor: '#2e1065', bgOpacity: 0.75, borderColor: '#a855f7', strokeWidth: 1.8, cornerRadius: 8, x: 1060, y: 235, width: 380, height: 54 },
+
+        { id: 'a-blur-out', kind: 'text-lite', variant: 'rounded', labelText: 'Optical Blur-Out Dissolve Cycle', fontFamily: 'traditional-serif', fontSize: 18, fontWeight: '600', textAnim: 'blur-out', speed: 2.2, holdDelay: 0.8, color: '#fde68a', bgColor: '#451a03', bgOpacity: 0.75, borderColor: '#f59e0b', strokeWidth: 1.8, cornerRadius: 8, x: 220, y: 325, width: 380, height: 54 },
+        { id: 'a-scramble', kind: 'text-lite', variant: 'rounded', labelText: 'DECRYPTING CIPHER: KEY 0x9FA4', fontFamily: 'tech-mono', fontSize: 16, fontWeight: '700', textAnim: 'scramble', typeSpeed: 18, holdDelay: 1.2, typeMode: 'loop', color: '#22c55e', bgColor: '#052e16', bgOpacity: 0.9, borderColor: '#22c55e', strokeWidth: 1.8, cornerRadius: 8, x: 640, y: 325, width: 380, height: 54 },
+        { id: 'a-overtype', kind: 'text-lite', variant: 'rounded', labelText: 'OVERTYPE IN-PLACE TELEMETRY', fontFamily: 'tech-mono', fontSize: 16, fontWeight: '700', textAnim: 'overtype', typeSpeed: 16, holdDelay: 1.2, typeMode: 'loop', color: '#38bdf8', bgColor: '#0b1322', bgOpacity: 0.9, borderColor: '#38bdf8', strokeWidth: 1.8, cornerRadius: 8, x: 1060, y: 325, width: 380, height: 54 }
+      ];
+      const t3t4Svg = wrapSVG(1280, 390, t3t4Items);
+      window.SVGWidget.mount('#galleryT3T4', t3t4Svg, { instanceId: 'showcase-anim-gallery' });
+
+      // -----------------------------------------------------------------------
+      // 4. Mount Interactive Stage 16C Runtime Lab Widgets
+      // -----------------------------------------------------------------------
+      function makeSingleTextWidgetSVG(effectProps, manifestParams) {
+        const item = Object.assign({
+          id: '1',
+          name: 'banner',
+          kind: 'text-lite',
+          variant: 'rounded',
+          labelText: 'SYSTEM READY',
+          fontFamily: 'tech-mono',
+          fontSize: 18,
+          fontWeight: '700',
+          textAlign: 'center',
+          verticalAlign: 'middle',
+          padding: 12,
+          color: '#38bdf8',
+          bgColor: '#0b1322',
+          bgOpacity: 0.95,
+          borderColor: '#38bdf8',
+          strokeWidth: 2,
+          cornerRadius: 10,
+          x: 200,
+          y: 50,
+          width: 370,
+          height: 64
+        }, effectProps);
+        LE.list = [item];
+        const defs = LE.getLiteDefs();
+        const elStr = LE.renderLiteElement(item);
+        const manifest = {
+          schemaVersion: 1,
+          title: 'Text Box Lite Widget',
+          parameters: manifestParams || [
+            { name: 'banner-lite-text', target: 'lite-1', property: 'text', type: 'text', default: item.labelText },
+            { name: 'banner-lite-color', target: 'lite-1', property: 'color', type: 'color', default: item.color },
+            { name: 'banner-lite-bgColor', target: 'lite-1', property: 'bgColor', type: 'color', default: item.bgColor },
+            { name: 'banner-lite-borderColor', target: 'lite-1', property: 'borderColor', type: 'color', default: item.borderColor },
+            { name: 'banner-lite-scrollSpeed', target: 'lite-1', property: 'scrollSpeed', type: 'number', min: 10, max: 600, default: item.scrollSpeed || 90 },
+            { name: 'banner-lite-typeSpeed', target: 'lite-1', property: 'typeSpeed', type: 'number', min: 1, max: 120, default: item.typeSpeed || 14 }
+          ]
+        };
+        return {
+          svg: `<svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 400 100" width="400" height="100">${defs}<g id="lite-effects-layer">${elStr}</g></svg>`,
+          manifest
+        };
+      }
+
+      // A. Static Widget
+      const pkgStatic = makeSingleTextWidgetSVG({ textAnim: 'none', labelText: 'STATIC: INITIAL READY' });
+      const widgetStatic = window.SVGWidget.mount('#hostStatic', pkgStatic.svg, { instanceId: 'lab-static', manifest: pkgStatic.manifest });
+
+      // B. Horizontal Ticker Widget
+      const pkgTicker = makeSingleTextWidgetSVG({ textAnim: 'ticker-h', scrollSpeed: 240, labelText: 'CYCLE 1: TELEMETRY NOMINAL' });
+      const widgetTicker = window.SVGWidget.mount('#hostTicker', pkgTicker.svg, { instanceId: 'lab-ticker', manifest: pkgTicker.manifest });
+
+      // C. Typewriter Widget
+      const pkgType = makeSingleTextWidgetSVG({ textAnim: 'typewriter', typeSpeed: 28, holdDelay: 0.4, typeMode: 'loop', labelText: 'Boot Sequence #1 🚀' });
+      const widgetType = window.SVGWidget.mount('#hostTypewriter', pkgType.svg, { instanceId: 'lab-typewriter', manifest: pkgType.manifest });
+
+      // D. Multi-Instance A & B from identical package
+      const pkgMulti = makeSingleTextWidgetSVG({ textAnim: 'none', width: 175, x: 100, fontSize: 14, labelText: 'SHARED PKG v1' }, [
+        { name: 'banner-lite-text', target: 'lite-1', property: 'text', type: 'text', default: 'SHARED PKG v1' },
+        { name: 'banner-lite-color', target: 'lite-1', property: 'color', type: 'color', default: '#38bdf8' },
+        { name: 'banner-lite-borderColor', target: 'lite-1', property: 'borderColor', type: 'color', default: '#38bdf8' }
+      ]);
+      const multiSvg180 = pkgMulti.svg.replace('viewBox="0 0 400 100" width="400"', 'viewBox="0 0 200 100" width="200"');
+      const widgetInstA = window.SVGWidget.mount('#hostInstA', multiSvg180, { instanceId: 'lab-inst-a', manifest: pkgMulti.manifest });
+      const widgetInstB = window.SVGWidget.mount('#hostInstB', multiSvg180, { instanceId: 'lab-inst-b', manifest: pkgMulti.manifest });
+
+      // Expose handles on window for automated real-browser verification
+      window.TextLiteShowcase = {
+        widgetStatic,
+        widgetTicker,
+        widgetType,
+        widgetInstA,
+        widgetInstB,
+        makeSingleTextWidgetSVG
+      };
+
+      // Wire interactive buttons
+      document.getElementById('btnStaticApply').addEventListener('click', () => {
+        const val = document.getElementById('inputStatic').value;
+        widgetStatic.setParameter('banner-lite-text', val);
+        document.getElementById('statusStatic').textContent = `Updated immediately -> "${val}"`;
+      });
+      document.getElementById('btnStaticColor').addEventListener('click', () => {
+        widgetStatic.setParameters({ 'banner-lite-color': '#22c55e', 'banner-lite-borderColor': '#22c55e' });
+        document.getElementById('statusStatic').textContent = 'Applied green text & border colour.';
+      });
+
+      document.getElementById('btnTickerQueue').addEventListener('click', () => {
+        const val = document.getElementById('inputTicker').value;
+        widgetTicker.setParameter('banner-lite-text', val);
+        document.getElementById('statusTicker').textContent = `Buffered pendingText="${val}" (waiting for current scroll exit...)`;
+      });
+      document.getElementById('btnTickerBurst3').addEventListener('click', () => {
+        widgetTicker.setParameter('banner-lite-text', 'INTERMEDIATE UPDATE #1 (SKIPPED)');
+        widgetTicker.setParameter('banner-lite-text', 'INTERMEDIATE UPDATE #2 (SKIPPED)');
+        widgetTicker.setParameter('banner-lite-text', 'FINAL COALESCED UPDATE #3 ✓');
+        document.getElementById('statusTicker').textContent = 'Sent #1, #2, #3 during active scroll -> only #3 will appear on next cycle!';
+      });
+      document.getElementById('btnTickerLong').addEventListener('click', () => {
+        const longMsg = 'EXTENDED EMERGENCY BROADCAST: SOLAR FLARE TELEMETRY PACKET #88412 RECEIVED AT 240 PX/S LINEAR TRAVEL SPEED • FULL EXIT GUARANTEED';
+        widgetTicker.setParameter('banner-lite-text', longMsg);
+        document.getElementById('statusTicker').textContent = 'Queued long message (duration will recalculate automatically on handover).';
+      });
+
+      document.getElementById('btnTypeQueue').addEventListener('click', () => {
+        const val = document.getElementById('inputTypewriter').value;
+        widgetType.setParameter('banner-lite-text', val);
+        document.getElementById('statusTypewriter').textContent = `Buffered pendingText="${val}" (will adopt after current typing cycle completes).`;
+      });
+      document.getElementById('btnTypeBurst3').addEventListener('click', () => {
+        widgetType.setParameter('banner-lite-text', 'Draft #1');
+        widgetType.setParameter('banner-lite-text', 'Draft #2');
+        widgetType.setParameter('banner-lite-text', 'Adopted #3 🚀');
+        document.getElementById('statusTypewriter').textContent = 'Sent Draft #1, #2, Adopted #3 🚀 -> only Adopted #3 🚀 will type on next cycle!';
+      });
+
+      document.getElementById('btnInstADiff').addEventListener('click', () => {
+        widgetInstA.setParameters({ 'banner-lite-text': 'NODE A: 98.4%', 'banner-lite-color': '#22c55e', 'banner-lite-borderColor': '#22c55e' });
+        document.getElementById('statusMulti').textContent = 'Updated Instance A -> Instance B unchanged.';
+      });
+      document.getElementById('btnInstBDiff').addEventListener('click', () => {
+        widgetInstB.setParameters({ 'banner-lite-text': 'NODE B: ALERT', 'banner-lite-color': '#f59e0b', 'banner-lite-borderColor': '#f59e0b' });
+        document.getElementById('statusMulti').textContent = 'Updated Instance B -> Instance A unchanged.';
+      });
+      document.getElementById('btnInstBSuspend').addEventListener('click', () => {
+        widgetInstB.suspendAnimations();
+        widgetInstB.setParameter('banner-lite-text', 'RESUMED CLEANLY');
+        widgetInstB.resumeAnimations();
+        document.getElementById('statusMulti').textContent = 'Instance B suspended -> updated -> resumed with latest message.';
+      });
+    })();
+  </script>
+</body>
+</html>

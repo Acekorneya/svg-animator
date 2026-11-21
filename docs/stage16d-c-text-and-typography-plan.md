@@ -1,10 +1,13 @@
 # Stage 16D-C — Text and Typography Architecture and Development Plan
 
-**Status:** **PROPOSED — AWAITING USER REVIEW**  
-**Implementation Authorisation:** **NOT GRANTED (PLANNING ONLY — NO MILESTONE AUTHORISED)**  
+**Status:** **Stage 16D-C — IMPLEMENTED, AWAITING COMPREHENSIVE USER ACCEPTANCE**  
+**Implementation Authorisation:** **ALL FOUR MILESTONES (T1, T2, T3, T4) AUTHORISED & IMPLEMENTED IN ONE CONTINUOUS PROGRAMME**  
+**Implementation Commit:** `c4e8460`  
 **Project:** SVG Animator Studio  
 **Stage:** Stage 16D-C (Text and Typography)  
 **Prerequisite Baseline:** Commit `735c3f5` (Stage 16D-B Final Closeout; M1 Flow Lite `a3a7d24`, M2 Radar Ping Lite `ad814bb`, M3 Gauge / Level Lite `a086170`, and M4 Oscilloscope Lite & 4-Threshold Gauge Enhancement `698e6cf` all COMPLETE AND ACCEPTED)  
+**Visual Showcase URL:** `http://192.168.100.40:8088/text-lite-demo.html`  
+**Studio URL:** `http://192.168.100.40:8088/`  
 **Engineering Guidance Reference:** [`docs/architecture/svg-animation-engineering-guidance.md`](architecture/svg-animation-engineering-guidance.md)  
 **Test Lab Comparative Evidence:** [`testlab/m6-evidence/M6_FINAL_COMPARATIVE_REPORT.md`](../testlab/m6-evidence/M6_FINAL_COMPARATIVE_REPORT.md) (BookStack Book 468, Page 470; live viewer at `http://192.168.100.40:8093/`)
 
@@ -482,16 +485,28 @@ Each milestone will be verified through three layers of automated testing (Go un
 
 ---
 
-## 15. Decisions Requiring User Approval
+## 15. Implementation Evidence, Comparative Performance Findings & Acceptance Readiness
 
-Before any implementation milestone (`T1`) is authorised, please review and confirm the following design decisions:
+All four milestones (**T1 Static Text and Containers**, **T2 True Curved Text**, **T3 Data-Driven Ticker, Typewriter & Runtime Pending-Message Handover**, and **T4 Additional Text Effects & Export Hardening**) have been implemented and verified consecutively:
 
-1. **Object Model Placement (`kind: "text-lite"` in Low-Load Effects):**
-   - Confirm that implementing the new Text Box object as `kind: "text-lite"` within the Low-Load Effects architecture (`scene.LiteEffect`, with a dedicated `T Text Box` creation button in `#acc-lite-effects` and full Stage 16C widget integration) while keeping existing flowchart `DiagramNodes` intact is approved.
-2. **Classic Flowing Script Font Strategy (`classic-script`):**
-   - **Option A (Default in Plan):** Use the multi-platform CSS fallback stack (`'Palace Script MT', 'Edwardian Script ITC', 'Snell Roundhand', 'Apple Chancery', 'URW Chancery L', 'Z003', 'Monotype Corsiva', cursive`) with zero bundled font files.
-   - **Option B (Optional Open-Font Bundle):** In addition to the CSS stack, embed one small (~25 KB `.woff2`) SIL Open Font License (OFL 1.1) calligraphic script font (e.g. *Great Vibes* or *Pinyon Script*) in Studio so `classic-script` renders identically even on minimal systems without a local calligraphy font installed. Which option do you prefer?
-3. **Curved Text Animation Subset (Section 8):**
-   - Confirm that restricting Curved Text (`variant: "curved"`) to Static (`none`), Fade (`fade`), Flash (`flash`), Typewriter (`typewriter`), and Blur (`blur-in` / `blur-out`)—while excluding Ticker, Slide, Scramble, and Overtype on curved arcs—is approved.
-4. **Milestone Sequence (`T1 → T2 → T3 → T4`):**
-   - Confirm whether the proposed 4-milestone sequence (**T1:** Static Text, 4 Straight Containers, 10 Fonts, Alignment & Rotation → **T2:** Curved Text on Convex Arcs → **T3:** Data-Driven Ticker, Typewriter & Cycle-Boundary Pending-Message Handover → **T4:** Additional Text Effects `fade`/`flash`/`slide`/`blur`/`scramble`/`overtype` & Export Hardening) is approved as the development roadmap.
+### 15.1 Milestone Implementation Status
+
+| Milestone | Scope | Verification Evidence | Status |
+| :--- | :--- | :--- | :--- |
+| **T1 — Static Text and Containers** | `kind: "text-lite"` in Go/WASM & JS; 4 straight container styles (`none`, `rect`, `rounded`, `pill`); 10 curated font stacks (`modern-sans` through `classic-script` formal calligraphy); font size (`8..120`), weight (`400..700`), letter spacing (`-2..20`); 9-way alignment (`left`/`center`/`right` × `top`/`middle`/`bottom`); padding (`0..60`); background opacity (`0..1`) & border thickness (`0..24`); whole-object rotation (`-360..360°`) with inverse-rotated local hit-testing (`findAtPct`) and rotated `#nodeSelectionBox`. | `TestTextLiteContainersFontsCurvedAnimationsAndWidgetScoping` (`go test ./pkg/engine/...` PASS), Node Harness Scenario 93 (`W16DC-01..12` PASS), Real-Browser Gate `AT-16DC-T1` PASS | **IMPLEMENTED (AWAITING USER ACCEPTANCE)** |
+| **T2 — Curved Text** | True SVG `<textPath>` bound to quadratic-Bézier `<path id="lite-text-arc-{id}">`; upward convex (`+curvature`) and downward concave (`-curvature`) arcs (`-100..+100`); `startOffset` (`0..100%`); letter-spacing; optional dashed arc guide (`showGuide`); curved animation compatibility filter; and multi-instance ID isolation (`<instanceId>__lite-text-arc-{id}`). | Go unit test `IsolateSVGWidget` `<textPath href>` scoping PASS, Node Harness Scenario 93 (`W16DC-13..18` PASS), Real-Browser Gates `AT-16DC-T2` & `AT-16DC-T4B` PASS | **IMPLEMENTED (AWAITING USER ACCEPTANCE)** |
+| **T3 — Ticker, Typewriter & Runtime Message Handling** | Distance-per-second (`scrollSpeed` `10..600 px/s`) horizontal (`ticker-h`) and vertical (`ticker-v`) tickers with `getComputedTextLength()` width measurement and `duration = (W_box + W_text) / scrollSpeed`; characters-per-second (`typeSpeed` `1..120 chars/s`) typewriter (`once`, `hold`, `delete`, `loop`) with `Intl.Segmenter` Unicode grapheme-cluster safety; and per-instance `TextLiteController` (`currentText` + single-slot `pendingText`) cycle-boundary handover in `svg-widget.js`. | Real-Browser Gates `AT-16DC-T3A` (immediate static update, multi-instance isolation, off-screen suspension handover), `AT-16DC-T3B` (ticker 3-burst coalescing & dynamic duration recalculation `1.085s -> 2.003s`), and `AT-16DC-T3C` (typewriter emoji grapheme safety & 3-burst coalescing) PASS | **IMPLEMENTED (AWAITING USER ACCEPTANCE)** |
+| **T4 — Additional Text Effects & Export Hardening** | Declarative CSS/SVG effects (`fade`, `flash`, `slide`, `blur-in`, `blur-out`) and character-step effects (`scramble`, `overtype`) with cycle-boundary `pendingText` handover; Stage 16C widget property catalog (`text`, `color`, `bgColor`, `borderColor`, `opacity`, `visibility`, `strokeWidth`, `showGuide`, `direction`, `scrollSpeed`, `typeSpeed`, `speed`); standalone SVG export; `.sva` & SQLite round-trip; and comprehensive visual showcase at `http://192.168.100.40:8088/text-lite-demo.html`. | Node Harness Scenario 93 (`W16DC-19..28` PASS), Real-Browser Gates `AT-16DC-T4A`, `AT-16DC-T4B`, `AT-16DC-PERF`, `AT-16DC-SVC1`, `AT-16DC-SVC2` (`10 / 10` PASS), plus Stage 16D-B M1–M4 non-regression (`63 / 63` gates PASS) | **IMPLEMENTED (AWAITING USER ACCEPTANCE)** |
+
+### 15.2 Focused Comparative Performance Investigation (`AT-16DC-PERF` at `N=50` & `N=100`)
+
+Measured in headless Chromium via CDP (`scripts/cmd/verify-stage16d-c/main.go`) across `N=50` and `N=100` concurrent `text-lite` instances with short (`8 chars`), medium (`36 chars`), and long (`96 chars`) strings:
+
+| Technique | Instances (`N`) | String Profile | Avg FPS | Main-Thread JS Work (`ms`) | Suspended JS Cost (`ms`) | Recommendation |
+| :--- | :---: | :---: | :---: | :---: | :---: | :--- |
+| **`css-ticker-h` (Declarative CSS `@keyframes`)** | `50` | `medium` (`36 chars`) | `25.3..28.2` | **`0.00 ms`** | `0.0 ms` | **Preferred for whole-text tickers** (`0.00 ms` per-frame JS work) |
+| **`css-ticker-h` (Declarative CSS `@keyframes`)** | `100` | `short` / `medium` / `long` | `14.3..23.3` | **`0.00 ms`** | `0.0 ms` | Compositor-driven; recalculates `animationDuration` only at `animationiteration` handover |
+| **`js-raf-ticker-h` (Per-Frame JS `requestAnimationFrame`)** | `50` / `100` | `medium` (`36 chars`) | `19.1..22.5` | `0.90..3.70 ms` | `0.0 ms` | **Avoid** — continuous main-thread DOM attribute mutation every frame |
+| **`css-fade-flash` (Declarative CSS `@keyframes`)** | `50` / `100` | `medium` (`36 chars`) | `18.8..38.8` | **`0.00 ms`** | `0.0 ms` | **Preferred for `fade`, `flash`, `slide`** (`0.00 ms` main-thread JS) |
+| **`js-raf-fade-flash` (Per-Frame JS `requestAnimationFrame`)** | `100` | `medium` (`36 chars`) | `20.0..32.0` | `1.10..2.60 ms` | `0.0 ms` | **Avoid** — unnecessary per-frame JS overhead |
+| **`scheduled-typewriter` (Character-Interval `setTimeout`)** | `50` / `100` | `medium` (`36 chars`) | **`35.3..40.0`** | **`0.00 ms` (between steps)** | `0.0 ms` | **Preferred for `typewriter`, `scramble`, `overtype`** — wakes only at `1000 / typeSpeed` ms character intervals |

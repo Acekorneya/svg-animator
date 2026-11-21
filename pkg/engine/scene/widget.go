@@ -497,6 +497,10 @@ var ObjectPropertyCatalog = map[string][]EligibleProperty{
 		{Property: "repeat", Type: "boolean", Label: "Flash Repeat", ParamSuffix: "repeat", Description: "Repeat flash periodically instead of single-shot", Default: false, DefaultSource: "lite.repeat", RuntimeSemantics: "toggles periodic flash scheduling"},
 		{Property: "repeatInterval", Type: "number", Label: "Repeat Interval (s)", ParamSuffix: "repeatInterval", Description: "Interval in seconds between repeated flashes (0.2 to 60)", Min: floatPtr(0.2), Max: floatPtr(60), Default: 2.0, DefaultSource: "lite.repeatInterval", RuntimeSemantics: "sets interval between repeated flashes"},
 		{Property: "samples", Type: "text", Label: "Waveform Samples", ParamSuffix: "samples", Description: "Bounded numeric sample sequence (2 to 64 comma-separated values) for Oscilloscope Lite sampled mode", Default: "0, 0.4, 0.9, 0.3, -0.5, -0.9, -0.2, 0.6, 1.0, 0.2, -0.4, 0", DefaultSource: "lite.samples", RuntimeSemantics: "rebuilds Oscilloscope Lite sampled waveform path"},
+		{Property: "text", Type: "text", Label: "Text Content", ParamSuffix: "text", Description: "Displayed text content for Text Box Lite (immediate update on static text, cycle-boundary handover on animated text)", Default: "System Ready", DefaultSource: "lite.labelText", RuntimeSemantics: "updates Text Box Lite displayed or pending text"},
+		{Property: "borderColor", Type: "color", Label: "Border Colour", ParamSuffix: "borderColor", Description: "Container border or guide path colour for Text Box Lite", Default: "#38bdf8", DefaultSource: "lite.borderColor", RuntimeSemantics: "recolours Text Box Lite container border and arc guide"},
+		{Property: "scrollSpeed", Type: "number", Label: "Ticker Scroll Speed (px/s)", ParamSuffix: "scrollSpeed", Description: "Linear scroll speed in SVG units/px per second for Text Box Lite tickers (10 to 600 px/s)", Min: floatPtr(10), Max: floatPtr(600), Default: 90.0, DefaultSource: "lite.scrollSpeed", RuntimeSemantics: "updates Text Box Lite ticker scroll speed and recalculates duration"},
+		{Property: "typeSpeed", Type: "number", Label: "Typing Rate (chars/s)", ParamSuffix: "typeSpeed", Description: "Character reveal rate in grapheme clusters per second for Text Box Lite typewriter, scramble, and overtype effects (1 to 120 chars/s)", Min: floatPtr(1), Max: floatPtr(120), Default: 14.0, DefaultSource: "lite.typeSpeed", RuntimeSemantics: "updates Text Box Lite character progression rate"},
 	},
 	"root": {
 		{Property: "playbackRate", Type: "speed", Label: "Master Speed", ParamSuffix: "speed", Description: "Overall playback speed rate multiplier for the widget (0.1 to 5.0)", Min: floatPtr(0.1), Max: floatPtr(5.0), Default: 1.0, DefaultSource: "1.0", RuntimeSemantics: "widget-wide master playback rate"},
@@ -759,8 +763,8 @@ func ValidateWidgetParameter(p WidgetParameter) error {
 	// Validate property compatibility with type
 	switch p.Type {
 	case "color":
-		if prop != "fill" && prop != "stroke" && prop != "color" && prop != "bgColor" {
-			return fmt.Errorf("color parameter does not support property %q (allowed: fill, stroke, color, bgColor)", prop)
+		if prop != "fill" && prop != "stroke" && prop != "color" && prop != "bgColor" && prop != "borderColor" {
+			return fmt.Errorf("color parameter does not support property %q (allowed: fill, stroke, color, bgColor, borderColor)", prop)
 		}
 	case "boolean":
 		if prop != "visibility" && prop != "display" && prop != "showGuide" && prop != "repeat" {

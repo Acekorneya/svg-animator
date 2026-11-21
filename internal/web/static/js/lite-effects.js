@@ -214,6 +214,79 @@ window.LiteEffects = {
       if (!le.samples || typeof le.samples !== 'string' || !le.samples.trim()) {
         le.samples = '0, 0.4, 0.9, 0.3, -0.5, -0.9, -0.2, 0.6, 1.0, 0.2, -0.4, 0';
       }
+    } else if (le.kind === 'text-lite') {
+      const validVariants = ['none', 'rect', 'rounded', 'pill', 'curved'];
+      if (!le.variant || !validVariants.includes(le.variant)) le.variant = 'rounded';
+      const validFonts = [
+        'modern-sans', 'humanist-sans', 'geometric-sans', 'formal-serif', 'traditional-serif',
+        'tech-mono', 'condensed-display', 'casual-lettering', 'informal-hand', 'classic-script'
+      ];
+      if (!le.fontFamily || !validFonts.includes(le.fontFamily)) le.fontFamily = 'modern-sans';
+      if (!le.fontSize || le.fontSize < 8) le.fontSize = 18;
+      else if (le.fontSize > 120) le.fontSize = 120;
+      if (!le.fontWeight || !['400', '500', '600', '700'].includes(String(le.fontWeight))) le.fontWeight = '600';
+      if (le.letterSpacing === undefined || le.letterSpacing === null || !Number.isFinite(Number(le.letterSpacing))) le.letterSpacing = 0;
+      else le.letterSpacing = Math.max(-2, Math.min(20, Number(le.letterSpacing)));
+      if (!le.textAlign || !['left', 'center', 'right'].includes(le.textAlign)) le.textAlign = 'center';
+      if (!le.verticalAlign || !['top', 'middle', 'bottom'].includes(le.verticalAlign)) le.verticalAlign = 'middle';
+      if (le.padding === undefined || le.padding === null || !Number.isFinite(Number(le.padding))) le.padding = 12;
+      else le.padding = Math.max(0, Math.min(60, Number(le.padding)));
+      if (!le.color) le.color = '#f8fafc';
+      if (!le.bgColor) le.bgColor = '#0f172a';
+      if (!le.borderColor) le.borderColor = '#38bdf8';
+      if (le.bgOpacity === undefined || le.bgOpacity === null || !Number.isFinite(Number(le.bgOpacity))) {
+        le.bgOpacity = (le.variant === 'none' || le.variant === 'curved') ? 0 : 0.85;
+      } else {
+        le.bgOpacity = Math.max(0, Math.min(1, Number(le.bgOpacity)));
+      }
+      if (le.strokeWidth === undefined || le.strokeWidth === null || !Number.isFinite(Number(le.strokeWidth))) {
+        le.strokeWidth = (le.variant === 'none' || le.variant === 'curved') ? 0 : 1.5;
+      } else {
+        le.strokeWidth = Math.max(0, Math.min(24, Number(le.strokeWidth)));
+      }
+      if (le.cornerRadius === undefined || le.cornerRadius === null || !Number.isFinite(Number(le.cornerRadius))) {
+        le.cornerRadius = 8;
+      } else {
+        le.cornerRadius = Math.max(0, Math.min(100, Number(le.cornerRadius)));
+      }
+      if (le.rotation === undefined || le.rotation === null || !Number.isFinite(Number(le.rotation))) {
+        le.rotation = 0;
+      } else {
+        le.rotation = Math.max(-360, Math.min(360, Number(le.rotation)));
+      }
+      if (le.curvature === undefined || le.curvature === null || !Number.isFinite(Number(le.curvature))) {
+        le.curvature = 35;
+      } else {
+        le.curvature = Math.max(-100, Math.min(100, Number(le.curvature)));
+      }
+      if (le.startOffset === undefined || le.startOffset === null || !Number.isFinite(Number(le.startOffset))) {
+        le.startOffset = 50;
+      } else {
+        le.startOffset = Math.max(0, Math.min(100, Number(le.startOffset)));
+      }
+      const validAnims = ['none', 'ticker-h', 'ticker-v', 'typewriter', 'fade', 'flash', 'slide', 'blur-in', 'blur-out', 'scramble', 'overtype'];
+      if (!le.textAnim || !validAnims.includes(le.textAnim)) le.textAnim = 'none';
+      if (le.variant === 'curved' && ['ticker-h', 'ticker-v', 'slide', 'scramble', 'overtype'].includes(le.textAnim)) {
+        le.textAnim = 'none';
+      }
+      if (!le.scrollSpeed || le.scrollSpeed < 10) le.scrollSpeed = 90;
+      else if (le.scrollSpeed > 600) le.scrollSpeed = 600;
+      if (!le.typeSpeed || le.typeSpeed < 1) le.typeSpeed = 14;
+      else if (le.typeSpeed > 120) le.typeSpeed = 120;
+      if (le.holdDelay === undefined || le.holdDelay === null || !Number.isFinite(Number(le.holdDelay))) le.holdDelay = 1.5;
+      else le.holdDelay = Math.max(0, Math.min(30, Number(le.holdDelay)));
+      if (!le.typeMode || !['once', 'hold', 'delete', 'loop'].includes(le.typeMode)) le.typeMode = 'hold';
+      if (!le.speed || le.speed <= 0) le.speed = 2.0;
+      else le.speed = Math.max(0.2, Math.min(30, Number(le.speed)));
+      le.period = le.speed;
+      if (!le.direction || le.direction === 'cw') le.direction = 'forward';
+      else if (le.direction === 'ccw') le.direction = 'reverse';
+      if (!le.width || le.width <= 0) le.width = 220;
+      if (!le.height || le.height <= 0) le.height = 56;
+      if (le.showGuide === undefined || le.showGuide === null) le.showGuide = false;
+      if (le.maintainAspectRatio === undefined || le.maintainAspectRatio === null) le.maintainAspectRatio = false;
+      if (le.labelText === undefined || le.labelText === null) le.labelText = 'System Ready';
+      else le.labelText = String(le.labelText);
     }
     return le;
   },
@@ -234,16 +307,17 @@ window.LiteEffects = {
     const isRadar = kind === 'radar-lite';
     const isGauge = kind === 'gauge-lite';
     const isOsc = kind === 'oscilloscope-lite';
+    const isText = kind === 'text-lite';
     const reqVariant = initialProps.variant || '';
     const defaultVariant = isFlowLite
       ? 'dashed'
-      : (isRadar ? 'multi' : (isGauge ? (reqVariant || 'ring') : (isOsc ? (reqVariant || 'ecg') : (isTracer ? 'rounded' : (kind === 'flash' ? 'diamond' : 'circle')))));
+      : (isRadar ? 'multi' : (isGauge ? (reqVariant || 'ring') : (isOsc ? (reqVariant || 'ecg') : (isText ? (reqVariant || 'rounded') : (isTracer ? 'rounded' : (kind === 'flash' ? 'diamond' : 'circle'))))));
     const defaultW = isTracer
       ? 140
-      : (isRadar ? 80 : (isGauge ? (defaultVariant === 'ring' ? 96 : (defaultVariant === 'vbar' ? 36 : (defaultVariant === 'level' ? 84 : 160))) : (isOsc ? 180 : 56)));
+      : (isRadar ? 80 : (isGauge ? (defaultVariant === 'ring' ? 96 : (defaultVariant === 'vbar' ? 36 : (defaultVariant === 'level' ? 84 : 160))) : (isOsc ? 180 : (isText ? 220 : 56))));
     const defaultH = isTracer
       ? 80
-      : (isRadar ? 80 : (isGauge ? (defaultVariant === 'ring' ? 96 : (defaultVariant === 'vbar' ? 140 : (defaultVariant === 'level' ? 120 : 32))) : (isOsc ? 76 : 56)));
+      : (isRadar ? 80 : (isGauge ? (defaultVariant === 'ring' ? 96 : (defaultVariant === 'vbar' ? 140 : (defaultVariant === 'level' ? 120 : 32))) : (isOsc ? 76 : (isText ? 56 : 56))));
     const payload = Object.assign({
       kind,
       originMode: 'center',
@@ -253,30 +327,31 @@ window.LiteEffects = {
       width: defaultW,
       height: defaultH,
       radius: isRadar ? 40 : (isGauge ? 48 : 28),
-      cornerRadius: (isGauge || isOsc) ? 6 : 10,
-      color: kind === 'flash' ? '#f59e0b' : ((kind === 'pulse' || isRadar || isOsc) ? '#22c55e' : '#38bdf8'),
-      opacity: (isGauge || isOsc) ? 1.0 : 0.9,
-      strokeWidth: isFlowLite ? 3.0 : (isRadar ? 2.0 : (isGauge ? (defaultVariant === 'ring' ? 8.0 : 2.0) : (isOsc ? 2.2 : 2.5))),
+      cornerRadius: (isGauge || isOsc) ? 6 : (isText ? 8 : 10),
+      rotation: 0,
+      color: isText ? '#f8fafc' : (kind === 'flash' ? '#f59e0b' : ((kind === 'pulse' || isRadar || isOsc) ? '#22c55e' : '#38bdf8')),
+      opacity: (isGauge || isOsc || isText) ? 1.0 : 0.9,
+      strokeWidth: isFlowLite ? 3.0 : (isRadar ? 2.0 : (isGauge ? (defaultVariant === 'ring' ? 8.0 : 2.0) : (isOsc ? 2.2 : (isText ? ((defaultVariant === 'none' || defaultVariant === 'curved') ? 0 : 1.5) : 2.5)))),
       segments: isGauge ? 10 : 2,
       rings: isRadar ? 3 : undefined,
       lineGapRatio: '1:3',
       segmentStyle: 'rounded',
-      startOffset: isOsc ? 50 : 0,
-      direction: (isFlowLite || isGauge || isOsc) ? 'forward' : 'cw',
+      startOffset: (isOsc || isText) ? 50 : 0,
+      direction: (isFlowLite || isGauge || isOsc || isText) ? 'forward' : 'cw',
       playbackMode: isOsc ? 'animated' : 'loop',
-      speed: isFlowLite ? 2.0 : ((isRadar || isOsc) ? 2.4 : 3.0),
-      period: kind === 'flash' ? 3.0 : ((isRadar || isOsc) ? 2.4 : 1.8),
+      speed: (isFlowLite || isText) ? 2.0 : ((isRadar || isOsc) ? 2.4 : 3.0),
+      period: kind === 'flash' ? 3.0 : ((isRadar || isOsc) ? 2.4 : (isText ? 2.0 : 1.8)),
       dur: 0.10,
       intensity: (kind === 'flash' || isOsc) ? 0.75 : 0.85,
       minScale: isRadar ? 0.15 : 0.85,
       maxScale: isRadar ? 1.0 : 1.15,
-      maintainAspectRatio: isGauge ? (defaultVariant === 'ring') : (!isTracer && !isFlowLite && !isOsc),
-      showGuide: true,
+      maintainAspectRatio: isGauge ? (defaultVariant === 'ring') : (!isTracer && !isFlowLite && !isOsc && !isText),
+      showGuide: isText ? false : true,
       repeat: false,
       triggerNonce: 0,
       points: isFlowLite ? [{ x: 25, y: 50 }, { x: 75, y: 50 }] : undefined,
       bends: isFlowLite ? [0] : undefined,
-      curvature: 0,
+      curvature: isText ? 35 : 0,
       dashLength: 18,
       gapLength: 14,
       dotSize: 5,
@@ -287,15 +362,29 @@ window.LiteEffects = {
       value: isGauge ? 65 : undefined,
       minValue: isGauge ? 0 : undefined,
       maxValue: isGauge ? 100 : undefined,
-      bgColor: isGauge ? '#1e293b' : (isOsc ? '#0b1322' : undefined),
+      bgColor: isGauge ? '#1e293b' : (isOsc ? '#0b1322' : (isText ? '#0f172a' : undefined)),
+      bgOpacity: isText ? ((defaultVariant === 'none' || defaultVariant === 'curved') ? 0 : 0.85) : undefined,
+      borderColor: isText ? '#38bdf8' : undefined,
       useThresholds: isGauge ? false : undefined,
       warnThreshold: isGauge ? 70 : undefined,
       warnColor: isGauge ? '#f59e0b' : undefined,
       critThreshold: isGauge ? 90 : undefined,
       critColor: isGauge ? '#ef4444' : undefined,
       unit: isGauge ? '%' : undefined,
-      labelText: isGauge ? '' : undefined,
+      labelText: isGauge ? '' : (isText ? 'System Ready' : undefined),
       samples: isOsc ? '0, 0.4, 0.9, 0.3, -0.5, -0.9, -0.2, 0.6, 1.0, 0.2, -0.4, 0' : undefined,
+      fontFamily: isText ? 'modern-sans' : undefined,
+      fontSize: isText ? 18 : undefined,
+      fontWeight: isText ? '600' : undefined,
+      letterSpacing: isText ? 0 : undefined,
+      textAlign: isText ? 'center' : undefined,
+      verticalAlign: isText ? 'middle' : undefined,
+      padding: isText ? 12 : undefined,
+      textAnim: isText ? 'none' : undefined,
+      scrollSpeed: isText ? 90 : undefined,
+      typeSpeed: isText ? 14 : undefined,
+      holdDelay: isText ? 1.5 : undefined,
+      typeMode: isText ? 'hold' : undefined,
       visible: true
     }, initialProps);
 
@@ -418,6 +507,57 @@ window.LiteEffects = {
 @keyframes sva-lite-osc-scroll {
   0% { transform: translateX(0px); }
   100% { transform: translateX(var(--sva-osc-shift, -180px)); }
+}
+@keyframes sva-lite-text-ticker-h {
+  0% { transform: translateX(var(--sva-ticker-start, 220px)); }
+  100% { transform: translateX(var(--sva-ticker-end, -180px)); }
+}
+@keyframes sva-lite-text-ticker-v {
+  0% { transform: translateY(var(--sva-ticker-start, 56px)); }
+  100% { transform: translateY(var(--sva-ticker-end, -36px)); }
+}
+@keyframes sva-lite-text-fade {
+  0%, 100% { opacity: 0.12; }
+  45%, 65% { opacity: 1; }
+}
+@keyframes sva-lite-text-flash {
+  0%, 100% { opacity: 1; }
+  50% { opacity: 0.08; }
+}
+@keyframes sva-lite-text-slide {
+  0% { transform: translateY(var(--sva-slide-in, 38px)); opacity: 0; }
+  20%, 75% { transform: translateY(0px); opacity: 1; }
+  100% { transform: translateY(var(--sva-slide-out, -38px)); opacity: 0; }
+}
+.sva-lite-text-ticker-h-anim {
+  animation-name: sva-lite-text-ticker-h;
+  animation-timing-function: linear;
+  animation-iteration-count: infinite;
+  will-change: transform;
+}
+.sva-lite-text-ticker-v-anim {
+  animation-name: sva-lite-text-ticker-v;
+  animation-timing-function: linear;
+  animation-iteration-count: infinite;
+  will-change: transform;
+}
+.sva-lite-text-fade-anim {
+  animation-name: sva-lite-text-fade;
+  animation-timing-function: ease-in-out;
+  animation-iteration-count: infinite;
+  will-change: opacity;
+}
+.sva-lite-text-flash-anim {
+  animation-name: sva-lite-text-flash;
+  animation-timing-function: steps(2, end);
+  animation-iteration-count: infinite;
+  will-change: opacity;
+}
+.sva-lite-text-slide-anim {
+  animation-name: sva-lite-text-slide;
+  animation-timing-function: ease-in-out;
+  animation-iteration-count: infinite;
+  will-change: transform, opacity;
 }
 .sva-lite-osc-anim {
   animation-name: sva-lite-osc-scroll;
@@ -1117,7 +1257,237 @@ window.LiteEffects = {
       return this.renderOscilloscopeLiteElement(le, baseAttrs, color, opacity, sw, x, y, w, h, cx, cy, cr);
     }
 
+    if (le.kind === 'text-lite') {
+      return this.renderTextLiteElement(le, baseAttrs, color, opacity, sw, x, y, w, h, cx, cy, cr);
+    }
+
     return '';
+  },
+
+  getFontStack(fontKey) {
+    const stacks = {
+      'modern-sans': "system-ui, -apple-system, 'Segoe UI', Roboto, 'Helvetica Neue', Arial, sans-serif",
+      'humanist-sans': "'Trebuchet MS', 'Gill Sans', 'Gill Sans MT', 'Lucida Grande', 'DejaVu Sans', sans-serif",
+      'geometric-sans': "'Century Gothic', 'Avenir Next', Avenir, 'URW Gothic', 'Liberation Sans', sans-serif",
+      'formal-serif': "'Times New Roman', Times, 'Liberation Serif', 'Nimbus Roman', serif",
+      'traditional-serif': "Georgia, 'Palatino Linotype', Palatino, 'Book Antiqua', 'URW Bookman', serif",
+      'tech-mono': "'JetBrains Mono', 'Fira Code', 'Cascadia Mono', Consolas, 'Liberation Mono', 'Courier New', monospace",
+      'condensed-display': "'Arial Narrow', 'Roboto Condensed', 'Helvetica Neue Condensed', Impact, 'Liberation Sans Narrow', sans-serif",
+      'casual-lettering': "'Comic Sans MS', 'Chalkboard SE', 'Comic Neue', 'TSCu_Comic', cursive, sans-serif",
+      'informal-hand': "'Segoe Print', 'Bradley Hand', 'Marker Felt', 'Lucida Handwriting', cursive",
+      'classic-script': "'Palace Script MT', 'Edwardian Script ITC', 'Snell Roundhand', 'Apple Chancery', 'URW Chancery L', 'Z003', 'Monotype Corsiva', cursive"
+    };
+    return stacks[fontKey] || stacks['modern-sans'];
+  },
+
+  segmentGraphemes(str) {
+    const s = String(str || '');
+    if (!s) return [];
+    if (typeof Intl !== 'undefined' && typeof Intl.Segmenter === 'function') {
+      try {
+        const seg = new Intl.Segmenter(undefined, { granularity: 'grapheme' });
+        return Array.from(seg.segment(s), (item) => item.segment);
+      } catch (_) {}
+    }
+    return Array.from(s);
+  },
+
+  findAtPct(xPct, yPct, canvasW = 1280, canvasH = 720) {
+    const px = (Number(xPct) / 100) * canvasW;
+    const py = (Number(yPct) / 100) * canvasH;
+    for (let i = this.list.length - 1; i >= 0; i--) {
+      const le = this.list[i];
+      if (!le || le.visible === false || le.locked) continue;
+      if (window.LayerManager && typeof window.LayerManager.getEffective === 'function') {
+        const effL = window.LayerManager.getEffective('lite', le.id);
+        if (effL && (effL.locked || !effL.visible)) continue;
+      }
+      if (le.kind === 'flow-lite') continue;
+      const g = this._resolveGeometry(le);
+      let dx = px - g.cx;
+      let dy = py - g.cy;
+      if (g.rot && Math.abs(g.rot) > 0.001) {
+        const rad = (-g.rot * Math.PI) / 180;
+        const cosA = Math.cos(rad);
+        const sinA = Math.sin(rad);
+        const rx = dx * cosA - dy * sinA;
+        const ry = dx * sinA + dy * cosA;
+        dx = rx;
+        dy = ry;
+      }
+      if (Math.abs(dx) <= g.rx + 4 && Math.abs(dy) <= g.ry + 4) {
+        return le;
+      }
+    }
+    return null;
+  },
+
+  buildTextLiteArcPath(x, y, w, h, pad, curvature) {
+    const p0x = x + Math.min(pad, w * 0.25);
+    const p1x = x + w - Math.min(pad, w * 0.25);
+    const cx = x + w / 2;
+    const cy = y + h / 2;
+    const curv = Math.max(-100, Math.min(100, Number(curvature) || 0));
+    if (Math.abs(curv) < 0.5) {
+      return `M ${p0x.toFixed(2)} ${cy.toFixed(2)} L ${p1x.toFixed(2)} ${cy.toFixed(2)}`;
+    }
+    // Positive curvature = upward convex arch (bowing toward top of box; endpoints lower, apex higher)
+    // Negative curvature = downward convex smile (bowing toward bottom of box; endpoints higher, apex lower)
+    const sagitta = (curv / 100) * (h * 0.42);
+    const endY = cy + sagitta * 0.5;
+    const ctrlY = cy - sagitta * 1.5;
+    return `M ${p0x.toFixed(2)} ${endY.toFixed(2)} Q ${cx.toFixed(2)} ${ctrlY.toFixed(2)} ${p1x.toFixed(2)} ${endY.toFixed(2)}`;
+  },
+
+  renderTextLiteElement(le, baseAttrs, color, opacity, sw, x, y, w, h, cx, cy, cr) {
+    const validVariants = ['none', 'rect', 'rounded', 'pill', 'curved'];
+    const variant = validVariants.includes(le.variant) ? le.variant : 'rounded';
+    const textStr = le.labelText !== undefined && le.labelText !== null ? String(le.labelText) : 'System Ready';
+    const fontKey = le.fontFamily || 'modern-sans';
+    const fontStack = this.getFontStack(fontKey);
+    const fontSize = Math.max(8, Math.min(120, Number(le.fontSize) || 18));
+    const fontWeight = ['400', '500', '600', '700'].includes(String(le.fontWeight)) ? String(le.fontWeight) : '600';
+    const letterSpacing = Math.max(-2, Math.min(20, Number(le.letterSpacing) || 0));
+    const textAlign = ['left', 'center', 'right'].includes(le.textAlign) ? le.textAlign : 'center';
+    const verticalAlign = ['top', 'middle', 'bottom'].includes(le.verticalAlign) ? le.verticalAlign : 'middle';
+    const pad = Math.max(0, Math.min(60, Math.min(w / 2 - 2, h / 2 - 2, Number(le.padding != null ? le.padding : 12))));
+    const bgCol = this.sanitizeColor(le.bgColor, '#0f172a');
+    const borderCol = this.sanitizeColor(le.borderColor, '#38bdf8');
+    const bgOp = (variant === 'none' || variant === 'curved')
+      ? 0
+      : (le.bgOpacity !== undefined && le.bgOpacity !== null ? Math.max(0, Math.min(1, Number(le.bgOpacity))) : 0.85);
+    const borderW = (variant === 'none' || variant === 'curved')
+      ? 0
+      : Math.max(0, Math.min(24, Number(le.strokeWidth != null ? le.strokeWidth : 1.5)));
+    const cornerR = variant === 'pill'
+      ? Math.min(w, h) / 2
+      : (variant === 'rounded' ? Math.min(cr, w / 2, h / 2) : 0);
+    const curv = Math.max(-100, Math.min(100, Number(le.curvature != null ? le.curvature : 35)));
+    const arcOffset = Math.max(0, Math.min(100, Number(le.startOffset != null ? le.startOffset : 50)));
+    const showGuide = Boolean(le.showGuide);
+    let textAnim = le.textAnim || 'none';
+    if (variant === 'curved' && ['ticker-h', 'ticker-v', 'slide', 'scramble', 'overtype'].includes(textAnim)) {
+      textAnim = 'none';
+    }
+    const scrollSpeed = Math.max(10, Math.min(600, Number(le.scrollSpeed) || 90));
+    const typeSpeed = Math.max(1, Math.min(120, Number(le.typeSpeed) || 14));
+    const holdDelay = Math.max(0, Math.min(30, Number(le.holdDelay != null ? le.holdDelay : 1.5)));
+    const typeMode = ['once', 'hold', 'delete', 'loop'].includes(le.typeMode) ? le.typeMode : 'hold';
+    const cycleDur = Math.max(0.2, Math.min(30, Number(le.speed) || 2.0));
+    const dir = (le.direction === 'reverse' || le.direction === 'ccw') ? 'reverse' : 'forward';
+
+    const clipId = `lite-text-clip-${le.id}`;
+    const arcId = `lite-text-arc-${le.id}`;
+    const blurId = `lite-text-blur-${le.id}`;
+
+    // 1. Hit Target (always present so floating text 'none' and 'curved' are easy to click and drag)
+    const hitMarkup = `<rect class="lite-hit-target" data-semantic-role="hit-target" x="${x.toFixed(2)}" y="${y.toFixed(2)}" width="${w.toFixed(2)}" height="${h.toFixed(2)}" rx="${cornerR.toFixed(2)}" fill="transparent" pointer-events="all" style="cursor:pointer;" />`;
+
+    // 2. Container Box or Curved Guide Path
+    let boxMarkup = '';
+    if (variant === 'rect' || variant === 'rounded' || variant === 'pill') {
+      const strokeAttr = borderW > 0 ? `stroke="${borderCol}" stroke-width="${borderW.toFixed(2)}"` : `stroke="none" stroke-width="0"`;
+      const fillAttr = bgOp > 0 ? `fill="${bgCol}" fill-opacity="${bgOp.toFixed(3)}"` : `fill="none" fill-opacity="0"`;
+      boxMarkup = `<rect class="lite-text-box" x="${x.toFixed(2)}" y="${y.toFixed(2)}" width="${w.toFixed(2)}" height="${h.toFixed(2)}" rx="${cornerR.toFixed(2)}" ${fillAttr} ${strokeAttr} shape-rendering="geometricPrecision" pointer-events="none" />`;
+    } else if (variant === 'none') {
+      boxMarkup = `<g class="lite-editor-marker" data-editor-only="true"><rect x="${x.toFixed(2)}" y="${y.toFixed(2)}" width="${w.toFixed(2)}" height="${h.toFixed(2)}" fill="none" stroke="${borderCol}" stroke-opacity="0.28" stroke-width="1" stroke-dasharray="4 4" pointer-events="none" /></g>`;
+    }
+
+    let defsContent = `<clipPath id="${clipId}"><rect x="${x.toFixed(2)}" y="${y.toFixed(2)}" width="${w.toFixed(2)}" height="${h.toFixed(2)}" rx="${cornerR.toFixed(2)}" /></clipPath>`;
+    if (variant === 'curved') {
+      const arcD = this.buildTextLiteArcPath(x, y, w, h, pad, curv);
+      defsContent += `<path id="${arcId}" d="${arcD}" fill="none" />`;
+      const guideVis = showGuide ? 'visible' : 'hidden';
+      const guideSw = Math.max(1, Number(le.strokeWidth) || 1.5);
+      boxMarkup = `<path class="lite-guide-track lite-text-arc-guide" d="${arcD}" fill="none" stroke="${borderCol}" stroke-width="${guideSw.toFixed(2)}" stroke-opacity="0.45" stroke-dasharray="3 3" visibility="${guideVis}" style="visibility:${guideVis};" pointer-events="none" />` +
+        (!showGuide ? `<g class="lite-editor-marker" data-editor-only="true"><path d="${arcD}" fill="none" stroke="${borderCol}" stroke-width="1" stroke-opacity="0.3" stroke-dasharray="4 4" pointer-events="none" /></g>` : '');
+    }
+
+    // 3. Optional Blur Filter for blur-in / blur-out
+    let filterAttr = '';
+    if (textAnim === 'blur-in' || textAnim === 'blur-out') {
+      const vals = textAnim === 'blur-in' ? '6; 0; 0' : '0; 0; 6';
+      const kt = '0; 0.45; 1';
+      defsContent += `<filter id="${blurId}" x="-20%" y="-20%" width="140%" height="140%"><feGaussianBlur in="SourceGraphic" stdDeviation="0"><animate attributeName="stdDeviation" values="${vals}" keyTimes="${kt}" dur="${(cycleDur + holdDelay).toFixed(3)}s" repeatCount="indefinite" /></feGaussianBlur></filter>`;
+      filterAttr = ` filter="url(#${blurId})"`;
+    }
+
+    // 4. Text Anchor & Coordinates
+    let anchor = 'middle';
+    let textX = cx;
+    if (textAlign === 'left') {
+      anchor = 'start';
+      textX = x + pad;
+    } else if (textAlign === 'right') {
+      anchor = 'end';
+      textX = x + w - pad;
+    }
+
+    let textY = cy + fontSize * 0.35;
+    if (verticalAlign === 'top') {
+      textY = y + pad + fontSize * 0.82;
+    } else if (verticalAlign === 'bottom') {
+      textY = y + h - pad - fontSize * 0.18;
+    }
+
+    // 5. Animation Classes & Inline CSS Custom Properties
+    const graphemes = this.segmentGraphemes(textStr);
+    const estTextW = Math.max(fontSize, graphemes.length * (fontSize * 0.56 + Math.max(0, letterSpacing)));
+    const estTextH = fontSize * 1.25;
+    let animClass = '';
+    let animStyle = '';
+
+    if (textAnim === 'ticker-h') {
+      // Horizontal ticker: begins outside entrance edge, leaves completely through exit edge
+      anchor = 'start';
+      textX = x;
+      const dist = w + estTextW;
+      const dur = Math.max(0.2, dist / scrollSpeed);
+      const startShift = dir === 'reverse' ? -estTextW : w;
+      const endShift = dir === 'reverse' ? w : -estTextW;
+      animClass = ' sva-lite-text-ticker-h-anim';
+      animStyle = `animation-duration:${dur.toFixed(4)}s;--sva-base-dur:${dur.toFixed(4)}s;--sva-ticker-start:${startShift.toFixed(2)}px;--sva-ticker-end:${endShift.toFixed(2)}px;`;
+    } else if (textAnim === 'ticker-v') {
+      const dist = h + estTextH;
+      const dur = Math.max(0.2, dist / scrollSpeed);
+      const startShift = dir === 'reverse' ? -(y - (textY - fontSize)) - estTextH : (y + h - (textY - fontSize));
+      const endShift = dir === 'reverse' ? (y + h - (textY - fontSize)) : -(textY - y + estTextH);
+      animClass = ' sva-lite-text-ticker-v-anim';
+      animStyle = `animation-duration:${dur.toFixed(4)}s;--sva-base-dur:${dur.toFixed(4)}s;--sva-ticker-start:${startShift.toFixed(2)}px;--sva-ticker-end:${endShift.toFixed(2)}px;`;
+    } else if (textAnim === 'fade') {
+      const dur = Math.max(0.2, cycleDur + holdDelay);
+      animClass = ' sva-lite-text-fade-anim';
+      animStyle = `animation-duration:${dur.toFixed(4)}s;--sva-base-dur:${dur.toFixed(4)}s;`;
+    } else if (textAnim === 'flash') {
+      const dur = Math.max(0.2, cycleDur);
+      animClass = ' sva-lite-text-flash-anim';
+      animStyle = `animation-duration:${dur.toFixed(4)}s;--sva-base-dur:${dur.toFixed(4)}s;`;
+    } else if (textAnim === 'slide') {
+      const dur = Math.max(0.4, cycleDur + holdDelay);
+      const slideDist = Math.max(24, h * 0.85);
+      const sIn = dir === 'reverse' ? -slideDist : slideDist;
+      const sOut = dir === 'reverse' ? slideDist : -slideDist;
+      animClass = ' sva-lite-text-slide-anim';
+      animStyle = `animation-duration:${dur.toFixed(4)}s;--sva-base-dur:${dur.toFixed(4)}s;--sva-slide-in:${sIn.toFixed(2)}px;--sva-slide-out:${sOut.toFixed(2)}px;`;
+    }
+
+    const lsAttr = Math.abs(letterSpacing) > 0.01 ? ` letter-spacing="${letterSpacing.toFixed(2)}px"` : '';
+    const fontFamilyAttr = this.escapeXML(fontStack);
+    let textMarkup = '';
+
+    if (variant === 'curved') {
+      let effOffset = arcOffset;
+      if (textAlign === 'left' && arcOffset === 50) effOffset = 0;
+      else if (textAlign === 'right' && arcOffset === 50) effOffset = 100;
+      textMarkup = `<text class="lite-payload lite-text-element${animClass}" data-semantic-role="payload" fill="${color}" font-family="${fontFamilyAttr}" font-size="${fontSize.toFixed(1)}" font-weight="${fontWeight}" text-anchor="${anchor}"${lsAttr}${filterAttr} style="${animStyle}" pointer-events="none"><textPath class="lite-text-path" href="#${arcId}" startOffset="${effOffset.toFixed(1)}%">${this.escapeXML(textStr)}</textPath></text>`;
+    } else {
+      const rawContent = `<text class="lite-payload lite-text-element${animClass}" data-semantic-role="payload" x="${textX.toFixed(2)}" y="${textY.toFixed(2)}" fill="${color}" font-family="${fontFamilyAttr}" font-size="${fontSize.toFixed(1)}" font-weight="${fontWeight}" text-anchor="${anchor}"${lsAttr}${filterAttr} style="${animStyle}" pointer-events="none">${this.escapeXML(textStr)}</text>`;
+      textMarkup = `<g class="lite-text-viewport" clip-path="url(#${clipId})">${rawContent}</g>`;
+    }
+
+    const defsMarkup = `<defs>${defsContent}</defs>`;
+    const textDataAttrs = `data-text-variant="${this.escapeXML(variant)}" data-text-content="${this.escapeXML(textStr)}" data-text-font="${this.escapeXML(fontKey)}" data-text-font-size="${fontSize}" data-text-font-weight="${fontWeight}" data-text-letter-spacing="${letterSpacing}" data-text-align="${textAlign}" data-text-valign="${verticalAlign}" data-text-padding="${pad}" data-text-bg-color="${bgCol}" data-text-bg-opacity="${bgOp}" data-text-border-color="${borderCol}" data-text-border-width="${borderW}" data-text-curvature="${curv}" data-text-start-offset="${arcOffset}" data-text-anim="${textAnim}" data-text-scroll-speed="${scrollSpeed}" data-text-type-speed="${typeSpeed}" data-text-hold-delay="${holdDelay}" data-text-type-mode="${typeMode}" data-text-cycle-dur="${cycleDur}" data-text-direction="${dir}" data-text-x="${x.toFixed(2)}" data-text-y="${y.toFixed(2)}" data-text-w="${w.toFixed(2)}" data-text-h="${h.toFixed(2)}" data-text-cx="${cx.toFixed(2)}" data-text-cy="${cy.toFixed(2)}" data-text-cr="${cornerR.toFixed(2)}"`;
+    return `<g ${baseAttrs} ${textDataAttrs} style="opacity:${opacity};">${defsMarkup}${hitMarkup}${boxMarkup}${textMarkup}</g>`;
   },
 
   parseOscilloscopeSamples(rawStr) {
@@ -1336,7 +1706,8 @@ window.LiteEffects = {
     const needsBurstScript = this.list.some((le) =>
       (le.kind === 'perimeter-tracer' && Number(le.burstCycles) > 0 && Number(le.pauseSeconds) > 0 && le.playbackMode !== 'once') ||
       (le.kind === 'flash' && Boolean(le.repeat)) ||
-      (le.kind === 'flow-lite' && ((Number(le.delay) || 0) + (Number(le.endDelay) || 0)) > 0 && le.playbackMode !== 'once')
+      (le.kind === 'flow-lite' && ((Number(le.delay) || 0) + (Number(le.endDelay) || 0)) > 0 && le.playbackMode !== 'once') ||
+      (le.kind === 'text-lite' && le.textAnim && le.textAnim !== 'none')
     );
     if (!needsBurstScript) return '';
     return `\n<script type="application/ecmascript"><![CDATA[
@@ -1361,6 +1732,73 @@ window.LiteEffects = {
       },Math.max(10,pSec*1000));
     });
   })(nodes[i]);}
+  function segG(str){
+    var t=String(str||'');
+    if(!t)return[];
+    if(typeof Intl!=='undefined'&&typeof Intl.Segmenter==='function'){
+      try{return Array.from((new Intl.Segmenter(undefined,{granularity:'grapheme'})).segment(t),function(x){return x.segment;});}catch(_){}
+    }
+    return Array.from(t);
+  }
+  var tNodes=s.querySelectorAll('[data-lite-kind="text-lite"]');
+  for(var j=0;j<tNodes.length;j++){(function(g){
+    var anim=g.getAttribute('data-text-anim')||'none';
+    if(anim==='none')return;
+    var txtEl=g.querySelector('.lite-text-element');
+    var targetNode=g.querySelector('.lite-text-path')||txtEl;
+    if(!txtEl||!targetNode)return;
+    var fullStr=g.getAttribute('data-text-content')||targetNode.textContent||'';
+    var w=parseFloat(g.getAttribute('data-text-w'))||220;
+    var h=parseFloat(g.getAttribute('data-text-h'))||56;
+    var dir=g.getAttribute('data-text-direction')==='reverse'?'reverse':'forward';
+    if(anim==='ticker-h'){
+      var spd=Math.max(10,parseFloat(g.getAttribute('data-text-scroll-speed'))||90);
+      var tw=0;
+      try{tw=txtEl.getComputedTextLength();}catch(_){}
+      if(!(tw>0))tw=Math.max(18,segG(fullStr).length*10);
+      var dist=w+tw;
+      var dur=Math.max(0.2,dist/spd);
+      txtEl.style.setProperty('--sva-ticker-start',(dir==='reverse'?-tw:w).toFixed(2)+'px');
+      txtEl.style.setProperty('--sva-ticker-end',(dir==='reverse'?w:-tw).toFixed(2)+'px');
+      txtEl.style.animationDuration=dur.toFixed(4)+'s';
+    }else if(anim==='typewriter'||anim==='scramble'||anim==='overtype'){
+      var rate=Math.max(1,parseFloat(g.getAttribute('data-text-type-speed'))||14);
+      var hold=Math.max(0,parseFloat(g.getAttribute('data-text-hold-delay'))||1.5);
+      var mode=g.getAttribute('data-text-type-mode')||'hold';
+      var gs=segG(fullStr);
+      var stepMs=Math.max(12,Math.round(1000/rate));
+      var idx=0,phase='type';
+      var cipher='0123456789ABCDEFGHIJKLMNOPQRSTUVWXYZ#%&*';
+      function tick(){
+        if(!g.isConnected)return;
+        if(anim==='scramble'){
+          idx++;
+          var out='';
+          for(var k=0;k<gs.length;k++){
+            if(k<idx||gs[k]===' ')out+=gs[k];
+            else out+=cipher.charAt((k*7+idx*13)%cipher.length);
+          }
+          targetNode.textContent=out;
+          if(idx<gs.length)setTimeout(tick,stepMs);
+          else if(mode==='loop')setTimeout(function(){idx=0;tick();},Math.max(200,hold*1000));
+        }else{
+          if(phase==='type'){
+            idx++;
+            targetNode.textContent=gs.slice(0,idx).join('');
+            if(idx<gs.length)setTimeout(tick,stepMs);
+            else if(mode==='delete'||mode==='loop'){phase='delete';setTimeout(tick,Math.max(150,hold*1000));}
+          }else{
+            idx--;
+            targetNode.textContent=gs.slice(0,Math.max(0,idx)).join('');
+            if(idx>0)setTimeout(tick,Math.max(10,Math.round(stepMs*0.7)));
+            else if(mode==='loop'){phase='type';setTimeout(tick,250);}
+          }
+        }
+      }
+      targetNode.textContent='';
+      setTimeout(tick,stepMs);
+    }
+  })(tNodes[j]);}
 })();
 ]]></script>`;
   },
@@ -1400,6 +1838,81 @@ window.LiteEffects = {
         }, Math.max(10, pSec * 1000));
         this._studioBurstTimers.push(tid);
       });
+    });
+
+    // Bind live Studio preview controllers for Text Box Lite tickers, typewriters, scramble, and overtype
+    container.querySelectorAll('[data-lite-kind="text-lite"]').forEach((g) => {
+      const anim = g.getAttribute('data-text-anim') || 'none';
+      if (anim === 'none') return;
+      const txtEl = g.querySelector('.lite-text-element');
+      const targetNode = g.querySelector('.lite-text-path') || txtEl;
+      if (!txtEl || !targetNode) return;
+      const fullStr = g.getAttribute('data-text-content') || '';
+      const w = parseFloat(g.getAttribute('data-text-w')) || 220;
+      const dir = g.getAttribute('data-text-direction') === 'reverse' ? 'reverse' : 'forward';
+      if (anim === 'ticker-h') {
+        const spd = Math.max(10, parseFloat(g.getAttribute('data-text-scroll-speed')) || 90);
+        let tw = 0;
+        try { tw = txtEl.getComputedTextLength(); } catch (_) {}
+        if (!(tw > 0)) tw = Math.max(18, this.segmentGraphemes(fullStr).length * 10);
+        const dist = w + tw;
+        const dur = Math.max(0.2, dist / spd);
+        txtEl.style.setProperty('--sva-ticker-start', `${(dir === 'reverse' ? -tw : w).toFixed(2)}px`);
+        txtEl.style.setProperty('--sva-ticker-end', `${(dir === 'reverse' ? w : -tw).toFixed(2)}px`);
+        txtEl.style.animationDuration = `${dur.toFixed(4)}s`;
+      } else if (anim === 'typewriter' || anim === 'scramble' || anim === 'overtype') {
+        const rate = Math.max(1, parseFloat(g.getAttribute('data-text-type-speed')) || 14);
+        const hold = Math.max(0, parseFloat(g.getAttribute('data-text-hold-delay')) || 1.5);
+        const mode = g.getAttribute('data-text-type-mode') || 'hold';
+        const gs = this.segmentGraphemes(fullStr);
+        const stepMs = Math.max(12, Math.round(1000 / rate));
+        const cipher = '0123456789ABCDEFGHIJKLMNOPQRSTUVWXYZ#%&*';
+        let idx = 0;
+        let phase = 'type';
+        const stepFn = () => {
+          if (!g.isConnected) return;
+          if (anim === 'scramble') {
+            idx++;
+            let out = '';
+            for (let k = 0; k < gs.length; k++) {
+              if (k < idx || gs[k] === ' ') out += gs[k];
+              else out += cipher.charAt((k * 7 + idx * 13) % cipher.length);
+            }
+            targetNode.textContent = out;
+            if (idx < gs.length) {
+              this._studioBurstTimers.push(setTimeout(stepFn, stepMs));
+            } else {
+              this._studioBurstTimers.push(setTimeout(() => { idx = 0; stepFn(); }, Math.max(250, hold * 1000)));
+            }
+          } else {
+            if (phase === 'type') {
+              idx++;
+              targetNode.textContent = gs.slice(0, idx).join('');
+              if (idx < gs.length) {
+                this._studioBurstTimers.push(setTimeout(stepFn, stepMs));
+              } else if (mode === 'delete' || mode === 'loop') {
+                phase = 'delete';
+                this._studioBurstTimers.push(setTimeout(stepFn, Math.max(200, hold * 1000)));
+              } else if (mode === 'hold') {
+                this._studioBurstTimers.push(setTimeout(() => { idx = 0; stepFn(); }, Math.max(400, hold * 1000)));
+              }
+            } else {
+              idx--;
+              targetNode.textContent = gs.slice(0, Math.max(0, idx)).join('');
+              if (idx > 0) {
+                this._studioBurstTimers.push(setTimeout(stepFn, Math.max(10, Math.round(stepMs * 0.7))));
+              } else if (mode === 'loop' || mode === 'delete') {
+                phase = 'type';
+                this._studioBurstTimers.push(setTimeout(stepFn, 300));
+              }
+            }
+          }
+        };
+        if (gs.length > 0) {
+          targetNode.textContent = '';
+          this._studioBurstTimers.push(setTimeout(stepFn, stepMs));
+        }
+      }
     });
   },
 
@@ -1451,6 +1964,7 @@ window.LiteEffects = {
     bindBtn('btnAddLiteRadar', () => this.addByKind('radar-lite'));
     bindBtn('btnAddLiteGauge', () => this.addByKind('gauge-lite'));
     bindBtn('btnAddLiteOsc', () => this.addByKind('oscilloscope-lite'));
+    bindBtn('btnAddLiteText', () => this.addByKind('text-lite'));
     bindBtn('btnTriggerLiteFlash', () => {
       if (this.activeId) this.triggerFlash(this.activeId);
     });
@@ -1503,6 +2017,7 @@ window.LiteEffects = {
     bindPair('liteOpacity', 'opacity');
     bindPair('liteWidth', 'width', true);
     bindPair('liteHeight', 'height', true);
+    bindPair('liteRotation', 'rotation');
     bindPair('liteArmThickness', 'armThickness');
     bindField('liteLockAspectChk', 'maintainAspectRatio', false, true);
     bindField('liteShowGuideChk', 'showGuide', false, true);
@@ -1654,6 +2169,30 @@ window.LiteEffects = {
     bindPair('liteOscSpeed', 'speed');
     bindField('liteOscDirectionSelect', 'direction');
     bindField('liteOscSamplesInput', 'samples');
+
+    // Text Box Lite inspector bindings
+    bindField('liteTextContentInput', 'labelText');
+    bindField('liteTextFontSelect', 'fontFamily');
+    bindPair('liteTextFontSize', 'fontSize');
+    bindField('liteTextFontWeightSelect', 'fontWeight');
+    bindPair('liteTextLetterSpacing', 'letterSpacing');
+    bindField('liteTextAlignSelect', 'textAlign');
+    bindField('liteTextVerticalAlignSelect', 'verticalAlign');
+    bindPair('liteTextPadding', 'padding');
+    bindField('liteTextBgColorPicker', 'bgColor');
+    bindPair('liteTextBgOpacity', 'bgOpacity');
+    bindField('liteTextBorderColorPicker', 'borderColor');
+    bindPair('liteTextStrokeWidth', 'strokeWidth');
+    bindPair('liteTextCurvature', 'curvature');
+    bindPair('liteTextStartOffset', 'startOffset');
+    bindField('liteTextShowGuideChk', 'showGuide', false, true);
+    bindField('liteTextAnimSelect', 'textAnim');
+    bindPair('liteTextScrollSpeed', 'scrollSpeed');
+    bindField('liteTextDirectionSelect', 'direction');
+    bindPair('liteTextTypeSpeed', 'typeSpeed');
+    bindField('liteTextTypeModeSelect', 'typeMode');
+    bindPair('liteTextCycleSpeed', 'speed');
+    bindPair('liteTextHoldDelay', 'holdDelay');
   },
 
   addWaypointToActive() {
@@ -2029,6 +2568,19 @@ window.LiteEffects = {
         }
         patch.thresholds = bands;
       }
+    } else if (existing.kind === 'text-lite') {
+      if (key === 'variant') {
+        if (value === 'none' || value === 'curved') {
+          patch.bgOpacity = 0;
+          patch.strokeWidth = 0;
+        } else if (existing.variant === 'none' || existing.variant === 'curved') {
+          if (!existing.bgOpacity || existing.bgOpacity <= 0) patch.bgOpacity = 0.85;
+          if (!existing.strokeWidth || existing.strokeWidth <= 0) patch.strokeWidth = 1.5;
+        }
+        if (value === 'curved' && ['ticker-h', 'ticker-v', 'slide', 'scramble', 'overtype'].includes(existing.textAnim)) {
+          patch.textAnim = 'none';
+        }
+      }
     }
 
     const updated = this.updateLiteEffect(this.activeId, patch);
@@ -2087,7 +2639,8 @@ window.LiteEffects = {
         'flow-lite': ['dashed', 'dotted', 'single'],
         'radar-lite': ['multi', 'single', 'fading-ping'],
         'gauge-lite': ['ring', 'hbar', 'vbar', 'segmented', 'level'],
-        'oscilloscope-lite': ['ecg', 'sine', 'square', 'triangle', 'sawtooth', 'polyline', 'bezier']
+        'oscilloscope-lite': ['ecg', 'sine', 'square', 'triangle', 'sawtooth', 'polyline', 'bezier'],
+        'text-lite': ['rounded', 'rect', 'pill', 'none', 'curved']
       };
       const labelsByOpt = {
         'multi': 'Multiple Pings (multi)',
@@ -2104,10 +2657,15 @@ window.LiteEffects = {
         'triangle': 'Triangle Wave (triangle)',
         'sawtooth': 'Sawtooth Wave (sawtooth)',
         'polyline': 'Angular Polyline (polyline)',
-        'bezier': 'Bézier-Smoothed Curve (bezier)'
+        'bezier': 'Bézier-Smoothed Curve (bezier)',
+        'rounded': 'Rounded Box (rounded)',
+        'rect': 'Rectangle Box (rect)',
+        'pill': 'Pill / Capsule (pill)',
+        'none': 'Floating Text / No Box (none)',
+        'curved': 'Curved Text on Arc (curved)'
       };
       const opts = optsByKind[le.kind] || ['circle'];
-      variantSel.innerHTML = opts.map((o) => `<option value="${o}">${(['radar-lite', 'gauge-lite', 'oscilloscope-lite'].includes(le.kind)) && labelsByOpt[o] ? labelsByOpt[o] : o}</option>`).join('');
+      variantSel.innerHTML = opts.map((o) => `<option value="${o}">${(['radar-lite', 'gauge-lite', 'oscilloscope-lite', 'text-lite'].includes(le.kind)) && labelsByOpt[o] ? labelsByOpt[o] : o}</option>`).join('');
     }
 
     const durMs = Math.round((Number(le.dur) || 0.10) * 1000);
@@ -2117,8 +2675,9 @@ window.LiteEffects = {
     setVal('liteVariantSelect', le.variant || '');
     setVal('liteColorPicker', le.color || '#38bdf8');
     setPair('liteOpacity', le.opacity != null ? le.opacity : 0.9);
-    setPair('liteWidth', Math.round(Number(le.width) || (le.kind === 'perimeter-tracer' ? 140 : 56)));
+    setPair('liteWidth', Math.round(Number(le.width) || (le.kind === 'perimeter-tracer' ? 140 : (le.kind === 'text-lite' ? 220 : 56))));
     setPair('liteHeight', Math.round(Number(le.height) || (le.kind === 'perimeter-tracer' ? 80 : 56)));
+    setPair('liteRotation', Math.round(Number(le.rotation) || 0));
     setPair('liteArmThickness', le.armThickness != null ? le.armThickness : 3);
     setChk('liteLockAspectChk', le.kind === 'perimeter-tracer' && le.variant === 'circle' ? true : Boolean(le.maintainAspectRatio));
     setChk('liteShowGuideChk', le.showGuide !== false);
@@ -2159,11 +2718,12 @@ window.LiteEffects = {
     const radarGroup = document.getElementById('liteRadarGroup');
     const gaugeGroup = document.getElementById('liteGaugeGroup');
     const oscGroup = document.getElementById('liteOscGroup');
+    const textGroup = document.getElementById('liteTextGroup');
     const intensityRow = document.getElementById('liteIntensityRow');
     if (dimGroup) dimGroup.style.display = le.kind === 'flow-lite' ? 'none' : '';
     if (posRow) posRow.style.display = le.kind === 'flow-lite' ? 'none' : '';
     if (tracerGroup) tracerGroup.style.display = le.kind === 'perimeter-tracer' ? 'block' : 'none';
-    if (cornerRow) cornerRow.style.display = ((le.kind === 'perimeter-tracer' && le.variant === 'rounded') || (le.kind === 'gauge-lite' && ['hbar', 'vbar', 'level'].includes(le.variant)) || le.kind === 'oscilloscope-lite') ? '' : 'none';
+    if (cornerRow) cornerRow.style.display = ((le.kind === 'perimeter-tracer' && le.variant === 'rounded') || (le.kind === 'gauge-lite' && ['hbar', 'vbar', 'level'].includes(le.variant)) || le.kind === 'oscilloscope-lite' || (le.kind === 'text-lite' && le.variant === 'rounded')) ? '' : 'none';
     if (armRow) armRow.style.display = ((le.kind === 'pulse' || le.kind === 'flash') && (le.variant === 'cross' || le.variant === 'star')) ? '' : 'none';
     if (pulseGroup) pulseGroup.style.display = le.kind === 'pulse' ? 'block' : 'none';
     if (flashGroup) flashGroup.style.display = le.kind === 'flash' ? 'block' : 'none';
@@ -2171,7 +2731,63 @@ window.LiteEffects = {
     if (radarGroup) radarGroup.style.display = le.kind === 'radar-lite' ? 'block' : 'none';
     if (gaugeGroup) gaugeGroup.style.display = le.kind === 'gauge-lite' ? 'block' : 'none';
     if (oscGroup) oscGroup.style.display = le.kind === 'oscilloscope-lite' ? 'block' : 'none';
+    if (textGroup) textGroup.style.display = le.kind === 'text-lite' ? 'block' : 'none';
     if (intensityRow) intensityRow.style.display = (le.kind === 'pulse' || le.kind === 'flash') ? '' : 'none';
+
+    if (le.kind === 'text-lite') {
+      const isCurved = le.variant === 'curved';
+      const isBoxed = le.variant === 'rect' || le.variant === 'rounded' || le.variant === 'pill';
+      const anim = le.textAnim || 'none';
+      setVal('liteTextContentInput', le.labelText !== undefined ? le.labelText : 'System Ready');
+      setVal('liteTextFontSelect', le.fontFamily || 'modern-sans');
+      setPair('liteTextFontSize', le.fontSize || 18);
+      setVal('liteTextFontWeightSelect', le.fontWeight || '600');
+      setPair('liteTextLetterSpacing', le.letterSpacing !== undefined ? le.letterSpacing : 0);
+      setVal('liteTextAlignSelect', le.textAlign || 'center');
+      setVal('liteTextVerticalAlignSelect', le.verticalAlign || 'middle');
+      setPair('liteTextPadding', le.padding !== undefined ? le.padding : 12);
+      setVal('liteTextBgColorPicker', le.bgColor || '#0f172a');
+      setPair('liteTextBgOpacity', le.bgOpacity !== undefined ? le.bgOpacity : (isBoxed ? 0.85 : 0));
+      setVal('liteTextBorderColorPicker', le.borderColor || '#38bdf8');
+      setPair('liteTextStrokeWidth', le.strokeWidth !== undefined ? le.strokeWidth : (isBoxed ? 1.5 : 0));
+      setPair('liteTextCurvature', le.curvature !== undefined ? le.curvature : 35);
+      setPair('liteTextStartOffset', le.startOffset !== undefined ? le.startOffset : 50);
+      setChk('liteTextShowGuideChk', Boolean(le.showGuide));
+
+      const animSel = document.getElementById('liteTextAnimSelect');
+      if (animSel) {
+        Array.from(animSel.options).forEach((opt) => {
+          opt.disabled = isCurved && ['ticker-h', 'ticker-v', 'slide', 'scramble', 'overtype'].includes(opt.value);
+        });
+      }
+      setVal('liteTextAnimSelect', anim);
+      setPair('liteTextScrollSpeed', le.scrollSpeed || 90);
+      setVal('liteTextDirectionSelect', (le.direction === 'reverse' || le.direction === 'ccw') ? 'reverse' : 'forward');
+      setPair('liteTextTypeSpeed', le.typeSpeed || 14);
+      setVal('liteTextTypeModeSelect', le.typeMode || 'hold');
+      setPair('liteTextCycleSpeed', le.speed || 2.0);
+      setPair('liteTextHoldDelay', le.holdDelay !== undefined ? le.holdDelay : 1.5);
+
+      const vAlignRow = document.getElementById('liteTextVerticalAlignRow');
+      const boxStyleGroup = document.getElementById('liteTextBoxStyleGroup');
+      const curvedGroup = document.getElementById('liteTextCurvedGroup');
+      const scrollSpdRow = document.getElementById('liteTextScrollSpeedRow');
+      const dirRow = document.getElementById('liteTextDirectionRow');
+      const typeSpdRow = document.getElementById('liteTextTypeSpeedRow');
+      const typeModeRow = document.getElementById('liteTextTypeModeRow');
+      const cycleSpdRow = document.getElementById('liteTextCycleSpeedRow');
+      const holdRow = document.getElementById('liteTextHoldDelayRow');
+
+      if (vAlignRow) vAlignRow.style.display = isCurved ? 'none' : '';
+      if (boxStyleGroup) boxStyleGroup.style.display = isBoxed ? '' : 'none';
+      if (curvedGroup) curvedGroup.style.display = isCurved ? '' : 'none';
+      if (scrollSpdRow) scrollSpdRow.style.display = (anim === 'ticker-h' || anim === 'ticker-v') ? '' : 'none';
+      if (dirRow) dirRow.style.display = (anim === 'ticker-h' || anim === 'ticker-v' || anim === 'slide') ? '' : 'none';
+      if (typeSpdRow) typeSpdRow.style.display = (anim === 'typewriter' || anim === 'scramble' || anim === 'overtype') ? '' : 'none';
+      if (typeModeRow) typeModeRow.style.display = anim === 'typewriter' ? '' : 'none';
+      if (cycleSpdRow) cycleSpdRow.style.display = (['fade', 'flash', 'slide', 'blur-in', 'blur-out'].includes(anim)) ? '' : 'none';
+      if (holdRow) holdRow.style.display = (['typewriter', 'fade', 'slide', 'blur-in', 'blur-out', 'scramble', 'overtype'].includes(anim)) ? '' : 'none';
+    }
 
     if (le.kind === 'gauge-lite') {
       const minV = le.minValue !== undefined ? le.minValue : 0;
@@ -2314,8 +2930,8 @@ window.LiteEffects = {
       listEl.innerHTML = '<div class="stage-hint" id="emptyLiteListHint">No low-load effects active.</div>';
       return;
     }
-    const iconByKind = { 'perimeter-tracer': '▭', 'pulse': '◎', 'flash': '✦', 'flow-lite': '↝', 'radar-lite': '◉', 'gauge-lite': '◕', 'oscilloscope-lite': '∿' };
-    const kindShort = { 'perimeter-tracer': 'Tracer', 'pulse': 'Pulse', 'flash': 'Flash', 'flow-lite': 'Flow', 'radar-lite': 'Radar', 'gauge-lite': 'Gauge', 'oscilloscope-lite': 'Osc' };
+    const iconByKind = { 'perimeter-tracer': '▭', 'pulse': '◎', 'flash': '✦', 'flow-lite': '↝', 'radar-lite': '◉', 'gauge-lite': '◕', 'oscilloscope-lite': '∿', 'text-lite': 'T' };
+    const kindShort = { 'perimeter-tracer': 'Tracer', 'pulse': 'Pulse', 'flash': 'Flash', 'flow-lite': 'Flow', 'radar-lite': 'Radar', 'gauge-lite': 'Gauge', 'oscilloscope-lite': 'Osc', 'text-lite': 'Text' };
     this.list.forEach((le) => {
       const row = document.createElement('div');
       const isActive = String(this.activeId) === String(le.id);

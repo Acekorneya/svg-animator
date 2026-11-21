@@ -445,13 +445,13 @@ type GaugeThresholdBand struct {
 }
 
 // LiteEffect represents a low-load declarative SVG visual effect (Stage 16D).
-// Kind values in 16D-A / 16D-B-M1..M4: "perimeter-tracer", "pulse", "flash", "flow-lite", "radar-lite", "gauge-lite", "oscilloscope-lite".
+// Kind values in 16D-A / 16D-B / 16D-C: "perimeter-tracer", "pulse", "flash", "flow-lite", "radar-lite", "gauge-lite", "oscilloscope-lite", "text-lite".
 type LiteEffect struct {
 	ID                  StringID             `json:"id"`
 	Name                string               `json:"name,omitempty"`
 	Metadata            map[string]any       `json:"metadata,omitempty"`
-	Kind                string               `json:"kind"`              // "perimeter-tracer" | "pulse" | "flash" | "flow-lite" | "radar-lite" | "gauge-lite" | "oscilloscope-lite"
-	Variant             string               `json:"variant,omitempty"` // e.g. "rect", "rounded", "circle", "ellipse", "square", "diamond", "cross", "ring", "star", "dashed", "dotted", "single", "multi", "fading-ping", "hbar", "vbar", "segmented", "level", "ecg", "sine", "square-wave", "triangle", "sawtooth", "polyline", "bezier"
+	Kind                string               `json:"kind"`              // "perimeter-tracer" | "pulse" | "flash" | "flow-lite" | "radar-lite" | "gauge-lite" | "oscilloscope-lite" | "text-lite"
+	Variant             string               `json:"variant,omitempty"` // e.g. "rect", "rounded", "circle", "ellipse", "square", "diamond", "cross", "ring", "star", "dashed", "dotted", "single", "multi", "fading-ping", "hbar", "vbar", "segmented", "level", "ecg", "sine", "square-wave", "triangle", "sawtooth", "polyline", "bezier", "none", "pill", "curved"
 	TargetID            string           `json:"targetId,omitempty"`
 	X                   float64          `json:"x"`
 	Y                   float64          `json:"y"`
@@ -459,6 +459,7 @@ type LiteEffect struct {
 	Height              float64          `json:"height,omitempty"`
 	Radius              float64          `json:"radius,omitempty"`
 	CornerRadius        float64          `json:"cornerRadius,omitempty"`
+	Rotation            float64          `json:"rotation,omitempty"`
 	Color               string           `json:"color"`
 	Opacity             float64          `json:"opacity"`
 	StrokeWidth         float64          `json:"strokeWidth,omitempty"`
@@ -488,7 +489,7 @@ type LiteEffect struct {
 	ShowGuide           *bool            `json:"showGuide,omitempty"`           // perimeter-tracer / flow-lite static guide track visibility
 	Points              []geometry.Point `json:"points,omitempty"`              // flow-lite ordered waypoints in percentage coordinates
 	Bends               []float64        `json:"bends,omitempty"`               // flow-lite per-section bend curvature (-100..+100)
-	Curvature           float64          `json:"curvature,omitempty"`           // flow-lite whole-path curvature modifier (-100..+100)
+	Curvature           float64          `json:"curvature,omitempty"`           // flow-lite / text-lite curvature modifier (-100..+100)
 	DashLength          float64          `json:"dashLength,omitempty"`          // flow-lite dash/segment length in px (2..400)
 	GapLength           float64          `json:"gapLength,omitempty"`           // flow-lite gap spacing in px (2..300)
 	DotSize             float64          `json:"dotSize,omitempty"`             // flow-lite dot diameter in px (1..32)
@@ -499,7 +500,9 @@ type LiteEffect struct {
 	Value               *float64         `json:"value,omitempty"`               // gauge-lite current numeric value
 	MinValue            *float64         `json:"minValue,omitempty"`            // gauge-lite minimum domain bound
 	MaxValue            *float64         `json:"maxValue,omitempty"`            // gauge-lite maximum domain bound (must be > minValue)
-	BgColor             string           `json:"bgColor,omitempty"`             // gauge-lite background track / unlit cell colour
+	BgColor             string           `json:"bgColor,omitempty"`             // gauge-lite / oscilloscope-lite / text-lite background colour
+	BgOpacity           *float64         `json:"bgOpacity,omitempty"`           // text-lite background opacity (0.0 .. 1.0)
+	BorderColor         string           `json:"borderColor,omitempty"`         // text-lite border colour
 	UseThresholds       bool             `json:"useThresholds,omitempty"`       // gauge-lite enable warning/critical threshold banding
 	WarnThreshold       *float64         `json:"warnThreshold,omitempty"`       // gauge-lite warning threshold in actual numeric domain
 	WarnColor           string           `json:"warnColor,omitempty"`           // gauge-lite warning band colour
@@ -507,8 +510,20 @@ type LiteEffect struct {
 	CritColor           string               `json:"critColor,omitempty"`           // gauge-lite critical band colour
 	Thresholds          []GaugeThresholdBand `json:"thresholds,omitempty"`          // gauge-lite 4 independently enabled threshold bands
 	Unit                string               `json:"unit,omitempty"`                // gauge-lite optional unit suffix (e.g. "%", "RPM", "°C")
-	LabelText           string               `json:"labelText,omitempty"`           // gauge-lite optional short title/caption
+	LabelText           string               `json:"labelText,omitempty"`           // gauge-lite / text-lite displayed text content
 	Samples             string               `json:"samples,omitempty"`             // oscilloscope-lite bounded numeric sample sequence (2..64 samples)
+	FontFamily          string               `json:"fontFamily,omitempty"`          // text-lite curated font key
+	FontSize            float64              `json:"fontSize,omitempty"`            // text-lite font size in px (8..120)
+	FontWeight          string               `json:"fontWeight,omitempty"`          // text-lite font weight ("400", "500", "600", "700")
+	LetterSpacing       float64              `json:"letterSpacing,omitempty"`       // text-lite tracking in px (-2..20)
+	TextAlign           string               `json:"textAlign,omitempty"`           // text-lite horizontal alignment ("left", "center", "right")
+	VerticalAlign       string               `json:"verticalAlign,omitempty"`       // text-lite vertical alignment ("top", "middle", "bottom")
+	Padding             float64              `json:"padding,omitempty"`             // text-lite interior padding in px (0..60)
+	TextAnim            string               `json:"textAnim,omitempty"`            // text-lite animation mode ("none", "ticker-h", "ticker-v", "typewriter", "fade", "flash", "slide", "blur-in", "blur-out", "scramble", "overtype")
+	ScrollSpeed         float64              `json:"scrollSpeed,omitempty"`         // text-lite ticker linear speed in px/s (10..600)
+	TypeSpeed           float64              `json:"typeSpeed,omitempty"`           // text-lite typewriter/scramble/overtype rate in chars/s (1..120)
+	HoldDelay           float64              `json:"holdDelay,omitempty"`           // text-lite hold pause in seconds (0..30)
+	TypeMode            string               `json:"typeMode,omitempty"`            // text-lite typewriter sub-mode ("once", "hold", "delete", "loop")
 	Visible             *bool                `json:"visible,omitempty"`
 	Locked              bool                 `json:"locked"`
 }

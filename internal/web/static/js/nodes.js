@@ -735,6 +735,7 @@ window.DiagramNodes = {
         selBox.setAttribute('width', w.toFixed(1));
         selBox.setAttribute('height', h.toFixed(1));
         selBox.setAttribute('stroke', '#a371f7');
+        selBox.removeAttribute('transform');
         selBox.style.display = 'block';
       } else if (!targetNode && window.AppCoordinator && window.AppCoordinator.activeSelection && window.AppCoordinator.activeSelection.type === 'image' && window.ImageObjects) {
         const img = window.ImageObjects.getImage(window.AppCoordinator.activeSelection.id);
@@ -749,6 +750,7 @@ window.DiagramNodes = {
           selBox.setAttribute('width', w.toFixed(1));
           selBox.setAttribute('height', h.toFixed(1));
           selBox.setAttribute('stroke', '#a371f7');
+          selBox.removeAttribute('transform');
           selBox.style.display = 'block';
         } else {
           selBox.style.display = 'none';
@@ -766,6 +768,13 @@ window.DiagramNodes = {
           selBox.setAttribute('width', w.toFixed(1));
           selBox.setAttribute('height', h.toFixed(1));
           selBox.setAttribute('stroke', '#a371f7');
+          if (le.rotation && Math.abs(Number(le.rotation)) > 0.01) {
+            const cx = bbox.x + bbox.width / 2;
+            const cy = bbox.y + bbox.height / 2;
+            selBox.setAttribute('transform', 'rotate(' + Number(le.rotation).toFixed(2) + ', ' + cx.toFixed(1) + ', ' + cy.toFixed(1) + ')');
+          } else {
+            selBox.removeAttribute('transform');
+          }
           selBox.style.display = 'block';
         } else {
           selBox.style.display = 'none';

@@ -11881,6 +11881,161 @@ async function runHarness() {
   }
   console.log('[HARNESS] Scenario 92 PASS: Stage 16D-B-M4 Oscilloscope Lite & 4-Threshold Gauge Lite verified.');
 
+  // =========================================================================
+  // SCENARIO 93: Stage 16D-C — Text and Typography (`text-lite` T1–T4)
+  // =========================================================================
+  {
+    window.ProjectManager.resetToNewProject();
+    window.EngineBridge.setWidgetParameters([]);
+
+    // 1. T1: Static Text and Containers (4 straight containers, 10 fonts, 9-way alignment, padding, transparency, rotation)
+    const tb = window.LiteEffects.createLiteEffect({
+      name: 'statusBanner',
+      kind: 'text-lite',
+      variant: 'rounded',
+      labelText: 'Primary Link: NOMINAL',
+      fontFamily: 'modern-sans',
+      fontSize: 20,
+      fontWeight: '600',
+      letterSpacing: 1.5,
+      textAlign: 'center',
+      verticalAlign: 'middle',
+      padding: 12,
+      color: '#f8fafc',
+      bgColor: '#0f172a',
+      bgOpacity: 0.85,
+      borderColor: '#38bdf8',
+      strokeWidth: 2,
+      cornerRadius: 10,
+      rotation: 0,
+      x: 50,
+      y: 50,
+      width: 240,
+      height: 60
+    });
+    assert.strictEqual(tb.kind, 'text-lite', 'W16DC-01: Text Box Lite created');
+    assert.strictEqual(tb.labelText, 'Primary Link: NOMINAL', 'W16DC-02: labelText preserved');
+
+    for (const cStyle of ['none', 'rect', 'rounded', 'pill']) {
+      window.LiteEffects.updateLiteEffect(tb.id, { variant: cStyle });
+      const cur = window.LiteEffects.getLiteEffect(tb.id);
+      assert.strictEqual(cur.variant, cStyle, `W16DC-03 (${cStyle}): Container variant updated`);
+      const m = window.LiteEffects.renderLiteElement(cur);
+      assert(m.includes(`data-text-variant="${cStyle}"`), `W16DC-04 (${cStyle}): Markup contains data-text-variant="${cStyle}"`);
+      if (cStyle === 'none') {
+        assert(!m.includes('class="lite-text-box"'), 'W16DC-05: Floating text ("none") omits visible box rect');
+      } else {
+        assert(m.includes('class="lite-text-box"'), `W16DC-05 (${cStyle}): Container renders .lite-text-box`);
+      }
+    }
+
+    const all10Fonts = [
+      'modern-sans', 'humanist-sans', 'geometric-sans', 'formal-serif', 'traditional-serif',
+      'tech-mono', 'condensed-display', 'casual-lettering', 'informal-hand', 'classic-script'
+    ];
+    for (const fKey of all10Fonts) {
+      window.LiteEffects.updateLiteEffect(tb.id, { fontFamily: fKey });
+      const cur = window.LiteEffects.getLiteEffect(tb.id);
+      assert.strictEqual(cur.fontFamily, fKey, `W16DC-06 (${fKey}): Font key updated`);
+      const m = window.LiteEffects.renderLiteElement(cur);
+      assert(m.includes(`data-text-font="${fKey}"`), `W16DC-07 (${fKey}): Markup includes font key`);
+    }
+
+    for (const hA of ['left', 'center', 'right']) {
+      for (const vA of ['top', 'middle', 'bottom']) {
+        window.LiteEffects.updateLiteEffect(tb.id, { variant: 'rounded', textAlign: hA, verticalAlign: vA });
+        const cur = window.LiteEffects.getLiteEffect(tb.id);
+        assert.strictEqual(cur.textAlign, hA, `W16DC-08 (${hA}/${vA}): textAlign`);
+        assert.strictEqual(cur.verticalAlign, vA, `W16DC-09 (${hA}/${vA}): verticalAlign`);
+        const m = window.LiteEffects.renderLiteElement(cur);
+        const expAnchor = hA === 'left' ? 'start' : (hA === 'right' ? 'end' : 'middle');
+        assert(m.includes(`text-anchor="${expAnchor}"`), `W16DC-10 (${hA}/${vA}): text-anchor="${expAnchor}"`);
+      }
+    }
+
+    // Rotation & inverse-rotated local hit-testing
+    window.LiteEffects.updateLiteEffect(tb.id, { rotation: 90, x: 400, y: 300, width: 240, height: 60 });
+    const rotMarkup = window.LiteEffects.renderLiteElement(window.LiteEffects.getLiteEffect(tb.id));
+    assert(rotMarkup.includes('transform="rotate(90,'), 'W16DC-11: Rotation transform emitted on group');
+    // At 90 deg rotation around (x=400px, y=300px) on 1280x720, local width=240 becomes vertical span y=[180..420]px, so (400px, 395px) -> xPct=31.25, yPct=54.86 hits the rotated vertical arm!
+    const hitVerticalArm = window.LiteEffects.findAtPct((400 / 1280) * 100, (395 / 720) * 100, 1280, 720);
+    assert(hitVerticalArm && hitVerticalArm.id === tb.id, 'W16DC-12: Inverse-rotated hit-test finds 90-deg rotated text box along vertical arm');
+
+    // 2. T2: True Curved Text (<textPath>, upward/downward arc, startOffset, showGuide, animation compatibility filter)
+    window.LiteEffects.updateLiteEffect(tb.id, {
+      variant: 'curved',
+      rotation: 0,
+      curvature: 65,
+      startOffset: 50,
+      textAlign: 'center',
+      fontFamily: 'classic-script',
+      showGuide: true,
+      textAnim: 'ticker-h' // Incompatible with curved -> Go engine must coerce to 'none'
+    });
+    const curvedCur = window.LiteEffects.getLiteEffect(tb.id);
+    assert.strictEqual(curvedCur.variant, 'curved', 'W16DC-13: Curved variant active');
+    assert.strictEqual(curvedCur.textAnim, 'none', 'W16DC-14: Incompatible ticker-h coerced to none on curved text');
+    const curvedUpMarkup = window.LiteEffects.renderLiteElement(curvedCur);
+    assert(curvedUpMarkup.includes('<textPath '), 'W16DC-15: Curved variant emits <textPath>');
+    assert(curvedUpMarkup.includes('class="lite-guide-track lite-text-arc-guide"'), 'W16DC-16: Guide path rendered');
+
+    window.LiteEffects.updateLiteEffect(tb.id, { curvature: -65, showGuide: false, textAnim: 'typewriter' });
+    const curvedDown = window.LiteEffects.getLiteEffect(tb.id);
+    assert.strictEqual(curvedDown.textAnim, 'typewriter', 'W16DC-17: Compatible typewriter allowed on curved text');
+    const curvedDownMarkup = window.LiteEffects.renderLiteElement(curvedDown);
+    assert(curvedDownMarkup.includes('visibility="hidden"'), 'W16DC-18: Hidden guide curve sets visibility="hidden"');
+
+    // 3. T3 & T4: All 11 textAnim modes & Stage 16C Widget Runtime Pending-Message Handover
+    const allAnims = ['none', 'ticker-h', 'ticker-v', 'typewriter', 'fade', 'flash', 'slide', 'blur-in', 'blur-out', 'scramble', 'overtype'];
+    for (const animMode of allAnims) {
+      window.LiteEffects.updateLiteEffect(tb.id, { variant: 'rounded', textAnim: animMode, scrollSpeed: 120, typeSpeed: 20 });
+      const cur = window.LiteEffects.getLiteEffect(tb.id);
+      assert.strictEqual(cur.textAnim, animMode, `W16DC-19 (${animMode}): textAnim updated`);
+      const m = window.LiteEffects.renderLiteElement(cur);
+      assert(m.includes(`data-text-anim="${animMode}"`), `W16DC-20 (${animMode}): data-text-anim emitted`);
+    }
+
+    // Grapheme segmentation check (emoji & accented characters)
+    const graphemes = window.LiteEffects.segmentGraphemes('Aé🚀!');
+    assert.strictEqual(graphemes.length, 4, 'W16DC-21: Grapheme segmentation preserves multi-byte emoji as 1 grapheme');
+
+    // Project serialization round-trip preserves all Stage 16D-C properties
+    window.LiteEffects.updateLiteEffect(tb.id, {
+      variant: 'pill',
+      labelText: ' Round-Trip Telemetry 🚀 ',
+      fontFamily: 'tech-mono',
+      fontSize: 22,
+      fontWeight: '700',
+      letterSpacing: 2.5,
+      textAlign: 'right',
+      verticalAlign: 'bottom',
+      padding: 14,
+      bgOpacity: 0.4,
+      borderColor: '#22c55e',
+      rotation: -25,
+      textAnim: 'ticker-h',
+      scrollSpeed: 150,
+      typeSpeed: 24,
+      holdDelay: 1.8,
+      typeMode: 'delete'
+    });
+    const serialized93 = window.ProjectManager.serializeStudioState();
+    window.ProjectManager.resetToNewProject();
+    window.ProjectManager.applyStudioState(serialized93);
+    const restoredTb = window.LiteEffects.getLiteEffect(tb.id);
+    assert(restoredTb && restoredTb.kind === 'text-lite', 'W16DC-22: Text Box Lite restored after round-trip');
+    assert.strictEqual(restoredTb.labelText, ' Round-Trip Telemetry 🚀 ', 'W16DC-23: Exact labelText with leading/trailing spaces & emoji restored');
+    assert.strictEqual(restoredTb.fontFamily, 'tech-mono', 'W16DC-24: fontFamily restored');
+    assert.strictEqual(restoredTb.rotation, -25, 'W16DC-25: rotation restored');
+    assert.strictEqual(restoredTb.textAnim, 'ticker-h', 'W16DC-26: textAnim restored');
+    assert.strictEqual(restoredTb.scrollSpeed, 150, 'W16DC-27: scrollSpeed restored');
+    assert.strictEqual(restoredTb.borderColor, '#22c55e', 'W16DC-28: borderColor restored');
+
+    window.ProjectManager.resetToNewProject();
+    window.EngineBridge.setWidgetParameters([]);
+  }
+  console.log('[HARNESS] Scenario 93 PASS: Stage 16D-C Text and Typography (T1-T4) verified.');
+
   console.log('[HARNESS] REG-03 PASS: Stage 3, 4, 5, 6, 7, 8, 9, 11, 12, 13, 14, 15 & 16 non-destructive cropping, background extraction, image baking, dedicated crop clip & snip workspace, object-local clipping, unified layer management, independent image objects, persistent groups, duplication, copy/paste with flow remapping, multi-selection, alignment, distribution, colour tools, selection retention, notifications, naming sync, history(50), schema 1.2.0, .sva packaging, background photo restoration, SVG compilation, export payload builders, collision-free widgets, external runtime parameters, and Go WASM engines verified.');
 }
 

@@ -753,6 +753,98 @@
     }
   }
 
+  let _graphemeSegmenter = null;
+  function segmentGraphemes(str) {
+    const s = String(str === undefined || str === null ? '' : str);
+    if (!s) return [];
+    if (!_graphemeSegmenter && typeof Intl !== 'undefined' && typeof Intl.Segmenter === 'function') {
+      try {
+        _graphemeSegmenter = new Intl.Segmenter(undefined, { granularity: 'grapheme' });
+      } catch (e) {}
+    }
+    if (_graphemeSegmenter) {
+      try {
+        const out = [];
+        for (const seg of _graphemeSegmenter.segment(s)) {
+          out.push(seg.segment);
+        }
+        return out;
+      } catch (e) {}
+    }
+    return Array.from(s);
+  }
+
+  function getTextLiteTargetNode(el) {
+    if (!el) return null;
+    const txtEl = el.querySelector('.lite-text-element') || el.querySelector('text');
+    if (!txtEl) return null;
+    const tp = txtEl.querySelector('.lite-text-path-link') || txtEl.querySelector('textPath');
+    return tp || txtEl;
+  }
+
+  function measureTextLiteWidth(el, txtEl, textStr) {
+    const fs = Math.max(8, parseFloat(el.getAttribute('data-text-font-size')) || 18);
+    const ls = parseFloat(el.getAttribute('data-text-letter-spacing')) || 0;
+    const graphemes = segmentGraphemes(textStr);
+    const estW = Math.max(0, graphemes.length * (fs * 0.56 + ls));
+    if (txtEl && typeof txtEl.getComputedTextLength === 'function') {
+      try {
+        const m = txtEl.getComputedTextLength();
+        if (Number.isFinite(m) && m > 0) return m;
+      } catch (e) {}
+    }
+    return estW;
+  }
+
+  function configureTextLiteTicker(el, ctrl) {
+    if (!el) return;
+    const anim = el.getAttribute('data-text-anim') || 'none';
+    if (anim !== 'ticker-h' && anim !== 'ticker-v') return;
+    const txtEl = el.querySelector('.lite-text-element') || el.querySelector('text');
+    if (!txtEl) return;
+    const targetNode = getTextLiteTargetNode(el);
+    const currentStr = ctrl ? ctrl.currentText : (el.getAttribute('data-text-content') || '');
+    if (targetNode && targetNode.textContent !== currentStr) {
+      targetNode.textContent = currentStr;
+    }
+    const w = Math.max(20, parseFloat(el.getAttribute('data-text-w')) || 220);
+    const h = Math.max(16, parseFloat(el.getAttribute('data-text-h')) || 56);
+    const fs = Math.max(8, parseFloat(el.getAttribute('data-text-font-size')) || 18);
+    const spd = Math.max(10, Math.min(600, parseFloat(el.getAttribute('data-text-scroll-speed')) || 90));
+    const dir = el.getAttribute('data-text-direction') === 'reverse' ? 'reverse' : 'forward';
+
+    if (anim === 'ticker-h') {
+      const tw = measureTextLiteWidth(el, txtEl, currentStr);
+      const dist = Math.max(20, w + tw);
+      const dur = Math.max(0.15, dist / spd);
+      const startPx = dir === 'reverse' ? (-tw) : w;
+      const endPx = dir === 'reverse' ? w : (-tw);
+      txtEl.setAttribute('data-ticker-measured-w', tw.toFixed(2));
+      txtEl.setAttribute('data-ticker-duration-s', dur.toFixed(4));
+      el.setAttribute('data-ticker-duration-s', dur.toFixed(4));
+      if (txtEl.style && typeof txtEl.style.setProperty === 'function') {
+        txtEl.style.setProperty('--sva-ticker-start', `${startPx.toFixed(2)}px`);
+        txtEl.style.setProperty('--sva-ticker-end', `${endPx.toFixed(2)}px`);
+        txtEl.style.setProperty('--sva-base-dur', `${dur.toFixed(4)}s`);
+        txtEl.style.animationDuration = `${dur.toFixed(4)}s`;
+      }
+    } else if (anim === 'ticker-v') {
+      const th = fs * 1.25;
+      const dist = Math.max(16, h + th);
+      const dur = Math.max(0.15, dist / spd);
+      const startPx = dir === 'reverse' ? (-th) : h;
+      const endPx = dir === 'reverse' ? h : (-th);
+      txtEl.setAttribute('data-ticker-duration-s', dur.toFixed(4));
+      el.setAttribute('data-ticker-duration-s', dur.toFixed(4));
+      if (txtEl.style && typeof txtEl.style.setProperty === 'function') {
+        txtEl.style.setProperty('--sva-ticker-start', `${startPx.toFixed(2)}px`);
+        txtEl.style.setProperty('--sva-ticker-end', `${endPx.toFixed(2)}px`);
+        txtEl.style.setProperty('--sva-base-dur', `${dur.toFixed(4)}s`);
+        txtEl.style.animationDuration = `${dur.toFixed(4)}s`;
+      }
+    }
+  }
+
   /**
    * Applies validated property to the resolved DOM element.
    */
@@ -897,6 +989,14 @@
             });
             break;
           }
+          if (el.getAttribute('data-lite-kind') === 'text-lite') {
+            el.setAttribute('data-text-color', value);
+            el.querySelectorAll('.lite-text-element').forEach((node) => {
+              node.setAttribute('fill', value);
+              if (node.style) node.style.fill = value;
+            });
+            break;
+          }
           // Lite effects: recolour visible .lite-payload & .lite-guide-track elements, preserving .lite-hit-target
           el.querySelectorAll('.lite-payload').forEach(c => {
             const curStroke = c.getAttribute('stroke');
@@ -1003,7 +1103,17 @@
       case 'text':
       case 'textContent':
         if (el) {
-          const valStr = String(value);
+          const valStr = String(value === undefined || value === null ? '' : value);
+          if (el.getAttribute && el.getAttribute('data-lite-kind') === 'text-lite') {
+            if (instance && typeof instance._updateTextLiteContent === 'function') {
+              instance._updateTextLiteContent(el, valStr, isInitialMount);
+            } else {
+              el.setAttribute('data-text-content', valStr);
+              const tNode = getTextLiteTargetNode(el);
+              if (tNode) tNode.textContent = valStr;
+            }
+            break;
+          }
           if (el.tagName && el.tagName.toLowerCase() === 'text') {
             el.textContent = valStr;
           } else {
@@ -1092,9 +1202,20 @@
       }
       case 'strokeWidth': {
         if (el) {
-          const sw = Math.max(0.5, Math.min(32, parseFloat(value) || 2.5));
+          const isTextLite = el.getAttribute('data-lite-kind') === 'text-lite';
+          const sw = Math.max(isTextLite ? 0 : 0.5, Math.min(32, parseFloat(value) !== undefined && !isNaN(parseFloat(value)) ? parseFloat(value) : 2.5));
           el.setAttribute('data-flow-stroke-width', String(sw));
           el.setAttribute('data-gauge-sw', String(sw));
+          if (isTextLite) {
+            el.setAttribute('data-text-border-width', String(sw));
+            const box = el.querySelector('.lite-text-box');
+            if (box) {
+              box.setAttribute('stroke-width', String(sw));
+              const bCol = el.getAttribute('data-text-border-color') || '#38bdf8';
+              box.setAttribute('stroke', sw > 0 ? bCol : 'none');
+            }
+            break;
+          }
           if (el.getAttribute('data-lite-kind') === 'gauge-lite') {
             const variant = el.getAttribute('data-gauge-variant') || 'ring';
             if (variant === 'ring') {
@@ -1127,6 +1248,49 @@
             screen.setAttribute('fill', value);
             if (screen.style) screen.style.fill = value;
           }
+        } else if (el && el.getAttribute('data-lite-kind') === 'text-lite') {
+          el.setAttribute('data-text-bg-color', value);
+          const box = el.querySelector('.lite-text-box');
+          if (box) {
+            box.setAttribute('fill', value);
+            if (box.style) box.style.fill = value;
+          }
+        }
+        break;
+      }
+      case 'borderColor': {
+        if (el && el.getAttribute('data-lite-kind') === 'text-lite') {
+          el.setAttribute('data-text-border-color', value);
+          const sw = parseFloat(el.getAttribute('data-text-border-width') || '1.5');
+          const box = el.querySelector('.lite-text-box');
+          if (box && sw > 0) {
+            box.setAttribute('stroke', value);
+            if (box.style) box.style.stroke = value;
+          }
+          const guide = el.querySelector('.lite-text-arc-guide');
+          if (guide) {
+            guide.setAttribute('stroke', value);
+            if (guide.style) guide.style.stroke = value;
+          }
+        }
+        break;
+      }
+      case 'scrollSpeed': {
+        if (el && el.getAttribute('data-lite-kind') === 'text-lite') {
+          const spd = Math.max(10, Math.min(600, parseFloat(value) || 90));
+          el.setAttribute('data-text-scroll-speed', String(spd));
+          if (instance && typeof instance._reconfigureTextLiteTicker === 'function') {
+            instance._reconfigureTextLiteTicker(el);
+          } else {
+            configureTextLiteTicker(el, null);
+          }
+        }
+        break;
+      }
+      case 'typeSpeed': {
+        if (el && el.getAttribute('data-lite-kind') === 'text-lite') {
+          const rate = Math.max(1, Math.min(120, parseFloat(value) || 14));
+          el.setAttribute('data-text-type-speed', String(rate));
         }
         break;
       }
@@ -1240,6 +1404,17 @@
             });
             break;
           }
+          if (el.getAttribute('data-lite-kind') === 'text-lite') {
+            const rawDir = String(value).toLowerCase();
+            const nextDir = (rawDir === 'reverse' || rawDir === 'ccw') ? 'reverse' : 'forward';
+            el.setAttribute('data-text-direction', nextDir);
+            if (instance && typeof instance._reconfigureTextLiteTicker === 'function') {
+              instance._reconfigureTextLiteTicker(el);
+            } else {
+              configureTextLiteTicker(el, null);
+            }
+            break;
+          }
           const dir = String(value).toLowerCase() === 'ccw' ? 'ccw' : 'cw';
           el.querySelectorAll('.lite-payload').forEach(node => {
             const curAnim = (node.style && node.style.animationName) || '';
@@ -1265,6 +1440,12 @@
       case 'startOffset': {
         if (el) {
           const pct = Math.max(0, Math.min(100, parseFloat(value) || 0));
+          if (el.getAttribute('data-lite-kind') === 'text-lite') {
+            el.setAttribute('data-text-start-offset', String(pct));
+            const tp = el.querySelector('.lite-text-path-link') || el.querySelector('textPath');
+            if (tp) tp.setAttribute('startOffset', `${pct.toFixed(1)}%`);
+            break;
+          }
           const offsetUnits = -(pct / 100) * 1000;
           el.querySelectorAll('.lite-payload').forEach(node => {
             node.setAttribute('data-start-offset', String(pct));
@@ -1676,6 +1857,302 @@
         burstTimers.clear();
       }
 
+      // Per-instance Text Box Lite runtime state machine (Stage 16D-C T3/T4)
+      const textLiteControllers = new Map();
+      const SCRAMBLE_ALPHABET = '0123456789ABCDEFGHIJKLMNOPQRSTUVWXYZ#$%&@*+-=?';
+
+      function clearTextLiteTimer(ctrl) {
+        if (ctrl && ctrl.timerId) {
+          clearTimeout(ctrl.timerId);
+          ctrl.timerId = null;
+        }
+      }
+
+      function clearAllTextLiteTimers() {
+        textLiteControllers.forEach((ctrl) => {
+          clearTextLiteTimer(ctrl);
+        });
+      }
+
+      function applyTextLiteDOMText(el, str) {
+        const tNode = getTextLiteTargetNode(el);
+        if (tNode) tNode.textContent = str;
+      }
+
+      function restartTextLiteCSSElement(txtEl) {
+        if (!txtEl || !txtEl.style) return;
+        const prevAnim = txtEl.style.animationName || '';
+        txtEl.style.animationName = 'none';
+        try { void txtEl.getBoundingClientRect(); } catch (e) {}
+        txtEl.style.animationName = prevAnim;
+      }
+
+      function adoptPendingTextIfAny(el, ctrl) {
+        if (!ctrl || ctrl.pendingText === null) return false;
+        ctrl.previousText = ctrl.currentText;
+        ctrl.currentText = ctrl.pendingText;
+        ctrl.pendingText = null;
+        ctrl.handoverCount = (ctrl.handoverCount || 0) + 1;
+        el.setAttribute('data-text-content', ctrl.currentText);
+        el.removeAttribute('data-text-pending');
+        el.setAttribute('data-text-handover-count', String(ctrl.handoverCount));
+        return true;
+      }
+
+      function startTextLiteStepCycle(el, ctrl) {
+        if (!el || !ctrl || handle.isDestroyed) return;
+        clearTextLiteTimer(ctrl);
+        const anim = el.getAttribute('data-text-anim') || 'none';
+        if (anim !== 'typewriter' && anim !== 'scramble' && anim !== 'overtype') return;
+
+        ctrl.cycleCompleted = false;
+        const targetGraphemes = segmentGraphemes(ctrl.currentText);
+        const prevGraphemes = segmentGraphemes(ctrl.previousText !== undefined ? ctrl.previousText : '');
+        const totalSteps = anim === 'overtype'
+          ? Math.max(targetGraphemes.length, prevGraphemes.length)
+          : targetGraphemes.length;
+
+        ctrl.phase = 'forward';
+        ctrl.stepIndex = 0;
+
+        if (anim === 'typewriter') {
+          applyTextLiteDOMText(el, '');
+        } else if (anim === 'overtype') {
+          applyTextLiteDOMText(el, prevGraphemes.join(''));
+        }
+
+        function scheduleNext(delayMs) {
+          if (isSuspended || handle.isDestroyed) return;
+          ctrl.timerId = setTimeout(tickStep, Math.max(8, delayMs));
+        }
+
+        function onCycleBoundaryReached() {
+          ctrl.timerId = null;
+          const typeMode = el.getAttribute('data-text-type-mode') || 'loop';
+          const adopted = adoptPendingTextIfAny(el, ctrl);
+          if (adopted) {
+            startTextLiteStepCycle(el, ctrl);
+            return;
+          }
+          if (anim === 'typewriter' && (typeMode === 'once' || typeMode === 'hold')) {
+            ctrl.cycleCompleted = true;
+            el.setAttribute('data-text-cycle-completed', 'true');
+            return;
+          }
+          if (anim === 'overtype' && typeMode === 'once') {
+            ctrl.cycleCompleted = true;
+            el.setAttribute('data-text-cycle-completed', 'true');
+            return;
+          }
+          ctrl.previousText = ctrl.currentText;
+          startTextLiteStepCycle(el, ctrl);
+        }
+
+        function tickStep() {
+          ctrl.timerId = null;
+          if (isSuspended || handle.isDestroyed) return;
+          const rate = Math.max(1, Math.min(120, parseFloat(el.getAttribute('data-text-type-speed')) || 14));
+          const stepMs = Math.max(8, Math.round(1000 / rate));
+          const holdMs = Math.max(0, (parseFloat(el.getAttribute('data-text-hold-delay')) || 1.2) * 1000);
+          const typeMode = el.getAttribute('data-text-type-mode') || 'loop';
+
+          if (anim === 'typewriter') {
+            const gNow = segmentGraphemes(ctrl.currentText);
+            if (ctrl.phase === 'forward') {
+              if (ctrl.stepIndex < gNow.length) {
+                ctrl.stepIndex += 1;
+                applyTextLiteDOMText(el, gNow.slice(0, ctrl.stepIndex).join(''));
+                scheduleNext(stepMs);
+              } else {
+                applyTextLiteDOMText(el, ctrl.currentText);
+                if (typeMode === 'once') {
+                  onCycleBoundaryReached();
+                } else if (typeMode === 'delete') {
+                  ctrl.phase = 'hold-before-delete';
+                  scheduleNext(Math.max(40, holdMs));
+                } else {
+                  ctrl.phase = 'hold-end';
+                  scheduleNext(Math.max(40, holdMs));
+                }
+              }
+            } else if (ctrl.phase === 'hold-before-delete') {
+              ctrl.phase = 'delete';
+              scheduleNext(stepMs);
+            } else if (ctrl.phase === 'delete') {
+              if (ctrl.stepIndex > 0) {
+                ctrl.stepIndex -= 1;
+                applyTextLiteDOMText(el, gNow.slice(0, ctrl.stepIndex).join(''));
+                scheduleNext(Math.max(8, Math.round(stepMs * 0.65)));
+              } else {
+                applyTextLiteDOMText(el, '');
+                onCycleBoundaryReached();
+              }
+            } else {
+              onCycleBoundaryReached();
+            }
+          } else if (anim === 'scramble') {
+            const gNow = segmentGraphemes(ctrl.currentText);
+            if (ctrl.phase === 'forward') {
+              if (ctrl.stepIndex < gNow.length) {
+                ctrl.stepIndex += 1;
+                let out = gNow.slice(0, ctrl.stepIndex).join('');
+                for (let i = ctrl.stepIndex; i < gNow.length; i++) {
+                  const ch = gNow[i];
+                  if (ch === ' ') out += ' ';
+                  else out += SCRAMBLE_ALPHABET[(ctrl.stepIndex * 7 + i * 13) % SCRAMBLE_ALPHABET.length];
+                }
+                applyTextLiteDOMText(el, out);
+                scheduleNext(stepMs);
+              } else {
+                applyTextLiteDOMText(el, ctrl.currentText);
+                ctrl.phase = 'hold-end';
+                scheduleNext(Math.max(60, holdMs));
+              }
+            } else {
+              onCycleBoundaryReached();
+            }
+          } else if (anim === 'overtype') {
+            const gCurr = segmentGraphemes(ctrl.currentText);
+            const gPrev = segmentGraphemes(ctrl.previousText !== undefined ? ctrl.previousText : '');
+            const maxLen = Math.max(gCurr.length, gPrev.length);
+            if (ctrl.phase === 'forward') {
+              if (ctrl.stepIndex < maxLen) {
+                ctrl.stepIndex += 1;
+                const leftPart = gCurr.slice(0, ctrl.stepIndex).join('');
+                const rightPart = ctrl.stepIndex < gCurr.length
+                  ? gPrev.slice(ctrl.stepIndex).join('')
+                  : gPrev.slice(ctrl.stepIndex, Math.max(gCurr.length, maxLen - (ctrl.stepIndex - gCurr.length))).join('');
+                applyTextLiteDOMText(el, leftPart + rightPart);
+                scheduleNext(stepMs);
+              } else {
+                applyTextLiteDOMText(el, ctrl.currentText);
+                ctrl.phase = 'hold-end';
+                scheduleNext(Math.max(60, holdMs));
+              }
+            } else {
+              onCycleBoundaryReached();
+            }
+          }
+        }
+
+        if (!isSuspended) {
+          const rate = Math.max(1, Math.min(120, parseFloat(el.getAttribute('data-text-type-speed')) || 14));
+          const firstStepMs = totalSteps === 0 ? 16 : Math.max(8, Math.round(1000 / rate));
+          scheduleNext(firstStepMs);
+        }
+      }
+
+      function initTextLiteControllers() {
+        if (!svgEl || typeof svgEl.querySelectorAll !== 'function') return;
+        svgEl.querySelectorAll('[data-lite-kind="text-lite"]').forEach((el) => {
+          if (textLiteControllers.has(el)) return;
+          const initialText = el.getAttribute('data-text-content') !== null
+            ? el.getAttribute('data-text-content')
+            : ((getTextLiteTargetNode(el) && getTextLiteTargetNode(el).textContent) || '');
+          const anim = el.getAttribute('data-text-anim') || 'none';
+          const ctrl = {
+            el,
+            currentText: initialText,
+            previousText: initialText,
+            pendingText: null,
+            timerId: null,
+            phase: 'forward',
+            stepIndex: 0,
+            cycleCompleted: false,
+            handoverCount: 0
+          };
+          textLiteControllers.set(el, ctrl);
+
+          const txtEl = el.querySelector('.lite-text-element') || el.querySelector('text');
+          if (txtEl && typeof txtEl.addEventListener === 'function') {
+            txtEl.addEventListener('animationiteration', () => {
+              if (handle.isDestroyed) return;
+              const curAnim = el.getAttribute('data-text-anim') || 'none';
+              if (curAnim === 'none' || curAnim === 'typewriter' || curAnim === 'scramble' || curAnim === 'overtype') return;
+              if (adoptPendingTextIfAny(el, ctrl)) {
+                applyTextLiteDOMText(el, ctrl.currentText);
+                if (curAnim === 'ticker-h' || curAnim === 'ticker-v') {
+                  configureTextLiteTicker(el, ctrl);
+                  restartTextLiteCSSElement(txtEl);
+                }
+              }
+            });
+          }
+
+          if (anim === 'ticker-h' || anim === 'ticker-v') {
+            configureTextLiteTicker(el, ctrl);
+            if (typeof document !== 'undefined' && document.fonts && document.fonts.ready) {
+              document.fonts.ready.then(() => {
+                if (!handle.isDestroyed) configureTextLiteTicker(el, ctrl);
+              }).catch(() => {});
+            }
+          } else if (anim === 'typewriter' || anim === 'scramble' || anim === 'overtype') {
+            startTextLiteStepCycle(el, ctrl);
+          }
+        });
+      }
+
+      function updateTextLiteContent(el, newStr, isInit) {
+        if (!el) return;
+        initTextLiteControllers();
+        let ctrl = textLiteControllers.get(el);
+        if (!ctrl) {
+          ctrl = {
+            el,
+            currentText: String(newStr),
+            previousText: String(newStr),
+            pendingText: null,
+            timerId: null,
+            phase: 'forward',
+            stepIndex: 0,
+            cycleCompleted: false,
+            handoverCount: 0
+          };
+          textLiteControllers.set(el, ctrl);
+        }
+        const anim = el.getAttribute('data-text-anim') || 'none';
+        const strVal = String(newStr === undefined || newStr === null ? '' : newStr);
+
+        // Static mode or initial mount or suspended/paused: adopt immediately!
+        if (isInit || anim === 'none' || isSuspended || isPaused) {
+          ctrl.previousText = ctrl.currentText;
+          ctrl.currentText = strVal;
+          ctrl.pendingText = null;
+          el.setAttribute('data-text-content', strVal);
+          el.removeAttribute('data-text-pending');
+          applyTextLiteDOMText(el, strVal);
+          if (anim === 'ticker-h' || anim === 'ticker-v') {
+            configureTextLiteTicker(el, ctrl);
+            if (!isInit && (isSuspended || isPaused)) {
+              const txtEl = el.querySelector('.lite-text-element') || el.querySelector('text');
+              restartTextLiteCSSElement(txtEl);
+            }
+          } else if (!isInit && (anim === 'typewriter' || anim === 'scramble' || anim === 'overtype')) {
+            if (!isSuspended && !isPaused) {
+              startTextLiteStepCycle(el, ctrl);
+            }
+          }
+          return;
+        }
+
+        // Non-repeating completed cycle (e.g. typewriter once/hold after completion): start new cycle immediately!
+        if (ctrl.cycleCompleted) {
+          ctrl.previousText = ctrl.currentText;
+          ctrl.currentText = strVal;
+          ctrl.pendingText = null;
+          ctrl.cycleCompleted = false;
+          el.setAttribute('data-text-content', strVal);
+          el.removeAttribute('data-text-pending');
+          el.removeAttribute('data-text-cycle-completed');
+          startTextLiteStepCycle(el, ctrl);
+          return;
+        }
+
+        // Active cycle in progress: buffer in single-slot pendingText (overwriting any older pending message)!
+        ctrl.pendingText = strVal;
+        el.setAttribute('data-text-pending', strVal);
+      }
+
       function restartBurstNode(node) {
         if (!node || !node.style || handle.isDestroyed) return;
         node.removeAttribute('data-burst-paused');
@@ -1720,9 +2197,28 @@
         setSMILSuspended(svgEl, isSuspended);
         if (isSuspended) {
           clearBurstTimers();
-        } else if (svgEl && typeof svgEl.querySelectorAll === 'function') {
-          svgEl.querySelectorAll('[data-burst-paused="1"]').forEach((node) => {
-            restartBurstNode(node);
+          clearAllTextLiteTimers();
+        } else {
+          if (svgEl && typeof svgEl.querySelectorAll === 'function') {
+            svgEl.querySelectorAll('[data-burst-paused="1"]').forEach((node) => {
+              restartBurstNode(node);
+            });
+          }
+          textLiteControllers.forEach((ctrl, el) => {
+            adoptPendingTextIfAny(el, ctrl);
+            const anim = el.getAttribute('data-text-anim') || 'none';
+            if (anim === 'typewriter' || anim === 'scramble' || anim === 'overtype') {
+              if (!ctrl.cycleCompleted) {
+                startTextLiteStepCycle(el, ctrl);
+              }
+            } else if (anim !== 'none') {
+              applyTextLiteDOMText(el, ctrl.currentText);
+              if (anim === 'ticker-h' || anim === 'ticker-v') {
+                configureTextLiteTicker(el, ctrl);
+              }
+              const txtEl = el.querySelector('.lite-text-element') || el.querySelector('text');
+              restartTextLiteCSSElement(txtEl);
+            }
           });
         }
         if (typeof handle !== 'undefined' && handle._emit) {
@@ -1966,6 +2462,8 @@
         // Unmount & destruction
         unmount() {
           clearBurstTimers();
+          clearAllTextLiteTimers();
+          textLiteControllers.clear();
           if (visibilityObserver) {
             try { visibilityObserver.disconnect(); } catch (e) {}
             visibilityObserver = null;
@@ -1994,10 +2492,20 @@
           handle._emit('destroy', { instanceId: handle.instanceId });
           for (const k in eventListeners) delete eventListeners[k];
           return handle;
+        },
+
+        _updateTextLiteContent(el, strVal, isInit) {
+          updateTextLiteContent(el, strVal, isInit);
+        },
+
+        _reconfigureTextLiteTicker(el) {
+          const ctrl = textLiteControllers.get(el) || null;
+          configureTextLiteTicker(el, ctrl);
         }
       };
 
-      // 8. Apply initial parameters if provided in options or manifest defaults
+      // 8. Initialize Text Box Lite controllers & apply initial parameters if provided in options or manifest defaults
+      initTextLiteControllers();
       const hasExplicitInit = Boolean((options.parameters && Object.keys(options.parameters).length > 0) ||
         (options.initialParameters && Object.keys(options.initialParameters).length > 0));
       if (Object.keys(currentValues).length > 0) {

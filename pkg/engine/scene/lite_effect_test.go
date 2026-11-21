@@ -707,3 +707,139 @@ func TestOscilloscopeLitePresetsModesSamplesAndPersistence(t *testing.T) {
 		}
 	}
 }
+
+func TestTextLiteContainersFontsCurvedAnimationsAndWidgetScoping(t *testing.T) {
+	sc := NewScene()
+
+	// 1. Create text-lite with default properties
+	txt := sc.CreateLiteEffect(LiteEffect{
+		Name:      "statusBanner",
+		Kind:      "text-lite",
+		LabelText: "Backup Completed",
+	})
+	if txt.Kind != "text-lite" || txt.Variant != "rounded" {
+		t.Fatalf("expected text-lite rounded default, got kind=%q variant=%q", txt.Kind, txt.Variant)
+	}
+	if txt.FontFamily != "modern-sans" || txt.FontSize != 18.0 || txt.FontWeight != "600" {
+		t.Fatalf("unexpected font defaults: family=%q size=%v weight=%q", txt.FontFamily, txt.FontSize, txt.FontWeight)
+	}
+	if txt.TextAlign != "center" || txt.VerticalAlign != "middle" || txt.Padding != 0 {
+		t.Fatalf("unexpected alignment defaults: align=%q valign=%q", txt.TextAlign, txt.VerticalAlign)
+	}
+	if txt.BgOpacity == nil || *txt.BgOpacity != 0.85 {
+		t.Fatalf("expected default bgOpacity 0.85, got %v", txt.BgOpacity)
+	}
+
+	// 2. Test all 5 container variants, 10 curated fonts, 9-way alignments, rotation, and transparent bgOpacity=0
+	variants := []string{"none", "rect", "rounded", "pill", "curved"}
+	fonts := []string{
+		"modern-sans", "humanist-sans", "geometric-sans", "formal-serif", "traditional-serif",
+		"tech-mono", "condensed-display", "casual-lettering", "informal-hand", "classic-script",
+	}
+	hAligns := []string{"left", "center", "right"}
+	vAligns := []string{"top", "middle", "bottom"}
+
+	for _, v := range variants {
+		for _, f := range fonts {
+			upd, err := sc.UpdateLiteEffect(txt.ID, map[string]any{
+				"variant":       v,
+				"fontFamily":    f,
+				"fontSize":      24.0,
+				"fontWeight":    "700",
+				"letterSpacing": 1.5,
+				"padding":       14.0,
+				"bgOpacity":     0.0,
+				"strokeWidth":   0.0,
+				"rotation":      45.0,
+				"curvature":     40.0,
+			})
+			if err != nil {
+				t.Fatalf("UpdateLiteEffect(variant=%s, font=%s) failed: %v", v, f, err)
+			}
+			if upd.Variant != v || upd.FontFamily != f || upd.Rotation != 45.0 {
+				t.Fatalf("mismatch after update: variant=%s font=%s rot=%v", upd.Variant, upd.FontFamily, upd.Rotation)
+			}
+			if upd.BgOpacity == nil || *upd.BgOpacity != 0.0 || upd.StrokeWidth != 0.0 {
+				t.Fatalf("expected zero bgOpacity and strokeWidth preserved, got bgOp=%v sw=%v", upd.BgOpacity, upd.StrokeWidth)
+			}
+		}
+	}
+
+	for _, ha := range hAligns {
+		for _, va := range vAligns {
+			upd, err := sc.UpdateLiteEffect(txt.ID, map[string]any{
+				"variant":       "rounded",
+				"textAlign":     ha,
+				"verticalAlign": va,
+			})
+			if err != nil || upd.TextAlign != ha || upd.VerticalAlign != va {
+				t.Fatalf("alignment (%s, %s) failed: %v", ha, va, err)
+			}
+		}
+	}
+
+	// 3. Test all 11 textAnim modes on straight container and curved compatibility filtering
+	anims := []string{"none", "ticker-h", "ticker-v", "typewriter", "fade", "flash", "slide", "blur-in", "blur-out", "scramble", "overtype"}
+	for _, anim := range anims {
+		upd, err := sc.UpdateLiteEffect(txt.ID, map[string]any{
+			"variant":     "rounded",
+			"textAnim":    anim,
+			"scrollSpeed": 120.0,
+			"typeSpeed":   18.0,
+			"holdDelay":   2.0,
+			"typeMode":    "delete",
+		})
+		if err != nil || upd.TextAnim != anim {
+			t.Fatalf("textAnim %q on straight box failed: %v", anim, err)
+		}
+	}
+
+	// Curved variant allows fade, flash, typewriter, blur-in, blur-out, none, and auto-resets unsupported ticker/slide/scramble/overtype
+	updCurved, err := sc.UpdateLiteEffect(txt.ID, map[string]any{
+		"variant":  "curved",
+		"textAnim": "fade",
+	})
+	if err != nil || updCurved.TextAnim != "fade" {
+		t.Fatalf("expected curved fade to succeed, got err=%v anim=%q", err, updCurved.TextAnim)
+	}
+	updCurvedAuto, err := sc.UpdateLiteEffect(txt.ID, map[string]any{
+		"variant":  "curved",
+		"textAnim": "ticker-h",
+	})
+	if err != nil || updCurvedAuto.TextAnim != "none" {
+		t.Fatalf("expected curved ticker-h to normalize to 'none', got err=%v anim=%q", err, updCurvedAuto.TextAnim)
+	}
+
+	// 4. Test IsolateSVGWidget rewrites <textPath href="#lite-text-arc-1"> and clip-path="url(#lite-text-clip-1)"
+	rawSVG := `<svg xmlns="http://www.w3.org/2000/svg"><defs><clipPath id="lite-text-clip-1"><rect width="200" height="50"/></clipPath><path id="lite-text-arc-1" d="M 10 25 Q 100 5 190 25"/></defs><g id="lite-1" clip-path="url(#lite-text-clip-1)"><text><textPath href="#lite-text-arc-1">Curved Banner</textPath></text></g></svg>`
+	isoSVG, _, err := IsolateSVGWidget(rawSVG, WidgetIsolationOptions{InstanceID: "instA", ScopeCSS: true})
+	if err != nil {
+		t.Fatalf("IsolateSVGWidget failed: %v", err)
+	}
+	if !strings.Contains(isoSVG, `id="instA__lite-text-arc-1"`) || !strings.Contains(isoSVG, `href="#instA__lite-text-arc-1"`) {
+		t.Fatalf("expected textPath href and arc path ID to be isolated, got: %s", isoSVG)
+	}
+
+	// 5. Test widget property bindings for text-lite
+	textProps := map[string]string{
+		"text":        "text",
+		"color":       "color",
+		"bgColor":     "color",
+		"borderColor": "color",
+		"opacity":     "number",
+		"visibility":  "boolean",
+		"scrollSpeed": "number",
+		"typeSpeed":   "number",
+	}
+	for prop, pType := range textProps {
+		pName := GenerateParameterName("statusBanner", prop, "lite")
+		if err := sc.AddParameter(WidgetParameter{
+			Name:     pName,
+			Type:     pType,
+			Target:   "lite-" + string(txt.ID),
+			Property: prop,
+		}); err != nil {
+			t.Fatalf("AddParameter(text-lite %s) failed: %v", prop, err)
+		}
+	}
+}

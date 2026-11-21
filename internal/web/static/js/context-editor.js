@@ -465,7 +465,8 @@ window.FloatingPropertiesEditor = {
             'flow-lite': ['dashed', 'dotted', 'single'],
             'radar-lite': ['multi', 'single', 'fading-ping'],
             'gauge-lite': ['ring', 'hbar', 'vbar', 'segmented', 'level'],
-            'oscilloscope-lite': ['ecg', 'sine', 'square', 'triangle', 'sawtooth', 'polyline', 'bezier']
+            'oscilloscope-lite': ['ecg', 'sine', 'square', 'triangle', 'sawtooth', 'polyline', 'bezier'],
+            'text-lite': ['rounded', 'rect', 'pill', 'none', 'curved']
           };
           const labelsByOpt = {
             'multi': 'Multiple Pings (multi)',
@@ -482,18 +483,24 @@ window.FloatingPropertiesEditor = {
             'triangle': 'Triangle Wave (triangle)',
             'sawtooth': 'Sawtooth Wave (sawtooth)',
             'polyline': 'Angular Polyline (polyline)',
-            'bezier': 'Bézier-Smoothed Curve (bezier)'
+            'bezier': 'Bézier-Smoothed Curve (bezier)',
+            'rounded': 'Rounded Box (rounded)',
+            'rect': 'Rectangle Box (rect)',
+            'pill': 'Pill / Capsule (pill)',
+            'none': 'Floating Text / No Box (none)',
+            'curved': 'Curved Text on Arc (curved)'
           };
           const opts = optsByKind[le.kind] || ['circle'];
-          variantSel.innerHTML = opts.map((o) => `<option value="${o}">${(['radar-lite', 'gauge-lite', 'oscilloscope-lite'].includes(le.kind)) && labelsByOpt[o] ? labelsByOpt[o] : o}</option>`).join('');
+          variantSel.innerHTML = opts.map((o) => `<option value="${o}">${(['radar-lite', 'gauge-lite', 'oscilloscope-lite', 'text-lite'].includes(le.kind)) && labelsByOpt[o] ? labelsByOpt[o] : o}</option>`).join('');
         }
         const durMs = Math.round((Number(le.dur) || 0.10) * 1000);
         this._setVal('fctx-liteNameInput', le.name || '');
         this._setVal('fctx-liteVariantSelect', le.variant || '');
         this._setVal('fctx-liteColorPicker', le.color || '#38bdf8');
         this._setPair('fctx-liteOpacity', le.opacity !== undefined ? le.opacity : 0.9);
-        this._setPair('fctx-liteWidth', Math.round(Number(le.width) || (le.kind === 'perimeter-tracer' ? 140 : 56)));
+        this._setPair('fctx-liteWidth', Math.round(Number(le.width) || (le.kind === 'perimeter-tracer' ? 140 : (le.kind === 'text-lite' ? 220 : 56))));
         this._setPair('fctx-liteHeight', Math.round(Number(le.height) || (le.kind === 'perimeter-tracer' ? 80 : 56)));
+        this._setPair('fctx-liteRotation', Math.round(Number(le.rotation) || 0));
         this._setPair('fctx-liteArmThickness', le.armThickness !== undefined ? le.armThickness : 3);
         this._setChk('fctx-liteLockAspectChk', le.kind === 'perimeter-tracer' && le.variant === 'circle' ? true : Boolean(le.maintainAspectRatio));
         this._setChk('fctx-liteShowGuideChk', le.showGuide !== false);
@@ -530,10 +537,11 @@ window.FloatingPropertiesEditor = {
         const rdg = document.getElementById('fctx-liteRadarGroup');
         const gg = document.getElementById('fctx-liteGaugeGroup');
         const og = document.getElementById('fctx-liteOscGroup');
+        const txGrp = document.getElementById('fctx-liteTextGroup');
         const trigBtn = document.getElementById('fctx-btnTriggerLiteFlash');
         if (dimGrp) dimGrp.style.display = le.kind === 'flow-lite' ? 'none' : '';
         if (tg) tg.style.display = le.kind === 'perimeter-tracer' ? 'block' : 'none';
-        if (crRow) crRow.style.display = ((le.kind === 'perimeter-tracer' && le.variant === 'rounded') || (le.kind === 'gauge-lite' && ['hbar', 'vbar', 'level'].includes(le.variant)) || le.kind === 'oscilloscope-lite') ? '' : 'none';
+        if (crRow) crRow.style.display = ((le.kind === 'perimeter-tracer' && le.variant === 'rounded') || (le.kind === 'gauge-lite' && ['hbar', 'vbar', 'level'].includes(le.variant)) || le.kind === 'oscilloscope-lite' || (le.kind === 'text-lite' && le.variant === 'rounded')) ? '' : 'none';
         if (armRow) armRow.style.display = ((le.kind === 'pulse' || le.kind === 'flash') && (le.variant === 'cross' || le.variant === 'star')) ? '' : 'none';
         if (pg) pg.style.display = le.kind === 'pulse' ? 'block' : 'none';
         if (fg) fg.style.display = le.kind === 'flash' ? 'block' : 'none';
@@ -541,7 +549,63 @@ window.FloatingPropertiesEditor = {
         if (rdg) rdg.style.display = le.kind === 'radar-lite' ? 'block' : 'none';
         if (gg) gg.style.display = le.kind === 'gauge-lite' ? 'block' : 'none';
         if (og) og.style.display = le.kind === 'oscilloscope-lite' ? 'block' : 'none';
+        if (txGrp) txGrp.style.display = le.kind === 'text-lite' ? 'block' : 'none';
         if (trigBtn) trigBtn.style.display = le.kind === 'flash' ? 'inline-block' : 'none';
+
+        if (le.kind === 'text-lite') {
+          const isCurved = le.variant === 'curved';
+          const isBoxed = le.variant === 'rect' || le.variant === 'rounded' || le.variant === 'pill';
+          const anim = le.textAnim || 'none';
+          this._setVal('fctx-liteTextContentInput', le.labelText !== undefined ? le.labelText : 'System Ready');
+          this._setVal('fctx-liteTextFontSelect', le.fontFamily || 'modern-sans');
+          this._setPair('fctx-liteTextFontSize', le.fontSize || 18);
+          this._setVal('fctx-liteTextFontWeightSelect', le.fontWeight || '600');
+          this._setPair('fctx-liteTextLetterSpacing', le.letterSpacing !== undefined ? le.letterSpacing : 0);
+          this._setVal('fctx-liteTextAlignSelect', le.textAlign || 'center');
+          this._setVal('fctx-liteTextVerticalAlignSelect', le.verticalAlign || 'middle');
+          this._setPair('fctx-liteTextPadding', le.padding !== undefined ? le.padding : 12);
+          this._setVal('fctx-liteTextBgColorPicker', le.bgColor || '#0f172a');
+          this._setPair('fctx-liteTextBgOpacity', le.bgOpacity !== undefined ? le.bgOpacity : (isBoxed ? 0.85 : 0));
+          this._setVal('fctx-liteTextBorderColorPicker', le.borderColor || '#38bdf8');
+          this._setPair('fctx-liteTextStrokeWidth', le.strokeWidth !== undefined ? le.strokeWidth : (isBoxed ? 1.5 : 0));
+          this._setPair('fctx-liteTextCurvature', le.curvature !== undefined ? le.curvature : 35);
+          this._setPair('fctx-liteTextStartOffset', le.startOffset !== undefined ? le.startOffset : 50);
+          this._setChk('fctx-liteTextShowGuideChk', Boolean(le.showGuide));
+
+          const animSel = document.getElementById('fctx-liteTextAnimSelect');
+          if (animSel) {
+            Array.from(animSel.options).forEach((opt) => {
+              opt.disabled = isCurved && ['ticker-h', 'ticker-v', 'slide', 'scramble', 'overtype'].includes(opt.value);
+            });
+          }
+          this._setVal('fctx-liteTextAnimSelect', anim);
+          this._setPair('fctx-liteTextScrollSpeed', le.scrollSpeed || 90);
+          this._setVal('fctx-liteTextDirectionSelect', (le.direction === 'reverse' || le.direction === 'ccw') ? 'reverse' : 'forward');
+          this._setPair('fctx-liteTextTypeSpeed', le.typeSpeed || 14);
+          this._setVal('fctx-liteTextTypeModeSelect', le.typeMode || 'hold');
+          this._setPair('fctx-liteTextCycleSpeed', le.speed || 2.0);
+          this._setPair('fctx-liteTextHoldDelay', le.holdDelay !== undefined ? le.holdDelay : 1.5);
+
+          const vAlignRow = document.getElementById('fctx-liteTextVerticalAlignRow');
+          const boxStyleGroup = document.getElementById('fctx-liteTextBoxStyleGroup');
+          const curvedGroup = document.getElementById('fctx-liteTextCurvedGroup');
+          const scrollSpdRow = document.getElementById('fctx-liteTextScrollSpeedRow');
+          const dirRow = document.getElementById('fctx-liteTextDirectionRow');
+          const typeSpdRow = document.getElementById('fctx-liteTextTypeSpeedRow');
+          const typeModeRow = document.getElementById('fctx-liteTextTypeModeRow');
+          const cycleSpdRow = document.getElementById('fctx-liteTextCycleSpeedRow');
+          const holdRow = document.getElementById('fctx-liteTextHoldDelayRow');
+
+          if (vAlignRow) vAlignRow.style.display = isCurved ? 'none' : '';
+          if (boxStyleGroup) boxStyleGroup.style.display = isBoxed ? '' : 'none';
+          if (curvedGroup) curvedGroup.style.display = isCurved ? '' : 'none';
+          if (scrollSpdRow) scrollSpdRow.style.display = (anim === 'ticker-h' || anim === 'ticker-v') ? '' : 'none';
+          if (dirRow) dirRow.style.display = (anim === 'ticker-h' || anim === 'ticker-v' || anim === 'slide') ? '' : 'none';
+          if (typeSpdRow) typeSpdRow.style.display = (anim === 'typewriter' || anim === 'scramble' || anim === 'overtype') ? '' : 'none';
+          if (typeModeRow) typeModeRow.style.display = anim === 'typewriter' ? '' : 'none';
+          if (cycleSpdRow) cycleSpdRow.style.display = (['fade', 'flash', 'slide', 'blur-in', 'blur-out'].includes(anim)) ? '' : 'none';
+          if (holdRow) holdRow.style.display = (['typewriter', 'fade', 'slide', 'blur-in', 'blur-out', 'scramble', 'overtype'].includes(anim)) ? '' : 'none';
+        }
 
         if (le.kind === 'gauge-lite') {
           const minV = le.minValue !== undefined ? le.minValue : 0;
@@ -1430,6 +1494,7 @@ window.FloatingPropertiesEditor = {
       ['fctx-liteOpacity', 'opacity', false],
       ['fctx-liteWidth', 'width', true],
       ['fctx-liteHeight', 'height', true],
+      ['fctx-liteRotation', 'rotation', false],
       ['fctx-liteArmThickness', 'armThickness', false],
       ['fctx-liteCornerRadius', 'cornerRadius', true],
       ['fctx-liteStrokeWidth', 'strokeWidth', false],
@@ -1460,7 +1525,18 @@ window.FloatingPropertiesEditor = {
       ['fctx-liteOscCycles', 'segments', true],
       ['fctx-liteOscBaseline', 'startOffset', false],
       ['fctx-liteOscStrokeWidth', 'strokeWidth', false],
-      ['fctx-liteOscSpeed', 'speed', false]
+      ['fctx-liteOscSpeed', 'speed', false],
+      ['fctx-liteTextFontSize', 'fontSize', false],
+      ['fctx-liteTextLetterSpacing', 'letterSpacing', false],
+      ['fctx-liteTextPadding', 'padding', false],
+      ['fctx-liteTextBgOpacity', 'bgOpacity', false],
+      ['fctx-liteTextStrokeWidth', 'strokeWidth', false],
+      ['fctx-liteTextCurvature', 'curvature', false],
+      ['fctx-liteTextStartOffset', 'startOffset', false],
+      ['fctx-liteTextScrollSpeed', 'scrollSpeed', false],
+      ['fctx-liteTextTypeSpeed', 'typeSpeed', false],
+      ['fctx-liteTextCycleSpeed', 'speed', false],
+      ['fctx-liteTextHoldDelay', 'holdDelay', false]
     ];
     litePairs.forEach(([baseId, prop, isInt]) => {
       const slider = document.getElementById(baseId + 'Slider');
@@ -1555,6 +1631,17 @@ window.FloatingPropertiesEditor = {
     bindLiteSimple('fctx-liteOscShowGuideChk', 'showGuide', 'change', true);
     bindLiteSimple('fctx-liteOscDirectionSelect', 'direction', 'change');
     bindLiteSimple('fctx-liteOscSamplesInput', 'samples', 'input');
+    bindLiteSimple('fctx-liteTextContentInput', 'labelText', 'input');
+    bindLiteSimple('fctx-liteTextFontSelect', 'fontFamily', 'change');
+    bindLiteSimple('fctx-liteTextFontWeightSelect', 'fontWeight', 'change');
+    bindLiteSimple('fctx-liteTextAlignSelect', 'textAlign', 'change');
+    bindLiteSimple('fctx-liteTextVerticalAlignSelect', 'verticalAlign', 'change');
+    bindLiteSimple('fctx-liteTextBgColorPicker', 'bgColor', 'input');
+    bindLiteSimple('fctx-liteTextBorderColorPicker', 'borderColor', 'input');
+    bindLiteSimple('fctx-liteTextShowGuideChk', 'showGuide', 'change', true);
+    bindLiteSimple('fctx-liteTextAnimSelect', 'textAnim', 'change');
+    bindLiteSimple('fctx-liteTextDirectionSelect', 'direction', 'change');
+    bindLiteSimple('fctx-liteTextTypeModeSelect', 'typeMode', 'change');
 
     document.getElementById('fctx-btnAddLiteFlowNode')?.addEventListener('click', () => {
       if (this.activeType === 'lite' && window.LiteEffects) {

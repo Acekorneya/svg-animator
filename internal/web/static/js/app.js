@@ -2661,15 +2661,19 @@ function getDrawerWidgetPropDefs(type) {
       { prop: 'visibility', label: 'Visibility (Toggle)', type: 'boolean', desc: 'Shows or hides this group' }
     ],
     lite: [
-      { prop: 'color', label: 'Effect Colour', type: 'color', desc: 'Primary stroke or fill colour of the low-load effect' },
-      { prop: 'bgColor', label: 'Track / Background Colour', type: 'color', desc: 'Background track or unlit segment colour for Gauge Lite' },
+      { prop: 'text', label: 'Text Content', type: 'text', desc: 'Displayed text content for Text Box Lite (immediate update on static text, cycle-boundary handover on animated text)' },
+      { prop: 'color', label: 'Effect Colour', type: 'color', desc: 'Primary stroke, fill, or text colour of the low-load effect' },
+      { prop: 'bgColor', label: 'Track / Background Colour', type: 'color', desc: 'Background track, screen, or text box fill colour' },
+      { prop: 'borderColor', label: 'Border Colour', type: 'color', desc: 'Container border or arc guide colour for Text Box Lite' },
       { prop: 'value', label: 'Gauge Value', type: 'number', desc: 'Current numeric value for Gauge / Level Lite indicators' },
       { prop: 'minValue', label: 'Gauge Min Value', type: 'number', desc: 'Minimum numeric domain bound for Gauge / Level Lite' },
       { prop: 'maxValue', label: 'Gauge Max Value', type: 'number', desc: 'Maximum numeric domain bound for Gauge / Level Lite' },
       { prop: 'opacity', label: 'Opacity (0..1)', type: 'number', min: 0, max: 1, desc: 'Transparency of the low-load effect (0.0 to 1.0)' },
       { prop: 'visibility', label: 'Visibility (Toggle)', type: 'boolean', desc: 'Toggle visibility of the low-load effect' },
       { prop: 'speed', label: 'Speed / Rate', type: 'speed', min: 0.1, max: 10, desc: 'Playback speed multiplier for the effect (0.1 to 10.0)' },
-      { prop: 'strokeWidth', label: 'Stroke Width', type: 'number', min: 0.5, max: 24, desc: 'Stroke thickness in px (0.5 to 24)' },
+      { prop: 'scrollSpeed', label: 'Ticker Scroll Speed (px/s)', type: 'number', min: 10, max: 600, desc: 'Linear scroll speed in SVG px/s for Text Box Lite tickers (10 to 600)' },
+      { prop: 'typeSpeed', label: 'Typing Rate (chars/s)', type: 'number', min: 1, max: 120, desc: 'Character reveal rate in graphemes/s for Text Box Lite typewriter, scramble, and overtype (1 to 120)' },
+      { prop: 'strokeWidth', label: 'Stroke Width', type: 'number', min: 0, max: 24, desc: 'Stroke or border thickness in px (0 to 24)' },
       { prop: 'dashLength', label: 'Dash / Segment Length', type: 'number', min: 2, max: 400, desc: 'Flow Lite dash or single segment length in px (2 to 400)' },
       { prop: 'gapLength', label: 'Gap Spacing', type: 'number', min: 2, max: 300, desc: 'Flow Lite clear gap between segments in px (2 to 300)' },
       { prop: 'dotSize', label: 'Dot Diameter', type: 'number', min: 1, max: 32, desc: 'Flow Lite dot diameter in px for dotted pattern (1 to 32)' },
@@ -2756,21 +2760,25 @@ function getObjectPropValue(type, id, prop) {
     const le = window.LiteEffects.getLiteEffect(id);
     if (le) {
       switch (prop) {
-        case 'color': return le.color || '#38bdf8';
-        case 'bgColor': return le.bgColor || (le.kind === 'oscilloscope-lite' ? '#0b1322' : '#1e293b');
+        case 'text': return le.labelText !== undefined ? le.labelText : 'System Ready';
+        case 'color': return le.color || (le.kind === 'text-lite' ? '#f8fafc' : '#38bdf8');
+        case 'bgColor': return le.bgColor || (le.kind === 'oscilloscope-lite' ? '#0b1322' : (le.kind === 'text-lite' ? '#0f172a' : '#1e293b'));
+        case 'borderColor': return le.borderColor || '#38bdf8';
         case 'value': return le.value !== undefined ? le.value : 65;
         case 'minValue': return le.minValue !== undefined ? le.minValue : 0;
         case 'maxValue': return le.maxValue !== undefined ? le.maxValue : 100;
-        case 'opacity': return le.opacity !== undefined ? le.opacity : ((le.kind === 'gauge-lite' || le.kind === 'oscilloscope-lite') ? 1.0 : 0.9);
+        case 'opacity': return le.opacity !== undefined ? le.opacity : ((le.kind === 'gauge-lite' || le.kind === 'oscilloscope-lite' || le.kind === 'text-lite') ? 1.0 : 0.9);
         case 'visibility': return le.visible !== false;
         case 'speed': return 1.0;
-        case 'strokeWidth': return le.strokeWidth !== undefined ? le.strokeWidth : (le.kind === 'flow-lite' ? 3.0 : (le.kind === 'radar-lite' ? 2.0 : (le.kind === 'oscilloscope-lite' ? 2.2 : (le.kind === 'gauge-lite' ? (le.variant === 'ring' ? 8.0 : 2.0) : 2.5))));
+        case 'scrollSpeed': return le.scrollSpeed !== undefined ? le.scrollSpeed : 90;
+        case 'typeSpeed': return le.typeSpeed !== undefined ? le.typeSpeed : 14;
+        case 'strokeWidth': return le.strokeWidth !== undefined ? le.strokeWidth : (le.kind === 'flow-lite' ? 3.0 : (le.kind === 'radar-lite' ? 2.0 : (le.kind === 'oscilloscope-lite' ? 2.2 : (le.kind === 'text-lite' ? 1.5 : (le.kind === 'gauge-lite' ? (le.variant === 'ring' ? 8.0 : 2.0) : 2.5)))));
         case 'dashLength': return le.dashLength !== undefined ? le.dashLength : (le.variant === 'single' ? 36 : 18);
         case 'gapLength': return le.gapLength !== undefined ? le.gapLength : 14;
         case 'dotSize': return le.dotSize !== undefined ? le.dotSize : 5;
         case 'segments': return le.segments !== undefined ? le.segments : 2;
         case 'lineGapRatio': return le.lineGapRatio || '1:3';
-        case 'direction': return le.direction || ((le.kind === 'flow-lite' || le.kind === 'oscilloscope-lite') ? 'forward' : 'cw');
+        case 'direction': return le.direction || ((le.kind === 'flow-lite' || le.kind === 'oscilloscope-lite' || le.kind === 'text-lite') ? 'forward' : 'cw');
         case 'playbackMode': return le.playbackMode || 'loop';
         case 'burstCycles': return le.burstCycles !== undefined ? le.burstCycles : 0;
         case 'pauseSeconds': return le.pauseSeconds !== undefined ? le.pauseSeconds : 0;
@@ -2827,7 +2835,7 @@ window.renderWidgetPropertyCards = function(containerEl, sel, statusMsgEl) {
     if (le) {
       liteKind = le.kind || '';
       if (!objName) objName = le.name || '';
-      const kindMap = { 'perimeter-tracer': 'Tracer', 'pulse': 'Pulse', 'flash': 'Flash', 'flow-lite': 'Flow', 'radar-lite': 'Radar', 'gauge-lite': 'Gauge', 'oscilloscope-lite': 'Osc' };
+      const kindMap = { 'perimeter-tracer': 'Tracer', 'pulse': 'Pulse', 'flash': 'Flash', 'flow-lite': 'Flow', 'radar-lite': 'Radar', 'gauge-lite': 'Gauge', 'oscilloscope-lite': 'Osc', 'text-lite': 'Text' };
       const kindLabel = kindMap[le.kind] || 'Lite';
       objDisplayName = le.name ? `${le.name} (${kindLabel} #${sel.id})` : `${kindLabel} #${sel.id}`;
     }
@@ -2847,20 +2855,26 @@ window.renderWidgetPropertyCards = function(containerEl, sel, statusMsgEl) {
   let propDefs = getDrawerWidgetPropDefs(sel.type);
   if (sel.type === 'lite' && liteKind) {
     propDefs = propDefs.filter((p) => {
+      if (['text', 'borderColor', 'scrollSpeed', 'typeSpeed'].includes(p.prop)) {
+        return liteKind === 'text-lite';
+      }
       if (['segments', 'lineGapRatio', 'burstCycles', 'pauseSeconds', 'pauseVisibility'].includes(p.prop)) {
         return liteKind === 'perimeter-tracer';
       }
       if (['strokeWidth', 'showGuide'].includes(p.prop)) {
-        return liteKind === 'perimeter-tracer' || liteKind === 'flow-lite' || liteKind === 'radar-lite' || liteKind === 'gauge-lite' || liteKind === 'oscilloscope-lite';
+        return liteKind === 'perimeter-tracer' || liteKind === 'flow-lite' || liteKind === 'radar-lite' || liteKind === 'gauge-lite' || liteKind === 'oscilloscope-lite' || liteKind === 'text-lite';
+      }
+      if (p.prop === 'startOffset') {
+        return liteKind === 'perimeter-tracer' || liteKind === 'text-lite';
       }
       if (['value', 'minValue', 'maxValue'].includes(p.prop)) {
         return liteKind === 'gauge-lite';
       }
       if (p.prop === 'bgColor') {
-        return liteKind === 'gauge-lite' || liteKind === 'oscilloscope-lite';
+        return liteKind === 'gauge-lite' || liteKind === 'oscilloscope-lite' || liteKind === 'text-lite';
       }
       if (p.prop === 'direction') {
-        return liteKind === 'perimeter-tracer' || liteKind === 'flow-lite' || liteKind === 'oscilloscope-lite';
+        return liteKind === 'perimeter-tracer' || liteKind === 'flow-lite' || liteKind === 'oscilloscope-lite' || liteKind === 'text-lite';
       }
       if (p.prop === 'playbackMode') {
         return liteKind === 'perimeter-tracer' || liteKind === 'flow-lite';
@@ -2873,12 +2887,12 @@ window.renderWidgetPropertyCards = function(containerEl, sel, statusMsgEl) {
       if (p.prop === 'intensity') return liteKind === 'pulse' || liteKind === 'flash' || liteKind === 'oscilloscope-lite';
       if (p.prop === 'samples') return liteKind === 'oscilloscope-lite';
       if (p.prop === 'armThickness') return (liteKind === 'pulse' || liteKind === 'flash');
-      if (p.prop === 'speed') return liteKind === 'perimeter-tracer' || liteKind === 'pulse' || liteKind === 'flow-lite' || liteKind === 'radar-lite' || liteKind === 'oscilloscope-lite';
+      if (p.prop === 'speed') return liteKind === 'perimeter-tracer' || liteKind === 'pulse' || liteKind === 'flow-lite' || liteKind === 'radar-lite' || liteKind === 'oscilloscope-lite' || liteKind === 'text-lite';
       return true;
     }).map((p) => {
       if (p.prop === 'direction') {
         return Object.assign({}, p, {
-          options: (liteKind === 'flow-lite' || liteKind === 'oscilloscope-lite') ? ['forward', 'reverse'] : ['cw', 'ccw']
+          options: (liteKind === 'flow-lite' || liteKind === 'oscilloscope-lite' || liteKind === 'text-lite') ? ['forward', 'reverse'] : ['cw', 'ccw']
         });
       }
       return p;
@@ -3355,7 +3369,7 @@ window.renderWidgetParametersOverview = function(selectionPayload) {
         const le = window.LiteEffects.getLiteEffect(sel.id);
         if (le) {
           currentName = le.name || '';
-          const kindMap = { 'perimeter-tracer': 'Tracer', 'pulse': 'Pulse', 'flash': 'Flash', 'flow-lite': 'Flow', 'radar-lite': 'Radar', 'gauge-lite': 'Gauge', 'oscilloscope-lite': 'Osc' };
+          const kindMap = { 'perimeter-tracer': 'Tracer', 'pulse': 'Pulse', 'flash': 'Flash', 'flow-lite': 'Flow', 'radar-lite': 'Radar', 'gauge-lite': 'Gauge', 'oscilloscope-lite': 'Osc', 'text-lite': 'Text' };
           const kindLabel = kindMap[le.kind] || 'Lite';
           objDisplayName = le.name ? `${le.name} (${kindLabel} #${sel.id})` : `${kindLabel} #${sel.id}`;
         }

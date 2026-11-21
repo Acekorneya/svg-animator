@@ -1141,7 +1141,8 @@
               <button type="button" class="tool-btn-compact" id="btnAddLiteFlow" title="Add Flow Lite" style="padding: 0.35rem 0.25rem; text-align: center;">↝ Flow</button>
               <button type="button" class="tool-btn-compact" id="btnAddLiteRadar" title="Add Radar Ping Lite" style="padding: 0.35rem 0.25rem; text-align: center;">◉ Radar</button>
               <button type="button" class="tool-btn-compact" id="btnAddLiteGauge" title="Add Gauge / Level Lite" style="padding: 0.35rem 0.25rem; text-align: center;">◕ Gauge</button>
-              <button type="button" class="tool-btn-compact" id="btnAddLiteOsc" title="Add Oscilloscope Lite" style="padding: 0.35rem 0.25rem; text-align: center; grid-column: span 2;">∿ Oscilloscope</button>
+              <button type="button" class="tool-btn-compact" id="btnAddLiteOsc" title="Add Oscilloscope Lite" style="padding: 0.35rem 0.25rem; text-align: center;">∿ Osc</button>
+              <button type="button" class="tool-btn-compact" id="btnAddLiteText" title="Add Text Box Lite" style="padding: 0.35rem 0.25rem; text-align: center;">T Text Box</button>
             </div>
           </div>
 
@@ -1231,6 +1232,13 @@
                   <div class="inspector-prop-row" id="liteLockAspectRow">
                     <label for="liteLockAspectChk">Lock Aspect</label>
                     <input type="checkbox" id="liteLockAspectChk" checked>
+                  </div>
+                  <div class="inspector-prop-row" id="liteRotationRow">
+                    <label for="liteRotationSlider" title="Whole-object rotation angle (0 to 360 degrees)">Rotation (°)</label>
+                    <div class="slider-row">
+                      <input type="range" id="liteRotationSlider" min="0" max="360" step="1" value="0">
+                      <input type="number" class="num-input" id="liteRotationNum" min="-360" max="360" step="1" value="0">
+                    </div>
                   </div>
                 </div>
 
@@ -1713,6 +1721,178 @@
                   <div class="inspector-prop-row" id="liteOscSamplesRow" style="display: none;">
                     <label for="liteOscSamplesInput" title="2 to 64 comma-separated numeric samples">Samples (CSV)</label>
                     <input type="text" id="liteOscSamplesInput" value="0, 0.4, 0.9, 0.3, -0.5, -0.9, -0.2, 0.6, 1.0, 0.2, -0.4, 0" style="width: 100%; padding: 0.22rem 0.35rem; font-size: 0.76rem; font-family: monospace;">
+                  </div>
+                </div>
+
+                <div id="liteTextGroup" style="display: none;">
+                  <div class="inspector-prop-row">
+                    <label for="liteTextContentInput">Text Content</label>
+                    <input type="text" id="liteTextContentInput" placeholder="Enter text content" class="text-field-input">
+                  </div>
+                  <div class="inspector-prop-row">
+                    <label for="liteTextFontSelect">Font Family</label>
+                    <select id="liteTextFontSelect">
+                      <option value="modern-sans">Modern Sans (UI / Telemetry)</option>
+                      <option value="humanist-sans">Humanist Sans (Trebuchet / Gill)</option>
+                      <option value="geometric-sans">Geometric / Display Sans</option>
+                      <option value="formal-serif">Formal Serif (Times New Roman)</option>
+                      <option value="traditional-serif">Traditional Readable Serif (Georgia)</option>
+                      <option value="tech-mono">Technical Monospace (Consolas)</option>
+                      <option value="condensed-display">Condensed Display (Narrow)</option>
+                      <option value="casual-lettering">Casual Lettering</option>
+                      <option value="informal-hand">Informal Handwriting</option>
+                      <option value="classic-script">Classic Flowing Script / Calligraphy</option>
+                    </select>
+                  </div>
+                  <div class="inspector-prop-row">
+                    <label for="liteTextFontSizeSlider">Font Size (px)</label>
+                    <div class="slider-row">
+                      <input type="range" id="liteTextFontSizeSlider" min="8" max="120" step="1" value="18">
+                      <input type="number" class="num-input" id="liteTextFontSizeNum" min="8" max="120" step="1" value="18">
+                    </div>
+                  </div>
+                  <div class="inspector-prop-row">
+                    <label for="liteTextFontWeightSelect">Font Weight</label>
+                    <select id="liteTextFontWeightSelect">
+                      <option value="400">Regular (400)</option>
+                      <option value="500">Medium (500)</option>
+                      <option value="600">Semi-Bold (600)</option>
+                      <option value="700">Bold (700)</option>
+                    </select>
+                  </div>
+                  <div class="inspector-prop-row">
+                    <label for="liteTextLetterSpacingSlider">Letter Spacing</label>
+                    <div class="slider-row">
+                      <input type="range" id="liteTextLetterSpacingSlider" min="-2" max="20" step="0.5" value="0">
+                      <input type="number" class="num-input" id="liteTextLetterSpacingNum" min="-2" max="20" step="0.5" value="0">
+                    </div>
+                  </div>
+                  <div class="inspector-prop-row">
+                    <label for="liteTextAlignSelect">Horiz Align</label>
+                    <select id="liteTextAlignSelect">
+                      <option value="left">Left</option>
+                      <option value="center">Centre</option>
+                      <option value="right">Right</option>
+                    </select>
+                  </div>
+                  <div class="inspector-prop-row" id="liteTextVerticalAlignRow">
+                    <label for="liteTextVerticalAlignSelect">Vert Align</label>
+                    <select id="liteTextVerticalAlignSelect">
+                      <option value="top">Top</option>
+                      <option value="middle">Middle</option>
+                      <option value="bottom">Bottom</option>
+                    </select>
+                  </div>
+                  <div class="inspector-prop-row" id="liteTextPaddingRow">
+                    <label for="liteTextPaddingSlider">Padding (px)</label>
+                    <div class="slider-row">
+                      <input type="range" id="liteTextPaddingSlider" min="0" max="60" step="1" value="12">
+                      <input type="number" class="num-input" id="liteTextPaddingNum" min="0" max="60" step="1" value="12">
+                    </div>
+                  </div>
+                  <div id="liteTextBoxStyleGroup">
+                    <div class="inspector-prop-row">
+                      <label for="liteTextBgColorPicker">Box Fill</label>
+                      <input type="color" id="liteTextBgColorPicker" value="#0f172a">
+                    </div>
+                    <div class="inspector-prop-row">
+                      <label for="liteTextBgOpacitySlider">Box Opacity</label>
+                      <div class="slider-row">
+                        <input type="range" id="liteTextBgOpacitySlider" min="0" max="1" step="0.05" value="0.85">
+                        <input type="number" class="num-input" id="liteTextBgOpacityNum" min="0" max="1" step="0.05" value="0.85">
+                      </div>
+                    </div>
+                    <div class="inspector-prop-row">
+                      <label for="liteTextBorderColorPicker">Border Colour</label>
+                      <input type="color" id="liteTextBorderColorPicker" value="#38bdf8">
+                    </div>
+                    <div class="inspector-prop-row">
+                      <label for="liteTextStrokeWidthSlider">Border (px)</label>
+                      <div class="slider-row">
+                        <input type="range" id="liteTextStrokeWidthSlider" min="0" max="24" step="0.5" value="1.5">
+                        <input type="number" class="num-input" id="liteTextStrokeWidthNum" min="0" max="24" step="0.5" value="1.5">
+                      </div>
+                    </div>
+                  </div>
+                  <div id="liteTextCurvedGroup" style="display: none;">
+                    <div class="inspector-prop-row">
+                      <label for="liteTextCurvatureSlider" title="Arc curvature (-100 downward smile to +100 upward arch)">Arc Curvature</label>
+                      <div class="slider-row">
+                        <input type="range" id="liteTextCurvatureSlider" min="-100" max="100" step="1" value="35">
+                        <input type="number" class="num-input" id="liteTextCurvatureNum" min="-100" max="100" step="1" value="35">
+                      </div>
+                    </div>
+                    <div class="inspector-prop-row">
+                      <label for="liteTextStartOffsetSlider" title="Text position along the arc (0% to 100%)">Arc Offset (%)</label>
+                      <div class="slider-row">
+                        <input type="range" id="liteTextStartOffsetSlider" min="0" max="100" step="1" value="50">
+                        <input type="number" class="num-input" id="liteTextStartOffsetNum" min="0" max="100" step="1" value="50">
+                      </div>
+                    </div>
+                    <div class="inspector-prop-row">
+                      <label for="liteTextShowGuideChk">Guide Curve</label>
+                      <input type="checkbox" id="liteTextShowGuideChk" title="Show visible arc guide curve">
+                    </div>
+                  </div>
+                  <div class="inspector-prop-row">
+                    <label for="liteTextAnimSelect">Animation</label>
+                    <select id="liteTextAnimSelect">
+                      <option value="none">None (Static)</option>
+                      <option value="ticker-h">Horizontal Ticker (px/s)</option>
+                      <option value="ticker-v">Vertical Ticker (px/s)</option>
+                      <option value="typewriter">Typewriter (chars/s)</option>
+                      <option value="fade">Fade In / Out</option>
+                      <option value="flash">Flash / Blink</option>
+                      <option value="slide">Slide In / Out</option>
+                      <option value="blur-in">Blur to Clear</option>
+                      <option value="blur-out">Clear to Blur</option>
+                      <option value="scramble">Scramble to Clear</option>
+                      <option value="overtype">Overtype Replacement</option>
+                    </select>
+                  </div>
+                  <div class="inspector-prop-row" id="liteTextScrollSpeedRow" style="display: none;">
+                    <label for="liteTextScrollSpeedSlider" title="Linear ticker travel speed in SVG pixels per second">Scroll Speed (px/s)</label>
+                    <div class="slider-row">
+                      <input type="range" id="liteTextScrollSpeedSlider" min="10" max="600" step="5" value="90">
+                      <input type="number" class="num-input" id="liteTextScrollSpeedNum" min="10" max="600" step="5" value="90">
+                    </div>
+                  </div>
+                  <div class="inspector-prop-row" id="liteTextDirectionRow" style="display: none;">
+                    <label for="liteTextDirectionSelect">Scroll Dir</label>
+                    <select id="liteTextDirectionSelect">
+                      <option value="forward">Forward (Right→Left / Bottom→Top)</option>
+                      <option value="reverse">Reverse (Left→Right / Top→Bottom)</option>
+                    </select>
+                  </div>
+                  <div class="inspector-prop-row" id="liteTextTypeSpeedRow" style="display: none;">
+                    <label for="liteTextTypeSpeedSlider" title="Character reveal rate in grapheme clusters per second">Rate (chars/s)</label>
+                    <div class="slider-row">
+                      <input type="range" id="liteTextTypeSpeedSlider" min="1" max="120" step="1" value="14">
+                      <input type="number" class="num-input" id="liteTextTypeSpeedNum" min="1" max="120" step="1" value="14">
+                    </div>
+                  </div>
+                  <div class="inspector-prop-row" id="liteTextTypeModeRow" style="display: none;">
+                    <label for="liteTextTypeModeSelect">Type Mode</label>
+                    <select id="liteTextTypeModeSelect">
+                      <option value="once">Type Once</option>
+                      <option value="hold">Type &amp; Hold</option>
+                      <option value="delete">Type, Hold &amp; Delete Backwards</option>
+                      <option value="loop">Repeating Type / Delete Loop</option>
+                    </select>
+                  </div>
+                  <div class="inspector-prop-row" id="liteTextCycleSpeedRow" style="display: none;">
+                    <label for="liteTextCycleSpeedSlider" title="Animation cycle duration in seconds">Cycle Duration (s)</label>
+                    <div class="slider-row">
+                      <input type="range" id="liteTextCycleSpeedSlider" min="0.2" max="30" step="0.1" value="2.0">
+                      <input type="number" class="num-input" id="liteTextCycleSpeedNum" min="0.2" max="30" step="0.1" value="2.0">
+                    </div>
+                  </div>
+                  <div class="inspector-prop-row" id="liteTextHoldDelayRow" style="display: none;">
+                    <label for="liteTextHoldDelaySlider" title="Hold pause duration at full visibility in seconds">Hold Pause (s)</label>
+                    <div class="slider-row">
+                      <input type="range" id="liteTextHoldDelaySlider" min="0" max="30" step="0.2" value="1.5">
+                      <input type="number" class="num-input" id="liteTextHoldDelayNum" min="0" max="30" step="0.2" value="1.5">
+                    </div>
                   </div>
                 </div>
 
@@ -2765,6 +2945,13 @@
               <label for="fctx-liteLockAspectChk">Lock Aspect</label>
               <input type="checkbox" id="fctx-liteLockAspectChk" checked>
             </div>
+            <div class="floating-prop-row" id="fctx-liteRotationRow">
+              <label for="fctx-liteRotationSlider">Rotation (°)</label>
+              <div class="slider-row">
+                <input type="range" id="fctx-liteRotationSlider" min="0" max="360" step="1" value="0">
+                <input type="number" class="num-input" id="fctx-liteRotationNum" min="-360" max="360" step="1" value="0">
+              </div>
+            </div>
           </div>
           <div id="fctx-liteTracerGroup" style="display: none;">
             <div class="floating-prop-row">
@@ -3219,6 +3406,177 @@
             <div class="floating-prop-row" id="fctx-liteOscSamplesRow" style="display: none;">
               <label for="fctx-liteOscSamplesInput">Samples</label>
               <input type="text" id="fctx-liteOscSamplesInput" value="0, 0.4, 0.9, 0.3, -0.5, -0.9, -0.2, 0.6, 1.0, 0.2, -0.4, 0" style="width: 100%; padding: 0.18rem 0.3rem; font-size: 0.74rem; font-family: monospace;">
+            </div>
+          </div>
+          <div id="fctx-liteTextGroup" style="display: none;">
+            <div class="floating-prop-row">
+              <label for="fctx-liteTextContentInput">Text</label>
+              <input type="text" id="fctx-liteTextContentInput" placeholder="Enter text content" class="text-field-input">
+            </div>
+            <div class="floating-prop-row">
+              <label for="fctx-liteTextFontSelect">Font</label>
+              <select id="fctx-liteTextFontSelect">
+                <option value="modern-sans">Modern Sans</option>
+                <option value="humanist-sans">Humanist Sans</option>
+                <option value="geometric-sans">Geometric Sans</option>
+                <option value="formal-serif">Formal Serif (Times)</option>
+                <option value="traditional-serif">Traditional Serif</option>
+                <option value="tech-mono">Technical Monospace</option>
+                <option value="condensed-display">Condensed Display</option>
+                <option value="casual-lettering">Casual Lettering</option>
+                <option value="informal-hand">Informal Handwriting</option>
+                <option value="classic-script">Classic Flowing Script</option>
+              </select>
+            </div>
+            <div class="floating-prop-row">
+              <label for="fctx-liteTextFontSizeSlider">Size (px)</label>
+              <div class="slider-row">
+                <input type="range" id="fctx-liteTextFontSizeSlider" min="8" max="120" step="1" value="18">
+                <input type="number" class="num-input" id="fctx-liteTextFontSizeNum" min="8" max="120" step="1" value="18">
+              </div>
+            </div>
+            <div class="floating-prop-row">
+              <label for="fctx-liteTextFontWeightSelect">Weight</label>
+              <select id="fctx-liteTextFontWeightSelect">
+                <option value="400">Regular (400)</option>
+                <option value="500">Medium (500)</option>
+                <option value="600">Semi-Bold (600)</option>
+                <option value="700">Bold (700)</option>
+              </select>
+            </div>
+            <div class="floating-prop-row">
+              <label for="fctx-liteTextLetterSpacingSlider">Tracking</label>
+              <div class="slider-row">
+                <input type="range" id="fctx-liteTextLetterSpacingSlider" min="-2" max="20" step="0.5" value="0">
+                <input type="number" class="num-input" id="fctx-liteTextLetterSpacingNum" min="-2" max="20" step="0.5" value="0">
+              </div>
+            </div>
+            <div class="floating-prop-row">
+              <label for="fctx-liteTextAlignSelect">H-Align</label>
+              <select id="fctx-liteTextAlignSelect">
+                <option value="left">Left</option>
+                <option value="center">Centre</option>
+                <option value="right">Right</option>
+              </select>
+            </div>
+            <div class="floating-prop-row" id="fctx-liteTextVerticalAlignRow">
+              <label for="fctx-liteTextVerticalAlignSelect">V-Align</label>
+              <select id="fctx-liteTextVerticalAlignSelect">
+                <option value="top">Top</option>
+                <option value="middle">Middle</option>
+                <option value="bottom">Bottom</option>
+              </select>
+            </div>
+            <div class="floating-prop-row" id="fctx-liteTextPaddingRow">
+              <label for="fctx-liteTextPaddingSlider">Padding</label>
+              <div class="slider-row">
+                <input type="range" id="fctx-liteTextPaddingSlider" min="0" max="60" step="1" value="12">
+                <input type="number" class="num-input" id="fctx-liteTextPaddingNum" min="0" max="60" step="1" value="12">
+              </div>
+            </div>
+            <div id="fctx-liteTextBoxStyleGroup">
+              <div class="floating-prop-row">
+                <label for="fctx-liteTextBgColorPicker">Box Fill</label>
+                <input type="color" id="fctx-liteTextBgColorPicker" value="#0f172a">
+              </div>
+              <div class="floating-prop-row">
+                <label for="fctx-liteTextBgOpacitySlider">Box Opac</label>
+                <div class="slider-row">
+                  <input type="range" id="fctx-liteTextBgOpacitySlider" min="0" max="1" step="0.05" value="0.85">
+                  <input type="number" class="num-input" id="fctx-liteTextBgOpacityNum" min="0" max="1" step="0.05" value="0.85">
+                </div>
+              </div>
+              <div class="floating-prop-row">
+                <label for="fctx-liteTextBorderColorPicker">Border Col</label>
+                <input type="color" id="fctx-liteTextBorderColorPicker" value="#38bdf8">
+              </div>
+              <div class="floating-prop-row">
+                <label for="fctx-liteTextStrokeWidthSlider">Border (px)</label>
+                <div class="slider-row">
+                  <input type="range" id="fctx-liteTextStrokeWidthSlider" min="0" max="24" step="0.5" value="1.5">
+                  <input type="number" class="num-input" id="fctx-liteTextStrokeWidthNum" min="0" max="24" step="0.5" value="1.5">
+                </div>
+              </div>
+            </div>
+            <div id="fctx-liteTextCurvedGroup" style="display: none;">
+              <div class="floating-prop-row">
+                <label for="fctx-liteTextCurvatureSlider">Curvature</label>
+                <div class="slider-row">
+                  <input type="range" id="fctx-liteTextCurvatureSlider" min="-100" max="100" step="1" value="35">
+                  <input type="number" class="num-input" id="fctx-liteTextCurvatureNum" min="-100" max="100" step="1" value="35">
+                </div>
+              </div>
+              <div class="floating-prop-row">
+                <label for="fctx-liteTextStartOffsetSlider">Arc Offset</label>
+                <div class="slider-row">
+                  <input type="range" id="fctx-liteTextStartOffsetSlider" min="0" max="100" step="1" value="50">
+                  <input type="number" class="num-input" id="fctx-liteTextStartOffsetNum" min="0" max="100" step="1" value="50">
+                </div>
+              </div>
+              <div class="floating-prop-row">
+                <label for="fctx-liteTextShowGuideChk">Guide Curve</label>
+                <input type="checkbox" id="fctx-liteTextShowGuideChk">
+              </div>
+            </div>
+            <div class="floating-prop-row">
+              <label for="fctx-liteTextAnimSelect">Animation</label>
+              <select id="fctx-liteTextAnimSelect">
+                <option value="none">None (Static)</option>
+                <option value="ticker-h">Horizontal Ticker (px/s)</option>
+                <option value="ticker-v">Vertical Ticker (px/s)</option>
+                <option value="typewriter">Typewriter (chars/s)</option>
+                <option value="fade">Fade In / Out</option>
+                <option value="flash">Flash / Blink</option>
+                <option value="slide">Slide In / Out</option>
+                <option value="blur-in">Blur to Clear</option>
+                <option value="blur-out">Clear to Blur</option>
+                <option value="scramble">Scramble to Clear</option>
+                <option value="overtype">Overtype Replacement</option>
+              </select>
+            </div>
+            <div class="floating-prop-row" id="fctx-liteTextScrollSpeedRow" style="display: none;">
+              <label for="fctx-liteTextScrollSpeedSlider">Scroll (px/s)</label>
+              <div class="slider-row">
+                <input type="range" id="fctx-liteTextScrollSpeedSlider" min="10" max="600" step="5" value="90">
+                <input type="number" class="num-input" id="fctx-liteTextScrollSpeedNum" min="10" max="600" step="5" value="90">
+              </div>
+            </div>
+            <div class="floating-prop-row" id="fctx-liteTextDirectionRow" style="display: none;">
+              <label for="fctx-liteTextDirectionSelect">Scroll Dir</label>
+              <select id="fctx-liteTextDirectionSelect">
+                <option value="forward">Forward</option>
+                <option value="reverse">Reverse</option>
+              </select>
+            </div>
+            <div class="floating-prop-row" id="fctx-liteTextTypeSpeedRow" style="display: none;">
+              <label for="fctx-liteTextTypeSpeedSlider">Rate (ch/s)</label>
+              <div class="slider-row">
+                <input type="range" id="fctx-liteTextTypeSpeedSlider" min="1" max="120" step="1" value="14">
+                <input type="number" class="num-input" id="fctx-liteTextTypeSpeedNum" min="1" max="120" step="1" value="14">
+              </div>
+            </div>
+            <div class="floating-prop-row" id="fctx-liteTextTypeModeRow" style="display: none;">
+              <label for="fctx-liteTextTypeModeSelect">Type Mode</label>
+              <select id="fctx-liteTextTypeModeSelect">
+                <option value="once">Type Once</option>
+                <option value="hold">Type &amp; Hold</option>
+                <option value="delete">Type, Hold &amp; Delete</option>
+                <option value="loop">Repeating Loop</option>
+              </select>
+            </div>
+            <div class="floating-prop-row" id="fctx-liteTextCycleSpeedRow" style="display: none;">
+              <label for="fctx-liteTextCycleSpeedSlider">Cycle (s)</label>
+              <div class="slider-row">
+                <input type="range" id="fctx-liteTextCycleSpeedSlider" min="0.2" max="30" step="0.1" value="2.0">
+                <input type="number" class="num-input" id="fctx-liteTextCycleSpeedNum" min="0.2" max="30" step="0.1" value="2.0">
+              </div>
+            </div>
+            <div class="floating-prop-row" id="fctx-liteTextHoldDelayRow" style="display: none;">
+              <label for="fctx-liteTextHoldDelaySlider">Hold (s)</label>
+              <div class="slider-row">
+                <input type="range" id="fctx-liteTextHoldDelaySlider" min="0" max="30" step="0.2" value="1.5">
+                <input type="number" class="num-input" id="fctx-liteTextHoldDelayNum" min="0" max="30" step="0.2" value="1.5">
+              </div>
             </div>
           </div>
         </div>
