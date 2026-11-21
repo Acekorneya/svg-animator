@@ -339,18 +339,24 @@ func ValidateLiteEffect(l *LiteEffect) error {
 			return errors.New("text-lite curvature must be between -100 and 100")
 		}
 		switch l.TextAnim {
-		case "", "none", "ticker-h", "ticker-v", "typewriter", "fade", "flash", "slide", "blur-in", "blur-out", "scramble", "overtype":
+		case "", "none", "ticker-h", "ticker-v", "stacked-v", "typewriter", "fade", "flash", "slide", "blur-in", "blur-out", "scramble", "overtype":
 		default:
 			return fmt.Errorf("unsupported text-lite textAnim %q", l.TextAnim)
 		}
 		if l.Variant == "curved" {
 			switch l.TextAnim {
-			case "ticker-h", "ticker-v", "slide", "scramble", "overtype":
+			case "ticker-h", "ticker-v", "stacked-v", "slide", "scramble", "overtype":
 				return fmt.Errorf("text-lite curved variant does not support textAnim %q (allowed: none, fade, flash, typewriter, blur-in, blur-out)", l.TextAnim)
 			}
 		}
 		if l.ScrollSpeed != 0 && (l.ScrollSpeed < 10.0 || l.ScrollSpeed > 600.0) {
 			return errors.New("text-lite scrollSpeed must be between 10.0 and 600.0 px/s")
+		}
+		if l.LinesPerSec != 0 && (l.LinesPerSec < 0.1 || l.LinesPerSec > 20.0) {
+			return errors.New("text-lite linesPerSec must be between 0.1 and 20.0 lines/s")
+		}
+		if l.LineSpacing != 0 && (l.LineSpacing < 0.8 || l.LineSpacing > 3.0) {
+			return errors.New("text-lite lineSpacing must be between 0.8 and 3.0")
 		}
 		if l.TypeSpeed != 0 && (l.TypeSpeed < 1.0 || l.TypeSpeed > 120.0) {
 			return errors.New("text-lite typeSpeed must be between 1.0 and 120.0 chars/s")
@@ -358,10 +364,18 @@ func ValidateLiteEffect(l *LiteEffect) error {
 		if l.HoldDelay < 0 || l.HoldDelay > 30.0 {
 			return errors.New("text-lite holdDelay must be between 0.0 and 30.0 seconds")
 		}
+		if l.ClearDuration < 0 || l.ClearDuration > 30.0 {
+			return errors.New("text-lite clearDuration must be between 0.0 and 30.0 seconds")
+		}
 		switch l.TypeMode {
-		case "", "once", "hold", "delete", "loop":
+		case "", "once", "hold", "delete", "delete-forward", "loop":
 		default:
 			return fmt.Errorf("unsupported text-lite typeMode %q", l.TypeMode)
+		}
+		switch l.PlaybackMode {
+		case "", "loop", "once", "pingpong":
+		default:
+			return fmt.Errorf("unsupported text-lite playbackMode %q", l.PlaybackMode)
 		}
 	}
 	return nil
@@ -880,10 +894,13 @@ func applyLiteEffectDefaults(l *LiteEffect) {
 		}
 		if l.TextAnim == "" {
 			l.TextAnim = "none"
+		} else if l.TextAnim == "overtype" {
+			// Legacy migration: Overtype was removed from new selection in Stage 16D-C corrections; map to typewriter
+			l.TextAnim = "typewriter"
 		}
 		if l.Variant == "curved" {
 			switch l.TextAnim {
-			case "ticker-h", "ticker-v", "slide", "scramble", "overtype":
+			case "ticker-h", "ticker-v", "stacked-v", "slide", "scramble", "overtype":
 				l.TextAnim = "none"
 			}
 			if l.StartOffset <= 0 {
@@ -897,6 +914,24 @@ func applyLiteEffectDefaults(l *LiteEffect) {
 		} else if l.ScrollSpeed > 600.0 {
 			l.ScrollSpeed = 600.0
 		}
+		if l.LinesPerSec <= 0 {
+			l.LinesPerSec = 1.2
+		} else if l.LinesPerSec < 0.1 {
+			l.LinesPerSec = 0.1
+		} else if l.LinesPerSec > 20.0 {
+			l.LinesPerSec = 20.0
+		}
+		if l.LineSpacing <= 0 {
+			l.LineSpacing = 1.25
+		} else if l.LineSpacing < 0.8 {
+			l.LineSpacing = 0.8
+		} else if l.LineSpacing > 3.0 {
+			l.LineSpacing = 3.0
+		}
+		if l.WordWrap == nil {
+			ww := true
+			l.WordWrap = &ww
+		}
 		if l.TypeSpeed <= 0 {
 			l.TypeSpeed = 14.0
 		} else if l.TypeSpeed < 1.0 {
@@ -909,13 +944,36 @@ func applyLiteEffectDefaults(l *LiteEffect) {
 		} else if l.HoldDelay > 30.0 {
 			l.HoldDelay = 30.0
 		}
+		if l.ClearDuration < 0 {
+			l.ClearDuration = 0
+		} else if l.ClearDuration > 30.0 {
+			l.ClearDuration = 30.0
+		}
+		if l.LockOnOff == nil {
+			lok := false
+			l.LockOnOff = &lok
+		} else if *l.LockOnOff && l.TextAnim == "flash" {
+			l.ClearDuration = l.HoldDelay
+		}
 		if l.TypeMode == "" {
 			l.TypeMode = "hold"
+		} else if l.TypeMode == "loop" {
+			// Legacy migration: old "loop" preset maps to "delete" with TypeRepeat=true
+			l.TypeMode = "delete"
+			tr := true
+			l.TypeRepeat = &tr
 		}
-		if l.Speed <= 0 {
-			l.Speed = 2.0
-		} else if l.Speed < 0.2 {
-			l.Speed = 0.2
+		if l.TypeRepeat == nil {
+			tr := l.TypeMode == "delete" || l.TypeMode == "delete-forward"
+			l.TypeRepeat = &tr
+		}
+		if l.PlaybackMode == "" || (l.PlaybackMode != "loop" && l.PlaybackMode != "once" && l.PlaybackMode != "pingpong") {
+			l.PlaybackMode = "loop"
+		}
+		if l.Speed < 0 {
+			l.Speed = 0
+		} else if l.Speed == 0 && l.TextAnim != "flash" {
+			l.Speed = 0.8
 		} else if l.Speed > 30.0 {
 			l.Speed = 30.0
 		}
@@ -1069,13 +1127,21 @@ func (s *Scene) UpdateLiteEffect(id StringID, patch map[string]any) (LiteEffect,
 	if v, ok := toFloat(patch["repeatInterval"]); ok && v > 0 {
 		existing.RepeatInterval = math.Max(0.2, math.Min(60, v))
 	}
-	if v, ok := toFloat(patch["speed"]); ok && v > 0 {
+	if v, ok := toFloat(patch["speed"]); ok {
 		if existing.Kind == "flow-lite" || existing.Kind == "oscilloscope-lite" {
-			existing.Speed = math.Max(0.2, math.Min(30.0, v))
-			if existing.Kind == "oscilloscope-lite" {
-				existing.Period = existing.Speed
+			if v > 0 {
+				existing.Speed = math.Max(0.2, math.Min(30.0, v))
+				if existing.Kind == "oscilloscope-lite" {
+					existing.Period = existing.Speed
+				}
 			}
-		} else {
+		} else if existing.Kind == "text-lite" {
+			if existing.TextAnim == "flash" {
+				existing.Speed = math.Max(0.0, math.Min(10.0, v))
+			} else {
+				existing.Speed = math.Max(0.05, math.Min(30.0, v))
+			}
+		} else if v > 0 {
 			existing.Speed = v
 		}
 	}
@@ -1386,19 +1452,56 @@ func (s *Scene) UpdateLiteEffect(id StringID, patch map[string]any) (LiteEffect,
 		existing.Padding = math.Max(0, math.Min(60.0, v))
 	}
 	if v, ok := patch["textAnim"].(string); ok && v != "" {
-		existing.TextAnim = v
+		if v == "overtype" {
+			existing.TextAnim = "typewriter"
+		} else {
+			existing.TextAnim = v
+		}
 	}
 	if v, ok := toFloat(patch["scrollSpeed"]); ok && v > 0 {
 		existing.ScrollSpeed = math.Max(10.0, math.Min(600.0, v))
+	}
+	if v, ok := toFloat(patch["linesPerSec"]); ok && v > 0 {
+		existing.LinesPerSec = math.Max(0.1, math.Min(20.0, v))
+	}
+	if v, ok := toFloat(patch["lineSpacing"]); ok && v > 0 {
+		existing.LineSpacing = math.Max(0.8, math.Min(3.0, v))
+	}
+	if v, ok := patch["wordWrap"].(bool); ok {
+		existing.WordWrap = &v
 	}
 	if v, ok := toFloat(patch["typeSpeed"]); ok && v > 0 {
 		existing.TypeSpeed = math.Max(1.0, math.Min(120.0, v))
 	}
 	if v, ok := toFloat(patch["holdDelay"]); ok {
 		existing.HoldDelay = math.Max(0.0, math.Min(30.0, v))
+		if existing.Kind == "text-lite" && existing.LockOnOff != nil && *existing.LockOnOff {
+			existing.ClearDuration = existing.HoldDelay
+		}
+	}
+	if v, ok := toFloat(patch["clearDuration"]); ok {
+		existing.ClearDuration = math.Max(0.0, math.Min(30.0, v))
+		if existing.Kind == "text-lite" && existing.LockOnOff != nil && *existing.LockOnOff {
+			existing.HoldDelay = existing.ClearDuration
+		}
+	}
+	if v, ok := patch["lockOnOff"].(bool); ok {
+		existing.LockOnOff = &v
+		if v {
+			existing.ClearDuration = existing.HoldDelay
+		}
 	}
 	if v, ok := patch["typeMode"].(string); ok && v != "" {
-		existing.TypeMode = v
+		if v == "loop" {
+			existing.TypeMode = "delete"
+			tr := true
+			existing.TypeRepeat = &tr
+		} else {
+			existing.TypeMode = v
+		}
+	}
+	if v, ok := patch["typeRepeat"].(bool); ok {
+		existing.TypeRepeat = &v
 	}
 	if existing.Kind == "gauge-lite" || existing.Kind == "oscilloscope-lite" || existing.Kind == "text-lite" {
 		applyLiteEffectDefaults(&existing)

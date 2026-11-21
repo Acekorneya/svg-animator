@@ -778,20 +778,60 @@ func TestTextLiteContainersFontsCurvedAnimationsAndWidgetScoping(t *testing.T) {
 		}
 	}
 
-	// 3. Test all 11 textAnim modes on straight container and curved compatibility filtering
-	anims := []string{"none", "ticker-h", "ticker-v", "typewriter", "fade", "flash", "slide", "blur-in", "blur-out", "scramble", "overtype"}
+	// 3. Test all 11 textAnim modes on straight container, legacy overtype -> typewriter migration, and curved compatibility filtering
+	anims := []string{"none", "ticker-h", "ticker-v", "stacked-v", "typewriter", "fade", "flash", "slide", "blur-in", "blur-out", "scramble"}
 	for _, anim := range anims {
 		upd, err := sc.UpdateLiteEffect(txt.ID, map[string]any{
-			"variant":     "rounded",
-			"textAnim":    anim,
-			"scrollSpeed": 120.0,
-			"typeSpeed":   18.0,
-			"holdDelay":   2.0,
-			"typeMode":    "delete",
+			"variant":       "rounded",
+			"textAnim":      anim,
+			"scrollSpeed":   120.0,
+			"linesPerSec":   2.5,
+			"lineSpacing":   1.4,
+			"wordWrap":      true,
+			"typeSpeed":     18.0,
+			"holdDelay":     2.0,
+			"clearDuration": 1.0,
+			"typeMode":      "delete-forward",
+			"typeRepeat":    true,
+			"playbackMode":  "pingpong",
 		})
 		if err != nil || upd.TextAnim != anim {
 			t.Fatalf("textAnim %q on straight box failed: %v", anim, err)
 		}
+		if upd.LinesPerSec != 2.5 || upd.LineSpacing != 1.4 || upd.WordWrap == nil || !*upd.WordWrap {
+			t.Fatalf("expected vertical scroll properties preserved, got lps=%v ls=%v ww=%v", upd.LinesPerSec, upd.LineSpacing, upd.WordWrap)
+		}
+		if upd.TypeMode != "delete-forward" || upd.PlaybackMode != "pingpong" {
+			t.Fatalf("expected typeMode=delete-forward and playbackMode=pingpong, got %q / %q", upd.TypeMode, upd.PlaybackMode)
+		}
+	}
+
+	// Legacy overtype migration -> typewriter, legacy typeMode="loop" -> "delete" + typeRepeat=true
+	updLegacy, err := sc.UpdateLiteEffect(txt.ID, map[string]any{
+		"variant":  "rounded",
+		"textAnim": "overtype",
+		"typeMode": "loop",
+	})
+	if err != nil || updLegacy.TextAnim != "typewriter" || updLegacy.TypeMode != "delete" || updLegacy.TypeRepeat == nil || !*updLegacy.TypeRepeat {
+		t.Fatalf("expected overtype -> typewriter and loop -> delete+typeRepeat, got err=%v anim=%q mode=%q rep=%v",
+			err, updLegacy.TextAnim, updLegacy.TypeMode, updLegacy.TypeRepeat)
+	}
+
+	// Lock On/Off synchronisation in Go engine
+	updLock, err := sc.UpdateLiteEffect(txt.ID, map[string]any{
+		"textAnim":      "flash",
+		"holdDelay":     1.8,
+		"clearDuration": 0.4,
+		"lockOnOff":     true,
+	})
+	if err != nil || updLock.LockOnOff == nil || !*updLock.LockOnOff || updLock.ClearDuration != 1.8 {
+		t.Fatalf("expected lockOnOff=true to sync clearDuration=holdDelay=1.8, got err=%v clear=%v", err, updLock.ClearDuration)
+	}
+	updLockClear, err := sc.UpdateLiteEffect(txt.ID, map[string]any{
+		"clearDuration": 0.75,
+	})
+	if err != nil || updLockClear.HoldDelay != 0.75 || updLockClear.ClearDuration != 0.75 {
+		t.Fatalf("expected changing clearDuration while locked to sync holdDelay=0.75, got hold=%v clear=%v", updLockClear.HoldDelay, updLockClear.ClearDuration)
 	}
 
 	// Curved variant allows fade, flash, typewriter, blur-in, blur-out, none, and auto-resets unsupported ticker/slide/scramble/overtype

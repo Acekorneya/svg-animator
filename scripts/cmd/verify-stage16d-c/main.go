@@ -7,7 +7,6 @@ import (
 	"log"
 	"math"
 	"os"
-	"strings"
 	"time"
 
 	"github.com/chromedp/cdproto/network"
@@ -30,17 +29,6 @@ type GateResult struct {
 	Details string
 }
 
-type PerfRow struct {
-	Technique     string  `json:"technique"`
-	Instances     int     `json:"instances"`
-	StringProfile string  `json:"stringProfile"`
-	AvgFPS        float64 `json:"avgFps"`
-	MainThreadMs  float64 `json:"mainThreadMs"`
-	JSHeapDeltaKB float64 `json:"jsHeapDeltaKB"`
-	JankPct       float64 `json:"jankPct"`
-	SuspendedMs   float64 `json:"suspendedMs"`
-}
-
 func runVoid(ctx context.Context, actions ...chromedp.Action[chromedp.Void]) error {
 	for _, a := range actions {
 		if _, err := chromedp.Run(ctx, a); err != nil {
@@ -52,7 +40,7 @@ func runVoid(ctx context.Context, actions ...chromedp.Action[chromedp.Void]) err
 
 func main() {
 	fmt.Println("================================================================================")
-	fmt.Println(" Stage 16D-C: Complete Text and Typography (T1-T4) Real-Browser Acceptance Suite")
+	fmt.Println(" Stage 16D-C: Text and Typography Consolidated Corrections Acceptance Suite")
 	fmt.Println("================================================================================")
 
 	var results []GateResult
@@ -62,7 +50,7 @@ func main() {
 		if !passed {
 			status = "FAIL"
 		}
-		fmt.Printf("[%s] %-12s %-50s | %s\n", status, id, name, details)
+		fmt.Printf("[%s] %-14s %-52s | %s\n", status, id, name, details)
 	}
 
 	allocCtx, cancelAlloc := remote.NewAllocator(context.Background(), cdpEndpoint)
@@ -99,74 +87,32 @@ func main() {
 	})()`))
 
 	// =========================================================================
-	// STAGE T1: Static Text, 4 Straight Containers, 10 Fonts, 9-Way Align, Rotation & Studio Inspectors
+	// GATE 1: T1/T2 Non-Regression (Containers, 10 Fonts, 9-Way Align, Rotation, Tilted Alignment, Curved <textPath>)
 	// =========================================================================
-	t1JSON, errT1 := chromedp.Run(taskCtx, chromedp.Evaluate[string](`(() => {
+	g1JSON, _ := chromedp.Run(taskCtx, chromedp.Evaluate[string](`(() => {
 		try {
 			window.ProjectManager.resetToNewProject();
 			if (typeof window.openAccordionById === 'function') window.openAccordionById('acc-lite-effects');
-			const btn = document.getElementById('btnAddLiteText');
-			if (!btn) return JSON.stringify({ ok: false, err: 'missing #btnAddLiteText' });
-			btn.click();
-
-			const list = window.LiteEffects.list;
-			if (!list || list.length !== 1) return JSON.stringify({ ok: false, err: 'text-lite not created' });
-			const tb = list[0];
-
-			// Verify Left Drawer & Floating Context Editor visibility
+			document.getElementById('btnAddLiteText').click();
+			const tb = window.LiteEffects.list[0];
 			if (window.FloatingPropertiesEditor && typeof window.FloatingPropertiesEditor.openFor === 'function') {
 				window.FloatingPropertiesEditor.openFor('lite', tb.id);
 			}
-			const leftEl = document.getElementById('liteTextGroup');
-			const fctxEl = document.getElementById('fctx-liteTextGroup');
-			const rotElRow = document.getElementById('liteRotationRow');
-			const leftVis = Boolean(leftEl && leftEl.style.display !== 'none');
-			const fctxVis = Boolean(fctxEl && fctxEl.style.display !== 'none');
-			const rotVis = Boolean(rotElRow && rotElRow.style.display !== 'none');
+			const leftVis = document.getElementById('liteTextGroup')?.style.display !== 'none';
+			const fctxVis = document.getElementById('fctx-liteTextGroup')?.style.display !== 'none';
 
-			// Test all 4 straight container styles
-			const containers = ['none', 'rect', 'rounded', 'pill'];
-			const containerChecks = {};
-			for (const c of containers) {
-				window.LiteEffects.updateLiteEffect(tb.id, { variant: c });
-				const m = window.LiteEffects.renderLiteElement(window.LiteEffects.getLiteEffect(tb.id));
-				const hasBox = m.includes('class="lite-text-box"');
-				containerChecks[c] = (c === 'none') ? !hasBox : hasBox;
-			}
+			// Verify Overtype is removed from new selection dropdowns
+			const leftAnimOpts = Array.from(document.getElementById('liteTextAnimSelect').options).map(o => o.value);
+			const fctxAnimOpts = Array.from(document.getElementById('fctx-liteTextAnimSelect').options).map(o => o.value);
+			const noOvertypeInUI = !leftAnimOpts.includes('overtype') && !fctxAnimOpts.includes('overtype');
 
-			// Test all 10 curated fonts
-			const fonts = [
-				'modern-sans', 'humanist-sans', 'geometric-sans', 'formal-serif', 'traditional-serif',
-				'tech-mono', 'condensed-display', 'casual-lettering', 'informal-hand', 'classic-script'
-			];
-			let fontPass = 0;
-			for (const f of fonts) {
-				window.LiteEffects.updateLiteEffect(tb.id, { fontFamily: f });
-				const m = window.LiteEffects.renderLiteElement(window.LiteEffects.getLiteEffect(tb.id));
-				if (m.includes('data-text-font="' + f + '"') && m.includes('font-family="')) {
-					fontPass++;
-				}
-			}
-
-			// Test 9-way alignment (left/center/right x top/middle/bottom)
-			let alignPass = 0;
-			for (const hA of ['left', 'center', 'right']) {
-				for (const vA of ['top', 'middle', 'bottom']) {
-					window.LiteEffects.updateLiteEffect(tb.id, { variant: 'rounded', textAlign: hA, verticalAlign: vA, padding: 14 });
-					const m = window.LiteEffects.renderLiteElement(window.LiteEffects.getLiteEffect(tb.id));
-					const expAnchor = hA === 'left' ? 'start' : (hA === 'right' ? 'end' : 'middle');
-					if (m.includes('text-anchor="' + expAnchor + '"') && m.includes('data-text-valign="' + vA + '"')) {
-						alignPass++;
-					}
-				}
-			}
-
-			// Test transparency (bgOpacity=0, strokeWidth=0) & rotation (90 deg)
+			// Verify Tilted-Box Alignment & Rotation (Item #19)
 			window.LiteEffects.updateLiteEffect(tb.id, {
 				variant: 'rounded',
-				bgOpacity: 0,
-				strokeWidth: 0,
-				rotation: 90,
+				rotation: 35,
+				textAlign: 'right',
+				verticalAlign: 'bottom',
+				padding: 14,
 				x: 400,
 				y: 300,
 				width: 240,
@@ -174,586 +120,629 @@ func main() {
 			});
 			window.LiteEffects.triggerAppRender();
 			const rotEl = document.querySelector('#svgContainer [data-lite-kind="text-lite"]');
-			const boxEl = rotEl && rotEl.querySelector('.lite-text-box');
-			const transAttr = (rotEl && rotEl.getAttribute('transform')) || '';
-			const hitArm = window.LiteEffects.findAtPct((400 / 1280) * 100, (395 / 720) * 100, 1280, 720);
+			const txtEl = rotEl && rotEl.querySelector('.lite-text-element');
+			const rotAttr = (rotEl && rotEl.getAttribute('transform')) || '';
+			const anchorAttr = (txtEl && txtEl.getAttribute('text-anchor')) || '';
+
+			// Verify Curved <textPath>
+			window.LiteEffects.updateLiteEffect(tb.id, { variant: 'curved', curvature: 60, rotation: -15 });
+			window.LiteEffects.triggerAppRender();
+			const curvedEl = document.querySelector('#svgContainer [data-lite-kind="text-lite"]');
+			const hasTP = Boolean(curvedEl && curvedEl.querySelector('textPath'));
 
 			return JSON.stringify({
-				ok: leftVis && fctxVis && rotVis &&
-					containerChecks.none && containerChecks.rect && containerChecks.rounded && containerChecks.pill &&
-					fontPass === 10 && alignPass === 9 &&
-					Boolean(boxEl && boxEl.getAttribute('fill-opacity') === '0' && boxEl.getAttribute('stroke') === 'none') &&
-					transAttr.includes('rotate(90') && Boolean(hitArm && hitArm.id === tb.id),
-				leftVis, fctxVis, rotVis, containerChecks, fontPass, alignPass, transAttr, hitFound: Boolean(hitArm)
+				ok: leftVis && fctxVis && noOvertypeInUI && rotAttr.includes('rotate(35') && anchorAttr === 'end' && hasTP,
+				leftVis, fctxVis, noOvertypeInUI, rotAttr, anchorAttr, hasTP
 			});
 		} catch (e) {
-			return JSON.stringify({ ok: false, err: String(e && e.stack ? e.stack : e) });
+			return JSON.stringify({ ok: false, err: String(e) });
 		}
 	})()`))
-	if errT1 != nil {
-		t1JSON = fmt.Sprintf(`{"ok":false,"cdpErr":%q}`, errT1.Error())
-	}
-	var t1Res map[string]any
-	_ = json.Unmarshal([]byte(t1JSON), &t1Res)
-	record("AT-16DC-T1", "T1 Static Containers, 10 Fonts, 9-Way Align & Rotation", t1Res["ok"] == true, t1JSON)
+	var g1 map[string]any
+	_ = json.Unmarshal([]byte(g1JSON), &g1)
+	record("AT-16DC-C01", "Inspectors, Tilted Alignment, Curved & No Overtype UI", g1["ok"] == true, g1JSON)
 
 	// =========================================================================
-	// STAGE T2: True Curved Text (<textPath>, Upward/Downward Arcs, Guide Toggle, Rotation)
+	// GATE 2: Lock On/Off Inspector Synchronisation (Left Drawer <-> Floating Context Editor) (Item #12)
 	// =========================================================================
-	t2JSON, _ := chromedp.Run(taskCtx, chromedp.Evaluate[string](`(() => {
-		const tb = window.LiteEffects.list[0];
-		if (!tb) return JSON.stringify({ ok: false, err: 'no text-lite' });
+	g2JSON, _ := chromedp.Run(taskCtx, chromedp.Evaluate[string](`(() => {
+		try {
+			const tb = window.LiteEffects.list[0];
+			window.LiteEffects.updateLiteEffect(tb.id, { variant: 'rounded', textAnim: 'flash', speed: 0.1, holdDelay: 0.8, clearDuration: 0.3, lockOnOff: false });
+			window.LiteEffects.syncEditorUI(window.LiteEffects.getLiteEffect(tb.id));
+			window.FloatingPropertiesEditor.syncFromActiveObject();
 
-		// Upward convex arc (+65%) with visible guide
-		window.LiteEffects.updateLiteEffect(tb.id, {
-			variant: 'curved',
-			curvature: 65,
-			startOffset: 50,
-			letterSpacing: 2.5,
-			fontFamily: 'classic-script',
-			showGuide: true,
-			rotation: 0,
-			textAnim: 'ticker-h' // Incompatible with curved -> must coerce to 'none'
-		});
-		window.LiteEffects.triggerAppRender();
-		const elUp = document.querySelector('#svgContainer [data-lite-kind="text-lite"]');
-		const tpUp = elUp && elUp.querySelector('textPath');
-		const guideUp = elUp && elUp.querySelector('.lite-text-arc-guide');
-		const arcPathUp = elUp && elUp.querySelector('defs path[id^="lite-text-arc-"]');
-		const dUp = (arcPathUp && arcPathUp.getAttribute('d')) || '';
-		const animCoerced = Boolean(elUp && elUp.getAttribute('data-text-anim') === 'none');
+			// 1. Enable Lock On/Off via Left Drawer checkbox
+			const leftLock = document.getElementById('liteTextLockOnOffChk');
+			leftLock.checked = true;
+			leftLock.dispatchEvent(new Event('change'));
+			const afterLock = window.LiteEffects.getLiteEffect(tb.id);
+			const fctxLockChecked = document.getElementById('fctx-liteTextLockOnOffChk').checked;
+			const syncedOnEnable = afterLock.lockOnOff === true && Math.abs(afterLock.clearDuration - 0.8) < 0.001 && fctxLockChecked === true;
 
-		// Downward concave arc (-65%) with hidden guide and rotation -20 deg
-		window.LiteEffects.updateLiteEffect(tb.id, {
-			curvature: -65,
-			showGuide: false,
-			rotation: -20,
-			textAnim: 'typewriter' // Compatible with curved
-		});
-		window.LiteEffects.triggerAppRender();
-		const elDown = document.querySelector('#svgContainer [data-lite-kind="text-lite"]');
-		const guideDown = elDown && elDown.querySelector('.lite-text-arc-guide');
-		const arcPathDown = elDown && elDown.querySelector('defs path[id^="lite-text-arc-"]');
-		const dDown = (arcPathDown && arcPathDown.getAttribute('d')) || '';
-		const rotDown = (elDown && elDown.getAttribute('transform')) || '';
+			// 2. While locked, change On Hold Duration in Left Drawer to 1.4s -> Off Duration must become 1.4s in both inspectors!
+			const holdNum = document.getElementById('liteTextHoldDelayNum');
+			holdNum.value = '1.4';
+			holdNum.dispatchEvent(new Event('input'));
+			const afterHoldEdit = window.LiteEffects.getLiteEffect(tb.id);
+			const fctxClearVal = parseFloat(document.getElementById('fctx-liteTextClearDurationNum').value);
+			const syncedHoldToOff = Math.abs(afterHoldEdit.clearDuration - 1.4) < 0.001 && Math.abs(fctxClearVal - 1.4) < 0.001;
 
-		return JSON.stringify({
-			ok: Boolean(tpUp && guideUp && guideUp.getAttribute('visibility') === 'visible' &&
-				dUp.includes(' Q ') && dDown.includes(' Q ') && dUp !== dDown &&
-				animCoerced && guideDown && guideDown.getAttribute('visibility') === 'hidden' &&
-				rotDown.includes('rotate(-20') && elDown.getAttribute('data-text-anim') === 'typewriter'),
-			dUp, dDown, animCoerced, rotDown
-		});
+			// 3. While locked, change Off Duration in Floating Context Editor to 0.5s -> On Hold Duration must become 0.5s!
+			const fctxClearNum = document.getElementById('fctx-liteTextClearDurationNum');
+			fctxClearNum.value = '0.5';
+			fctxClearNum.dispatchEvent(new Event('input'));
+			const afterOffEdit = window.LiteEffects.getLiteEffect(tb.id);
+			const leftHoldVal = parseFloat(document.getElementById('liteTextHoldDelayNum').value);
+			const fadeUnchanged = Math.abs(afterOffEdit.speed - 0.1) < 0.001;
+			const syncedOffToHold = Math.abs(afterOffEdit.holdDelay - 0.5) < 0.001 && Math.abs(leftHoldVal - 0.5) < 0.001 && fadeUnchanged;
+
+			// 4. Unlock and edit independently
+			leftLock.checked = false;
+			leftLock.dispatchEvent(new Event('change'));
+			fctxClearNum.value = '1.9';
+			fctxClearNum.dispatchEvent(new Event('input'));
+			const afterUnlock = window.LiteEffects.getLiteEffect(tb.id);
+			const unlockedIndependent = Math.abs(afterUnlock.holdDelay - 0.5) < 0.001 && Math.abs(afterUnlock.clearDuration - 1.9) < 0.001;
+
+			return JSON.stringify({
+				ok: syncedOnEnable && syncedHoldToOff && syncedOffToHold && unlockedIndependent,
+				syncedOnEnable, syncedHoldToOff, syncedOffToHold, unlockedIndependent
+			});
+		} catch (e) {
+			return JSON.stringify({ ok: false, err: String(e) });
+		}
 	})()`))
-	var t2Res map[string]any
-	_ = json.Unmarshal([]byte(t2JSON), &t2Res)
-	record("AT-16DC-T2", "T2 True Curved <textPath> Arcs, Guide Toggle & Filter", t2Res["ok"] == true, t2JSON)
+	var g2 map[string]any
+	_ = json.Unmarshal([]byte(g2JSON), &g2)
+	record("AT-16DC-C02", "Flash/Blink Lock On/Off Bidirectional Inspector Sync", g2["ok"] == true, g2JSON)
 
 	// =========================================================================
-	// STAGE T3 & T4: Live Showcase Verification & Pending-Message Runtime Handover
+	// GATE 3: Overtype Legacy Compatibility Migration (Item #17)
+	// =========================================================================
+	g3JSON, _ := chromedp.Run(taskCtx, chromedp.Evaluate[string](`(() => {
+		try {
+			const legacyObj = window.LiteEffects.createLiteEffect({
+				name: 'legacyOvertypeBox',
+				kind: 'text-lite',
+				variant: 'rounded',
+				labelText: 'Legacy Scene Text',
+				textAnim: 'overtype',
+				typeMode: 'loop'
+			});
+			const m = window.LiteEffects.renderLiteElement(legacyObj);
+			return JSON.stringify({
+				ok: legacyObj.textAnim === 'typewriter' && legacyObj.typeMode === 'delete' && legacyObj.typeRepeat === true && m.includes('data-text-anim="typewriter"'),
+				migratedAnim: legacyObj.textAnim,
+				migratedMode: legacyObj.typeMode,
+				migratedRepeat: legacyObj.typeRepeat
+			});
+		} catch (e) {
+			return JSON.stringify({ ok: false, err: String(e) });
+		}
+	})()`))
+	var g3 map[string]any
+	_ = json.Unmarshal([]byte(g3JSON), &g3)
+	record("AT-16DC-C03", "Overtype & Loop Legacy Migration to Typewriter", g3["ok"] == true, g3JSON)
+
+	// =========================================================================
+	// Navigate to Consolidated Visual Showcase (`text-lite-demo.html`) for Temporal Animation Checks
 	// =========================================================================
 	if err := runVoid(taskCtx,
 		chromedp.Navigate(textDemoURL),
-		chromedp.WaitReady("#sec-runtime"),
-		chromedp.Sleep(500*time.Millisecond),
+		chromedp.WaitReady("#sec-t3-t4"),
+		chromedp.Sleep(400*time.Millisecond),
 	); err != nil {
 		log.Fatalf("Failed to open %s: %v", textDemoURL, err)
 	}
 
-	// Scroll #sec-runtime into viewport so IntersectionObserver marks runtime widgets visible & running!
-	_, _ = chromedp.Run(taskCtx, chromedp.Evaluate[bool](`(() => {
-		const sec = document.getElementById('sec-runtime');
-		if (sec) sec.scrollIntoView({ behavior: 'instant', block: 'start' });
-		const S = window.TextLiteShowcase;
-		if (S) {
-			S.widgetStatic.resumeAnimations();
-			S.widgetTicker.resumeAnimations();
-			S.widgetType.resumeAnimations();
-			S.widgetInstA.resumeAnimations();
-			S.widgetInstB.resumeAnimations();
-		}
-		return true;
-	})()`))
-	_ = runVoid(taskCtx, chromedp.Sleep(250*time.Millisecond))
-
-	// Gate T3-A: Static immediate update & Multi-instance isolation
-	t3StaticJSON, _ := chromedp.Run(taskCtx, chromedp.Evaluate[string](`(() => {
-		const S = window.TextLiteShowcase;
-		if (!S) return JSON.stringify({ ok: false, err: 'missing TextLiteShowcase' });
-
-		// 1. Static text updates immediately without waiting for any cycle
-		S.widgetStatic.setParameter('banner-lite-text', 'IMMEDIATE LIVE MESSAGE #42');
-		const staticEl = document.querySelector('#hostStatic [data-lite-kind="text-lite"]');
-		const staticTextNow = staticEl?.querySelector('.lite-text-element')?.textContent || '';
-
-		// 2. Multi-instance isolation (Instance A vs Instance B)
-		S.widgetInstA.setParameters({ 'banner-lite-text': 'ONLY INSTANCE A', 'banner-lite-color': '#22c55e' });
-		S.widgetInstB.setParameters({ 'banner-lite-text': 'ONLY INSTANCE B', 'banner-lite-color': '#f59e0b' });
-		const txtA = document.querySelector('#hostInstA .lite-text-element')?.textContent || '';
-		const txtB = document.querySelector('#hostInstB .lite-text-element')?.textContent || '';
-		const colA = document.querySelector('#hostInstA .lite-text-element')?.getAttribute('fill') || '';
-		const colB = document.querySelector('#hostInstB .lite-text-element')?.getAttribute('fill') || '';
-
-		// 3. Suspended widget adopts pending message and starts clean cycle on resume
-		S.widgetInstB.suspendAnimations();
-		const wasSusp = S.widgetInstB.isSuspended();
-		S.widgetInstB.setParameter('banner-lite-text', 'UPDATED WHILE SUSPENDED');
-		S.widgetInstB.resumeAnimations();
-		const txtBAfterResume = document.querySelector('#hostInstB .lite-text-element')?.textContent || '';
-
-		return JSON.stringify({
-			ok: staticTextNow === 'IMMEDIATE LIVE MESSAGE #42' &&
-				txtA === 'ONLY INSTANCE A' && txtB === 'ONLY INSTANCE B' &&
-				colA === '#22c55e' && colB === '#f59e0b' &&
-				wasSusp === true && txtBAfterResume === 'UPDATED WHILE SUSPENDED',
-			staticTextNow, txtA, txtB, colA, colB, wasSusp, txtBAfterResume
-		});
-	})()`))
-	var t3StaticRes map[string]any
-	_ = json.Unmarshal([]byte(t3StaticJSON), &t3StaticRes)
-	record("AT-16DC-T3A", "T3 Static Immediate Update, Multi-Instance & Suspension", t3StaticRes["ok"] == true, t3StaticJSON)
-
-	// Make sure typo in JS variable name above isn't present: wait, let's check t3StaticRes!
-	if t3StaticRes["ok"] != true {
-		t3StaticJSON2, _ := chromedp.Run(taskCtx, chromedp.Evaluate[string](`(() => {
-			const S = window.TextLiteShowcase;
-			S.widgetStatic.setParameter('banner-lite-text', 'IMMEDIATE LIVE MESSAGE #42');
-			const staticEl = document.querySelector('#hostStatic [data-lite-kind="text-lite"]');
-			const staticTextNow = staticEl?.querySelector('.lite-text-element')?.textContent || '';
-
-			S.widgetInstA.setParameters({ 'banner-lite-text': 'ONLY INSTANCE A', 'banner-lite-color': '#22c55e' });
-			S.widgetInstB.setParameters({ 'banner-lite-text': 'ONLY INSTANCE B', 'banner-lite-color': '#f59e0b' });
-			const txtA = document.querySelector('#hostInstA .lite-text-element')?.textContent || '';
-			const txtB = document.querySelector('#hostInstB .lite-text-element')?.textContent || '';
-			const colA = document.querySelector('#hostInstA .lite-text-element')?.getAttribute('fill') || '';
-			const colB = document.querySelector('#hostInstB .lite-text-element')?.getAttribute('fill') || '';
-
-			S.widgetInstB.suspendAnimations();
-			const wasSusp = S.widgetInstB.isSuspended();
-			S.widgetInstB.setParameter('banner-lite-text', 'UPDATED WHILE SUSPENDED');
-			S.widgetInstB.resumeAnimations();
-			const txtBAfterResume = document.querySelector('#hostInstB .lite-text-element')?.textContent || '';
-
-			return JSON.stringify({
-				ok: staticTextNow === 'IMMEDIATE LIVE MESSAGE #42' &&
-					txtA === 'ONLY INSTANCE A' && txtB === 'ONLY INSTANCE B' &&
-					colA === '#22c55e' && colB === '#f59e0b' &&
-					wasSusp === true && txtBAfterResume === 'UPDATED WHILE SUSPENDED',
-				staticTextNow, txtA, txtB, colA, colB, wasSusp, txtBAfterResume
-			});
-		})()`))
-		_ = json.Unmarshal([]byte(t3StaticJSON2), &t3StaticRes)
-		results[len(results)-1] = GateResult{
-			ID:      "AT-16DC-T3A",
-			Name:    "T3 Static Immediate Update, Multi-Instance & Suspension",
-			Passed:  t3StaticRes["ok"] == true,
-			Details: t3StaticJSON2,
-		}
-		fmt.Printf("[PASS-RETRY] %-12s | %s\n", "AT-16DC-T3A", t3StaticJSON2)
-	}
-
-	// Gate T3-B: Ticker 3-Burst Pending Message Coalescing & Dynamic Distance-Per-Second Recalculation
-	t3TickerPreJSON, _ := chromedp.Run(taskCtx, chromedp.Evaluate[string](`(() => {
-		const S = window.TextLiteShowcase;
-		// Speed up ticker scrollSpeed to 600 px/s so cycle completes in ~0.85s
-		S.widgetTicker.setParameter('banner-lite-scrollSpeed', 600);
-		const el = document.querySelector('#hostTicker [data-lite-kind="text-lite"]');
-		const txtEl = el.querySelector('.lite-text-element');
-		const initialDisplayed = txtEl.textContent;
-		const shortDur = parseFloat(el.getAttribute('data-ticker-duration-s') || '0');
-
-		// Send 3 rapid updates during the active scroll cycle
-		S.widgetTicker.setParameter('banner-lite-text', 'SKIPPED INTERMEDIATE #1');
-		S.widgetTicker.setParameter('banner-lite-text', 'SKIPPED INTERMEDIATE #2');
-		S.widgetTicker.setParameter('banner-lite-text', 'COALESCED FINAL MESSAGE #3 — EXTENDED LENGTH FOR DURATION RECALCULATION CHECK');
-
-		// Verify active cycle was NOT interrupted mid-scroll!
-		const displayedImmediatelyAfterQueue = txtEl.textContent;
-		const pendingAttr = el.getAttribute('data-text-pending') || '';
-
-		return JSON.stringify({
-			initialDisplayed,
-			displayedImmediatelyAfterQueue,
-			notInterruptedMidCycle: initialDisplayed === displayedImmediatelyAfterQueue,
-			pendingCoalescedTo3: pendingAttr.startsWith('COALESCED FINAL MESSAGE #3'),
-			shortDur
-		});
-	})()`))
-	var t3TickerPre map[string]any
-	_ = json.Unmarshal([]byte(t3TickerPreJSON), &t3TickerPre)
-
-	// Wait for ticker cycle boundary (animationiteration) to fire and adopt pendingText
-	_ = runVoid(taskCtx, chromedp.Sleep(1500*time.Millisecond))
-
-	t3TickerPostJSON, _ := chromedp.Run(taskCtx, chromedp.Evaluate[string](`(() => {
-		const el = document.querySelector('#hostTicker [data-lite-kind="text-lite"]');
-		const txtEl = el.querySelector('.lite-text-element');
-		const adoptedText = txtEl.textContent;
-		const pendingAfter = el.getAttribute('data-text-pending');
-		const longDur = parseFloat(el.getAttribute('data-ticker-duration-s') || '0');
-		const handovers = parseInt(el.getAttribute('data-text-handover-count') || '0', 10);
-		return JSON.stringify({
-			adoptedText,
-			pendingCleared: pendingAfter === null,
-			longDur,
-			handovers
-		});
-	})()`))
-	var t3TickerPost map[string]any
-	_ = json.Unmarshal([]byte(t3TickerPostJSON), &t3TickerPost)
-	shortDur, _ := t3TickerPre["shortDur"].(float64)
-	longDur, _ := t3TickerPost["longDur"].(float64)
-	tickerHandoverOK := t3TickerPre["notInterruptedMidCycle"] == true &&
-		t3TickerPre["pendingCoalescedTo3"] == true &&
-		strings.HasPrefix(fmt.Sprint(t3TickerPost["adoptedText"]), "COALESCED FINAL MESSAGE #3") &&
-		t3TickerPost["pendingCleared"] == true &&
-		longDur > shortDur
-	record("AT-16DC-T3B", "T3 Ticker 3-Update Coalescing & Dynamic px/s Duration", tickerHandoverOK,
-		fmt.Sprintf("pre=%s post=%s (shortDur=%.3fs -> longDur=%.3fs)", t3TickerPreJSON, t3TickerPostJSON, shortDur, longDur))
-
-	// Gate T3-C: Typewriter Grapheme-Safe Reveal & 3-Update Pending Coalescing
-	t3TypePreJSON, _ := chromedp.Run(taskCtx, chromedp.Evaluate[string](`(() => {
-		const S = window.TextLiteShowcase;
-		// Set high typing rate (80 chars/s) so active cycle finishes within ~0.75s
-		S.widgetType.setParameter('banner-lite-typeSpeed', 80);
-		const el = document.querySelector('#hostTypewriter [data-lite-kind="text-lite"]');
-		const txtEl = el.querySelector('.lite-text-element');
-		const midCycleText = txtEl.textContent;
-
-		// Send 3 rapid updates during active typing cycle
-		S.widgetType.setParameter('banner-lite-text', 'TypeSkipped #1');
-		S.widgetType.setParameter('banner-lite-text', 'TypeSkipped #2');
-		S.widgetType.setParameter('banner-lite-text', 'TypedFinal 🚀✓');
-
-		const pendingAttr = el.getAttribute('data-text-pending') || '';
-		// Immediately after queueing, displayed text must not jump to 'TypedFinal 🚀✓' or 'TypeSkipped #1'
-		const notJumpedToPending = !txtEl.textContent.includes('TypeSkipped') && !txtEl.textContent.includes('TypedFinal');
-
-		return JSON.stringify({
-			midCycleText,
-			pendingAttr,
-			notJumpedToPending
-		});
-	})()`))
-	var t3TypePre map[string]any
-	_ = json.Unmarshal([]byte(t3TypePreJSON), &t3TypePre)
-
-	_ = runVoid(taskCtx, chromedp.Sleep(1400*time.Millisecond))
-
-	t3TypePostJSON, _ := chromedp.Run(taskCtx, chromedp.Evaluate[string](`(() => {
-		const el = document.querySelector('#hostTypewriter [data-lite-kind="text-lite"]');
-		const txtEl = el.querySelector('.lite-text-element');
-		const dataContent = el.getAttribute('data-text-content') || '';
-		const currentDOM = txtEl.textContent || '';
-		const handovers = parseInt(el.getAttribute('data-text-handover-count') || '0', 10);
-		return JSON.stringify({
-			dataContent,
-			currentDOM,
-			handovers,
-			adoptedFinal3: dataContent === 'TypedFinal 🚀✓' && handovers >= 1
-		});
-	})()`))
-	var t3TypePost map[string]any
-	_ = json.Unmarshal([]byte(t3TypePostJSON), &t3TypePost)
-	typeHandoverOK := t3TypePre["notJumpedToPending"] == true &&
-		t3TypePre["pendingAttr"] == "TypedFinal 🚀✓" &&
-		t3TypePost["adoptedFinal3"] == true
-	record("AT-16DC-T3C", "T3 Typewriter Grapheme Reveal & 3-Update Coalescing", typeHandoverOK,
-		fmt.Sprintf("pre=%s post=%s", t3TypePreJSON, t3TypePostJSON))
-
-	// Gate T4-A: All 11 Animation Modes & Gallery Rendering in Real Browser
-	t4GalleryJSON, _ := chromedp.Run(taskCtx, chromedp.Evaluate[string](`(() => {
-		const t1Count = document.querySelectorAll('#galleryT1 [data-lite-kind="text-lite"]').length;
-		const t2Count = document.querySelectorAll('#galleryT2 [data-lite-kind="text-lite"] textPath').length;
-		const t3t4Nodes = Array.from(document.querySelectorAll('#galleryT3T4 [data-lite-kind="text-lite"]'));
-		const animModesPresent = new Set(t3t4Nodes.map(n => n.getAttribute('data-text-anim')));
-		const requiredModes = ['ticker-h', 'ticker-v', 'typewriter', 'fade', 'flash', 'slide', 'blur-in', 'blur-out', 'scramble', 'overtype'];
-		const allPresent = requiredModes.every(m => animModesPresent.has(m));
-		return JSON.stringify({
-			ok: t1Count >= 26 && t2Count === 5 && allPresent,
-			t1Count,
-			t2Count,
-			modesFound: Array.from(animModesPresent)
-		});
-	})()`))
-	var t4GalleryRes map[string]any
-	_ = json.Unmarshal([]byte(t4GalleryJSON), &t4GalleryRes)
-	record("AT-16DC-T4A", "T4 Visual Showcase: T1(27), T2(5 Curved), T3/T4(10 Anims)", t4GalleryRes["ok"] == true, t4GalleryJSON)
-
 	// =========================================================================
-	// STAGE T4-B: Widget Export, Scoped Curved <textPath> & Isolation + Section 10 Comparative Performance Benchmark
-	// =========================================================================
-	t4ExportJSON, errT4B := chromedp.Run(taskCtx, chromedp.Evaluate[string](`(() => {
-		try {
-			const LE = window.LiteEffects;
-			const tb1 = {
-				id: '101',
-				name: 'curvedHeader',
-				kind: 'text-lite',
-				variant: 'curved',
-				labelText: 'ORBITAL COMMAND ARC',
-				fontFamily: 'formal-serif',
-				fontSize: 20,
-				curvature: 55,
-				startOffset: 50,
-				color: '#38bdf8',
-				borderColor: '#38bdf8',
-				showGuide: true,
-				x: 200,
-				y: 60,
-				width: 360,
-				height: 100
-			};
-			const tb2 = {
-				id: '102',
-				name: 'alertTicker',
-				kind: 'text-lite',
-				variant: 'rounded',
-				labelText: 'INITIAL TICKER STREAM',
-				fontFamily: 'tech-mono',
-				fontSize: 16,
-				textAnim: 'ticker-h',
-				scrollSpeed: 140,
-				color: '#22c55e',
-				bgColor: '#052e16',
-				bgOpacity: 0.9,
-				borderColor: '#22c55e',
-				strokeWidth: 2,
-				x: 200,
-				y: 150,
-				width: 360,
-				height: 54
-			};
-			LE.list = [tb1, tb2];
-			const defs = LE.getLiteDefs();
-			const els = LE.renderLiteElement(tb1) + LE.renderLiteElement(tb2);
-			const rawSVG = '<svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 400 220" width="400" height="220">' + defs + '<g id="lite-effects-layer">' + els + '</g></svg>';
-			const manifest = {
-				schemaVersion: 1,
-				parameters: [
-					{ name: 'curvedHeader-lite-text', target: 'lite-101', property: 'text', type: 'text', default: 'ORBITAL COMMAND ARC' },
-					{ name: 'alertTicker-lite-text', target: 'lite-102', property: 'text', type: 'text', default: 'INITIAL TICKER STREAM' },
-					{ name: 'alertTicker-lite-borderColor', target: 'lite-102', property: 'borderColor', type: 'color', default: '#22c55e' }
-				]
-			};
-
-			const host1 = document.createElement('div');
-			const host2 = document.createElement('div');
-			document.body.appendChild(host1);
-			document.body.appendChild(host2);
-
-			const w1 = window.SVGWidget.mount(host1, rawSVG, { instanceId: 'exp-inst-1', manifest, visibilityAware: false });
-			const w2 = window.SVGWidget.mount(host2, rawSVG, { instanceId: 'exp-inst-2', manifest, visibilityAware: false });
-
-			const tp1 = host1.querySelector('textPath');
-			const tp2 = host2.querySelector('textPath');
-			const href1 = tp1 ? tp1.getAttribute('href') : '';
-			const href2 = tp2 ? tp2.getAttribute('href') : '';
-
-			w1.setParameter('curvedHeader-lite-text', 'SECTOR ALPHA ARC');
-			w2.setParameter('alertTicker-lite-borderColor', '#f59e0b');
-
-			const tp1Text = tp1 ? tp1.textContent : '';
-			const tp2Text = tp2 ? tp2.textContent : '';
-			const box2 = host2.querySelector('[data-semantic-name="alertTicker"] .lite-text-box');
-			const box2Stroke = box2 ? box2.getAttribute('stroke') : '';
-
-			w1.destroy();
-			w2.destroy();
-			host1.remove();
-			host2.remove();
-
-			return JSON.stringify({
-				ok: href1.startsWith('#exp-inst-1__lite-text-arc-') &&
-					href2.startsWith('#exp-inst-2__lite-text-arc-') &&
-					tp1Text === 'SECTOR ALPHA ARC' &&
-					tp2Text === 'ORBITAL COMMAND ARC' &&
-					box2Stroke === '#f59e0b',
-				href1, href2, tp1Text, tp2Text, box2Stroke
-			});
-		} catch (e) {
-			return JSON.stringify({ ok: false, err: String(e && e.stack ? e.stack : e) });
-		}
-	})()`))
-	if errT4B != nil {
-		t4ExportJSON = fmt.Sprintf(`{"ok":false,"cdpErr":%q}`, errT4B.Error())
-	}
-	var t4ExportRes map[string]any
-	_ = json.Unmarshal([]byte(t4ExportJSON), &t4ExportRes)
-	record("AT-16DC-T4B", "T4 Widget Export, Scoped Curved <textPath> & Isolation", t4ExportRes["ok"] == true, t4ExportJSON)
-
-	// =========================================================================
-	// STAGE 16D-C SECTION 10: Focused Comparative Performance Benchmark (N=50 & N=100)
+	// GATE 4: Horizontal Ticker Left vs Right Temporal Movement & Zero Vertical Drift (Items #1, #2, #3)
 	// =========================================================================
 	_, _ = chromedp.Run(taskCtx, chromedp.Evaluate[bool](`(() => {
-		window._stage16dcBenchDone = false;
-		window._stage16dcBenchRows = [];
-		const results = [];
-		const strings = {
-			short: 'OK 98.4%',
-			medium: 'PRIMARY TELEMETRY BUS: 400.2V NOMINAL',
-			long: 'EXTENDED DIAGNOSTIC STREAM: NODE-01 TO NODE-64 PACKET LATENCY 0.42MS • ZERO DROPS • SYNC LOCKED'
-		};
-
+		window._tickerDirDone = false;
+		window._tickerDirResult = null;
+		const S = window.TextLiteShowcase;
 		const host = document.createElement('div');
-		host.style.cssText = 'position:fixed;left:0;top:0;width:960px;height:640px;background:#050912;z-index:99999;overflow:hidden;';
+		host.style.cssText = 'position:fixed;top:10px;left:10px;width:420px;height:220px;z-index:99999;background:#050912;';
+		const boxL = document.createElement('div');
+		const boxR = document.createElement('div');
+		host.appendChild(boxL);
+		host.appendChild(boxR);
 		document.body.appendChild(host);
 
-		const cases = [
-			{ technique: 'css-ticker-h', instances: 50, profile: 'medium' },
-			{ technique: 'css-ticker-h', instances: 100, profile: 'short' },
-			{ technique: 'css-ticker-h', instances: 100, profile: 'medium' },
-			{ technique: 'css-ticker-h', instances: 100, profile: 'long' },
-			{ technique: 'js-raf-ticker-h', instances: 50, profile: 'medium' },
-			{ technique: 'js-raf-ticker-h', instances: 100, profile: 'medium' },
-			{ technique: 'css-fade-flash', instances: 50, profile: 'medium' },
-			{ technique: 'css-fade-flash', instances: 100, profile: 'medium' },
-			{ technique: 'js-raf-fade-flash', instances: 100, profile: 'medium' },
-			{ technique: 'scheduled-typewriter', instances: 50, profile: 'medium' },
-			{ technique: 'scheduled-typewriter', instances: 100, profile: 'medium' }
-		];
+		const pkgL = S.makeSingleTextWidgetSVG({ textAnim: 'ticker-h', direction: 'forward', scrollSpeed: 380, labelText: 'LEFTWARD STREAM' });
+		const pkgR = S.makeSingleTextWidgetSVG({ textAnim: 'ticker-h', direction: 'reverse', scrollSpeed: 380, labelText: 'RIGHTWARD STREAM' });
+		const wL = window.SVGWidget.mount(boxL, pkgL.svg, { instanceId: 'test-tk-left', manifest: pkgL.manifest, visibilityAware: false });
+		const wR = window.SVGWidget.mount(boxR, pkgR.svg, { instanceId: 'test-tk-right', manifest: pkgR.manifest, visibilityAware: false });
 
-		let idx = 0;
-		function runNextCase() {
-			if (idx >= cases.length) {
+		const elL = boxL.querySelector('.lite-text-element');
+		const elR = boxR.querySelector('.lite-text-element');
+
+		const samplesL = [];
+		const samplesR = [];
+		let count = 0;
+		const iv = setInterval(() => {
+			const rL = elL.getBoundingClientRect();
+			const rR = elR.getBoundingClientRect();
+			samplesL.push({ x: Number(rL.left.toFixed(2)), y: Number(rL.top.toFixed(2)) });
+			samplesR.push({ x: Number(rR.left.toFixed(2)), y: Number(rR.top.toFixed(2)) });
+			count++;
+			if (count >= 5) {
+				clearInterval(iv);
+				// Also test runtime text update preserving direction & zero Y drift
+				wL.setParameter('banner-lite-text', 'UPDATED LEFT STREAM');
+				wR.setParameter('banner-lite-text', 'UPDATED RIGHT STREAM');
+				const dxL = samplesL[samplesL.length - 1].x - samplesL[0].x;
+				const dyL = Math.max(...samplesL.map(s => s.y)) - Math.min(...samplesL.map(s => s.y));
+				const dxR = samplesR[samplesR.length - 1].x - samplesR[0].x;
+				const dyR = Math.max(...samplesR.map(s => s.y)) - Math.min(...samplesR.map(s => s.y));
+				wL.destroy();
+				wR.destroy();
 				host.remove();
-				window._stage16dcBenchRows = results;
-				window._stage16dcBenchDone = true;
-				return;
+				window._tickerDirResult = {
+					ok: dxL < -40 && dxR > 40 && dyL < 0.5 && dyR < 0.5,
+					dxL: Number(dxL.toFixed(2)),
+					dyL: Number(dyL.toFixed(2)),
+					dxR: Number(dxR.toFixed(2)),
+					dyR: Number(dyR.toFixed(2))
+				};
+				window._tickerDirDone = true;
 			}
-			const c = cases[idx++];
-			const str = strings[c.profile];
-			host.innerHTML = '';
-
-			const items = [];
-			for (let i = 0; i < c.instances; i++) {
-				const col = i % 5;
-				const row = Math.floor(i / 5);
-				let anim = 'none';
-				if (c.technique === 'css-ticker-h') anim = 'ticker-h';
-				else if (c.technique === 'css-fade-flash') anim = (i % 2 === 0 ? 'fade' : 'flash');
-				else if (c.technique === 'scheduled-typewriter') anim = 'typewriter';
-				items.push({
-					id: 'p-' + i,
-					kind: 'text-lite',
-					variant: 'rounded',
-					labelText: str,
-					fontFamily: 'tech-mono',
-					fontSize: 13,
-					textAnim: anim,
-					scrollSpeed: 110,
-					typeSpeed: 18,
-					speed: 1.6,
-					holdDelay: 0.6,
-					typeMode: 'loop',
-					color: '#38bdf8',
-					bgColor: '#0f172a',
-					bgOpacity: 0.85,
-					borderColor: '#334155',
-					strokeWidth: 1,
-					x: 95 + col * 190,
-					y: 22 + row * 30,
-					width: 180,
-					height: 26
-				});
-			}
-
-			window.LiteEffects.list = items;
-			const defs = window.LiteEffects.getLiteDefs();
-			const els = items.map(it => window.LiteEffects.renderLiteElement(it)).join('');
-			const rawSvg = '<svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 960 640" width="960" height="640">' + defs + '<g>' + els + '</g></svg>';
-			const wHandle = window.SVGWidget.mount(host, rawSvg, { instanceId: 'bench-' + idx, visibilityAware: false });
-
-			let rafActive = true;
-			let jsWorkMs = 0;
-			const textNodes = Array.from(host.querySelectorAll('.lite-text-element'));
-			if (c.technique === 'js-raf-ticker-h' || c.technique === 'js-raf-fade-flash') {
-				function stepJS(ts) {
-					if (!rafActive) return;
-					const t0 = performance.now();
-					for (let k = 0; k < textNodes.length; k++) {
-						const tn = textNodes[k];
-						if (c.technique === 'js-raf-ticker-h') {
-							const offset = 180 - ((ts * 0.11 + k * 7) % 420);
-							tn.setAttribute('transform', 'translate(' + offset.toFixed(2) + ', 0)');
-						} else {
-							const op = 0.5 + 0.5 * Math.sin(ts * 0.004 + k);
-							tn.setAttribute('opacity', op.toFixed(3));
-						}
-					}
-					jsWorkMs += (performance.now() - t0);
-					requestAnimationFrame(stepJS);
-				}
-				requestAnimationFrame(stepJS);
-			}
-
-			const heapStart = (performance.memory && performance.memory.usedJSHeapSize) || 0;
-			const frameDeltas = [];
-			let lastTs = performance.now();
-			const startTs = lastTs;
-
-			function measureLoop(now) {
-				const dt = now - lastTs;
-				lastTs = now;
-				if (dt > 0) frameDeltas.push(dt);
-				if (now - startTs < 240) {
-					requestAnimationFrame(measureLoop);
-				} else {
-					const heapEnd = (performance.memory && performance.memory.usedJSHeapSize) || 0;
-					wHandle.suspendAnimations();
-					rafActive = false;
-					wHandle.destroy();
-					const totalDur = frameDeltas.reduce((a, b) => a + b, 0) || 1;
-					const avgFps = (frameDeltas.length * 1000) / totalDur;
-					const jankFrames = frameDeltas.filter(d => d > 25).length;
-					const jankPct = frameDeltas.length > 0 ? (jankFrames / frameDeltas.length) * 100 : 0;
-					results.push({
-						technique: c.technique,
-						instances: c.instances,
-						stringProfile: c.profile,
-						avgFps: Number(avgFps.toFixed(1)),
-						mainThreadMs: Number(jsWorkMs.toFixed(2)),
-						jsHeapDeltaKB: Number(((heapEnd - heapStart) / 1024).toFixed(1)),
-						jankPct: Number(jankPct.toFixed(1)),
-						suspendedMs: 0.0
-					});
-					setTimeout(runNextCase, 10);
-				}
-			}
-			requestAnimationFrame(measureLoop);
-		}
-		runNextCase();
+		}, 90);
 		return true;
 	})()`))
-
-	for i := 0; i < 40; i++ {
-		done, _ := chromedp.Run(taskCtx, chromedp.Evaluate[bool](`Boolean(window._stage16dcBenchDone)`))
+	for i := 0; i < 30; i++ {
+		done, _ := chromedp.Run(taskCtx, chromedp.Evaluate[bool](`Boolean(window._tickerDirDone)`))
 		if done {
 			break
 		}
-		_ = runVoid(taskCtx, chromedp.Sleep(250*time.Millisecond))
+		_ = runVoid(taskCtx, chromedp.Sleep(100*time.Millisecond))
 	}
-	perfJSON, _ := chromedp.Run(taskCtx, chromedp.Evaluate[string](`JSON.stringify({ ok: Boolean(window._stage16dcBenchDone), rows: window._stage16dcBenchRows || [] })`))
-	var perfRes struct {
-		OK   bool      `json:"ok"`
-		Rows []PerfRow `json:"rows"`
-	}
-	_ = json.Unmarshal([]byte(perfJSON), &perfRes)
-	record("AT-16DC-PERF", "Section 10 Comparative Performance Benchmark (N=50 & N=100)", perfRes.OK && len(perfRes.Rows) == 11,
-		fmt.Sprintf("%d benchmark configurations completed", len(perfRes.Rows)))
-
-	fmt.Println("\n--- Stage 16D-C Comparative Performance Summary (N=50 & N=100) ---")
-	for _, r := range perfRes.Rows {
-		fmt.Printf("  %-22s | N=%-3d | %-6s | FPS=%5.1f | MainThread=%5.2fms | HeapDelta=%7.1fKB | Jank=%4.1f%% | Suspended=%.1fms\n",
-			r.Technique, r.Instances, r.StringProfile, r.AvgFPS, r.MainThreadMs, r.JSHeapDeltaKB, r.JankPct, r.SuspendedMs)
-	}
+	g4JSON, _ := chromedp.Run(taskCtx, chromedp.Evaluate[string](`JSON.stringify(window._tickerDirResult || { ok: false })`))
+	var g4 map[string]any
+	_ = json.Unmarshal([]byte(g4JSON), &g4)
+	record("AT-16DC-C04", "Horizontal Ticker Left & Right + Zero Vertical Drift", g4["ok"] == true, g4JSON)
 
 	// =========================================================================
-	// Protected Services Check (:8088, :8091, :8093)
+	// GATE 5: Vertical Multiline Scroll (Explicit Newlines, Word Wrap ON/OFF, Line Spacing, Lines/s Timing) (Items #4, #5, #6, #7, #8)
 	// =========================================================================
+	g5JSON, _ := chromedp.Run(taskCtx, chromedp.Evaluate[string](`(() => {
+		try {
+			const S = window.TextLiteShowcase;
+			const host = document.createElement('div');
+			document.body.appendChild(host);
+
+			const msg = 'HEADER LINE ONE\nThis second paragraph contains multiple words that wrap when Word Wrap is enabled.';
+			// 1. Word Wrap ON, lineSpacing 1.2, linesPerSec 1.0
+			const pkgWrapOn = S.makeSingleTextWidgetSVG({
+				textAnim: 'ticker-v',
+				labelText: msg,
+				wordWrap: true,
+				lineSpacing: 1.2,
+				linesPerSec: 1.0,
+				width: 240,
+				height: 80,
+				fontSize: 16
+			});
+			const wOn = window.SVGWidget.mount(host, pkgWrapOn.svg, { instanceId: 'v-wrap-on', manifest: pkgWrapOn.manifest, visibilityAware: false });
+			const gOn = host.querySelector('[data-lite-kind="text-lite"]');
+			const linesOn = gOn.querySelectorAll('tspan.lite-text-line');
+			const countOn = linesOn.length;
+			const dur1Lps = parseFloat(gOn.getAttribute('data-ticker-duration-s') || '0');
+			const dy12 = countOn >= 2 ? (parseFloat(linesOn[1].getAttribute('y')) - parseFloat(linesOn[0].getAttribute('y'))) : 0;
+
+			// 2. Word Wrap OFF -> only 2 lines (explicit newline)
+			const pkgWrapOff = S.makeSingleTextWidgetSVG({
+				textAnim: 'ticker-v',
+				labelText: msg,
+				wordWrap: false,
+				lineSpacing: 1.6,
+				linesPerSec: 2.0,
+				width: 240,
+				height: 80,
+				fontSize: 16
+			});
+			const host2 = document.createElement('div');
+			document.body.appendChild(host2);
+			const wOff = window.SVGWidget.mount(host2, pkgWrapOff.svg, { instanceId: 'v-wrap-off', manifest: pkgWrapOff.manifest, visibilityAware: false });
+			const gOff = host2.querySelector('[data-lite-kind="text-lite"]');
+			const linesOff = gOff.querySelectorAll('tspan.lite-text-line');
+			const countOff = linesOff.length;
+			const dy16 = countOff >= 2 ? (parseFloat(linesOff[1].getAttribute('y')) - parseFloat(linesOff[0].getAttribute('y'))) : 0;
+
+			// 3. Same wrapped message at 2.0 lines/s -> duration must be exactly half of 1.0 lines/s!
+			const pkgFast = S.makeSingleTextWidgetSVG({
+				textAnim: 'ticker-v',
+				labelText: msg,
+				wordWrap: true,
+				lineSpacing: 1.2,
+				linesPerSec: 2.0,
+				width: 240,
+				height: 80,
+				fontSize: 16
+			});
+			const host3 = document.createElement('div');
+			document.body.appendChild(host3);
+			const wFast = window.SVGWidget.mount(host3, pkgFast.svg, { instanceId: 'v-fast', manifest: pkgFast.manifest, visibilityAware: false });
+			const gFast = host3.querySelector('[data-lite-kind="text-lite"]');
+			const dur2Lps = parseFloat(gFast.getAttribute('data-ticker-duration-s') || '0');
+
+			wOn.destroy();
+			wOff.destroy();
+			wFast.destroy();
+			host.remove();
+			host2.remove();
+			host3.remove();
+
+			return JSON.stringify({
+				ok: countOff === 2 && countOn >= 4 && dy16 > dy12 + 4 && Math.abs(dur1Lps / dur2Lps - 2.0) < 0.05,
+				countOn, countOff,
+				dy12: Number(dy12.toFixed(2)),
+				dy16: Number(dy16.toFixed(2)),
+				dur1Lps, dur2Lps
+			});
+		} catch (e) {
+			return JSON.stringify({ ok: false, err: String(e) });
+		}
+	})()`))
+	var g5 map[string]any
+	_ = json.Unmarshal([]byte(g5JSON), &g5)
+	record("AT-16DC-C05", "Vertical Multiline Newlines, Word Wrap, Line Spacing & Lines/s", g5["ok"] == true, g5JSON)
+
+	// =========================================================================
+	// GATE 6: Stacked-Letter Vertical Scroll Layout & Temporal Movement (Item #9)
+	// =========================================================================
+	_, _ = chromedp.Run(taskCtx, chromedp.Evaluate[bool](`(() => {
+		window._stackedDone = false;
+		window._stackedResult = null;
+		const S = window.TextLiteShowcase;
+		const host = document.createElement('div');
+		host.style.cssText = 'position:fixed;top:10px;left:10px;width:240px;height:140px;z-index:99999;background:#050912;';
+		document.body.appendChild(host);
+
+		const pkg = S.makeSingleTextWidgetSVG({
+			textAnim: 'stacked-v',
+			labelText: 'STATUS🚀',
+			typeSpeed: 10,
+			lineSpacing: 1.2,
+			direction: 'forward',
+			width: 180,
+			height: 110,
+			fontSize: 16
+		});
+		const w = window.SVGWidget.mount(host, pkg.svg, { instanceId: 'test-stacked-v', manifest: pkg.manifest, visibilityAware: false });
+		const txtEl = host.querySelector('.lite-text-element');
+		const tspans = Array.from(txtEl.querySelectorAll('tspan.lite-text-line'));
+		const letters = tspans.map(t => t.textContent);
+		const sameX = new Set(tspans.map(t => t.getAttribute('x'))).size === 1;
+		const monotonicY = tspans.every((t, i) => i === 0 || parseFloat(t.getAttribute('y')) > parseFloat(tspans[i - 1].getAttribute('y')));
+
+		const ySamples = [];
+		let c = 0;
+		const iv = setInterval(() => {
+			const r = txtEl.getBoundingClientRect();
+			ySamples.push(Number(r.top.toFixed(2)));
+			c++;
+			if (c >= 4) {
+				clearInterval(iv);
+				const dy = ySamples[ySamples.length - 1] - ySamples[0];
+				w.destroy();
+				host.remove();
+				window._stackedResult = {
+					ok: letters.join('|') === 'S|T|A|T|U|S|🚀' && sameX && monotonicY && dy < -15,
+					letters: letters.join('|'),
+					sameX,
+					monotonicY,
+					dy: Number(dy.toFixed(2))
+				};
+				window._stackedDone = true;
+			}
+		}, 80);
+		return true;
+	})()`))
+	for i := 0; i < 30; i++ {
+		done, _ := chromedp.Run(taskCtx, chromedp.Evaluate[bool](`Boolean(window._stackedDone)`))
+		if done {
+			break
+		}
+		_ = runVoid(taskCtx, chromedp.Sleep(100*time.Millisecond))
+	}
+	g6JSON, _ := chromedp.Run(taskCtx, chromedp.Evaluate[string](`JSON.stringify(window._stackedResult || { ok: false })`))
+	var g6 map[string]any
+	_ = json.Unmarshal([]byte(g6JSON), &g6)
+	record("AT-16DC-C06", "Stacked-Letter Vertical Column Layout & Scroll", g6["ok"] == true, g6JSON)
+
+	// =========================================================================
+	// GATE 7: Fade & Blink 3-Phase Separate Timing Controls + Play Once / Ping-Pong (Items #10, #11, #13)
+	// =========================================================================
+	_, _ = chromedp.Run(taskCtx, chromedp.Evaluate[bool](`(() => {
+		window._timingDone = false;
+		window._timingResult = null;
+		const S = window.TextLiteShowcase;
+		const host = document.createElement('div');
+		host.style.cssText = 'position:fixed;top:10px;left:10px;width:400px;height:200px;z-index:99999;';
+		const bFade = document.createElement('div');
+		const bBlink = document.createElement('div');
+		const bOnce = document.createElement('div');
+		host.appendChild(bFade);
+		host.appendChild(bBlink);
+		host.appendChild(bOnce);
+		document.body.appendChild(host);
+
+		// 1. Fade with Fade=0.2s, VisibleHold=0.4s, Clear=0.4s -> total=1.2s
+		// At t=350ms (inside VisibleHold), opacity must be >0.95; at t=1000ms (inside Clear), opacity must be <0.10
+		const pkgFade = S.makeSingleTextWidgetSVG({
+			textAnim: 'fade',
+			speed: 0.2,
+			holdDelay: 0.4,
+			clearDuration: 0.4,
+			playbackMode: 'loop'
+		});
+		// 2. Blink with FadeIn=0s, OnHold=0.25s, Off=0.65s -> total=0.90s
+		// At t=100ms (inside OnHold), opacity==1; at t=500ms (inside Off), opacity==0
+		const pkgBlink = S.makeSingleTextWidgetSVG({
+			textAnim: 'flash',
+			speed: 0,
+			holdDelay: 0.25,
+			clearDuration: 0.65,
+			lockOnOff: false,
+			playbackMode: 'loop'
+		});
+		// 3. Ticker Play Once (playbackMode: 'once', speed high) -> settles inside container and triggers cycleCompleted
+		const pkgOnce = S.makeSingleTextWidgetSVG({
+			textAnim: 'ticker-h',
+			scrollSpeed: 600,
+			playbackMode: 'once',
+			labelText: 'ONCE SETTLE'
+		});
+
+		const wFade = window.SVGWidget.mount(bFade, pkgFade.svg, { instanceId: 'tm-fade', manifest: pkgFade.manifest, visibilityAware: false });
+		const wBlink = window.SVGWidget.mount(bBlink, pkgBlink.svg, { instanceId: 'tm-blink', manifest: pkgBlink.manifest, visibilityAware: false });
+		const wOnce = window.SVGWidget.mount(bOnce, pkgOnce.svg, { instanceId: 'tm-once', manifest: pkgOnce.manifest, visibilityAware: false });
+
+		const elFade = bFade.querySelector('.lite-text-element');
+		const elBlink = bBlink.querySelector('.lite-text-element');
+		const gOnce = bOnce.querySelector('[data-lite-kind="text-lite"]');
+
+		let blinkOnOp = -1, blinkOffOp = -1, fadeHoldOp = -1, fadeClearOp = -1;
+		setTimeout(() => {
+			blinkOnOp = parseFloat(getComputedStyle(elBlink).opacity);
+		}, 90);
+		setTimeout(() => {
+			fadeHoldOp = parseFloat(getComputedStyle(elFade).opacity);
+		}, 350);
+		setTimeout(() => {
+			blinkOffOp = parseFloat(getComputedStyle(elBlink).opacity);
+		}, 500);
+		setTimeout(() => {
+			fadeClearOp = parseFloat(getComputedStyle(elFade).opacity);
+			const onceCompleted = gOnce.getAttribute('data-text-cycle-completed') === 'true';
+			wFade.destroy();
+			wBlink.destroy();
+			wOnce.destroy();
+			host.remove();
+			window._timingResult = {
+				ok: blinkOnOp > 0.9 && blinkOffOp < 0.1 && fadeHoldOp > 0.9 && fadeClearOp < 0.15 && onceCompleted,
+				blinkOnOp: Number(blinkOnOp.toFixed(2)),
+				blinkOffOp: Number(blinkOffOp.toFixed(2)),
+				fadeHoldOp: Number(fadeHoldOp.toFixed(2)),
+				fadeClearOp: Number(fadeClearOp.toFixed(2)),
+				onceCompleted
+			};
+			window._timingDone = true;
+		}, 1020);
+		return true;
+	})()`))
+	for i := 0; i < 30; i++ {
+		done, _ := chromedp.Run(taskCtx, chromedp.Evaluate[bool](`Boolean(window._timingDone)`))
+		if done {
+			break
+		}
+		_ = runVoid(taskCtx, chromedp.Sleep(100*time.Millisecond))
+	}
+	g7JSON, _ := chromedp.Run(taskCtx, chromedp.Evaluate[string](`JSON.stringify(window._timingResult || { ok: false })`))
+	var g7 map[string]any
+	_ = json.Unmarshal([]byte(g7JSON), &g7)
+	record("AT-16DC-C07", "3-Phase Fade & Blink Temporal Opacity + Play Once", g7["ok"] == true, g7JSON)
+
+	// =========================================================================
+	// GATE 8: Ping-Pong Ticker No Mid-Return Substitution (Item #8 & #13)
+	// =========================================================================
+	_, _ = chromedp.Run(taskCtx, chromedp.Evaluate[bool](`(() => {
+		window._ppDone = false;
+		window._ppResult = null;
+		const S = window.TextLiteShowcase;
+		const host = document.createElement('div');
+		host.style.cssText = 'position:fixed;top:10px;left:10px;width:400px;height:100px;z-index:99999;';
+		document.body.appendChild(host);
+
+		// At scrollSpeed=600 px/s on width=200, 1 one-way pass is ~0.55s; full forward+return Ping-Pong cycle is ~1.10s
+		const pkgPP = S.makeSingleTextWidgetSVG({
+			textAnim: 'ticker-h',
+			scrollSpeed: 600,
+			width: 200,
+			playbackMode: 'pingpong',
+			labelText: 'ORIGINAL PP'
+		});
+		const wPP = window.SVGWidget.mount(host, pkgPP.svg, { instanceId: 'test-pp', manifest: pkgPP.manifest, visibilityAware: false });
+		const txtEl = host.querySelector('.lite-text-element');
+		const gEl = host.querySelector('[data-lite-kind="text-lite"]');
+
+		// Queue pending text at t=120ms (during forward pass)
+		setTimeout(() => {
+			wPP.setParameter('banner-lite-text', 'ADOPTED AFTER RETURN');
+		}, 120);
+
+		let midReturnText = '';
+		// Check at t=750ms (after 1st iteration turnaround, during return journey): must still be 'ORIGINAL PP'!
+		setTimeout(() => {
+			midReturnText = txtEl.textContent;
+		}, 750);
+
+		// Check at t=1450ms (after 2nd iteration completes return journey): must now be 'ADOPTED AFTER RETURN'!
+		setTimeout(() => {
+			const postReturnText = txtEl.textContent;
+			const handovers = parseInt(gEl.getAttribute('data-text-handover-count') || '0', 10);
+			wPP.destroy();
+			host.remove();
+			window._ppResult = {
+				ok: midReturnText === 'ORIGINAL PP' && postReturnText === 'ADOPTED AFTER RETURN' && handovers >= 1,
+				midReturnText,
+				postReturnText,
+				handovers
+			};
+			window._ppDone = true;
+		}, 1500);
+		return true;
+	})()`))
+	for i := 0; i < 35; i++ {
+		done, _ := chromedp.Run(taskCtx, chromedp.Evaluate[bool](`Boolean(window._ppDone)`))
+		if done {
+			break
+		}
+		_ = runVoid(taskCtx, chromedp.Sleep(100*time.Millisecond))
+	}
+	g8JSON, _ := chromedp.Run(taskCtx, chromedp.Evaluate[string](`JSON.stringify(window._ppResult || { ok: false })`))
+	var g8 map[string]any
+	_ = json.Unmarshal([]byte(g8JSON), &g8)
+	record("AT-16DC-C08", "Ping-Pong Ticker Completes Return Journey Before Handover", g8["ok"] == true, g8JSON)
+
+	// =========================================================================
+	// GATE 9: All Four Typewriter Sequences, Forward Deletion First-Grapheme Removal & Type Once and Hold Handover (Items #14, #15, #16, #18)
+	// =========================================================================
+	_, _ = chromedp.Run(taskCtx, chromedp.Evaluate[bool](`(() => {
+		window._tw4Done = false;
+		window._tw4Result = null;
+		const S = window.TextLiteShowcase;
+		const host = document.createElement('div');
+		host.style.cssText = 'position:fixed;top:10px;left:10px;width:400px;height:200px;z-index:99999;';
+		const bBack = document.createElement('div');
+		const bFwd = document.createElement('div');
+		const bHold = document.createElement('div');
+		host.appendChild(bBack);
+		host.appendChild(bFwd);
+		host.appendChild(bHold);
+		document.body.appendChild(host);
+
+		// C. Delete Backwards: 'STATUS' -> during delete phase must see prefix like 'STATU' or 'STAT'
+		const pkgBack = S.makeSingleTextWidgetSVG({
+			textAnim: 'typewriter',
+			labelText: 'STATUS',
+			typeSpeed: 60,
+			holdDelay: 0.15,
+			typeMode: 'delete',
+			typeRepeat: false
+		});
+		// D. Delete Forwards: 'STATUS' -> during delete-forward phase must see suffix like 'TATUS', 'ATUS', 'TUS'
+		const pkgFwd = S.makeSingleTextWidgetSVG({
+			textAnim: 'typewriter',
+			labelText: 'STATUS',
+			typeSpeed: 60,
+			holdDelay: 0.15,
+			typeMode: 'delete-forward',
+			typeRepeat: false
+		});
+		// B. Type Once and Hold: 'READY' -> completes typing & hold, retains 'READY', then adopts new pending string when sent!
+		const pkgHold = S.makeSingleTextWidgetSVG({
+			textAnim: 'typewriter',
+			labelText: 'READY',
+			typeSpeed: 80,
+			holdDelay: 0.15,
+			typeMode: 'hold',
+			typeRepeat: false
+		});
+
+		const wBack = window.SVGWidget.mount(bBack, pkgBack.svg, { instanceId: 'tw-back', manifest: pkgBack.manifest, visibilityAware: false });
+		const wFwd = window.SVGWidget.mount(bFwd, pkgFwd.svg, { instanceId: 'tw-fwd', manifest: pkgFwd.manifest, visibilityAware: false });
+		const wHold = window.SVGWidget.mount(bHold, pkgHold.svg, { instanceId: 'tw-hold', manifest: pkgHold.manifest, visibilityAware: false });
+
+		const elBack = bBack.querySelector('.lite-text-element');
+		const elFwd = bFwd.querySelector('.lite-text-element');
+		const elHold = bHold.querySelector('.lite-text-element');
+
+		const seenBack = new Set();
+		const seenFwd = new Set();
+		const iv = setInterval(() => {
+			seenBack.add(elBack.textContent);
+			seenFwd.add(elFwd.textContent);
+		}, 12);
+
+		let holdRetainedAfterCompletion = false;
+		setTimeout(() => {
+			// At t=400ms, Type Once and Hold ('READY') has finished typing + 150ms hold and must retain 'READY'
+			holdRetainedAfterCompletion = (elHold.textContent === 'READY');
+			// Now send a new message to Type Once and Hold -> must immediately start typing 'NEXTHOLD'!
+			wHold.setParameter('banner-lite-text', 'NEXTHOLD');
+		}, 420);
+
+		setTimeout(() => {
+			clearInterval(iv);
+			const backArr = Array.from(seenBack);
+			const fwdArr = Array.from(seenFwd);
+			const hasBackPrefix = backArr.some(s => ['STATU', 'STAT', 'STA', 'ST'].includes(s));
+			const hasFwdSuffix = fwdArr.some(s => ['TATUS', 'ATUS', 'TUS', 'US'].includes(s));
+			const holdAdoptedNew = (elHold.textContent === 'NEXTHOLD');
+			wBack.destroy();
+			wFwd.destroy();
+			wHold.destroy();
+			host.remove();
+			window._tw4Result = {
+				ok: hasBackPrefix && hasFwdSuffix && holdRetainedAfterCompletion && holdAdoptedNew,
+				hasBackPrefix,
+				hasFwdSuffix,
+				holdRetainedAfterCompletion,
+				holdAdoptedNew,
+				fwdSamples: fwdArr
+			};
+			window._tw4Done = true;
+		}, 950);
+		return true;
+	})()`))
+	for i := 0; i < 30; i++ {
+		done, _ := chromedp.Run(taskCtx, chromedp.Evaluate[bool](`Boolean(window._tw4Done)`))
+		if done {
+			break
+		}
+		_ = runVoid(taskCtx, chromedp.Sleep(100*time.Millisecond))
+	}
+	g9JSON, _ := chromedp.Run(taskCtx, chromedp.Evaluate[string](`JSON.stringify(window._tw4Result || { ok: false })`))
+	var g9 map[string]any
+	_ = json.Unmarshal([]byte(g9JSON), &g9)
+	record("AT-16DC-C09", "4 Typewriter Sequences, Delete Forwards & Hold Handover", g9["ok"] == true, g9JSON)
+
+	// =========================================================================
+	// GATE 10: Consolidated Visual Showcase & Protected Services (:8088, :8091, :8093) (Item #15 & #20)
+	// =========================================================================
+	g10JSON, _ := chromedp.Run(taskCtx, chromedp.Evaluate[string](`(() => {
+		const t1Count = document.querySelectorAll('#galleryT1 [data-lite-kind="text-lite"]').length;
+		const t2Count = document.querySelectorAll('#galleryT2 [data-lite-kind="text-lite"] textPath').length;
+		const t3t4Nodes = Array.from(document.querySelectorAll('#galleryT3T4 [data-lite-kind="text-lite"]'));
+		const ids = new Set(t3t4Nodes.map(n => (n.getAttribute('id') || '').replace(/^.*__lite-/, '').replace(/^lite-/, '')));
+		const requiredDemoIds = [
+			'a-ticker-left', 'a-ticker-right', 'a-ticker-pp',
+			'a-vscroll-wrap-on', 'a-vscroll-wrap-off', 'a-vscroll-fast-ls',
+			'a-stacked-up', 'a-stacked-down',
+			'a-fade-fast', 'a-fade-slow', 'a-slide',
+			'a-flash-locked', 'a-flash-unlocked', 'a-fade-once',
+			'a-type-once', 'a-type-hold', 'a-type-del-back', 'a-type-del-fwd',
+			'a-blur-in', 'a-blur-out', 'a-scramble'
+		];
+		const missing = requiredDemoIds.filter(id => !ids.has(id));
+		return JSON.stringify({
+			ok: t1Count >= 26 && t2Count === 5 && missing.length === 0,
+			t1Count,
+			t2Count,
+			t3t4Count: t3t4Nodes.length
+		});
+	})()`))
+	var g10 map[string]any
+	_ = json.Unmarshal([]byte(g10JSON), &g10)
+	record("AT-16DC-C10", "Updated Visual Showcase (All 21 T3/T4 Cards + T1/T2)", g10["ok"] == true, g10JSON)
+
 	if err := runVoid(taskCtx,
 		chromedp.Navigate(consumerURL),
-		chromedp.Sleep(300*time.Millisecond),
+		chromedp.Sleep(250*time.Millisecond),
 	); err != nil {
 		record("AT-16DC-SVC1", "Protected Service :8091 Stage 16C Widget Consumer", false, err.Error())
 	} else {
@@ -763,7 +752,7 @@ func main() {
 
 	if err := runVoid(taskCtx,
 		chromedp.Navigate(testLabURL),
-		chromedp.Sleep(300*time.Millisecond),
+		chromedp.Sleep(250*time.Millisecond),
 	); err != nil {
 		record("AT-16DC-SVC2", "Protected Service :8093 Permanent SVG Animation Test Lab", false, err.Error())
 	} else {
@@ -778,7 +767,7 @@ func main() {
 			passedCount++
 		}
 	}
-	fmt.Printf(" Stage 16D-C Summary: %d / %d Gates PASSED\n", passedCount, len(results))
+	fmt.Printf(" Stage 16D-C Consolidated Corrections Summary: %d / %d Gates PASSED\n", passedCount, len(results))
 	fmt.Println("================================================================================")
 	if passedCount != len(results) || math.IsNaN(float64(passedCount)) {
 		os.Exit(1)

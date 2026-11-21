@@ -3,7 +3,7 @@
 <head>
   <meta charset="UTF-8" />
   <meta name="viewport" content="width=device-width, initial-scale=1.0" />
-  <title>SVG Animator Studio — Stage 16D-C Text &amp; Typography Showcase (T1–T4)</title>
+  <title>SVG Animator Studio — Stage 16D-C Text &amp; Typography Showcase (Consolidated Corrections)</title>
   <style>
     :root {
       --bg: #070b14;
@@ -166,14 +166,15 @@
 <body>
   <header>
     <div>
-      <h1>Stage 16D-C — Text &amp; Typography Comprehensive Visual Acceptance Showcase (T1–T4)</h1>
+      <h1>Stage 16D-C — Text &amp; Typography Visual Showcase (Consolidated Corrections)</h1>
       <p>Generated live by authoritative <code>LiteEffects.renderLiteElement()</code> &amp; mounted via <code>SVGWidget.mount()</code>.</p>
     </div>
     <div class="badge-row">
-      <span class="badge">T1: 4 Straight Containers + 10 Fonts + 9-Way Align + Rotation</span>
-      <span class="badge">T2: True Curved &lt;textPath&gt; Arcs</span>
-      <span class="badge">T3: Distance-Per-Second Ticker + Grapheme Typewriter + Pending Handover</span>
-      <span class="badge">T4: Fade / Flash / Slide / Blur / Scramble / Overtype</span>
+      <span class="badge">Horizontal Ticker Left &amp; Right (Zero Y Drift)</span>
+      <span class="badge">Multiline Vertical Scroll (Newlines + Word Wrap + Lines/s)</span>
+      <span class="badge">Stacked-Letter Vertical Scroll (Chars/s)</span>
+      <span class="badge">3-Phase Fade &amp; Blink (Lock On/Off)</span>
+      <span class="badge">Once / Loop / Ping-Pong + 4 Typewriter Sequences</span>
     </div>
   </header>
 
@@ -191,10 +192,10 @@
     <div class="stage-wrap" id="galleryT2"></div>
   </section>
 
-  <!-- SECTION 3: T3 & T4 TEXT ANIMATION GALLERY -->
+  <!-- SECTION 3: T3 & T4 TEXT ANIMATION GALLERY (CONSOLIDATED CORRECTIONS) -->
   <section id="sec-t3-t4">
-    <h2>3. T3 &amp; T4 — Text Animation Gallery (All 10 Animated Modes + Distance-Per-Second Tickers)</h2>
-    <p class="sub">Horizontal Ticker (short &amp; long messages scrolling completely out at uniform px/s), Vertical Ticker, Typewriter (<code>once</code>, <code>hold</code>, <code>delete</code>, <code>loop</code> with Unicode emoji), <code>fade</code>, <code>flash</code>, <code>slide</code>, <code>blur-in</code>, <code>blur-out</code>, <code>scramble</code>, and <code>overtype</code>.</p>
+    <h2>3. T3 &amp; T4 — Consolidated Animation Gallery: Ticker Left/Right, Multiline Wrap, Stacked Letters, 3-Phase Fade/Blink, Playback Modes &amp; 4 Typewriter Sequences</h2>
+    <p class="sub">Row 1: Ticker Left (Right→Left), Ticker Right (Left→Right), Ticker Ping-Pong. Row 2: Multiline Vertical Scroll (Word Wrap ON, Word Wrap OFF with explicit newlines, Fast 2.5 lines/s &amp; 1.5× line spacing). Row 3: Stacked-Letter Vertical Columns (<code>STATUS</code> &amp; <code>ALERT🚀</code>) + Fade (fast vs slow 3-phase timing). Row 4: Blink Locked On/Off (0.6s=0.6s) vs Unlocked Asymmetric (0.2s ON / 1.2s OFF) + Slide Ping-Pong. Row 5: All 4 Typewriter Sequences (Type Once, Type Once &amp; Hold, Delete Backwards, Delete Forwards). Row 6: Blur to Clear, Clear to Blur, Scramble to Clear.</p>
     <div class="stage-wrap" id="galleryT3T4"></div>
   </section>
 
@@ -231,7 +232,7 @@
 
       <!-- Card C: Typewriter Loop Pending Handover & Grapheme Emoji -->
       <div class="runtime-card">
-        <h3><span>C. Typewriter Loop (Grapheme &amp; Cycle Handover)</span><span class="badge">anim: typewriter</span></h3>
+        <h3><span>C. Typewriter Sequence (Grapheme &amp; Cycle Handover)</span><span class="badge">anim: typewriter</span></h3>
         <div class="widget-host" id="hostTypewriter"></div>
         <div class="ctrl-bar">
           <input type="text" id="inputTypewriter" value="Launch Sequence 🚀 Nominal ✓" />
@@ -276,16 +277,14 @@
       }
 
       // -----------------------------------------------------------------------
-      // 1. Build T1 Gallery (1280 x 540)
+      // 1. Build T1 Gallery (1280 x 500)
       // -----------------------------------------------------------------------
       const t1Items = [
-        // Row 1: 4 container styles
         { id: 't1-none', kind: 'text-lite', variant: 'none', labelText: '1. Floating Text (none)', fontFamily: 'modern-sans', fontSize: 18, fontWeight: '600', color: '#38bdf8', x: 165, y: 45, width: 280, height: 52, textAlign: 'center', verticalAlign: 'middle', padding: 10 },
         { id: 't1-rect', kind: 'text-lite', variant: 'rect', labelText: '2. Sharp Rectangle (rect)', fontFamily: 'modern-sans', fontSize: 17, fontWeight: '600', color: '#f8fafc', bgColor: '#0f172a', bgOpacity: 0.95, borderColor: '#38bdf8', strokeWidth: 2, x: 475, y: 45, width: 280, height: 52, textAlign: 'center', verticalAlign: 'middle', padding: 10 },
         { id: 't1-round', kind: 'text-lite', variant: 'rounded', labelText: '3. Rounded Box (r=12)', fontFamily: 'modern-sans', fontSize: 17, fontWeight: '600', color: '#f8fafc', bgColor: '#1e1b4b', bgOpacity: 0.9, borderColor: '#818cf8', strokeWidth: 2, cornerRadius: 12, x: 785, y: 45, width: 280, height: 52, textAlign: 'center', verticalAlign: 'middle', padding: 10 },
         { id: 't1-pill', kind: 'text-lite', variant: 'pill', labelText: '4. Capsule Pill Badge', fontFamily: 'geometric-sans', fontSize: 17, fontWeight: '700', color: '#052e16', bgColor: '#22c55e', bgOpacity: 1.0, borderColor: '#86efac', strokeWidth: 2, x: 1095, y: 45, width: 280, height: 52, textAlign: 'center', verticalAlign: 'middle', padding: 12 },
 
-        // Rows 2 & 3: All 10 Curated Fonts
         { id: 'f-1', kind: 'text-lite', variant: 'rounded', labelText: 'Modern Sans (Inter / UI)', fontFamily: 'modern-sans', fontSize: 16, fontWeight: '600', color: '#e2e8f0', bgColor: '#0f172a', bgOpacity: 0.85, borderColor: '#334155', strokeWidth: 1.5, cornerRadius: 8, x: 140, y: 125, width: 235, height: 48, textAlign: 'center', verticalAlign: 'middle', padding: 8 },
         { id: 'f-2', kind: 'text-lite', variant: 'rounded', labelText: 'Humanist Sans (Gill/Trebuchet)', fontFamily: 'humanist-sans', fontSize: 16, fontWeight: '600', color: '#e2e8f0', bgColor: '#0f172a', bgOpacity: 0.85, borderColor: '#334155', strokeWidth: 1.5, cornerRadius: 8, x: 390, y: 125, width: 235, height: 48, textAlign: 'center', verticalAlign: 'middle', padding: 8 },
         { id: 'f-3', kind: 'text-lite', variant: 'rounded', labelText: 'Geometric Sans (Montserrat)', fontFamily: 'geometric-sans', fontSize: 16, fontWeight: '600', color: '#e2e8f0', bgColor: '#0f172a', bgOpacity: 0.85, borderColor: '#334155', strokeWidth: 1.5, cornerRadius: 8, x: 640, y: 125, width: 235, height: 48, textAlign: 'center', verticalAlign: 'middle', padding: 8 },
@@ -298,7 +297,6 @@
         { id: 'f-9', kind: 'text-lite', variant: 'rounded', labelText: 'Informal Handwritten', fontFamily: 'informal-hand', fontSize: 18, fontWeight: '600', color: '#f472b6', bgColor: '#0f172a', bgOpacity: 0.85, borderColor: '#334155', strokeWidth: 1.5, cornerRadius: 8, x: 890, y: 190, width: 235, height: 48, textAlign: 'center', verticalAlign: 'middle', padding: 8 },
         { id: 'f-10', kind: 'text-lite', variant: 'rounded', labelText: 'Classic Calligraphy Script', fontFamily: 'classic-script', fontSize: 21, fontWeight: '600', color: '#c084fc', bgColor: '#0f172a', bgOpacity: 0.85, borderColor: '#a855f7', strokeWidth: 1.5, cornerRadius: 8, x: 1140, y: 190, width: 235, height: 48, textAlign: 'center', verticalAlign: 'middle', padding: 8 },
 
-        // Row 4: 9-Way Alignment Matrix (Left/Center/Right x Top/Middle/Bottom)
         { id: 'al-lt', kind: 'text-lite', variant: 'rect', labelText: 'Left + Top', fontFamily: 'modern-sans', fontSize: 14, fontWeight: '600', color: '#38bdf8', bgColor: '#0b1322', bgOpacity: 0.9, borderColor: '#1e293b', strokeWidth: 1.5, x: 130, y: 280, width: 200, height: 64, textAlign: 'left', verticalAlign: 'top', padding: 8 },
         { id: 'al-ct', kind: 'text-lite', variant: 'rect', labelText: 'Center + Top', fontFamily: 'modern-sans', fontSize: 14, fontWeight: '600', color: '#38bdf8', bgColor: '#0b1322', bgOpacity: 0.9, borderColor: '#1e293b', strokeWidth: 1.5, x: 345, y: 280, width: 200, height: 64, textAlign: 'center', verticalAlign: 'top', padding: 8 },
         { id: 'al-rt', kind: 'text-lite', variant: 'rect', labelText: 'Right + Top', fontFamily: 'modern-sans', fontSize: 14, fontWeight: '600', color: '#38bdf8', bgColor: '#0b1322', bgOpacity: 0.9, borderColor: '#1e293b', strokeWidth: 1.5, x: 560, y: 280, width: 200, height: 64, textAlign: 'right', verticalAlign: 'top', padding: 8 },
@@ -311,7 +309,6 @@
         { id: 'al-cb', kind: 'text-lite', variant: 'rect', labelText: 'Center + Bottom', fontFamily: 'modern-sans', fontSize: 14, fontWeight: '600', color: '#f59e0b', bgColor: '#0b1322', bgOpacity: 0.9, borderColor: '#1e293b', strokeWidth: 1.5, x: 345, y: 440, width: 200, height: 64, textAlign: 'center', verticalAlign: 'bottom', padding: 8 },
         { id: 'al-rb', kind: 'text-lite', variant: 'rect', labelText: 'Right + Bottom', fontFamily: 'modern-sans', fontSize: 14, fontWeight: '600', color: '#f59e0b', bgColor: '#0b1322', bgOpacity: 0.9, borderColor: '#1e293b', strokeWidth: 1.5, x: 560, y: 440, width: 200, height: 64, textAlign: 'right', verticalAlign: 'bottom', padding: 8 },
 
-        // Right side of rows 4-6: Transparency & Whole-Object Rotation
         { id: 'rot-15', kind: 'text-lite', variant: 'rounded', labelText: 'Rotated -18° Pill/Box', fontFamily: 'geometric-sans', fontSize: 16, fontWeight: '700', color: '#38bdf8', bgColor: '#0f172a', bgOpacity: 0.45, borderColor: '#38bdf8', strokeWidth: 2, cornerRadius: 10, rotation: -18, x: 820, y: 315, width: 210, height: 50, textAlign: 'center', verticalAlign: 'middle', padding: 8 },
         { id: 'rot-25', kind: 'text-lite', variant: 'pill', labelText: 'Rotated +22° Translucent', fontFamily: 'modern-sans', fontSize: 15, fontWeight: '700', color: '#f472b6', bgColor: '#500724', bgOpacity: 0.35, borderColor: '#f472b6', strokeWidth: 2, rotation: 22, x: 820, y: 435, width: 220, height: 50, textAlign: 'center', verticalAlign: 'middle', padding: 8 },
         { id: 'rot-90', kind: 'text-lite', variant: 'rounded', labelText: 'VERTICAL RACK -90°', fontFamily: 'tech-mono', fontSize: 15, fontWeight: '700', letterSpacing: 1.5, color: '#22c55e', bgColor: '#052e16', bgOpacity: 0.75, borderColor: '#22c55e', strokeWidth: 2, cornerRadius: 8, rotation: -90, x: 1060, y: 375, width: 220, height: 48, textAlign: 'center', verticalAlign: 'middle', padding: 8 },
@@ -333,26 +330,43 @@
       document.getElementById('galleryT2').innerHTML = wrapSVG(1280, 320, t2Items);
 
       // -----------------------------------------------------------------------
-      // 3. Build T3 & T4 Text Animation Gallery (1280 x 430)
+      // 3. Build T3 & T4 Consolidated Animation Gallery (1280 x 650)
       // -----------------------------------------------------------------------
       const t3t4Items = [
-        { id: 'a-ticker-short', kind: 'text-lite', variant: 'rounded', labelText: 'SHORT TICKER: 90 PX/S LINEAR', fontFamily: 'tech-mono', fontSize: 16, fontWeight: '700', textAnim: 'ticker-h', scrollSpeed: 95, direction: 'forward', color: '#38bdf8', bgColor: '#0b1322', bgOpacity: 0.95, borderColor: '#38bdf8', strokeWidth: 1.8, cornerRadius: 8, x: 220, y: 55, width: 380, height: 54 },
-        { id: 'a-ticker-long', kind: 'text-lite', variant: 'rounded', labelText: 'LONG TELEMETRY STREAM: PRIMARY BUS 400V NOMINAL • SECONDARY BUS 28.4V • PACKET LOSS 0.000% • ALL NODES SYNCHRONIZED', fontFamily: 'tech-mono', fontSize: 16, fontWeight: '700', textAnim: 'ticker-h', scrollSpeed: 120, direction: 'forward', color: '#22c55e', bgColor: '#052e16', bgOpacity: 0.9, borderColor: '#22c55e', strokeWidth: 1.8, cornerRadius: 8, x: 640, y: 55, width: 380, height: 54 },
-        { id: 'a-ticker-v', kind: 'text-lite', variant: 'rounded', labelText: 'VERTICAL ROLLING STATUS FEED ↑', fontFamily: 'modern-sans', fontSize: 16, fontWeight: '700', textAnim: 'ticker-v', scrollSpeed: 45, direction: 'forward', color: '#f59e0b', bgColor: '#0b1322', bgOpacity: 0.95, borderColor: '#f59e0b', strokeWidth: 1.8, cornerRadius: 8, x: 1060, y: 55, width: 380, height: 54 },
+        // Row 1: Horizontal Ticker Left (forward), Right (reverse), and Ping-Pong
+        { id: 'a-ticker-left', kind: 'text-lite', variant: 'rounded', labelText: 'SCROLL LEFT (RIGHT → LEFT): 120 PX/S LINEAR', fontFamily: 'tech-mono', fontSize: 15, fontWeight: '700', textAnim: 'ticker-h', scrollSpeed: 120, direction: 'forward', playbackMode: 'loop', color: '#38bdf8', bgColor: '#0b1322', bgOpacity: 0.95, borderColor: '#38bdf8', strokeWidth: 1.8, cornerRadius: 8, x: 220, y: 50, width: 380, height: 52 },
+        { id: 'a-ticker-right', kind: 'text-lite', variant: 'rounded', labelText: 'SCROLL RIGHT (LEFT → RIGHT): 120 PX/S LINEAR', fontFamily: 'tech-mono', fontSize: 15, fontWeight: '700', textAnim: 'ticker-h', scrollSpeed: 120, direction: 'reverse', playbackMode: 'loop', color: '#22c55e', bgColor: '#052e16', bgOpacity: 0.9, borderColor: '#22c55e', strokeWidth: 1.8, cornerRadius: 8, x: 640, y: 50, width: 380, height: 52 },
+        { id: 'a-ticker-pp', kind: 'text-lite', variant: 'rounded', labelText: 'PING-PONG HORIZONTAL TICKER ↔', fontFamily: 'tech-mono', fontSize: 15, fontWeight: '700', textAnim: 'ticker-h', scrollSpeed: 150, direction: 'forward', playbackMode: 'pingpong', color: '#f59e0b', bgColor: '#0b1322', bgOpacity: 0.95, borderColor: '#f59e0b', strokeWidth: 1.8, cornerRadius: 8, x: 1060, y: 50, width: 380, height: 52 },
 
-        { id: 'a-type-loop', kind: 'text-lite', variant: 'rounded', labelText: 'Typewriter Loop 🚀 Accents: Café ∆', fontFamily: 'tech-mono', fontSize: 16, fontWeight: '600', textAnim: 'typewriter', typeSpeed: 16, holdDelay: 1.0, typeMode: 'loop', color: '#e2e8f0', bgColor: '#0f172a', bgOpacity: 0.95, borderColor: '#818cf8', strokeWidth: 1.8, cornerRadius: 8, x: 220, y: 145, width: 380, height: 54 },
-        { id: 'a-type-del', kind: 'text-lite', variant: 'rounded', labelText: 'Type + Reverse Backspace Delete', fontFamily: 'tech-mono', fontSize: 16, fontWeight: '600', textAnim: 'typewriter', typeSpeed: 18, holdDelay: 0.8, typeMode: 'loop', color: '#f472b6', bgColor: '#0f172a', bgOpacity: 0.95, borderColor: '#f472b6', strokeWidth: 1.8, cornerRadius: 8, x: 640, y: 145, width: 380, height: 54 },
-        { id: 'a-fade', kind: 'text-lite', variant: 'pill', labelText: 'Smooth Fade In / Hold / Fade Out', fontFamily: 'modern-sans', fontSize: 16, fontWeight: '700', textAnim: 'fade', speed: 2.2, holdDelay: 0.8, color: '#38bdf8', bgColor: '#0c4a6e', bgOpacity: 0.65, borderColor: '#38bdf8', strokeWidth: 1.8, x: 1060, y: 145, width: 380, height: 54 },
+        // Row 2: Vertical Multiline Scroll (Word Wrap ON, Word Wrap OFF + explicit newlines, and Fast Lines/s + Wide Line Spacing)
+        { id: 'a-vscroll-wrap-on', kind: 'text-lite', variant: 'rounded', labelText: 'CREDITS ROLL (WRAP ON)\nAutomatic word wrapping fits the container width cleanly across multiple lines.', fontFamily: 'modern-sans', fontSize: 14, fontWeight: '600', textAnim: 'ticker-v', linesPerSec: 1.3, lineSpacing: 1.25, wordWrap: true, direction: 'forward', playbackMode: 'loop', color: '#38bdf8', bgColor: '#0b1322', bgOpacity: 0.95, borderColor: '#38bdf8', strokeWidth: 1.8, cornerRadius: 8, x: 220, y: 155, width: 380, height: 100, padding: 12 },
+        { id: 'a-vscroll-wrap-off', kind: 'text-lite', variant: 'rounded', labelText: 'EXPLICIT NEWLINES (WRAP OFF)\nLine 2: Unwrapped telemetry log row check\nLine 3: Third explicit newline row', fontFamily: 'tech-mono', fontSize: 13, fontWeight: '600', textAnim: 'ticker-v', linesPerSec: 1.3, lineSpacing: 1.25, wordWrap: false, direction: 'forward', playbackMode: 'loop', color: '#a7f3d0', bgColor: '#064e3b', bgOpacity: 0.85, borderColor: '#10b981', strokeWidth: 1.8, cornerRadius: 8, x: 640, y: 155, width: 380, height: 100, padding: 12, textAlign: 'left' },
+        { id: 'a-vscroll-fast-ls', kind: 'text-lite', variant: 'rounded', labelText: 'FAST 2.4 LINES/S\nWIDE 1.65x LINE SPACING\nROW THREE NOMINAL\nROW FOUR COMPLETE', fontFamily: 'modern-sans', fontSize: 14, fontWeight: '700', textAnim: 'ticker-v', linesPerSec: 2.4, lineSpacing: 1.65, wordWrap: true, direction: 'forward', playbackMode: 'loop', color: '#fde68a', bgColor: '#451a03', bgOpacity: 0.85, borderColor: '#f59e0b', strokeWidth: 1.8, cornerRadius: 8, x: 1060, y: 155, width: 380, height: 100, padding: 12 },
 
-        { id: 'a-flash', kind: 'text-lite', variant: 'rounded', labelText: 'ALERT: HIGH TEMPERATURE WARNING', fontFamily: 'condensed-display', fontSize: 19, fontWeight: '700', letterSpacing: 1.2, textAnim: 'flash', speed: 0.9, color: '#fef08a', bgColor: '#7f1d1d', bgOpacity: 0.9, borderColor: '#ef4444', strokeWidth: 2, cornerRadius: 8, x: 220, y: 235, width: 380, height: 54 },
-        { id: 'a-slide', kind: 'text-lite', variant: 'rounded', labelText: 'Clipped Container Slide In / Out', fontFamily: 'geometric-sans', fontSize: 16, fontWeight: '700', textAnim: 'slide', speed: 2.0, holdDelay: 0.6, color: '#a7f3d0', bgColor: '#064e3b', bgOpacity: 0.8, borderColor: '#10b981', strokeWidth: 1.8, cornerRadius: 8, x: 640, y: 235, width: 380, height: 54 },
-        { id: 'a-blur-in', kind: 'text-lite', variant: 'rounded', labelText: 'Optical Blur-In Focus Reveal', fontFamily: 'formal-serif', fontSize: 18, fontWeight: '600', textAnim: 'blur-in', speed: 2.2, holdDelay: 0.8, color: '#e9d5ff', bgColor: '#2e1065', bgOpacity: 0.75, borderColor: '#a855f7', strokeWidth: 1.8, cornerRadius: 8, x: 1060, y: 235, width: 380, height: 54 },
+        // Row 3: Stacked-Letter Vertical Columns + 3-Phase Fade Timing Comparison
+        { id: 'a-stacked-up', kind: 'text-lite', variant: 'rounded', labelText: 'STATUS', fontFamily: 'tech-mono', fontSize: 16, fontWeight: '700', textAnim: 'stacked-v', typeSpeed: 3.5, lineSpacing: 1.2, direction: 'forward', playbackMode: 'loop', color: '#22c55e', bgColor: '#052e16', bgOpacity: 0.92, borderColor: '#22c55e', strokeWidth: 1.8, cornerRadius: 8, x: 120, y: 285, width: 170, height: 110 },
+        { id: 'a-stacked-down', kind: 'text-lite', variant: 'rounded', labelText: 'ALERT🚀', fontFamily: 'tech-mono', fontSize: 16, fontWeight: '700', textAnim: 'stacked-v', typeSpeed: 4.0, lineSpacing: 1.2, direction: 'reverse', playbackMode: 'loop', color: '#f472b6', bgColor: '#500724', bgOpacity: 0.85, borderColor: '#f472b6', strokeWidth: 1.8, cornerRadius: 8, x: 315, y: 285, width: 170, height: 110 },
+        { id: 'a-fade-fast', kind: 'text-lite', variant: 'pill', labelText: 'Fade: 0.3s Transition / 1.4s Visible / 0.3s Clear', fontFamily: 'modern-sans', fontSize: 14, fontWeight: '700', textAnim: 'fade', speed: 0.3, holdDelay: 1.4, clearDuration: 0.3, playbackMode: 'loop', color: '#38bdf8', bgColor: '#0c4a6e', bgOpacity: 0.65, borderColor: '#38bdf8', strokeWidth: 1.8, x: 640, y: 260, width: 380, height: 50 },
+        { id: 'a-fade-slow', kind: 'text-lite', variant: 'pill', labelText: 'Fade: 1.2s Transition / 0.2s Visible / 1.2s Clear', fontFamily: 'modern-sans', fontSize: 14, fontWeight: '700', textAnim: 'fade', speed: 1.2, holdDelay: 0.2, clearDuration: 1.2, playbackMode: 'loop', color: '#c084fc', bgColor: '#2e1065', bgOpacity: 0.75, borderColor: '#a855f7', strokeWidth: 1.8, x: 640, y: 318, width: 380, height: 50 },
+        { id: 'a-slide', kind: 'text-lite', variant: 'rounded', labelText: 'Slide Ping-Pong (Forward + Reverse)', fontFamily: 'geometric-sans', fontSize: 15, fontWeight: '700', textAnim: 'slide', speed: 1.2, holdDelay: 0.6, playbackMode: 'pingpong', color: '#a7f3d0', bgColor: '#064e3b', bgOpacity: 0.8, borderColor: '#10b981', strokeWidth: 1.8, cornerRadius: 8, x: 1060, y: 285, width: 380, height: 74 },
 
-        { id: 'a-blur-out', kind: 'text-lite', variant: 'rounded', labelText: 'Optical Blur-Out Dissolve Cycle', fontFamily: 'traditional-serif', fontSize: 18, fontWeight: '600', textAnim: 'blur-out', speed: 2.2, holdDelay: 0.8, color: '#fde68a', bgColor: '#451a03', bgOpacity: 0.75, borderColor: '#f59e0b', strokeWidth: 1.8, cornerRadius: 8, x: 220, y: 325, width: 380, height: 54 },
-        { id: 'a-scramble', kind: 'text-lite', variant: 'rounded', labelText: 'DECRYPTING CIPHER: KEY 0x9FA4', fontFamily: 'tech-mono', fontSize: 16, fontWeight: '700', textAnim: 'scramble', typeSpeed: 18, holdDelay: 1.2, typeMode: 'loop', color: '#22c55e', bgColor: '#052e16', bgOpacity: 0.9, borderColor: '#22c55e', strokeWidth: 1.8, cornerRadius: 8, x: 640, y: 325, width: 380, height: 54 },
-        { id: 'a-overtype', kind: 'text-lite', variant: 'rounded', labelText: 'OVERTYPE IN-PLACE TELEMETRY', fontFamily: 'tech-mono', fontSize: 16, fontWeight: '700', textAnim: 'overtype', typeSpeed: 16, holdDelay: 1.2, typeMode: 'loop', color: '#38bdf8', bgColor: '#0b1322', bgOpacity: 0.9, borderColor: '#38bdf8', strokeWidth: 1.8, cornerRadius: 8, x: 1060, y: 325, width: 380, height: 54 }
+        // Row 4: Blink / Flash Locked On/Off vs Unlocked Asymmetric + Play Once
+        { id: 'a-flash-locked', kind: 'text-lite', variant: 'rounded', labelText: 'BLINK LOCKED ON/OFF (0.5s ON = 0.5s OFF)', fontFamily: 'condensed-display', fontSize: 18, fontWeight: '700', letterSpacing: 1.0, textAnim: 'flash', speed: 0.05, holdDelay: 0.5, clearDuration: 0.5, lockOnOff: true, playbackMode: 'loop', color: '#fef08a', bgColor: '#7f1d1d', bgOpacity: 0.9, borderColor: '#ef4444', strokeWidth: 2, cornerRadius: 8, x: 220, y: 400, width: 380, height: 52 },
+        { id: 'a-flash-unlocked', kind: 'text-lite', variant: 'rounded', labelText: 'BLINK UNLOCKED (0.2s ON / 1.1s OFF STROBE)', fontFamily: 'condensed-display', fontSize: 18, fontWeight: '700', letterSpacing: 1.0, textAnim: 'flash', speed: 0.05, holdDelay: 0.2, clearDuration: 1.1, lockOnOff: false, playbackMode: 'loop', color: '#f97316', bgColor: '#431407', bgOpacity: 0.9, borderColor: '#f97316', strokeWidth: 2, cornerRadius: 8, x: 640, y: 400, width: 380, height: 52 },
+        { id: 'a-fade-once', kind: 'text-lite', variant: 'rounded', labelText: 'PLAY ONCE FADE (SETTLES VISIBLE)', fontFamily: 'modern-sans', fontSize: 15, fontWeight: '700', textAnim: 'fade', speed: 0.8, holdDelay: 0.5, clearDuration: 0.5, playbackMode: 'once', color: '#22c55e', bgColor: '#052e16', bgOpacity: 0.9, borderColor: '#22c55e', strokeWidth: 1.8, cornerRadius: 8, x: 1060, y: 400, width: 380, height: 52 },
+
+        // Row 5: All 4 Typewriter Sequences (A: Type Once, B: Type Once & Hold, C: Delete Backwards, D: Delete Forwards)
+        { id: 'a-type-once', kind: 'text-lite', variant: 'rounded', labelText: 'A. Type Once', fontFamily: 'tech-mono', fontSize: 15, fontWeight: '600', textAnim: 'typewriter', typeSpeed: 12, holdDelay: 0.5, typeMode: 'once', typeRepeat: false, color: '#38bdf8', bgColor: '#0f172a', bgOpacity: 0.95, borderColor: '#38bdf8', strokeWidth: 1.8, cornerRadius: 8, x: 170, y: 485, width: 280, height: 52 },
+        { id: 'a-type-hold', kind: 'text-lite', variant: 'rounded', labelText: 'B. Type Once & Hold', fontFamily: 'tech-mono', fontSize: 15, fontWeight: '600', textAnim: 'typewriter', typeSpeed: 12, holdDelay: 1.0, typeMode: 'hold', typeRepeat: false, color: '#22c55e', bgColor: '#0f172a', bgOpacity: 0.95, borderColor: '#22c55e', strokeWidth: 1.8, cornerRadius: 8, x: 480, y: 485, width: 280, height: 52 },
+        { id: 'a-type-del-back', kind: 'text-lite', variant: 'rounded', labelText: 'C. Delete Backwards ⌫', fontFamily: 'tech-mono', fontSize: 15, fontWeight: '600', textAnim: 'typewriter', typeSpeed: 16, holdDelay: 0.7, typeMode: 'delete', typeRepeat: true, color: '#f472b6', bgColor: '#0f172a', bgOpacity: 0.95, borderColor: '#f472b6', strokeWidth: 1.8, cornerRadius: 8, x: 790, y: 485, width: 280, height: 52 },
+        { id: 'a-type-del-fwd', kind: 'text-lite', variant: 'rounded', labelText: 'D. Delete Forwards ⌦', fontFamily: 'tech-mono', fontSize: 15, fontWeight: '600', textAnim: 'typewriter', typeSpeed: 16, holdDelay: 0.7, typeMode: 'delete-forward', typeRepeat: true, color: '#f59e0b', bgColor: '#0f172a', bgOpacity: 0.95, borderColor: '#f59e0b', strokeWidth: 1.8, cornerRadius: 8, x: 1105, y: 485, width: 290, height: 52 },
+
+        // Row 6: Preserved Blur to Clear, Clear to Blur, Scramble to Clear
+        { id: 'a-blur-in', kind: 'text-lite', variant: 'rounded', labelText: 'Optical Blur to Clear Reveal', fontFamily: 'formal-serif', fontSize: 18, fontWeight: '600', textAnim: 'blur-in', speed: 1.4, holdDelay: 0.8, playbackMode: 'loop', color: '#e9d5ff', bgColor: '#2e1065', bgOpacity: 0.75, borderColor: '#a855f7', strokeWidth: 1.8, cornerRadius: 8, x: 220, y: 575, width: 380, height: 52 },
+        { id: 'a-blur-out', kind: 'text-lite', variant: 'rounded', labelText: 'Optical Clear to Blur Dissolve', fontFamily: 'traditional-serif', fontSize: 18, fontWeight: '600', textAnim: 'blur-out', speed: 1.4, holdDelay: 0.8, playbackMode: 'loop', color: '#fde68a', bgColor: '#451a03', bgOpacity: 0.75, borderColor: '#f59e0b', strokeWidth: 1.8, cornerRadius: 8, x: 640, y: 575, width: 380, height: 52 },
+        { id: 'a-scramble', kind: 'text-lite', variant: 'rounded', labelText: 'DECRYPTING CIPHER: KEY 0x9FA4', fontFamily: 'tech-mono', fontSize: 16, fontWeight: '700', textAnim: 'scramble', typeSpeed: 18, holdDelay: 1.2, playbackMode: 'loop', color: '#22c55e', bgColor: '#052e16', bgOpacity: 0.9, borderColor: '#22c55e', strokeWidth: 1.8, cornerRadius: 8, x: 1060, y: 575, width: 380, height: 52 }
       ];
-      const t3t4Svg = wrapSVG(1280, 390, t3t4Items);
+      const t3t4Svg = wrapSVG(1280, 640, t3t4Items);
       window.SVGWidget.mount('#galleryT3T4', t3t4Svg, { instanceId: 'showcase-anim-gallery' });
 
       // -----------------------------------------------------------------------
@@ -412,7 +426,7 @@
       const widgetTicker = window.SVGWidget.mount('#hostTicker', pkgTicker.svg, { instanceId: 'lab-ticker', manifest: pkgTicker.manifest });
 
       // C. Typewriter Widget
-      const pkgType = makeSingleTextWidgetSVG({ textAnim: 'typewriter', typeSpeed: 28, holdDelay: 0.4, typeMode: 'loop', labelText: 'Boot Sequence #1 🚀' });
+      const pkgType = makeSingleTextWidgetSVG({ textAnim: 'typewriter', typeSpeed: 28, holdDelay: 0.4, typeMode: 'delete', typeRepeat: true, labelText: 'Boot Sequence #1 🚀' });
       const widgetType = window.SVGWidget.mount('#hostTypewriter', pkgType.svg, { instanceId: 'lab-typewriter', manifest: pkgType.manifest });
 
       // D. Multi-Instance A & B from identical package

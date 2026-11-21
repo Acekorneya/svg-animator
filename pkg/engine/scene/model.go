@@ -519,11 +519,17 @@ type LiteEffect struct {
 	TextAlign           string               `json:"textAlign,omitempty"`           // text-lite horizontal alignment ("left", "center", "right")
 	VerticalAlign       string               `json:"verticalAlign,omitempty"`       // text-lite vertical alignment ("top", "middle", "bottom")
 	Padding             float64              `json:"padding,omitempty"`             // text-lite interior padding in px (0..60)
-	TextAnim            string               `json:"textAnim,omitempty"`            // text-lite animation mode ("none", "ticker-h", "ticker-v", "typewriter", "fade", "flash", "slide", "blur-in", "blur-out", "scramble", "overtype")
-	ScrollSpeed         float64              `json:"scrollSpeed,omitempty"`         // text-lite ticker linear speed in px/s (10..600)
-	TypeSpeed           float64              `json:"typeSpeed,omitempty"`           // text-lite typewriter/scramble/overtype rate in chars/s (1..120)
-	HoldDelay           float64              `json:"holdDelay,omitempty"`           // text-lite hold pause in seconds (0..30)
-	TypeMode            string               `json:"typeMode,omitempty"`            // text-lite typewriter sub-mode ("once", "hold", "delete", "loop")
+	TextAnim            string               `json:"textAnim,omitempty"`            // text-lite animation mode ("none", "ticker-h", "ticker-v", "stacked-v", "typewriter", "fade", "flash", "slide", "blur-in", "blur-out", "scramble")
+	ScrollSpeed         float64              `json:"scrollSpeed,omitempty"`         // text-lite horizontal ticker linear speed in px/s (10..600)
+	LinesPerSec         float64              `json:"linesPerSec,omitempty"`         // text-lite vertical scroll speed in lines/s (0.1..20)
+	LineSpacing         float64              `json:"lineSpacing,omitempty"`         // text-lite line height multiplier (0.8..3.0, default 1.25)
+	WordWrap            *bool                `json:"wordWrap,omitempty"`            // text-lite word wrap toggle for multiline vertical scroll
+	TypeSpeed           float64              `json:"typeSpeed,omitempty"`           // text-lite typewriter/scramble/stacked-v rate in chars/s (1..120)
+	HoldDelay           float64              `json:"holdDelay,omitempty"`           // text-lite hold pause / visible hold duration in seconds (0..30)
+	ClearDuration       float64              `json:"clearDuration,omitempty"`       // text-lite fade clear duration or blink off duration in seconds (0..30)
+	LockOnOff           *bool                `json:"lockOnOff,omitempty"`           // text-lite flash/blink lock On Hold Duration == Off Duration
+	TypeMode            string               `json:"typeMode,omitempty"`            // text-lite typewriter sequence ("once", "hold", "delete", "delete-forward")
+	TypeRepeat          *bool                `json:"typeRepeat,omitempty"`          // text-lite repeat complete typewriter sequence
 	Visible             *bool                `json:"visible,omitempty"`
 	Locked              bool                 `json:"locked"`
 }

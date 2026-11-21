@@ -796,29 +796,176 @@
     return estW;
   }
 
-  function configureTextLiteTicker(el, ctrl) {
-    if (!el) return;
-    const anim = el.getAttribute('data-text-anim') || 'none';
-    if (anim !== 'ticker-h' && anim !== 'ticker-v') return;
-    const txtEl = el.querySelector('.lite-text-element') || el.querySelector('text');
-    if (!txtEl) return;
-    const targetNode = getTextLiteTargetNode(el);
-    const currentStr = ctrl ? ctrl.currentText : (el.getAttribute('data-text-content') || '');
-    if (targetNode && targetNode.textContent !== currentStr) {
-      targetNode.textContent = currentStr;
+  let _widgetMeasureCtx = null;
+  function measureWidgetTextStringWidth(str, fontFamily, fontSize, fontWeight, letterSpacing) {
+    const s = String(str === undefined || str === null ? '' : str);
+    if (!s) return 0;
+    const gs = segmentGraphemes(s);
+    const estW = Math.max(0, gs.length * (fontSize * 0.56 + letterSpacing));
+    if (typeof document !== 'undefined' && typeof document.createElement === 'function') {
+      try {
+        if (!_widgetMeasureCtx) {
+          const c = document.createElement('canvas');
+          _widgetMeasureCtx = c && typeof c.getContext === 'function' ? c.getContext('2d') : null;
+        }
+        if (_widgetMeasureCtx) {
+          _widgetMeasureCtx.font = `${fontWeight || '600'} ${fontSize}px ${fontFamily || 'sans-serif'}`;
+          const m = _widgetMeasureCtx.measureText(s);
+          if (m && Number.isFinite(m.width) && m.width > 0) {
+            return m.width + Math.max(0, gs.length - 1) * letterSpacing;
+          }
+        }
+      } catch (e) {}
     }
+    return estW;
+  }
+
+  function computeWidgetTextLiteLines(el, txtEl, textStr) {
+    const raw = String(textStr === undefined || textStr === null ? '' : textStr).replace(/\r\n/g, '\n').replace(/\r/g, '\n');
+    let anim = el.getAttribute('data-text-anim') || 'none';
+    if (anim === 'overtype') anim = 'typewriter';
+    if (anim === 'stacked-v') {
+      const gs = segmentGraphemes(raw.replace(/\n/g, ' '));
+      return gs.length > 0 ? gs : [''];
+    }
+    const explicitLines = raw.split('\n');
+    const wordWrap = el.getAttribute('data-text-word-wrap') !== 'false';
+    const w = Math.max(20, parseFloat(el.getAttribute('data-text-w')) || 220);
+    const pad = Math.max(0, parseFloat(el.getAttribute('data-text-padding')) || 12);
+    const availW = Math.max(16, w - pad * 2);
+    const fs = Math.max(8, parseFloat(el.getAttribute('data-text-font-size')) || 18);
+    const fw = el.getAttribute('data-text-font-weight') || '600';
+    const ls = parseFloat(el.getAttribute('data-text-letter-spacing')) || 0;
+    const ff = (txtEl && txtEl.getAttribute('font-family')) || 'sans-serif';
+
+    if (!(wordWrap && anim === 'ticker-v' && availW > fs)) {
+      return explicitLines.length > 0 ? explicitLines : [''];
+    }
+    const wrapped = [];
+    for (let i = 0; i < explicitLines.length; i++) {
+      const line = explicitLines[i];
+      if (!line.trim()) {
+        wrapped.push(line);
+        continue;
+      }
+      const words = line.split(/(\s+)/).filter((tok) => tok.length > 0);
+      let current = '';
+      for (let wIdx = 0; wIdx < words.length; wIdx++) {
+        const tok = words[wIdx];
+        if (/^\s+$/.test(tok)) {
+          if (current.length > 0) current += ' ';
+          continue;
+        }
+        const candidate = current ? (current + tok) : tok;
+        const candW = measureWidgetTextStringWidth(candidate, ff, fs, fw, ls);
+        if (current && candW > availW) {
+          wrapped.push(current.trimEnd());
+          current = tok;
+        } else {
+          current = candidate;
+        }
+      }
+      if (current || wrapped.length === 0) {
+        wrapped.push(current.trimEnd());
+      }
+    }
+    return wrapped.length > 0 ? wrapped : [''];
+  }
+
+  function renderWidgetTextLiteLinesToDOM(el, textStr) {
+    if (!el) return { lineCount: 1, blockH: 18 };
+    const txtEl = el.querySelector('.lite-text-element') || el.querySelector('text');
+    const tp = txtEl ? (txtEl.querySelector('.lite-text-path-link') || txtEl.querySelector('textPath')) : null;
+    const fs = Math.max(8, parseFloat(el.getAttribute('data-text-font-size')) || 18);
+    const lineSpacing = Math.max(0.8, Math.min(3.0, parseFloat(el.getAttribute('data-text-line-spacing')) || 1.25));
+    const lineAdvance = fs * lineSpacing;
+    if (!txtEl) return { lineCount: 1, blockH: fs };
+    if (tp) {
+      tp.textContent = String(textStr === undefined || textStr === null ? '' : textStr).replace(/\r?\n/g, ' ');
+      return { lineCount: 1, blockH: fs };
+    }
+    let anim = el.getAttribute('data-text-anim') || 'none';
+    if (anim === 'overtype') anim = 'typewriter';
+    const lines = computeWidgetTextLiteLines(el, txtEl, textStr);
+    const lineCount = Math.max(1, lines.length);
+    const blockH = fs + (lineCount - 1) * lineAdvance;
+    el.setAttribute('data-text-line-count', String(lineCount));
+    el.setAttribute('data-text-block-h', blockH.toFixed(2));
+
+    const x = parseFloat(el.getAttribute('data-text-x')) || 0;
+    const y = parseFloat(el.getAttribute('data-text-y')) || 0;
     const w = Math.max(20, parseFloat(el.getAttribute('data-text-w')) || 220);
     const h = Math.max(16, parseFloat(el.getAttribute('data-text-h')) || 56);
+    const cx = parseFloat(el.getAttribute('data-text-cx')) || (x + w / 2);
+    const cy = parseFloat(el.getAttribute('data-text-cy')) || (y + h / 2);
+    const pad = Math.max(0, parseFloat(el.getAttribute('data-text-padding')) || 12);
+    const hAlign = el.getAttribute('data-text-align') || 'center';
+    const vAlign = el.getAttribute('data-text-valign') || 'middle';
+
+    let textX = cx;
+    if (anim === 'ticker-h') {
+      textX = x;
+    } else if (hAlign === 'left') {
+      textX = x + pad;
+    } else if (hAlign === 'right') {
+      textX = x + w - pad;
+    }
+
+    let firstLineY = cy - ((lineCount - 1) * lineAdvance) / 2 + fs * 0.35;
+    if (anim === 'ticker-v' || anim === 'stacked-v') {
+      firstLineY = y + fs * 0.85;
+    } else if (vAlign === 'top') {
+      firstLineY = y + pad + fs * 0.82;
+    } else if (vAlign === 'bottom') {
+      firstLineY = y + h - pad - fs * 0.18 - (lineCount - 1) * lineAdvance;
+    }
+
+    txtEl.setAttribute('x', textX.toFixed(2));
+    txtEl.setAttribute('y', firstLineY.toFixed(2));
+
+    if (lines.length <= 1) {
+      txtEl.textContent = lines[0] || '';
+    } else {
+      const ns = 'http://www.w3.org/2000/svg';
+      txtEl.textContent = '';
+      for (let i = 0; i < lines.length; i++) {
+        const tspan = (txtEl.ownerDocument || document).createElementNS(ns, 'tspan');
+        tspan.setAttribute('class', 'lite-text-line');
+        tspan.setAttribute('x', textX.toFixed(2));
+        tspan.setAttribute('y', (firstLineY + i * lineAdvance).toFixed(2));
+        tspan.textContent = lines[i].length > 0 ? lines[i] : '\u00A0';
+        txtEl.appendChild(tspan);
+      }
+    }
+    return { lineCount, blockH, lineAdvance };
+  }
+
+  function configureTextLiteTicker(el, ctrl) {
+    if (!el) return;
+    let anim = el.getAttribute('data-text-anim') || 'none';
+    if (anim === 'overtype') anim = 'typewriter';
+    if (anim !== 'ticker-h' && anim !== 'ticker-v' && anim !== 'stacked-v') return;
+    const txtEl = el.querySelector('.lite-text-element') || el.querySelector('text');
+    if (!txtEl) return;
+    const currentStr = ctrl ? ctrl.currentText : (el.getAttribute('data-text-content') || '');
+    const layoutInfo = renderWidgetTextLiteLinesToDOM(el, currentStr);
+    const w = Math.max(20, parseFloat(el.getAttribute('data-text-w')) || 220);
+    const h = Math.max(16, parseFloat(el.getAttribute('data-text-h')) || 56);
+    const pad = Math.max(0, parseFloat(el.getAttribute('data-text-padding')) || 12);
     const fs = Math.max(8, parseFloat(el.getAttribute('data-text-font-size')) || 18);
     const spd = Math.max(10, Math.min(600, parseFloat(el.getAttribute('data-text-scroll-speed')) || 90));
+    const linesPerSec = Math.max(0.1, Math.min(20, parseFloat(el.getAttribute('data-text-lines-per-sec')) || 1.2));
+    const lineSpacing = Math.max(0.8, Math.min(3.0, parseFloat(el.getAttribute('data-text-line-spacing')) || 1.25));
+    const typeSpeed = Math.max(1, Math.min(120, parseFloat(el.getAttribute('data-text-type-speed')) || 14));
     const dir = el.getAttribute('data-text-direction') === 'reverse' ? 'reverse' : 'forward';
+    const pMode = el.getAttribute('data-text-playback-mode') || 'loop';
 
     if (anim === 'ticker-h') {
       const tw = measureTextLiteWidth(el, txtEl, currentStr);
       const dist = Math.max(20, w + tw);
       const dur = Math.max(0.15, dist / spd);
       const startPx = dir === 'reverse' ? (-tw) : w;
-      const endPx = dir === 'reverse' ? w : (-tw);
+      const endPx = pMode === 'once' ? pad : (dir === 'reverse' ? w : (-tw));
       txtEl.setAttribute('data-ticker-measured-w', tw.toFixed(2));
       txtEl.setAttribute('data-ticker-duration-s', dur.toFixed(4));
       el.setAttribute('data-ticker-duration-s', dur.toFixed(4));
@@ -828,12 +975,16 @@
         txtEl.style.setProperty('--sva-base-dur', `${dur.toFixed(4)}s`);
         txtEl.style.animationDuration = `${dur.toFixed(4)}s`;
       }
-    } else if (anim === 'ticker-v') {
-      const th = fs * 1.25;
-      const dist = Math.max(16, h + th);
-      const dur = Math.max(0.15, dist / spd);
-      const startPx = dir === 'reverse' ? (-th) : h;
-      const endPx = dir === 'reverse' ? h : (-th);
+    } else if (anim === 'ticker-v' || anim === 'stacked-v') {
+      const lineAdvance = fs * lineSpacing;
+      const blockH = layoutInfo.blockH || fs;
+      const effLinearSpd = anim === 'stacked-v'
+        ? (typeSpeed * lineAdvance)
+        : (linesPerSec * lineAdvance);
+      const dist = Math.max(16, h + blockH);
+      const dur = Math.max(0.15, dist / Math.max(1, effLinearSpd));
+      const startPx = dir === 'reverse' ? (-blockH - 4) : (h + 4);
+      const endPx = pMode === 'once' ? pad : (dir === 'reverse' ? (h + 4) : (-blockH - 4));
       txtEl.setAttribute('data-ticker-duration-s', dur.toFixed(4));
       el.setAttribute('data-ticker-duration-s', dur.toFixed(4));
       if (txtEl.style && typeof txtEl.style.setProperty === 'function') {
@@ -1875,8 +2026,14 @@
       }
 
       function applyTextLiteDOMText(el, str) {
-        const tNode = getTextLiteTargetNode(el);
-        if (tNode) tNode.textContent = str;
+        let anim = el.getAttribute('data-text-anim') || 'none';
+        if (anim === 'overtype') anim = 'typewriter';
+        if (anim === 'typewriter' || anim === 'scramble' || el.getAttribute('data-text-variant') === 'curved') {
+          const tNode = getTextLiteTargetNode(el);
+          if (tNode) tNode.textContent = str;
+        } else {
+          renderWidgetTextLiteLinesToDOM(el, str);
+        }
       }
 
       function restartTextLiteCSSElement(txtEl) {
@@ -1902,23 +2059,20 @@
       function startTextLiteStepCycle(el, ctrl) {
         if (!el || !ctrl || handle.isDestroyed) return;
         clearTextLiteTimer(ctrl);
-        const anim = el.getAttribute('data-text-anim') || 'none';
-        if (anim !== 'typewriter' && anim !== 'scramble' && anim !== 'overtype') return;
+        let anim = el.getAttribute('data-text-anim') || 'none';
+        if (anim === 'overtype') anim = 'typewriter';
+        if (anim !== 'typewriter' && anim !== 'scramble') return;
 
         ctrl.cycleCompleted = false;
+        el.removeAttribute('data-text-cycle-completed');
         const targetGraphemes = segmentGraphemes(ctrl.currentText);
-        const prevGraphemes = segmentGraphemes(ctrl.previousText !== undefined ? ctrl.previousText : '');
-        const totalSteps = anim === 'overtype'
-          ? Math.max(targetGraphemes.length, prevGraphemes.length)
-          : targetGraphemes.length;
+        const totalSteps = targetGraphemes.length;
 
         ctrl.phase = 'forward';
         ctrl.stepIndex = 0;
 
         if (anim === 'typewriter') {
           applyTextLiteDOMText(el, '');
-        } else if (anim === 'overtype') {
-          applyTextLiteDOMText(el, prevGraphemes.join(''));
         }
 
         function scheduleNext(delayMs) {
@@ -1928,18 +2082,21 @@
 
         function onCycleBoundaryReached() {
           ctrl.timerId = null;
-          const typeMode = el.getAttribute('data-text-type-mode') || 'loop';
+          let typeMode = el.getAttribute('data-text-type-mode') || 'hold';
+          if (typeMode === 'loop') typeMode = 'delete';
+          const typeRepeat = el.getAttribute('data-text-type-repeat') === 'true';
+          const pMode = el.getAttribute('data-text-playback-mode') || 'loop';
           const adopted = adoptPendingTextIfAny(el, ctrl);
           if (adopted) {
             startTextLiteStepCycle(el, ctrl);
             return;
           }
-          if (anim === 'typewriter' && (typeMode === 'once' || typeMode === 'hold')) {
+          if (anim === 'typewriter' && !typeRepeat) {
             ctrl.cycleCompleted = true;
             el.setAttribute('data-text-cycle-completed', 'true');
             return;
           }
-          if (anim === 'overtype' && typeMode === 'once') {
+          if (anim === 'scramble' && pMode === 'once') {
             ctrl.cycleCompleted = true;
             el.setAttribute('data-text-cycle-completed', 'true');
             return;
@@ -1954,7 +2111,8 @@
           const rate = Math.max(1, Math.min(120, parseFloat(el.getAttribute('data-text-type-speed')) || 14));
           const stepMs = Math.max(8, Math.round(1000 / rate));
           const holdMs = Math.max(0, (parseFloat(el.getAttribute('data-text-hold-delay')) || 1.2) * 1000);
-          const typeMode = el.getAttribute('data-text-type-mode') || 'loop';
+          let typeMode = el.getAttribute('data-text-type-mode') || 'hold';
+          if (typeMode === 'loop') typeMode = 'delete';
 
           if (anim === 'typewriter') {
             const gNow = segmentGraphemes(ctrl.currentText);
@@ -1969,20 +2127,36 @@
                   onCycleBoundaryReached();
                 } else if (typeMode === 'delete') {
                   ctrl.phase = 'hold-before-delete';
-                  scheduleNext(Math.max(40, holdMs));
+                  scheduleNext(Math.max(30, holdMs));
+                } else if (typeMode === 'delete-forward') {
+                  ctrl.phase = 'hold-before-delete-forward';
+                  scheduleNext(Math.max(30, holdMs));
                 } else {
                   ctrl.phase = 'hold-end';
-                  scheduleNext(Math.max(40, holdMs));
+                  scheduleNext(Math.max(30, holdMs));
                 }
               }
             } else if (ctrl.phase === 'hold-before-delete') {
               ctrl.phase = 'delete';
               scheduleNext(stepMs);
+            } else if (ctrl.phase === 'hold-before-delete-forward') {
+              ctrl.phase = 'delete-forward';
+              ctrl.deleteCount = 0;
+              scheduleNext(stepMs);
             } else if (ctrl.phase === 'delete') {
               if (ctrl.stepIndex > 0) {
                 ctrl.stepIndex -= 1;
                 applyTextLiteDOMText(el, gNow.slice(0, ctrl.stepIndex).join(''));
-                scheduleNext(Math.max(8, Math.round(stepMs * 0.65)));
+                scheduleNext(Math.max(8, Math.round(stepMs * 0.7)));
+              } else {
+                applyTextLiteDOMText(el, '');
+                onCycleBoundaryReached();
+              }
+            } else if (ctrl.phase === 'delete-forward') {
+              ctrl.deleteCount = (ctrl.deleteCount || 0) + 1;
+              if (ctrl.deleteCount < gNow.length) {
+                applyTextLiteDOMText(el, gNow.slice(ctrl.deleteCount).join(''));
+                scheduleNext(Math.max(8, Math.round(stepMs * 0.7)));
               } else {
                 applyTextLiteDOMText(el, '');
                 onCycleBoundaryReached();
@@ -2006,28 +2180,7 @@
               } else {
                 applyTextLiteDOMText(el, ctrl.currentText);
                 ctrl.phase = 'hold-end';
-                scheduleNext(Math.max(60, holdMs));
-              }
-            } else {
-              onCycleBoundaryReached();
-            }
-          } else if (anim === 'overtype') {
-            const gCurr = segmentGraphemes(ctrl.currentText);
-            const gPrev = segmentGraphemes(ctrl.previousText !== undefined ? ctrl.previousText : '');
-            const maxLen = Math.max(gCurr.length, gPrev.length);
-            if (ctrl.phase === 'forward') {
-              if (ctrl.stepIndex < maxLen) {
-                ctrl.stepIndex += 1;
-                const leftPart = gCurr.slice(0, ctrl.stepIndex).join('');
-                const rightPart = ctrl.stepIndex < gCurr.length
-                  ? gPrev.slice(ctrl.stepIndex).join('')
-                  : gPrev.slice(ctrl.stepIndex, Math.max(gCurr.length, maxLen - (ctrl.stepIndex - gCurr.length))).join('');
-                applyTextLiteDOMText(el, leftPart + rightPart);
-                scheduleNext(stepMs);
-              } else {
-                applyTextLiteDOMText(el, ctrl.currentText);
-                ctrl.phase = 'hold-end';
-                scheduleNext(Math.max(60, holdMs));
+                scheduleNext(Math.max(40, holdMs));
               }
             } else {
               onCycleBoundaryReached();
@@ -2049,7 +2202,11 @@
           const initialText = el.getAttribute('data-text-content') !== null
             ? el.getAttribute('data-text-content')
             : ((getTextLiteTargetNode(el) && getTextLiteTargetNode(el).textContent) || '');
-          const anim = el.getAttribute('data-text-anim') || 'none';
+          let anim = el.getAttribute('data-text-anim') || 'none';
+          if (anim === 'overtype') {
+            anim = 'typewriter';
+            el.setAttribute('data-text-anim', 'typewriter');
+          }
           const ctrl = {
             el,
             currentText: initialText,
@@ -2058,6 +2215,8 @@
             timerId: null,
             phase: 'forward',
             stepIndex: 0,
+            deleteCount: 0,
+            iterCount: 0,
             cycleCompleted: false,
             handoverCount: 0
           };
@@ -2067,27 +2226,55 @@
           if (txtEl && typeof txtEl.addEventListener === 'function') {
             txtEl.addEventListener('animationiteration', () => {
               if (handle.isDestroyed) return;
-              const curAnim = el.getAttribute('data-text-anim') || 'none';
-              if (curAnim === 'none' || curAnim === 'typewriter' || curAnim === 'scramble' || curAnim === 'overtype') return;
+              let curAnim = el.getAttribute('data-text-anim') || 'none';
+              if (curAnim === 'overtype') curAnim = 'typewriter';
+              if (curAnim === 'none' || curAnim === 'typewriter' || curAnim === 'scramble') return;
+              ctrl.iterCount = (ctrl.iterCount || 0) + 1;
+              const pMode = el.getAttribute('data-text-playback-mode') || 'loop';
+              // In Ping-Pong mode on alternate CSS animations (ticker-h, ticker-v, stacked-v), a full forward+return cycle is 2 iterations!
+              if (pMode === 'pingpong' && (curAnim === 'ticker-h' || curAnim === 'ticker-v' || curAnim === 'stacked-v') && (ctrl.iterCount % 2 !== 0)) {
+                return;
+              }
               if (adoptPendingTextIfAny(el, ctrl)) {
                 applyTextLiteDOMText(el, ctrl.currentText);
-                if (curAnim === 'ticker-h' || curAnim === 'ticker-v') {
+                if (curAnim === 'ticker-h' || curAnim === 'ticker-v' || curAnim === 'stacked-v') {
                   configureTextLiteTicker(el, ctrl);
+                  ctrl.iterCount = 0;
                   restartTextLiteCSSElement(txtEl);
                 }
               }
             });
+            txtEl.addEventListener('animationend', () => {
+              if (handle.isDestroyed) return;
+              let curAnim = el.getAttribute('data-text-anim') || 'none';
+              if (curAnim === 'overtype') curAnim = 'typewriter';
+              if (curAnim === 'none' || curAnim === 'typewriter' || curAnim === 'scramble') return;
+              if (adoptPendingTextIfAny(el, ctrl)) {
+                applyTextLiteDOMText(el, ctrl.currentText);
+                if (curAnim === 'ticker-h' || curAnim === 'ticker-v' || curAnim === 'stacked-v') {
+                  configureTextLiteTicker(el, ctrl);
+                }
+                restartTextLiteCSSElement(txtEl);
+              } else {
+                ctrl.cycleCompleted = true;
+                el.setAttribute('data-text-cycle-completed', 'true');
+              }
+            });
           }
 
-          if (anim === 'ticker-h' || anim === 'ticker-v') {
+          if (anim === 'none') {
+            applyTextLiteDOMText(el, ctrl.currentText);
+          } else if (anim === 'ticker-h' || anim === 'ticker-v' || anim === 'stacked-v') {
             configureTextLiteTicker(el, ctrl);
             if (typeof document !== 'undefined' && document.fonts && document.fonts.ready) {
               document.fonts.ready.then(() => {
                 if (!handle.isDestroyed) configureTextLiteTicker(el, ctrl);
               }).catch(() => {});
             }
-          } else if (anim === 'typewriter' || anim === 'scramble' || anim === 'overtype') {
+          } else if (anim === 'typewriter' || anim === 'scramble') {
             startTextLiteStepCycle(el, ctrl);
+          } else {
+            applyTextLiteDOMText(el, ctrl.currentText);
           }
         });
       }
@@ -2105,12 +2292,15 @@
             timerId: null,
             phase: 'forward',
             stepIndex: 0,
+            deleteCount: 0,
+            iterCount: 0,
             cycleCompleted: false,
             handoverCount: 0
           };
           textLiteControllers.set(el, ctrl);
         }
-        const anim = el.getAttribute('data-text-anim') || 'none';
+        let anim = el.getAttribute('data-text-anim') || 'none';
+        if (anim === 'overtype') anim = 'typewriter';
         const strVal = String(newStr === undefined || newStr === null ? '' : newStr);
 
         // Static mode or initial mount or suspended/paused: adopt immediately!
@@ -2121,13 +2311,13 @@
           el.setAttribute('data-text-content', strVal);
           el.removeAttribute('data-text-pending');
           applyTextLiteDOMText(el, strVal);
-          if (anim === 'ticker-h' || anim === 'ticker-v') {
+          if (anim === 'ticker-h' || anim === 'ticker-v' || anim === 'stacked-v') {
             configureTextLiteTicker(el, ctrl);
             if (!isInit && (isSuspended || isPaused)) {
               const txtEl = el.querySelector('.lite-text-element') || el.querySelector('text');
               restartTextLiteCSSElement(txtEl);
             }
-          } else if (!isInit && (anim === 'typewriter' || anim === 'scramble' || anim === 'overtype')) {
+          } else if (!isInit && (anim === 'typewriter' || anim === 'scramble')) {
             if (!isSuspended && !isPaused) {
               startTextLiteStepCycle(el, ctrl);
             }
@@ -2135,16 +2325,27 @@
           return;
         }
 
-        // Non-repeating completed cycle (e.g. typewriter once/hold after completion): start new cycle immediately!
+        // Non-repeating completed cycle (e.g. Play Once or Typewriter Once / Type Once & Hold after hold finished): start new cycle immediately!
         if (ctrl.cycleCompleted) {
           ctrl.previousText = ctrl.currentText;
           ctrl.currentText = strVal;
           ctrl.pendingText = null;
           ctrl.cycleCompleted = false;
+          ctrl.handoverCount = (ctrl.handoverCount || 0) + 1;
           el.setAttribute('data-text-content', strVal);
           el.removeAttribute('data-text-pending');
           el.removeAttribute('data-text-cycle-completed');
-          startTextLiteStepCycle(el, ctrl);
+          el.setAttribute('data-text-handover-count', String(ctrl.handoverCount));
+          if (anim === 'typewriter' || anim === 'scramble') {
+            startTextLiteStepCycle(el, ctrl);
+          } else {
+            applyTextLiteDOMText(el, ctrl.currentText);
+            if (anim === 'ticker-h' || anim === 'ticker-v' || anim === 'stacked-v') {
+              configureTextLiteTicker(el, ctrl);
+            }
+            const txtEl = el.querySelector('.lite-text-element') || el.querySelector('text');
+            restartTextLiteCSSElement(txtEl);
+          }
           return;
         }
 
@@ -2206,14 +2407,15 @@
           }
           textLiteControllers.forEach((ctrl, el) => {
             adoptPendingTextIfAny(el, ctrl);
-            const anim = el.getAttribute('data-text-anim') || 'none';
-            if (anim === 'typewriter' || anim === 'scramble' || anim === 'overtype') {
+            let anim = el.getAttribute('data-text-anim') || 'none';
+            if (anim === 'overtype') anim = 'typewriter';
+            if (anim === 'typewriter' || anim === 'scramble') {
               if (!ctrl.cycleCompleted) {
                 startTextLiteStepCycle(el, ctrl);
               }
             } else if (anim !== 'none') {
               applyTextLiteDOMText(el, ctrl.currentText);
-              if (anim === 'ticker-h' || anim === 'ticker-v') {
+              if (anim === 'ticker-h' || anim === 'ticker-v' || anim === 'stacked-v') {
                 configureTextLiteTicker(el, ctrl);
               }
               const txtEl = el.querySelector('.lite-text-element') || el.querySelector('text');

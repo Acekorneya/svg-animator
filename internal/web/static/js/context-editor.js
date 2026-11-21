@@ -575,36 +575,74 @@ window.FloatingPropertiesEditor = {
           const animSel = document.getElementById('fctx-liteTextAnimSelect');
           if (animSel) {
             Array.from(animSel.options).forEach((opt) => {
-              opt.disabled = isCurved && ['ticker-h', 'ticker-v', 'slide', 'scramble', 'overtype'].includes(opt.value);
+              opt.disabled = isCurved && ['ticker-h', 'ticker-v', 'stacked-v', 'slide', 'scramble'].includes(opt.value);
             });
           }
-          this._setVal('fctx-liteTextAnimSelect', anim);
+          const normAnim = anim === 'overtype' ? 'typewriter' : anim;
+          this._setVal('fctx-liteTextAnimSelect', normAnim);
+          this._setVal('fctx-liteTextPlaybackModeSelect', ['loop', 'once', 'pingpong'].includes(le.playbackMode) ? le.playbackMode : 'loop');
           this._setPair('fctx-liteTextScrollSpeed', le.scrollSpeed || 90);
+          this._setPair('fctx-liteTextLinesPerSec', le.linesPerSec || 1.2);
+          this._setPair('fctx-liteTextLineSpacing', le.lineSpacing || 1.25);
+          this._setChk('fctx-liteTextWordWrapChk', le.wordWrap !== false);
           this._setVal('fctx-liteTextDirectionSelect', (le.direction === 'reverse' || le.direction === 'ccw') ? 'reverse' : 'forward');
           this._setPair('fctx-liteTextTypeSpeed', le.typeSpeed || 14);
-          this._setVal('fctx-liteTextTypeModeSelect', le.typeMode || 'hold');
-          this._setPair('fctx-liteTextCycleSpeed', le.speed || 2.0);
+          const normTypeMode = le.typeMode === 'loop' ? 'delete' : (le.typeMode || 'hold');
+          this._setVal('fctx-liteTextTypeModeSelect', normTypeMode);
+          const normRepeat = le.typeMode === 'loop' ? true : (le.typeRepeat !== undefined ? Boolean(le.typeRepeat) : (normTypeMode === 'delete' || normTypeMode === 'delete-forward'));
+          this._setChk('fctx-liteTextTypeRepeatChk', normRepeat);
+          this._setPair('fctx-liteTextCycleSpeed', le.speed !== undefined ? le.speed : (normAnim === 'flash' ? 0.15 : 0.8));
           this._setPair('fctx-liteTextHoldDelay', le.holdDelay !== undefined ? le.holdDelay : 1.5);
+          this._setChk('fctx-liteTextLockOnOffChk', Boolean(le.lockOnOff));
+          this._setPair('fctx-liteTextClearDuration', le.lockOnOff && normAnim === 'flash' ? (le.holdDelay !== undefined ? le.holdDelay : 1.5) : (le.clearDuration !== undefined ? le.clearDuration : 0.6));
 
           const vAlignRow = document.getElementById('fctx-liteTextVerticalAlignRow');
           const boxStyleGroup = document.getElementById('fctx-liteTextBoxStyleGroup');
           const curvedGroup = document.getElementById('fctx-liteTextCurvedGroup');
+          const playbackRow = document.getElementById('fctx-liteTextPlaybackModeRow');
           const scrollSpdRow = document.getElementById('fctx-liteTextScrollSpeedRow');
+          const lpsRow = document.getElementById('fctx-liteTextLinesPerSecRow');
+          const lsRow = document.getElementById('fctx-liteTextLineSpacingRow');
+          const wwRow = document.getElementById('fctx-liteTextWordWrapRow');
           const dirRow = document.getElementById('fctx-liteTextDirectionRow');
           const typeSpdRow = document.getElementById('fctx-liteTextTypeSpeedRow');
+          const typeSpdLbl = document.getElementById('fctx-liteTextTypeSpeedLabel');
           const typeModeRow = document.getElementById('fctx-liteTextTypeModeRow');
+          const typeRepRow = document.getElementById('fctx-liteTextTypeRepeatRow');
           const cycleSpdRow = document.getElementById('fctx-liteTextCycleSpeedRow');
+          const cycleSpdLbl = document.getElementById('fctx-liteTextCycleSpeedLabel');
           const holdRow = document.getElementById('fctx-liteTextHoldDelayRow');
+          const holdLbl = document.getElementById('fctx-liteTextHoldDelayLabel');
+          const lockRow = document.getElementById('fctx-liteTextLockOnOffRow');
+          const clearRow = document.getElementById('fctx-liteTextClearDurationRow');
+          const clearLbl = document.getElementById('fctx-liteTextClearDurationLabel');
 
           if (vAlignRow) vAlignRow.style.display = isCurved ? 'none' : '';
           if (boxStyleGroup) boxStyleGroup.style.display = isBoxed ? '' : 'none';
           if (curvedGroup) curvedGroup.style.display = isCurved ? '' : 'none';
-          if (scrollSpdRow) scrollSpdRow.style.display = (anim === 'ticker-h' || anim === 'ticker-v') ? '' : 'none';
-          if (dirRow) dirRow.style.display = (anim === 'ticker-h' || anim === 'ticker-v' || anim === 'slide') ? '' : 'none';
-          if (typeSpdRow) typeSpdRow.style.display = (anim === 'typewriter' || anim === 'scramble' || anim === 'overtype') ? '' : 'none';
-          if (typeModeRow) typeModeRow.style.display = anim === 'typewriter' ? '' : 'none';
-          if (cycleSpdRow) cycleSpdRow.style.display = (['fade', 'flash', 'slide', 'blur-in', 'blur-out'].includes(anim)) ? '' : 'none';
-          if (holdRow) holdRow.style.display = (['typewriter', 'fade', 'slide', 'blur-in', 'blur-out', 'scramble', 'overtype'].includes(anim)) ? '' : 'none';
+          if (playbackRow) playbackRow.style.display = (normAnim !== 'none' && normAnim !== 'typewriter') ? '' : 'none';
+          if (scrollSpdRow) scrollSpdRow.style.display = normAnim === 'ticker-h' ? '' : 'none';
+          if (lpsRow) lpsRow.style.display = normAnim === 'ticker-v' ? '' : 'none';
+          if (lsRow) lsRow.style.display = (normAnim === 'none' || normAnim === 'ticker-v' || normAnim === 'stacked-v') ? '' : 'none';
+          if (wwRow) wwRow.style.display = normAnim === 'ticker-v' ? '' : 'none';
+          if (dirRow) dirRow.style.display = (['ticker-h', 'ticker-v', 'stacked-v', 'slide'].includes(normAnim)) ? '' : 'none';
+          if (typeSpdRow) typeSpdRow.style.display = (['typewriter', 'scramble', 'stacked-v'].includes(normAnim)) ? '' : 'none';
+          if (typeSpdLbl) typeSpdLbl.textContent = normAnim === 'stacked-v' ? 'Scroll (ch/s)' : 'Rate (ch/s)';
+          if (typeModeRow) typeModeRow.style.display = normAnim === 'typewriter' ? '' : 'none';
+          if (typeRepRow) typeRepRow.style.display = normAnim === 'typewriter' ? '' : 'none';
+          if (cycleSpdRow) cycleSpdRow.style.display = (['fade', 'flash', 'slide', 'blur-in', 'blur-out'].includes(normAnim)) ? '' : 'none';
+          if (cycleSpdLbl) {
+            cycleSpdLbl.textContent = normAnim === 'fade' ? 'Fade Dur (s)' : (normAnim === 'flash' ? 'Fade-In (s)' : 'Trans Dur (s)');
+          }
+          if (holdRow) holdRow.style.display = (['typewriter', 'fade', 'flash', 'slide', 'blur-in', 'blur-out', 'scramble'].includes(normAnim)) ? '' : 'none';
+          if (holdLbl) {
+            holdLbl.textContent = normAnim === 'fade' ? 'Vis Hold (s)' : (normAnim === 'flash' ? 'On Hold (s)' : 'Hold (s)');
+          }
+          if (lockRow) lockRow.style.display = normAnim === 'flash' ? '' : 'none';
+          if (clearRow) clearRow.style.display = (normAnim === 'fade' || normAnim === 'flash') ? '' : 'none';
+          if (clearLbl) {
+            clearLbl.textContent = normAnim === 'flash' ? 'Off Dur (s)' : 'Clear Dur (s)';
+          }
         }
 
         if (le.kind === 'gauge-lite') {
@@ -1534,9 +1572,12 @@ window.FloatingPropertiesEditor = {
       ['fctx-liteTextCurvature', 'curvature', false],
       ['fctx-liteTextStartOffset', 'startOffset', false],
       ['fctx-liteTextScrollSpeed', 'scrollSpeed', false],
+      ['fctx-liteTextLinesPerSec', 'linesPerSec', false],
+      ['fctx-liteTextLineSpacing', 'lineSpacing', false],
       ['fctx-liteTextTypeSpeed', 'typeSpeed', false],
       ['fctx-liteTextCycleSpeed', 'speed', false],
-      ['fctx-liteTextHoldDelay', 'holdDelay', false]
+      ['fctx-liteTextHoldDelay', 'holdDelay', false],
+      ['fctx-liteTextClearDuration', 'clearDuration', false]
     ];
     litePairs.forEach(([baseId, prop, isInt]) => {
       const slider = document.getElementById(baseId + 'Slider');
@@ -1640,8 +1681,12 @@ window.FloatingPropertiesEditor = {
     bindLiteSimple('fctx-liteTextBorderColorPicker', 'borderColor', 'input');
     bindLiteSimple('fctx-liteTextShowGuideChk', 'showGuide', 'change', true);
     bindLiteSimple('fctx-liteTextAnimSelect', 'textAnim', 'change');
+    bindLiteSimple('fctx-liteTextPlaybackModeSelect', 'playbackMode', 'change');
+    bindLiteSimple('fctx-liteTextWordWrapChk', 'wordWrap', 'change', true);
     bindLiteSimple('fctx-liteTextDirectionSelect', 'direction', 'change');
     bindLiteSimple('fctx-liteTextTypeModeSelect', 'typeMode', 'change');
+    bindLiteSimple('fctx-liteTextTypeRepeatChk', 'typeRepeat', 'change', true);
+    bindLiteSimple('fctx-liteTextLockOnOffChk', 'lockOnOff', 'change', true);
 
     document.getElementById('fctx-btnAddLiteFlowNode')?.addEventListener('click', () => {
       if (this.activeType === 'lite' && window.LiteEffects) {

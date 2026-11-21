@@ -11985,8 +11985,8 @@ async function runHarness() {
     const curvedDownMarkup = window.LiteEffects.renderLiteElement(curvedDown);
     assert(curvedDownMarkup.includes('visibility="hidden"'), 'W16DC-18: Hidden guide curve sets visibility="hidden"');
 
-    // 3. T3 & T4: All 11 textAnim modes & Stage 16C Widget Runtime Pending-Message Handover
-    const allAnims = ['none', 'ticker-h', 'ticker-v', 'typewriter', 'fade', 'flash', 'slide', 'blur-in', 'blur-out', 'scramble', 'overtype'];
+    // 3. T3 & T4: All 11 active textAnim modes, legacy overtype migration, multiline/stacked-v, fade/blink timing & Lock On/Off
+    const allAnims = ['none', 'ticker-h', 'ticker-v', 'stacked-v', 'typewriter', 'fade', 'flash', 'slide', 'blur-in', 'blur-out', 'scramble'];
     for (const animMode of allAnims) {
       window.LiteEffects.updateLiteEffect(tb.id, { variant: 'rounded', textAnim: animMode, scrollSpeed: 120, typeSpeed: 20 });
       const cur = window.LiteEffects.getLiteEffect(tb.id);
@@ -11994,6 +11994,41 @@ async function runHarness() {
       const m = window.LiteEffects.renderLiteElement(cur);
       assert(m.includes(`data-text-anim="${animMode}"`), `W16DC-20 (${animMode}): data-text-anim emitted`);
     }
+
+    // Legacy overtype migration -> typewriter, legacy typeMode="loop" -> "delete" + typeRepeat=true
+    window.LiteEffects.updateLiteEffect(tb.id, { variant: 'rounded', textAnim: 'overtype', typeMode: 'loop' });
+    const migratedOvertype = window.LiteEffects.getLiteEffect(tb.id);
+    assert.strictEqual(migratedOvertype.textAnim, 'typewriter', 'W16DC-20A: Legacy overtype migrates to typewriter');
+    assert.strictEqual(migratedOvertype.typeMode, 'delete', 'W16DC-20B: Legacy loop typeMode migrates to delete');
+    assert.strictEqual(migratedOvertype.typeRepeat, true, 'W16DC-20C: Legacy loop enables typeRepeat');
+
+    // Multiline explicit newlines & Word Wrap on/off + Stacked-letter vertical scroll
+    window.LiteEffects.updateLiteEffect(tb.id, {
+      textAnim: 'ticker-v',
+      labelText: 'Line One\nSecond line with extra words for wrapping',
+      wordWrap: true,
+      lineSpacing: 1.4,
+      linesPerSec: 2.0,
+      width: 140,
+      padding: 10
+    });
+    const wrapOnMarkup = window.LiteEffects.renderLiteElement(window.LiteEffects.getLiteEffect(tb.id));
+    const wrapOnLines = (wrapOnMarkup.match(/class="lite-text-line"/g) || []).length;
+    window.LiteEffects.updateLiteEffect(tb.id, { wordWrap: false });
+    const wrapOffMarkup = window.LiteEffects.renderLiteElement(window.LiteEffects.getLiteEffect(tb.id));
+    const wrapOffLines = (wrapOffMarkup.match(/class="lite-text-line"/g) || []).length;
+    assert.strictEqual(wrapOffLines, 2, 'W16DC-20D: Word Wrap OFF honours explicit newline only (2 lines)');
+    assert(wrapOnLines > wrapOffLines, 'W16DC-20E: Word Wrap ON wraps long second line into >2 lines');
+
+    window.LiteEffects.updateLiteEffect(tb.id, { textAnim: 'stacked-v', labelText: 'STATUS' });
+    const stackedMarkup = window.LiteEffects.renderLiteElement(window.LiteEffects.getLiteEffect(tb.id));
+    const stackedLines = (stackedMarkup.match(/class="lite-text-line"/g) || []).length;
+    assert.strictEqual(stackedLines, 6, 'W16DC-20F: Stacked-letter vertical scroll renders 6 vertical letter lines for STATUS');
+
+    // Lock On/Off synchronisation for Flash/Blink
+    window.LiteEffects.updateLiteEffect(tb.id, { textAnim: 'flash', holdDelay: 1.4, clearDuration: 0.3, lockOnOff: true });
+    const lockedFlash = window.LiteEffects.getLiteEffect(tb.id);
+    assert.strictEqual(lockedFlash.clearDuration, 1.4, 'W16DC-20G: Enabling Lock On/Off synchronises Off Duration to On Hold Duration');
 
     // Grapheme segmentation check (emoji & accented characters)
     const graphemes = window.LiteEffects.segmentGraphemes('Aé🚀!');
@@ -12014,10 +12049,17 @@ async function runHarness() {
       borderColor: '#22c55e',
       rotation: -25,
       textAnim: 'ticker-h',
+      playbackMode: 'pingpong',
       scrollSpeed: 150,
+      linesPerSec: 2.4,
+      lineSpacing: 1.5,
+      wordWrap: false,
       typeSpeed: 24,
       holdDelay: 1.8,
-      typeMode: 'delete'
+      clearDuration: 0.9,
+      lockOnOff: false,
+      typeMode: 'delete-forward',
+      typeRepeat: true
     });
     const serialized93 = window.ProjectManager.serializeStudioState();
     window.ProjectManager.resetToNewProject();
@@ -12030,6 +12072,12 @@ async function runHarness() {
     assert.strictEqual(restoredTb.textAnim, 'ticker-h', 'W16DC-26: textAnim restored');
     assert.strictEqual(restoredTb.scrollSpeed, 150, 'W16DC-27: scrollSpeed restored');
     assert.strictEqual(restoredTb.borderColor, '#22c55e', 'W16DC-28: borderColor restored');
+    assert.strictEqual(restoredTb.playbackMode, 'pingpong', 'W16DC-29: playbackMode restored');
+    assert.strictEqual(restoredTb.typeMode, 'delete-forward', 'W16DC-30: typeMode delete-forward restored');
+    assert.strictEqual(restoredTb.linesPerSec, 2.4, 'W16DC-31: linesPerSec restored');
+    assert.strictEqual(restoredTb.lineSpacing, 1.5, 'W16DC-32: lineSpacing restored');
+    assert.strictEqual(restoredTb.wordWrap, false, 'W16DC-33: wordWrap restored');
+    assert.strictEqual(restoredTb.clearDuration, 0.9, 'W16DC-34: clearDuration restored');
 
     window.ProjectManager.resetToNewProject();
     window.EngineBridge.setWidgetParameters([]);

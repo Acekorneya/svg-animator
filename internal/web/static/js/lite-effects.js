@@ -264,20 +264,50 @@ window.LiteEffects = {
       } else {
         le.startOffset = Math.max(0, Math.min(100, Number(le.startOffset)));
       }
-      const validAnims = ['none', 'ticker-h', 'ticker-v', 'typewriter', 'fade', 'flash', 'slide', 'blur-in', 'blur-out', 'scramble', 'overtype'];
+      const validAnims = ['none', 'ticker-h', 'ticker-v', 'stacked-v', 'typewriter', 'fade', 'flash', 'slide', 'blur-in', 'blur-out', 'scramble', 'overtype'];
       if (!le.textAnim || !validAnims.includes(le.textAnim)) le.textAnim = 'none';
-      if (le.variant === 'curved' && ['ticker-h', 'ticker-v', 'slide', 'scramble', 'overtype'].includes(le.textAnim)) {
+      if (le.textAnim === 'overtype') le.textAnim = 'typewriter';
+      if (le.variant === 'curved' && ['ticker-h', 'ticker-v', 'stacked-v', 'slide', 'scramble', 'overtype'].includes(le.textAnim)) {
         le.textAnim = 'none';
       }
       if (!le.scrollSpeed || le.scrollSpeed < 10) le.scrollSpeed = 90;
       else if (le.scrollSpeed > 600) le.scrollSpeed = 600;
+      if (!le.linesPerSec || le.linesPerSec < 0.1) le.linesPerSec = 1.2;
+      else if (le.linesPerSec > 20) le.linesPerSec = 20;
+      if (!le.lineSpacing || le.lineSpacing < 0.8) le.lineSpacing = 1.25;
+      else if (le.lineSpacing > 3.0) le.lineSpacing = 3.0;
+      if (le.wordWrap === undefined || le.wordWrap === null) le.wordWrap = true;
+      else le.wordWrap = Boolean(le.wordWrap);
       if (!le.typeSpeed || le.typeSpeed < 1) le.typeSpeed = 14;
       else if (le.typeSpeed > 120) le.typeSpeed = 120;
       if (le.holdDelay === undefined || le.holdDelay === null || !Number.isFinite(Number(le.holdDelay))) le.holdDelay = 1.5;
       else le.holdDelay = Math.max(0, Math.min(30, Number(le.holdDelay)));
-      if (!le.typeMode || !['once', 'hold', 'delete', 'loop'].includes(le.typeMode)) le.typeMode = 'hold';
-      if (!le.speed || le.speed <= 0) le.speed = 2.0;
-      else le.speed = Math.max(0.2, Math.min(30, Number(le.speed)));
+      if (le.clearDuration === undefined || le.clearDuration === null || !Number.isFinite(Number(le.clearDuration))) le.clearDuration = 0.6;
+      else le.clearDuration = Math.max(0, Math.min(30, Number(le.clearDuration)));
+      if (le.lockOnOff === undefined || le.lockOnOff === null) le.lockOnOff = false;
+      else le.lockOnOff = Boolean(le.lockOnOff);
+      if (le.lockOnOff && le.textAnim === 'flash') {
+        le.clearDuration = le.holdDelay;
+      }
+      if (le.typeMode === 'loop') {
+        le.typeMode = 'delete';
+        le.typeRepeat = true;
+      } else if (!le.typeMode || !['once', 'hold', 'delete', 'delete-forward'].includes(le.typeMode)) {
+        le.typeMode = 'hold';
+      }
+      if (le.typeRepeat === undefined || le.typeRepeat === null) {
+        le.typeRepeat = (le.typeMode === 'delete' || le.typeMode === 'delete-forward');
+      } else {
+        le.typeRepeat = Boolean(le.typeRepeat);
+      }
+      if (!le.playbackMode || !['loop', 'once', 'pingpong'].includes(le.playbackMode)) {
+        le.playbackMode = 'loop';
+      }
+      if (le.speed === undefined || le.speed === null || !Number.isFinite(Number(le.speed))) {
+        le.speed = le.textAnim === 'flash' ? 0.15 : 0.8;
+      } else {
+        le.speed = Math.max(le.textAnim === 'flash' ? 0 : 0.05, Math.min(30, Number(le.speed)));
+      }
       le.period = le.speed;
       if (!le.direction || le.direction === 'cw') le.direction = 'forward';
       else if (le.direction === 'ccw') le.direction = 'reverse';
@@ -382,9 +412,15 @@ window.LiteEffects = {
       padding: isText ? 12 : undefined,
       textAnim: isText ? 'none' : undefined,
       scrollSpeed: isText ? 90 : undefined,
+      linesPerSec: isText ? 1.2 : undefined,
+      lineSpacing: isText ? 1.25 : undefined,
+      wordWrap: isText ? true : undefined,
       typeSpeed: isText ? 14 : undefined,
       holdDelay: isText ? 1.5 : undefined,
+      clearDuration: isText ? 0.6 : undefined,
+      lockOnOff: isText ? false : undefined,
       typeMode: isText ? 'hold' : undefined,
+      typeRepeat: isText ? false : undefined,
       visible: true
     }, initialProps);
 
@@ -509,25 +545,33 @@ window.LiteEffects = {
   100% { transform: translateX(var(--sva-osc-shift, -180px)); }
 }
 @keyframes sva-lite-text-ticker-h {
-  0% { transform: translateX(var(--sva-ticker-start, 220px)); }
-  100% { transform: translateX(var(--sva-ticker-end, -180px)); }
+  0% { transform: translate(var(--sva-ticker-start, 220px), 0px); }
+  100% { transform: translate(var(--sva-ticker-end, -180px), 0px); }
 }
 @keyframes sva-lite-text-ticker-v {
-  0% { transform: translateY(var(--sva-ticker-start, 56px)); }
-  100% { transform: translateY(var(--sva-ticker-end, -36px)); }
+  0% { transform: translate(0px, var(--sva-ticker-start, 56px)); }
+  100% { transform: translate(0px, var(--sva-ticker-end, -36px)); }
 }
 @keyframes sva-lite-text-fade {
-  0%, 100% { opacity: 0.12; }
+  0%, 100% { opacity: 0; }
   45%, 65% { opacity: 1; }
 }
 @keyframes sva-lite-text-flash {
   0%, 100% { opacity: 1; }
-  50% { opacity: 0.08; }
+  50% { opacity: 0; }
 }
 @keyframes sva-lite-text-slide {
-  0% { transform: translateY(var(--sva-slide-in, 38px)); opacity: 0; }
-  20%, 75% { transform: translateY(0px); opacity: 1; }
-  100% { transform: translateY(var(--sva-slide-out, -38px)); opacity: 0; }
+  0% { transform: translate(0px, var(--sva-slide-in, 38px)); opacity: 0; }
+  20%, 75% { transform: translate(0px, 0px); opacity: 1; }
+  100% { transform: translate(0px, var(--sva-slide-out, -38px)); opacity: 0; }
+}
+@keyframes sva-lite-text-slide-pp {
+  0%, 100% { transform: translate(0px, var(--sva-slide-in, 38px)); opacity: 0; }
+  25%, 75% { transform: translate(0px, 0px); opacity: 1; }
+}
+@keyframes sva-lite-text-slide-once {
+  0% { transform: translate(0px, var(--sva-slide-in, 38px)); opacity: 0; }
+  35%, 100% { transform: translate(0px, 0px); opacity: 1; }
 }
 .sva-lite-text-ticker-h-anim {
   animation-name: sva-lite-text-ticker-h;
@@ -1339,6 +1383,72 @@ window.LiteEffects = {
     return `M ${p0x.toFixed(2)} ${endY.toFixed(2)} Q ${cx.toFixed(2)} ${ctrlY.toFixed(2)} ${p1x.toFixed(2)} ${endY.toFixed(2)}`;
   },
 
+  measureTextStringWidth(str, fontStack, fontSize, fontWeight, letterSpacing) {
+    const s = String(str === undefined || str === null ? '' : str);
+    if (!s) return 0;
+    const gs = this.segmentGraphemes(s);
+    const estW = Math.max(0, gs.length * (fontSize * 0.56 + letterSpacing));
+    if (typeof document !== 'undefined' && typeof document.createElement === 'function') {
+      try {
+        if (!this._measureCtx) {
+          const c = document.createElement('canvas');
+          this._measureCtx = c && typeof c.getContext === 'function' ? c.getContext('2d') : null;
+        }
+        if (this._measureCtx) {
+          this._measureCtx.font = `${fontWeight || '600'} ${fontSize}px ${fontStack}`;
+          const m = this._measureCtx.measureText(s);
+          if (m && Number.isFinite(m.width) && m.width > 0) {
+            return m.width + Math.max(0, gs.length - 1) * letterSpacing;
+          }
+        }
+      } catch (_) {}
+    }
+    return estW;
+  },
+
+  computeTextLiteLines(textStr, textAnim, wordWrap, availW, fontStack, fontSize, fontWeight, letterSpacing) {
+    const raw = String(textStr === undefined || textStr === null ? '' : textStr).replace(/\r\n/g, '\n').replace(/\r/g, '\n');
+    if (textAnim === 'stacked-v') {
+      // Stacked-letter vertical column: each grapheme on its own vertical line (ignore newlines as blank gap or skip)
+      const gs = this.segmentGraphemes(raw.replace(/\n/g, ' '));
+      return gs.length > 0 ? gs : [''];
+    }
+    const explicitLines = raw.split('\n');
+    const allowWrap = Boolean(wordWrap) && textAnim === 'ticker-v' && availW > fontSize;
+    if (!allowWrap) {
+      return explicitLines.length > 0 ? explicitLines : [''];
+    }
+    const wrapped = [];
+    for (let i = 0; i < explicitLines.length; i++) {
+      const line = explicitLines[i];
+      if (!line.trim()) {
+        wrapped.push(line);
+        continue;
+      }
+      const words = line.split(/(\s+)/).filter((tok) => tok.length > 0);
+      let current = '';
+      for (let wIdx = 0; wIdx < words.length; wIdx++) {
+        const tok = words[wIdx];
+        if (/^\s+$/.test(tok)) {
+          if (current.length > 0) current += ' ';
+          continue;
+        }
+        const candidate = current ? (current + tok) : tok;
+        const candW = this.measureTextStringWidth(candidate, fontStack, fontSize, fontWeight, letterSpacing);
+        if (current && candW > availW) {
+          wrapped.push(current.trimEnd());
+          current = tok;
+        } else {
+          current = candidate;
+        }
+      }
+      if (current || wrapped.length === 0) {
+        wrapped.push(current.trimEnd());
+      }
+    }
+    return wrapped.length > 0 ? wrapped : [''];
+  },
+
   renderTextLiteElement(le, baseAttrs, color, opacity, sw, x, y, w, h, cx, cy, cr) {
     const validVariants = ['none', 'rect', 'rounded', 'pill', 'curved'];
     const variant = validVariants.includes(le.variant) ? le.variant : 'rounded';
@@ -1366,14 +1476,29 @@ window.LiteEffects = {
     const arcOffset = Math.max(0, Math.min(100, Number(le.startOffset != null ? le.startOffset : 50)));
     const showGuide = Boolean(le.showGuide);
     let textAnim = le.textAnim || 'none';
-    if (variant === 'curved' && ['ticker-h', 'ticker-v', 'slide', 'scramble', 'overtype'].includes(textAnim)) {
+    if (textAnim === 'overtype') textAnim = 'typewriter';
+    if (variant === 'curved' && ['ticker-h', 'ticker-v', 'stacked-v', 'slide', 'scramble', 'overtype'].includes(textAnim)) {
       textAnim = 'none';
     }
+    const playbackMode = ['loop', 'once', 'pingpong'].includes(le.playbackMode) ? le.playbackMode : 'loop';
     const scrollSpeed = Math.max(10, Math.min(600, Number(le.scrollSpeed) || 90));
+    const linesPerSec = Math.max(0.1, Math.min(20, Number(le.linesPerSec) || 1.2));
+    const lineSpacing = Math.max(0.8, Math.min(3.0, Number(le.lineSpacing) || 1.25));
+    const wordWrap = le.wordWrap !== false;
     const typeSpeed = Math.max(1, Math.min(120, Number(le.typeSpeed) || 14));
     const holdDelay = Math.max(0, Math.min(30, Number(le.holdDelay != null ? le.holdDelay : 1.5)));
-    const typeMode = ['once', 'hold', 'delete', 'loop'].includes(le.typeMode) ? le.typeMode : 'hold';
-    const cycleDur = Math.max(0.2, Math.min(30, Number(le.speed) || 2.0));
+    const lockOnOff = Boolean(le.lockOnOff);
+    const clearDuration = (lockOnOff && textAnim === 'flash')
+      ? holdDelay
+      : Math.max(0, Math.min(30, Number(le.clearDuration != null ? le.clearDuration : 0.6)));
+    const rawTypeMode = le.typeMode || 'hold';
+    const typeMode = rawTypeMode === 'loop'
+      ? 'delete'
+      : (['once', 'hold', 'delete', 'delete-forward'].includes(rawTypeMode) ? rawTypeMode : 'hold');
+    const typeRepeat = rawTypeMode === 'loop'
+      ? true
+      : (le.typeRepeat !== undefined && le.typeRepeat !== null ? Boolean(le.typeRepeat) : (typeMode === 'delete' || typeMode === 'delete-forward'));
+    const cycleDur = Math.max(textAnim === 'flash' ? 0 : 0.05, Math.min(30, Number(le.speed != null ? le.speed : (textAnim === 'flash' ? 0.15 : 0.8))));
     const dir = (le.direction === 'reverse' || le.direction === 'ccw') ? 'reverse' : 'forward';
 
     const clipId = `lite-text-clip-${le.id}`;
@@ -1406,13 +1531,20 @@ window.LiteEffects = {
     // 3. Optional Blur Filter for blur-in / blur-out
     let filterAttr = '';
     if (textAnim === 'blur-in' || textAnim === 'blur-out') {
-      const vals = textAnim === 'blur-in' ? '6; 0; 0' : '0; 0; 6';
-      const kt = '0; 0.45; 1';
-      defsContent += `<filter id="${blurId}" x="-20%" y="-20%" width="140%" height="140%"><feGaussianBlur in="SourceGraphic" stdDeviation="0"><animate attributeName="stdDeviation" values="${vals}" keyTimes="${kt}" dur="${(cycleDur + holdDelay).toFixed(3)}s" repeatCount="indefinite" /></feGaussianBlur></filter>`;
+      let vals = textAnim === 'blur-in' ? '6; 0; 0' : '0; 0; 6';
+      let kt = '0; 0.45; 1';
+      let durBlur = Math.max(0.2, cycleDur + holdDelay);
+      let repCnt = playbackMode === 'once' ? '1' : 'indefinite';
+      if (playbackMode === 'pingpong') {
+        vals = textAnim === 'blur-in' ? '6; 0; 0; 6' : '0; 6; 6; 0';
+        kt = '0; 0.35; 0.65; 1';
+        durBlur = Math.max(0.3, cycleDur * 2 + holdDelay);
+      }
+      defsContent += `<filter id="${blurId}" x="-20%" y="-20%" width="140%" height="140%"><feGaussianBlur in="SourceGraphic" stdDeviation="0"><animate attributeName="stdDeviation" values="${vals}" keyTimes="${kt}" dur="${durBlur.toFixed(3)}s" repeatCount="${repCnt}" fill="freeze" /></feGaussianBlur></filter>`;
       filterAttr = ` filter="url(#${blurId})"`;
     }
 
-    // 4. Text Anchor & Coordinates
+    // 4. Text Anchor, Multiline / Stacked Layout & Coordinates
     let anchor = 'middle';
     let textX = cx;
     if (textAlign === 'left') {
@@ -1423,52 +1555,120 @@ window.LiteEffects = {
       textX = x + w - pad;
     }
 
-    let textY = cy + fontSize * 0.35;
+    const availW = Math.max(16, w - pad * 2);
+    const lineAdvance = fontSize * lineSpacing;
+    const lines = variant === 'curved'
+      ? [textStr.replace(/\r?\n/g, ' ')]
+      : this.computeTextLiteLines(textStr, textAnim, wordWrap, availW, fontStack, fontSize, fontWeight, letterSpacing);
+    const lineCount = Math.max(1, lines.length);
+    const blockH = fontSize + (lineCount - 1) * lineAdvance;
+
+    let firstLineY = cy - ((lineCount - 1) * lineAdvance) / 2 + fontSize * 0.35;
     if (verticalAlign === 'top') {
-      textY = y + pad + fontSize * 0.82;
+      firstLineY = y + pad + fontSize * 0.82;
     } else if (verticalAlign === 'bottom') {
-      textY = y + h - pad - fontSize * 0.18;
+      firstLineY = y + h - pad - fontSize * 0.18 - (lineCount - 1) * lineAdvance;
     }
 
-    // 5. Animation Classes & Inline CSS Custom Properties
-    const graphemes = this.segmentGraphemes(textStr);
-    const estTextW = Math.max(fontSize, graphemes.length * (fontSize * 0.56 + Math.max(0, letterSpacing)));
-    const estTextH = fontSize * 1.25;
+    // 5. Animation Classes, Dynamic Keyframes & Inline CSS Custom Properties
+    const estTextW = Math.max(fontSize, this.measureTextStringWidth(lines[0] || textStr, fontStack, fontSize, fontWeight, letterSpacing));
     let animClass = '';
     let animStyle = '';
+    let customKfStyle = '';
+    const iterCount = playbackMode === 'once' ? '1' : 'infinite';
+    const fillMode = playbackMode === 'once' ? 'forwards' : 'both';
 
     if (textAnim === 'ticker-h') {
-      // Horizontal ticker: begins outside entrance edge, leaves completely through exit edge
+      // Horizontal ticker: preserve configured vertical alignment (firstLineY), anchor='start', textX=x
       anchor = 'start';
       textX = x;
-      const dist = w + estTextW;
-      const dur = Math.max(0.2, dist / scrollSpeed);
+      const dist = Math.max(20, w + estTextW);
+      const dur = Math.max(0.15, dist / scrollSpeed);
       const startShift = dir === 'reverse' ? -estTextW : w;
-      const endShift = dir === 'reverse' ? w : -estTextW;
+      let endShift = dir === 'reverse' ? w : -estTextW;
+      if (playbackMode === 'once') {
+        endShift = pad;
+      }
+      const animDir = playbackMode === 'pingpong' ? 'alternate' : 'normal';
       animClass = ' sva-lite-text-ticker-h-anim';
-      animStyle = `animation-duration:${dur.toFixed(4)}s;--sva-base-dur:${dur.toFixed(4)}s;--sva-ticker-start:${startShift.toFixed(2)}px;--sva-ticker-end:${endShift.toFixed(2)}px;`;
-    } else if (textAnim === 'ticker-v') {
-      const dist = h + estTextH;
-      const dur = Math.max(0.2, dist / scrollSpeed);
-      const startShift = dir === 'reverse' ? -(y - (textY - fontSize)) - estTextH : (y + h - (textY - fontSize));
-      const endShift = dir === 'reverse' ? (y + h - (textY - fontSize)) : -(textY - y + estTextH);
+      animStyle = `animation-duration:${dur.toFixed(4)}s;animation-iteration-count:${iterCount};animation-direction:${animDir};animation-fill-mode:${fillMode};--sva-base-dur:${dur.toFixed(4)}s;--sva-ticker-start:${startShift.toFixed(2)}px;--sva-ticker-end:${endShift.toFixed(2)}px;`;
+    } else if (textAnim === 'ticker-v' || textAnim === 'stacked-v') {
+      // Vertical scroll: anchor first line at top of container (y + fontSize * 0.85) so translate(0, shift) is exact
+      firstLineY = y + fontSize * 0.85;
+      const effLinearSpd = textAnim === 'stacked-v'
+        ? (typeSpeed * lineAdvance)
+        : (linesPerSec * lineAdvance);
+      const dist = Math.max(16, h + blockH);
+      const dur = Math.max(0.15, dist / Math.max(1, effLinearSpd));
+      const startShift = dir === 'reverse' ? (-blockH - 4) : (h + 4);
+      let endShift = dir === 'reverse' ? (h + 4) : (-blockH - 4);
+      if (playbackMode === 'once') {
+        endShift = pad;
+      }
+      const animDir = playbackMode === 'pingpong' ? 'alternate' : 'normal';
       animClass = ' sva-lite-text-ticker-v-anim';
-      animStyle = `animation-duration:${dur.toFixed(4)}s;--sva-base-dur:${dur.toFixed(4)}s;--sva-ticker-start:${startShift.toFixed(2)}px;--sva-ticker-end:${endShift.toFixed(2)}px;`;
+      animStyle = `animation-duration:${dur.toFixed(4)}s;animation-iteration-count:${iterCount};animation-direction:${animDir};animation-fill-mode:${fillMode};--sva-base-dur:${dur.toFixed(4)}s;--sva-ticker-start:${startShift.toFixed(2)}px;--sva-ticker-end:${endShift.toFixed(2)}px;`;
     } else if (textAnim === 'fade') {
-      const dur = Math.max(0.2, cycleDur + holdDelay);
+      const fadeDur = Math.max(0.05, cycleDur);
+      const visHold = Math.max(0, holdDelay);
+      const clrHold = Math.max(0, clearDuration);
+      const kfName = `sva-lite-fade-${le.id}`;
+      let totalDur = fadeDur * 2 + visHold + clrHold;
+      if (playbackMode === 'once') {
+        totalDur = Math.max(0.05, fadeDur + visHold);
+        const p1 = Math.min(100, (fadeDur / totalDur) * 100);
+        customKfStyle = `<style class="lite-text-phase-style">@keyframes ${kfName} { 0% { opacity: 0; } ${p1.toFixed(2)}%, 100% { opacity: 1; } }</style>`;
+      } else {
+        totalDur = Math.max(0.1, fadeDur * 2 + visHold + clrHold);
+        const p1 = (fadeDur / totalDur) * 100;
+        const p2 = ((fadeDur + visHold) / totalDur) * 100;
+        const p3 = ((fadeDur * 2 + visHold) / totalDur) * 100;
+        customKfStyle = `<style class="lite-text-phase-style">@keyframes ${kfName} { 0% { opacity: 0; } ${p1.toFixed(2)}% { opacity: 1; } ${p2.toFixed(2)}% { opacity: 1; } ${p3.toFixed(2)}%, 100% { opacity: 0; } }</style>`;
+      }
       animClass = ' sva-lite-text-fade-anim';
-      animStyle = `animation-duration:${dur.toFixed(4)}s;--sva-base-dur:${dur.toFixed(4)}s;`;
+      animStyle = `animation-name:${kfName};animation-duration:${totalDur.toFixed(4)}s;animation-timing-function:linear;animation-iteration-count:${iterCount};animation-fill-mode:${fillMode};--sva-base-dur:${totalDur.toFixed(4)}s;`;
     } else if (textAnim === 'flash') {
-      const dur = Math.max(0.2, cycleDur);
+      const fadeIn = Math.max(0, cycleDur);
+      const onHold = Math.max(0.02, holdDelay);
+      const offHold = Math.max(0.02, clearDuration);
+      const kfName = `sva-lite-flash-${le.id}`;
+      let totalDur = fadeIn + onHold + offHold;
+      if (playbackMode === 'once') {
+        totalDur = Math.max(0.05, fadeIn + onHold);
+        if (fadeIn <= 0.005) {
+          customKfStyle = `<style class="lite-text-phase-style">@keyframes ${kfName} { 0%, 100% { opacity: 1; } }</style>`;
+        } else {
+          const p1 = Math.min(100, (fadeIn / totalDur) * 100);
+          customKfStyle = `<style class="lite-text-phase-style">@keyframes ${kfName} { 0% { opacity: 0; } ${p1.toFixed(2)}%, 100% { opacity: 1; } }</style>`;
+        }
+      } else if (playbackMode === 'pingpong') {
+        const effFade = Math.max(0.05, fadeIn);
+        totalDur = Math.max(0.1, effFade * 2 + onHold + offHold);
+        const p1 = (effFade / totalDur) * 100;
+        const p2 = ((effFade + onHold) / totalDur) * 100;
+        const p3 = ((effFade * 2 + onHold) / totalDur) * 100;
+        customKfStyle = `<style class="lite-text-phase-style">@keyframes ${kfName} { 0% { opacity: 0; } ${p1.toFixed(2)}% { opacity: 1; } ${p2.toFixed(2)}% { opacity: 1; } ${p3.toFixed(2)}%, 100% { opacity: 0; } }</style>`;
+      } else {
+        totalDur = Math.max(0.05, fadeIn + onHold + offHold);
+        const p1 = (fadeIn / totalDur) * 100;
+        const p2 = ((fadeIn + onHold) / totalDur) * 100;
+        const p2Off = Math.min(99.99, p2 + 0.01);
+        if (fadeIn <= 0.005) {
+          customKfStyle = `<style class="lite-text-phase-style">@keyframes ${kfName} { 0%, ${p2.toFixed(2)}% { opacity: 1; } ${p2Off.toFixed(2)}%, 100% { opacity: 0; } }</style>`;
+        } else {
+          customKfStyle = `<style class="lite-text-phase-style">@keyframes ${kfName} { 0% { opacity: 0; } ${p1.toFixed(2)}%, ${p2.toFixed(2)}% { opacity: 1; } ${p2Off.toFixed(2)}%, 100% { opacity: 0; } }</style>`;
+        }
+      }
       animClass = ' sva-lite-text-flash-anim';
-      animStyle = `animation-duration:${dur.toFixed(4)}s;--sva-base-dur:${dur.toFixed(4)}s;`;
+      animStyle = `animation-name:${kfName};animation-duration:${totalDur.toFixed(4)}s;animation-timing-function:linear;animation-iteration-count:${iterCount};animation-fill-mode:${fillMode};--sva-base-dur:${totalDur.toFixed(4)}s;`;
     } else if (textAnim === 'slide') {
       const dur = Math.max(0.4, cycleDur + holdDelay);
       const slideDist = Math.max(24, h * 0.85);
       const sIn = dir === 'reverse' ? -slideDist : slideDist;
       const sOut = dir === 'reverse' ? slideDist : -slideDist;
+      const slideKf = playbackMode === 'once' ? 'sva-lite-text-slide-once' : (playbackMode === 'pingpong' ? 'sva-lite-text-slide-pp' : 'sva-lite-text-slide');
       animClass = ' sva-lite-text-slide-anim';
-      animStyle = `animation-duration:${dur.toFixed(4)}s;--sva-base-dur:${dur.toFixed(4)}s;--sva-slide-in:${sIn.toFixed(2)}px;--sva-slide-out:${sOut.toFixed(2)}px;`;
+      animStyle = `animation-name:${slideKf};animation-duration:${dur.toFixed(4)}s;animation-iteration-count:${iterCount};animation-fill-mode:${fillMode};--sva-base-dur:${dur.toFixed(4)}s;--sva-slide-in:${sIn.toFixed(2)}px;--sva-slide-out:${sOut.toFixed(2)}px;`;
     }
 
     const lsAttr = Math.abs(letterSpacing) > 0.01 ? ` letter-spacing="${letterSpacing.toFixed(2)}px"` : '';
@@ -1479,14 +1679,24 @@ window.LiteEffects = {
       let effOffset = arcOffset;
       if (textAlign === 'left' && arcOffset === 50) effOffset = 0;
       else if (textAlign === 'right' && arcOffset === 50) effOffset = 100;
-      textMarkup = `<text class="lite-payload lite-text-element${animClass}" data-semantic-role="payload" fill="${color}" font-family="${fontFamilyAttr}" font-size="${fontSize.toFixed(1)}" font-weight="${fontWeight}" text-anchor="${anchor}"${lsAttr}${filterAttr} style="${animStyle}" pointer-events="none"><textPath class="lite-text-path" href="#${arcId}" startOffset="${effOffset.toFixed(1)}%">${this.escapeXML(textStr)}</textPath></text>`;
+      textMarkup = `<text class="lite-payload lite-text-element${animClass}" data-semantic-role="payload" fill="${color}" font-family="${fontFamilyAttr}" font-size="${fontSize.toFixed(1)}" font-weight="${fontWeight}" text-anchor="${anchor}"${lsAttr}${filterAttr} style="${animStyle}" pointer-events="none"><textPath class="lite-text-path" href="#${arcId}" startOffset="${effOffset.toFixed(1)}%">${this.escapeXML(lines[0] || '')}</textPath></text>`;
     } else {
-      const rawContent = `<text class="lite-payload lite-text-element${animClass}" data-semantic-role="payload" x="${textX.toFixed(2)}" y="${textY.toFixed(2)}" fill="${color}" font-family="${fontFamilyAttr}" font-size="${fontSize.toFixed(1)}" font-weight="${fontWeight}" text-anchor="${anchor}"${lsAttr}${filterAttr} style="${animStyle}" pointer-events="none">${this.escapeXML(textStr)}</text>`;
+      let innerTextContent = '';
+      if (lines.length <= 1) {
+        innerTextContent = this.escapeXML(lines[0] || '');
+      } else {
+        innerTextContent = lines.map((ln, idx) => {
+          const ly = firstLineY + idx * lineAdvance;
+          const safeLn = ln.length > 0 ? this.escapeXML(ln) : '&#160;';
+          return `<tspan class="lite-text-line" x="${textX.toFixed(2)}" y="${ly.toFixed(2)}">${safeLn}</tspan>`;
+        }).join('');
+      }
+      const rawContent = `<text class="lite-payload lite-text-element${animClass}" data-semantic-role="payload" x="${textX.toFixed(2)}" y="${firstLineY.toFixed(2)}" fill="${color}" font-family="${fontFamilyAttr}" font-size="${fontSize.toFixed(1)}" font-weight="${fontWeight}" text-anchor="${anchor}"${lsAttr}${filterAttr} style="${animStyle}" pointer-events="none">${innerTextContent}</text>`;
       textMarkup = `<g class="lite-text-viewport" clip-path="url(#${clipId})">${rawContent}</g>`;
     }
 
-    const defsMarkup = `<defs>${defsContent}</defs>`;
-    const textDataAttrs = `data-text-variant="${this.escapeXML(variant)}" data-text-content="${this.escapeXML(textStr)}" data-text-font="${this.escapeXML(fontKey)}" data-text-font-size="${fontSize}" data-text-font-weight="${fontWeight}" data-text-letter-spacing="${letterSpacing}" data-text-align="${textAlign}" data-text-valign="${verticalAlign}" data-text-padding="${pad}" data-text-bg-color="${bgCol}" data-text-bg-opacity="${bgOp}" data-text-border-color="${borderCol}" data-text-border-width="${borderW}" data-text-curvature="${curv}" data-text-start-offset="${arcOffset}" data-text-anim="${textAnim}" data-text-scroll-speed="${scrollSpeed}" data-text-type-speed="${typeSpeed}" data-text-hold-delay="${holdDelay}" data-text-type-mode="${typeMode}" data-text-cycle-dur="${cycleDur}" data-text-direction="${dir}" data-text-x="${x.toFixed(2)}" data-text-y="${y.toFixed(2)}" data-text-w="${w.toFixed(2)}" data-text-h="${h.toFixed(2)}" data-text-cx="${cx.toFixed(2)}" data-text-cy="${cy.toFixed(2)}" data-text-cr="${cornerR.toFixed(2)}"`;
+    const defsMarkup = `<defs>${defsContent}</defs>${customKfStyle}`;
+    const textDataAttrs = `data-text-variant="${this.escapeXML(variant)}" data-text-content="${this.escapeXML(textStr)}" data-text-font="${this.escapeXML(fontKey)}" data-text-font-size="${fontSize}" data-text-font-weight="${fontWeight}" data-text-letter-spacing="${letterSpacing}" data-text-align="${textAlign}" data-text-valign="${verticalAlign}" data-text-padding="${pad}" data-text-bg-color="${bgCol}" data-text-bg-opacity="${bgOp}" data-text-border-color="${borderCol}" data-text-border-width="${borderW}" data-text-curvature="${curv}" data-text-start-offset="${arcOffset}" data-text-anim="${textAnim}" data-text-playback-mode="${playbackMode}" data-text-scroll-speed="${scrollSpeed}" data-text-lines-per-sec="${linesPerSec}" data-text-line-spacing="${lineSpacing}" data-text-word-wrap="${wordWrap ? 'true' : 'false'}" data-text-line-count="${lineCount}" data-text-block-h="${blockH.toFixed(2)}" data-text-type-speed="${typeSpeed}" data-text-hold-delay="${holdDelay}" data-text-clear-dur="${clearDuration}" data-text-lock-on-off="${lockOnOff ? 'true' : 'false'}" data-text-type-mode="${typeMode}" data-text-type-repeat="${typeRepeat ? 'true' : 'false'}" data-text-cycle-dur="${cycleDur}" data-text-direction="${dir}" data-text-x="${x.toFixed(2)}" data-text-y="${y.toFixed(2)}" data-text-w="${w.toFixed(2)}" data-text-h="${h.toFixed(2)}" data-text-cx="${cx.toFixed(2)}" data-text-cy="${cy.toFixed(2)}" data-text-cr="${cornerR.toFixed(2)}"`;
     return `<g ${baseAttrs} ${textDataAttrs} style="opacity:${opacity};">${defsMarkup}${hitMarkup}${boxMarkup}${textMarkup}</g>`;
   },
 
@@ -1740,65 +1950,78 @@ window.LiteEffects = {
     }
     return Array.from(t);
   }
-  var tNodes=s.querySelectorAll('[data-lite-kind="text-lite"]');
-  for(var j=0;j<tNodes.length;j++){(function(g){
-    var anim=g.getAttribute('data-text-anim')||'none';
-    if(anim==='none')return;
-    var txtEl=g.querySelector('.lite-text-element');
-    var targetNode=g.querySelector('.lite-text-path')||txtEl;
-    if(!txtEl||!targetNode)return;
-    var fullStr=g.getAttribute('data-text-content')||targetNode.textContent||'';
-    var w=parseFloat(g.getAttribute('data-text-w'))||220;
-    var h=parseFloat(g.getAttribute('data-text-h'))||56;
-    var dir=g.getAttribute('data-text-direction')==='reverse'?'reverse':'forward';
-    if(anim==='ticker-h'){
-      var spd=Math.max(10,parseFloat(g.getAttribute('data-text-scroll-speed'))||90);
-      var tw=0;
-      try{tw=txtEl.getComputedTextLength();}catch(_){}
-      if(!(tw>0))tw=Math.max(18,segG(fullStr).length*10);
-      var dist=w+tw;
-      var dur=Math.max(0.2,dist/spd);
-      txtEl.style.setProperty('--sva-ticker-start',(dir==='reverse'?-tw:w).toFixed(2)+'px');
-      txtEl.style.setProperty('--sva-ticker-end',(dir==='reverse'?w:-tw).toFixed(2)+'px');
-      txtEl.style.animationDuration=dur.toFixed(4)+'s';
-    }else if(anim==='typewriter'||anim==='scramble'||anim==='overtype'){
-      var rate=Math.max(1,parseFloat(g.getAttribute('data-text-type-speed'))||14);
-      var hold=Math.max(0,parseFloat(g.getAttribute('data-text-hold-delay'))||1.5);
-      var mode=g.getAttribute('data-text-type-mode')||'hold';
-      var gs=segG(fullStr);
-      var stepMs=Math.max(12,Math.round(1000/rate));
-      var idx=0,phase='type';
-      var cipher='0123456789ABCDEFGHIJKLMNOPQRSTUVWXYZ#%&*';
-      function tick(){
-        if(!g.isConnected)return;
-        if(anim==='scramble'){
-          idx++;
-          var out='';
-          for(var k=0;k<gs.length;k++){
-            if(k<idx||gs[k]===' ')out+=gs[k];
-            else out+=cipher.charAt((k*7+idx*13)%cipher.length);
-          }
-          targetNode.textContent=out;
-          if(idx<gs.length)setTimeout(tick,stepMs);
-          else if(mode==='loop')setTimeout(function(){idx=0;tick();},Math.max(200,hold*1000));
-        }else{
-          if(phase==='type'){
+    const tNodes=s.querySelectorAll('[data-lite-kind="text-lite"]');
+    for(var j=0;j<tNodes.length;j++){(function(g){
+      var anim=g.getAttribute('data-text-anim')||'none';
+      if(anim==='overtype')anim='typewriter';
+      if(anim==='none')return;
+      var txtEl=g.querySelector('.lite-text-element');
+      var targetNode=g.querySelector('.lite-text-path')||txtEl;
+      if(!txtEl||!targetNode)return;
+      var fullStr=g.getAttribute('data-text-content')||targetNode.textContent||'';
+      var w=parseFloat(g.getAttribute('data-text-w'))||220;
+      var h=parseFloat(g.getAttribute('data-text-h'))||56;
+      var pad=parseFloat(g.getAttribute('data-text-padding'))||12;
+      var dir=g.getAttribute('data-text-direction')==='reverse'?'reverse':'forward';
+      var pMode=g.getAttribute('data-text-playback-mode')||'loop';
+      if(anim==='ticker-h'){
+        var spd=Math.max(10,parseFloat(g.getAttribute('data-text-scroll-speed'))||90);
+        var tw=0;
+        try{tw=txtEl.getComputedTextLength();}catch(_){}
+        if(!(tw>0))tw=Math.max(18,segG(fullStr).length*10);
+        var dist=w+tw;
+        var dur=Math.max(0.15,dist/spd);
+        var endPx=pMode==='once'?pad:(dir==='reverse'?w:-tw);
+        txtEl.style.setProperty('--sva-ticker-start',(dir==='reverse'?-tw:w).toFixed(2)+'px');
+        txtEl.style.setProperty('--sva-ticker-end',endPx.toFixed(2)+'px');
+        txtEl.style.animationDuration=dur.toFixed(4)+'s';
+      }else if(anim==='typewriter'||anim==='scramble'){
+        var rate=Math.max(1,parseFloat(g.getAttribute('data-text-type-speed'))||14);
+        var hold=Math.max(0,parseFloat(g.getAttribute('data-text-hold-delay'))||1.5);
+        var mode=g.getAttribute('data-text-type-mode')||'hold';
+        if(mode==='loop')mode='delete';
+        var rep=g.getAttribute('data-text-type-repeat')==='true'||pMode==='loop';
+        var gs=segG(fullStr);
+        var stepMs=Math.max(12,Math.round(1000/rate));
+        var idx=0,phase='type';
+        var cipher='0123456789ABCDEFGHIJKLMNOPQRSTUVWXYZ#%&*';
+        function tick(){
+          if(!g.isConnected)return;
+          if(anim==='scramble'){
             idx++;
-            targetNode.textContent=gs.slice(0,idx).join('');
+            var out='';
+            for(var k=0;k<gs.length;k++){
+              if(k<idx||gs[k]===' ')out+=gs[k];
+              else out+=cipher.charAt((k*7+idx*13)%cipher.length);
+            }
+            targetNode.textContent=out;
             if(idx<gs.length)setTimeout(tick,stepMs);
-            else if(mode==='delete'||mode==='loop'){phase='delete';setTimeout(tick,Math.max(150,hold*1000));}
+            else if(pMode!=='once')setTimeout(function(){idx=0;tick();},Math.max(200,hold*1000));
           }else{
-            idx--;
-            targetNode.textContent=gs.slice(0,Math.max(0,idx)).join('');
-            if(idx>0)setTimeout(tick,Math.max(10,Math.round(stepMs*0.7)));
-            else if(mode==='loop'){phase='type';setTimeout(tick,250);}
+            if(phase==='type'){
+              idx++;
+              targetNode.textContent=gs.slice(0,idx).join('');
+              if(idx<gs.length)setTimeout(tick,stepMs);
+              else if(mode==='delete'||mode==='delete-forward'){phase=mode;setTimeout(tick,Math.max(60,hold*1000));}
+              else if(rep){setTimeout(function(){idx=0;targetNode.textContent='';tick();},Math.max(200,hold*1000));}
+            }else if(phase==='delete'){
+              idx--;
+              targetNode.textContent=gs.slice(0,Math.max(0,idx)).join('');
+              if(idx>0)setTimeout(tick,Math.max(10,Math.round(stepMs*0.75)));
+              else if(rep){phase='type';setTimeout(tick,250);}
+            }else if(phase==='delete-forward'){
+              idx--;
+              var startCut=gs.length-Math.max(0,idx);
+              targetNode.textContent=gs.slice(startCut).join('');
+              if(idx>0)setTimeout(tick,Math.max(10,Math.round(stepMs*0.75)));
+              else if(rep){phase='type';setTimeout(tick,250);}
+            }
           }
         }
+        targetNode.textContent='';
+        setTimeout(tick,stepMs);
       }
-      targetNode.textContent='';
-      setTimeout(tick,stepMs);
-    }
-  })(tNodes[j]);}
+    })(tNodes[j]);}
 })();
 ]]></script>`;
   },
@@ -1840,30 +2063,36 @@ window.LiteEffects = {
       });
     });
 
-    // Bind live Studio preview controllers for Text Box Lite tickers, typewriters, scramble, and overtype
+    // Bind live Studio preview controllers for Text Box Lite tickers, typewriters, and scramble
     container.querySelectorAll('[data-lite-kind="text-lite"]').forEach((g) => {
-      const anim = g.getAttribute('data-text-anim') || 'none';
+      let anim = g.getAttribute('data-text-anim') || 'none';
+      if (anim === 'overtype') anim = 'typewriter';
       if (anim === 'none') return;
       const txtEl = g.querySelector('.lite-text-element');
       const targetNode = g.querySelector('.lite-text-path') || txtEl;
       if (!txtEl || !targetNode) return;
       const fullStr = g.getAttribute('data-text-content') || '';
       const w = parseFloat(g.getAttribute('data-text-w')) || 220;
+      const pad = parseFloat(g.getAttribute('data-text-padding')) || 12;
       const dir = g.getAttribute('data-text-direction') === 'reverse' ? 'reverse' : 'forward';
+      const pMode = g.getAttribute('data-text-playback-mode') || 'loop';
       if (anim === 'ticker-h') {
         const spd = Math.max(10, parseFloat(g.getAttribute('data-text-scroll-speed')) || 90);
         let tw = 0;
         try { tw = txtEl.getComputedTextLength(); } catch (_) {}
         if (!(tw > 0)) tw = Math.max(18, this.segmentGraphemes(fullStr).length * 10);
         const dist = w + tw;
-        const dur = Math.max(0.2, dist / spd);
+        const dur = Math.max(0.15, dist / spd);
+        const endPx = pMode === 'once' ? pad : (dir === 'reverse' ? w : -tw);
         txtEl.style.setProperty('--sva-ticker-start', `${(dir === 'reverse' ? -tw : w).toFixed(2)}px`);
-        txtEl.style.setProperty('--sva-ticker-end', `${(dir === 'reverse' ? w : -tw).toFixed(2)}px`);
+        txtEl.style.setProperty('--sva-ticker-end', `${endPx.toFixed(2)}px`);
         txtEl.style.animationDuration = `${dur.toFixed(4)}s`;
-      } else if (anim === 'typewriter' || anim === 'scramble' || anim === 'overtype') {
+      } else if (anim === 'typewriter' || anim === 'scramble') {
         const rate = Math.max(1, parseFloat(g.getAttribute('data-text-type-speed')) || 14);
         const hold = Math.max(0, parseFloat(g.getAttribute('data-text-hold-delay')) || 1.5);
-        const mode = g.getAttribute('data-text-type-mode') || 'hold';
+        let mode = g.getAttribute('data-text-type-mode') || 'hold';
+        if (mode === 'loop') mode = 'delete';
+        const rep = g.getAttribute('data-text-type-repeat') === 'true';
         const gs = this.segmentGraphemes(fullStr);
         const stepMs = Math.max(12, Math.round(1000 / rate));
         const cipher = '0123456789ABCDEFGHIJKLMNOPQRSTUVWXYZ#%&*';
@@ -1881,7 +2110,7 @@ window.LiteEffects = {
             targetNode.textContent = out;
             if (idx < gs.length) {
               this._studioBurstTimers.push(setTimeout(stepFn, stepMs));
-            } else {
+            } else if (pMode !== 'once') {
               this._studioBurstTimers.push(setTimeout(() => { idx = 0; stepFn(); }, Math.max(250, hold * 1000)));
             }
           } else {
@@ -1890,20 +2119,30 @@ window.LiteEffects = {
               targetNode.textContent = gs.slice(0, idx).join('');
               if (idx < gs.length) {
                 this._studioBurstTimers.push(setTimeout(stepFn, stepMs));
-              } else if (mode === 'delete' || mode === 'loop') {
-                phase = 'delete';
-                this._studioBurstTimers.push(setTimeout(stepFn, Math.max(200, hold * 1000)));
-              } else if (mode === 'hold') {
-                this._studioBurstTimers.push(setTimeout(() => { idx = 0; stepFn(); }, Math.max(400, hold * 1000)));
+              } else if (mode === 'delete' || mode === 'delete-forward') {
+                phase = mode;
+                this._studioBurstTimers.push(setTimeout(stepFn, Math.max(60, hold * 1000)));
+              } else if (rep) {
+                this._studioBurstTimers.push(setTimeout(() => { idx = 0; targetNode.textContent = ''; stepFn(); }, Math.max(250, hold * 1000)));
               }
-            } else {
+            } else if (phase === 'delete') {
               idx--;
               targetNode.textContent = gs.slice(0, Math.max(0, idx)).join('');
               if (idx > 0) {
-                this._studioBurstTimers.push(setTimeout(stepFn, Math.max(10, Math.round(stepMs * 0.7))));
-              } else if (mode === 'loop' || mode === 'delete') {
+                this._studioBurstTimers.push(setTimeout(stepFn, Math.max(10, Math.round(stepMs * 0.75))));
+              } else if (rep) {
                 phase = 'type';
-                this._studioBurstTimers.push(setTimeout(stepFn, 300));
+                this._studioBurstTimers.push(setTimeout(stepFn, 250));
+              }
+            } else if (phase === 'delete-forward') {
+              idx--;
+              const startCut = gs.length - Math.max(0, idx);
+              targetNode.textContent = gs.slice(startCut).join('');
+              if (idx > 0) {
+                this._studioBurstTimers.push(setTimeout(stepFn, Math.max(10, Math.round(stepMs * 0.75))));
+              } else if (rep) {
+                phase = 'type';
+                this._studioBurstTimers.push(setTimeout(stepFn, 250));
               }
             }
           }
@@ -2187,12 +2426,19 @@ window.LiteEffects = {
     bindPair('liteTextStartOffset', 'startOffset');
     bindField('liteTextShowGuideChk', 'showGuide', false, true);
     bindField('liteTextAnimSelect', 'textAnim');
+    bindField('liteTextPlaybackModeSelect', 'playbackMode');
     bindPair('liteTextScrollSpeed', 'scrollSpeed');
+    bindPair('liteTextLinesPerSec', 'linesPerSec');
+    bindPair('liteTextLineSpacing', 'lineSpacing');
+    bindField('liteTextWordWrapChk', 'wordWrap', false, true);
     bindField('liteTextDirectionSelect', 'direction');
     bindPair('liteTextTypeSpeed', 'typeSpeed');
     bindField('liteTextTypeModeSelect', 'typeMode');
+    bindField('liteTextTypeRepeatChk', 'typeRepeat', false, true);
     bindPair('liteTextCycleSpeed', 'speed');
     bindPair('liteTextHoldDelay', 'holdDelay');
+    bindField('liteTextLockOnOffChk', 'lockOnOff', false, true);
+    bindPair('liteTextClearDuration', 'clearDuration');
   },
 
   addWaypointToActive() {
@@ -2577,9 +2823,15 @@ window.LiteEffects = {
           if (!existing.bgOpacity || existing.bgOpacity <= 0) patch.bgOpacity = 0.85;
           if (!existing.strokeWidth || existing.strokeWidth <= 0) patch.strokeWidth = 1.5;
         }
-        if (value === 'curved' && ['ticker-h', 'ticker-v', 'slide', 'scramble', 'overtype'].includes(existing.textAnim)) {
+        if (value === 'curved' && ['ticker-h', 'ticker-v', 'stacked-v', 'slide', 'scramble', 'overtype'].includes(existing.textAnim)) {
           patch.textAnim = 'none';
         }
+      } else if (key === 'lockOnOff' && Boolean(value)) {
+        patch.clearDuration = existing.holdDelay !== undefined ? existing.holdDelay : 1.5;
+      } else if (key === 'holdDelay' && existing.lockOnOff) {
+        patch.clearDuration = Number(value);
+      } else if (key === 'clearDuration' && existing.lockOnOff) {
+        patch.holdDelay = Number(value);
       }
     }
 
@@ -2757,36 +3009,74 @@ window.LiteEffects = {
       const animSel = document.getElementById('liteTextAnimSelect');
       if (animSel) {
         Array.from(animSel.options).forEach((opt) => {
-          opt.disabled = isCurved && ['ticker-h', 'ticker-v', 'slide', 'scramble', 'overtype'].includes(opt.value);
+          opt.disabled = isCurved && ['ticker-h', 'ticker-v', 'stacked-v', 'slide', 'scramble'].includes(opt.value);
         });
       }
-      setVal('liteTextAnimSelect', anim);
+      const normAnim = anim === 'overtype' ? 'typewriter' : anim;
+      setVal('liteTextAnimSelect', normAnim);
+      setVal('liteTextPlaybackModeSelect', ['loop', 'once', 'pingpong'].includes(le.playbackMode) ? le.playbackMode : 'loop');
       setPair('liteTextScrollSpeed', le.scrollSpeed || 90);
+      setPair('liteTextLinesPerSec', le.linesPerSec || 1.2);
+      setPair('liteTextLineSpacing', le.lineSpacing || 1.25);
+      setChk('liteTextWordWrapChk', le.wordWrap !== false);
       setVal('liteTextDirectionSelect', (le.direction === 'reverse' || le.direction === 'ccw') ? 'reverse' : 'forward');
       setPair('liteTextTypeSpeed', le.typeSpeed || 14);
-      setVal('liteTextTypeModeSelect', le.typeMode || 'hold');
-      setPair('liteTextCycleSpeed', le.speed || 2.0);
+      const normTypeMode = le.typeMode === 'loop' ? 'delete' : (le.typeMode || 'hold');
+      setVal('liteTextTypeModeSelect', normTypeMode);
+      const normRepeat = le.typeMode === 'loop' ? true : (le.typeRepeat !== undefined ? Boolean(le.typeRepeat) : (normTypeMode === 'delete' || normTypeMode === 'delete-forward'));
+      setChk('liteTextTypeRepeatChk', normRepeat);
+      setPair('liteTextCycleSpeed', le.speed !== undefined ? le.speed : (normAnim === 'flash' ? 0.15 : 0.8));
       setPair('liteTextHoldDelay', le.holdDelay !== undefined ? le.holdDelay : 1.5);
+      setChk('liteTextLockOnOffChk', Boolean(le.lockOnOff));
+      setPair('liteTextClearDuration', le.lockOnOff && normAnim === 'flash' ? (le.holdDelay !== undefined ? le.holdDelay : 1.5) : (le.clearDuration !== undefined ? le.clearDuration : 0.6));
 
       const vAlignRow = document.getElementById('liteTextVerticalAlignRow');
       const boxStyleGroup = document.getElementById('liteTextBoxStyleGroup');
       const curvedGroup = document.getElementById('liteTextCurvedGroup');
+      const playbackRow = document.getElementById('liteTextPlaybackModeRow');
       const scrollSpdRow = document.getElementById('liteTextScrollSpeedRow');
+      const lpsRow = document.getElementById('liteTextLinesPerSecRow');
+      const lsRow = document.getElementById('liteTextLineSpacingRow');
+      const wwRow = document.getElementById('liteTextWordWrapRow');
       const dirRow = document.getElementById('liteTextDirectionRow');
       const typeSpdRow = document.getElementById('liteTextTypeSpeedRow');
+      const typeSpdLbl = document.getElementById('liteTextTypeSpeedLabel');
       const typeModeRow = document.getElementById('liteTextTypeModeRow');
+      const typeRepRow = document.getElementById('liteTextTypeRepeatRow');
       const cycleSpdRow = document.getElementById('liteTextCycleSpeedRow');
+      const cycleSpdLbl = document.getElementById('liteTextCycleSpeedLabel');
       const holdRow = document.getElementById('liteTextHoldDelayRow');
+      const holdLbl = document.getElementById('liteTextHoldDelayLabel');
+      const lockRow = document.getElementById('liteTextLockOnOffRow');
+      const clearRow = document.getElementById('liteTextClearDurationRow');
+      const clearLbl = document.getElementById('liteTextClearDurationLabel');
 
       if (vAlignRow) vAlignRow.style.display = isCurved ? 'none' : '';
       if (boxStyleGroup) boxStyleGroup.style.display = isBoxed ? '' : 'none';
       if (curvedGroup) curvedGroup.style.display = isCurved ? '' : 'none';
-      if (scrollSpdRow) scrollSpdRow.style.display = (anim === 'ticker-h' || anim === 'ticker-v') ? '' : 'none';
-      if (dirRow) dirRow.style.display = (anim === 'ticker-h' || anim === 'ticker-v' || anim === 'slide') ? '' : 'none';
-      if (typeSpdRow) typeSpdRow.style.display = (anim === 'typewriter' || anim === 'scramble' || anim === 'overtype') ? '' : 'none';
-      if (typeModeRow) typeModeRow.style.display = anim === 'typewriter' ? '' : 'none';
-      if (cycleSpdRow) cycleSpdRow.style.display = (['fade', 'flash', 'slide', 'blur-in', 'blur-out'].includes(anim)) ? '' : 'none';
-      if (holdRow) holdRow.style.display = (['typewriter', 'fade', 'slide', 'blur-in', 'blur-out', 'scramble', 'overtype'].includes(anim)) ? '' : 'none';
+      if (playbackRow) playbackRow.style.display = (normAnim !== 'none' && normAnim !== 'typewriter') ? '' : 'none';
+      if (scrollSpdRow) scrollSpdRow.style.display = normAnim === 'ticker-h' ? '' : 'none';
+      if (lpsRow) lpsRow.style.display = normAnim === 'ticker-v' ? '' : 'none';
+      if (lsRow) lsRow.style.display = (normAnim === 'none' || normAnim === 'ticker-v' || normAnim === 'stacked-v') ? '' : 'none';
+      if (wwRow) wwRow.style.display = normAnim === 'ticker-v' ? '' : 'none';
+      if (dirRow) dirRow.style.display = (['ticker-h', 'ticker-v', 'stacked-v', 'slide'].includes(normAnim)) ? '' : 'none';
+      if (typeSpdRow) typeSpdRow.style.display = (['typewriter', 'scramble', 'stacked-v'].includes(normAnim)) ? '' : 'none';
+      if (typeSpdLbl) typeSpdLbl.textContent = normAnim === 'stacked-v' ? 'Scroll Rate (chars/s)' : 'Rate (chars/s)';
+      if (typeModeRow) typeModeRow.style.display = normAnim === 'typewriter' ? '' : 'none';
+      if (typeRepRow) typeRepRow.style.display = normAnim === 'typewriter' ? '' : 'none';
+      if (cycleSpdRow) cycleSpdRow.style.display = (['fade', 'flash', 'slide', 'blur-in', 'blur-out'].includes(normAnim)) ? '' : 'none';
+      if (cycleSpdLbl) {
+        cycleSpdLbl.textContent = normAnim === 'fade' ? 'Fade Duration (s)' : (normAnim === 'flash' ? 'Fade-In Duration (s)' : 'Transition Duration (s)');
+      }
+      if (holdRow) holdRow.style.display = (['typewriter', 'fade', 'flash', 'slide', 'blur-in', 'blur-out', 'scramble'].includes(normAnim)) ? '' : 'none';
+      if (holdLbl) {
+        holdLbl.textContent = normAnim === 'fade' ? 'Visible Hold Duration (s)' : (normAnim === 'flash' ? 'On Hold Duration (s)' : 'Hold Pause (s)');
+      }
+      if (lockRow) lockRow.style.display = normAnim === 'flash' ? '' : 'none';
+      if (clearRow) clearRow.style.display = (normAnim === 'fade' || normAnim === 'flash') ? '' : 'none';
+      if (clearLbl) {
+        clearLbl.textContent = normAnim === 'flash' ? 'Off Duration (s)' : 'Clear Duration (s)';
+      }
     }
 
     if (le.kind === 'gauge-lite') {

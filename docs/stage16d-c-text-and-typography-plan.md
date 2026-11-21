@@ -1,8 +1,9 @@
 # Stage 16D-C — Text and Typography Architecture and Development Plan
 
-**Status:** **Stage 16D-C — IMPLEMENTED, AWAITING COMPREHENSIVE USER ACCEPTANCE**  
-**Implementation Authorisation:** **ALL FOUR MILESTONES (T1, T2, T3, T4) AUTHORISED & IMPLEMENTED IN ONE CONTINUOUS PROGRAMME**  
-**Implementation Commit:** `c4e8460`  
+**Status:** **Stage 16D-C — CORRECTIONS IMPLEMENTED, AWAITING USER ACCEPTANCE**  
+**Implementation Authorisation:** **ALL FOUR MILESTONES (T1–T4) + CONSOLIDATED VISUAL CORRECTIONS AUTHORISED & IMPLEMENTED**  
+**Initial Implementation Commit:** `f07272f`  
+**Consolidated Corrections Commit:** `ea1540e`  
 **Project:** SVG Animator Studio  
 **Stage:** Stage 16D-C (Text and Typography)  
 **Prerequisite Baseline:** Commit `735c3f5` (Stage 16D-B Final Closeout; M1 Flow Lite `a3a7d24`, M2 Radar Ping Lite `ad814bb`, M3 Gauge / Level Lite `a086170`, and M4 Oscilloscope Lite & 4-Threshold Gauge Enhancement `698e6cf` all COMPLETE AND ACCEPTED)  
@@ -509,4 +510,54 @@ Measured in headless Chromium via CDP (`scripts/cmd/verify-stage16d-c/main.go`) 
 | **`js-raf-ticker-h` (Per-Frame JS `requestAnimationFrame`)** | `50` / `100` | `medium` (`36 chars`) | `19.1..22.5` | `0.90..3.70 ms` | `0.0 ms` | **Avoid** — continuous main-thread DOM attribute mutation every frame |
 | **`css-fade-flash` (Declarative CSS `@keyframes`)** | `50` / `100` | `medium` (`36 chars`) | `18.8..38.8` | **`0.00 ms`** | `0.0 ms` | **Preferred for `fade`, `flash`, `slide`** (`0.00 ms` main-thread JS) |
 | **`js-raf-fade-flash` (Per-Frame JS `requestAnimationFrame`)** | `100` | `medium` (`36 chars`) | `20.0..32.0` | `1.10..2.60 ms` | `0.0 ms` | **Avoid** — unnecessary per-frame JS overhead |
-| **`scheduled-typewriter` (Character-Interval `setTimeout`)** | `50` / `100` | `medium` (`36 chars`) | **`35.3..40.0`** | **`0.00 ms` (between steps)** | `0.0 ms` | **Preferred for `typewriter`, `scramble`, `overtype`** — wakes only at `1000 / typeSpeed` ms character intervals |
+| **`scheduled-typewriter` (Character-Interval `setTimeout`)** | `50` / `100` | `medium` (`36 chars`) | **`35.3..40.0`** | **`0.00 ms` (between steps)** | `0.0 ms` | **Preferred for `typewriter`, `scramble`** — wakes only at `1000 / typeSpeed` ms character intervals |
+
+---
+
+## 16. Consolidated Visual Acceptance Corrections (`Stage 16D-C — CORRECTIONS IMPLEMENTED, AWAITING USER ACCEPTANCE`)
+
+Following the user's initial visual inspection of `f07272f`, the following targeted corrections were implemented across the Go engine (`pkg/engine/scene/`), WASM binary, Studio inspectors (`index.html`, `lite-effects.js`, `context-editor.js`), Stage 16C widget runtime (`svg-widget.js`), and visual showcase (`text-lite-demo.html`):
+
+1. **Horizontal Ticker Directions & Zero Vertical Drift (`ticker-h`):**
+   - Replaced `translateX(...)` with explicit 2D `translate(var(--sva-ticker-start), 0px)` → `translate(var(--sva-ticker-end), 0px)`, preserving the configured vertical alignment (`firstLineY`) and tilted-box alignment while guaranteeing zero vertical movement (`dy = 0.00 px`).
+   - **Scroll Left (`direction: "forward"`):** Starts outside the right edge (`+w`) and exits completely through the left edge (`-tw`).
+   - **Scroll Right (`direction: "reverse"`):** Starts outside the left edge (`-tw`) and exits completely through the right edge (`+w`).
+   - Inspector labels updated to **"Scroll Left / Up (Forward)"** and **"Scroll Right / Down (Reverse)"**.
+2. **Multiline Vertical Scroll (`ticker-v`) — Explicit Newlines, Word Wrap, Line Spacing & Lines per Second:**
+   - Supports literal newline characters (`\n`) in both Studio `<textarea>` inputs and runtime `setParameter()` strings, rendering each line as an aligned `<tspan class="lite-text-line">`.
+   - Added **Word Wrap (`wordWrap`, default `true`)** specifically for `ticker-v`: wraps at word spaces to fit `availW = width - 2 * padding` using canvas font metrics (`measureTextStringWidth`) while honouring explicit newlines; when disabled (`wordWrap: false`), only explicit `\n` breaks create new lines.
+   - Added **Line Spacing (`lineSpacing`, `0.8..3.0×`, default `1.25×`)** controlling vertical line advance (`lineAdvance = fontSize * lineSpacing`) and total block height (`blockH = fontSize + (N - 1) * lineAdvance`).
+   - Changed vertical scrolling speed to **Lines per Second (`linesPerSec`, `0.1..20.0 lines/s`, default `1.2 lines/s`)**, computing linear travel velocity `v = linesPerSec * lineAdvance` and full entry-to-exit duration `duration = (h + blockH) / v`.
+3. **Additional Stacked-Letter Vertical Scroll (`stacked-v`):**
+   - Added **Vertical Stacked Letters (`textAnim: "stacked-v"`)** as a distinct animation choice alongside `ticker-v`.
+   - Segments the message into Unicode grapheme clusters (`Intl.Segmenter`) and stacks characters vertically one above another (`S / T / A / T / U / S / 🚀`) with uniform `lineSpacing`, scrolling the vertical column at **`typeSpeed` (`chars/s`)** (`v = typeSpeed * lineAdvance`) without applying Word Wrap.
+4. **Fade — Separate 3-Phase Timing Controls (`fade`):**
+   - Exposed three independent timing controls: **Fade Duration (`speed`, `0.05..30 s`)**, **Visible Hold Duration (`holdDelay`, `0..30 s`)**, and **Clear Duration (`clearDuration`, `0..30 s`)**.
+   - Generates an exact per-element `@keyframes sva-lite-fade-{id}` stylesheet block with phase percentages `p1 = fadeDur / total`, `p2 = (fadeDur + visHold) / total`, `p3 = (2 * fadeDur + visHold) / total` (`opacity: 0 → 1 → 1 → 0 → 0`).
+5. **Flash / Blink — Separate 3-Phase Timing Controls & Lock On/Off (`flash`):**
+   - Exposed **Fade-In Duration (`speed`, `0..30 s`)**, **On Hold Duration (`holdDelay`, `0..30 s`)**, **Off Duration (`clearDuration`, `0..30 s`)**, and **Lock On/Off (`lockOnOff` checkbox)**.
+   - When **Lock On/Off** is enabled, editing either On Hold Duration or Off Duration in either the Left Drawer or Floating Context Editor automatically keeps both values equal while leaving Fade-In Duration independent.
+6. **Playback Modes (`playbackMode`: `once`, `loop`, `pingpong`):**
+   - Exposed **Play Once (`once`)**, **Loop (`loop`)**, and **Ping-Pong (`pingpong`)** for all non-Typewriter animated effects (`ticker-h`, `ticker-v`, `stacked-v`, `fade`, `flash`, `slide`, `blur-in`, `blur-out`, `scramble`).
+   - In **Ping-Pong** ticker mode, `TextLiteController` tracks `iterCount` and only adopts `pendingText` after even iteration counts (`iterCount % 2 === 0`), preventing mid-return text substitution.
+   - Hidden when `textAnim === "typewriter"` so it never conflicts with Typewriter's explicit sequence controls.
+7. **Four Distinct Typewriter Sequences & Repeat Toggle (`typeMode` + `typeRepeat`):**
+   - **A. Type Once (`once`):** Reveals text from start to end once.
+   - **B. Type Once and Hold (`hold`):** Reveals text once, holds for `holdDelay`, and retains the completed text; if a new `pendingText` arrives during or after the hold, it transitions cleanly at the cycle boundary without blocking updates indefinitely.
+   - **C. Type, Hold, Delete Backwards (`delete`):** Types left-to-right, holds, and deletes from the right-hand end towards the left (`STATUS → STATU → STAT → STA → ST → S → ""`).
+   - **D. Type, Hold, Delete Forwards (`delete-forward`):** Types left-to-right, holds, and deletes from the left-hand end towards the right (`STATUS → TATUS → ATUS → TUS → US → S → ""`).
+   - Added an explicit **Repeat Sequence (`typeRepeat`)** checkbox and migrated legacy `typeMode: "loop"` to `typeMode: "delete"` with `typeRepeat: true`.
+8. **Removal of Redundant Overtype Selection & Legacy Migration:**
+   - Removed `overtype` from new selection dropdowns in both the Left Drawer and Floating Context Editor while preserving full backward-compatible migration (`textAnim: "overtype"` → `"typewriter"`) in Go (`applyLiteEffectDefaults`, `UpdateLiteEffect`) and JS (`_migrateLiteEffect`, `svg-widget.js`).
+   - Preserved **Scramble to Clear (`scramble`)**, **Blur to Clear (`blur-in`)**, and **Clear to Blur (`blur-out`)** unchanged.
+9. **Automated Verification of Consolidated Corrections (`12 / 12` Browser Gates PASS):**
+   - `AT-16DC-C01`: Inspectors, tilted-box alignment (`rotation: 35°`, `text-anchor: end`), curved `<textPath>`, and removal of `overtype` from UI dropdowns — **PASS**
+   - `AT-16DC-C02`: Flash/Blink **Lock On/Off** bidirectional synchronisation across Left Drawer and Floating Context Editor — **PASS**
+   - `AT-16DC-C03`: Legacy `overtype` & `loop` migration to `typewriter` (`delete` + `typeRepeat: true`) — **PASS**
+   - `AT-16DC-C04`: Horizontal Ticker Left (`dx = -139.33 px`, `dy = 0.00 px`) & Right (`dx = +139.33 px`, `dy = 0.00 px`) temporal sampling — **PASS**
+   - `AT-16DC-C05`: Vertical multiline scroll explicit newlines, Word Wrap ON (`5 lines`) vs OFF (`2 lines`), Line Spacing (`1.2×` `19.2 px` vs `1.6×` `25.6 px`), and Lines/s duration scaling (`1.0 lines/s` `9.0 s` vs `2.0 lines/s` `4.5 s`) — **PASS**
+   - `AT-16DC-C06`: Stacked-letter vertical column (`S|T|A|T|U|S|🚀`, identical `x`, monotonic `y`, vertical scroll `dy = -46.28 px`) — **PASS**
+   - `AT-16DC-C07`: 3-phase Fade (`fadeHoldOp = 1.0`, `fadeClearOp = 0.0`) & Blink (`blinkOnOp = 1.0`, `blinkOffOp = 0.0`) temporal opacity sampling + Play Once completion — **PASS**
+   - `AT-16DC-C08`: Ping-Pong ticker completes return journey (`midReturnText = "ORIGINAL PP"` → `postReturnText = "ADOPTED AFTER RETURN"`) before adopting `pendingText` — **PASS**
+   - `AT-16DC-C09`: All 4 Typewriter sequences, Delete Forwards first-grapheme removal (`STATUS → TATUS → ATUS → TUS → US → S → ""`), and Type Once & Hold immediate adoption after hold completion — **PASS**
+   - `AT-16DC-C10`, `AT-16DC-SVC1`, `AT-16DC-SVC2`: Updated visual showcase (`27` T1 + `5` T2 + `21` T3/T4 cards) and protected services (`:8088`, `:8091`, `:8093`) — **PASS**
