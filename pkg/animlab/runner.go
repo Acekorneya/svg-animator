@@ -18,7 +18,6 @@ import (
 	"github.com/chromedp/cdproto/emulation"
 	"github.com/chromedp/cdproto/performance"
 	"github.com/chromedp/chromedp"
-	"github.com/chromedp/chromedp/remote"
 )
 
 type RepetitionResult struct {
@@ -145,16 +144,20 @@ func RunSuite(cfg *Config, outDir, filterTest string) (*LabResults, error) {
 	defer srv.Close()
 	baseURL := fmt.Sprintf("http://%s/test/", ln.Addr().String())
 
-	allocCtx, aCancel := remote.NewAllocator(context.Background(), cfg.Browser.CDPEndpoint)
-	defer aCancel()
+	sess, err := AcquireBrowserSession(context.Background(), cfg.Browser.CDPEndpoint, cfg.Browser.ProcessCPUHost)
+	if err != nil {
+		return nil, fmt.Errorf("acquiring browser session (%s): %w", cfg.Browser.CDPEndpoint, err)
+	}
+	defer sess.Close()
+	allocCtx := sess.AllocCtx
 	probeCtx, pCancel := chromedp.NewContext(allocCtx)
 	if _, err := chromedp.Call(probeCtx, performance.Enable, performance.EnableParams{}); err != nil {
 		pCancel()
-		return nil, fmt.Errorf("connecting to CDP %s: %w", cfg.Browser.CDPEndpoint, err)
+		return nil, fmt.Errorf("connecting to CDP %s: %w", sess.CDPEndpoint, err)
 	}
 
 	// Collect browser ownership & rendering environment on an isolated probe tab, then close it
-	ownership := EstablishBrowserOwnership(probeCtx, cfg.Browser.CDPEndpoint, cfg.Browser.ProcessCPUHost)
+	ownership := EstablishBrowserOwnership(probeCtx, sess.CDPEndpoint, cfg.Browser.ProcessCPUHost)
 	envMeta := collectEnvironmentMetadata(probeCtx, cfg, ownership)
 	pCancel()
 

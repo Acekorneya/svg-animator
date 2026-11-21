@@ -775,6 +775,18 @@ Before choosing a new animation rendering method or changing an existing animati
 
 ---
 
+### Browser and test-process lifecycle
+
+Agents running automated browser tests, benchmarks, or temporary development workloads must track the processes and sessions they create, terminate them on completion or failure, and verify that no owned background processes remain unexpectedly:
+
+1. **Use managed session ownership:** Use `animlab.AcquireBrowserSession` (`pkg/animlab/session.go`) with `defer sess.Close()` and structured `run() int` exit paths (avoiding `log.Fatal` / `os.Exit` after creating CDP contexts so deferred cleanup always runs).
+2. **Inspect ownership and resources before finishing:** Before concluding substantial browser-test work, inspect relevant process ownership (`ps`, `/proc`, CDP `/json/list`) and host resource/pressure metrics (`/proc/pressure/cpu`, `memory`, `io`) to confirm zero leaked tabs, tunnels, or temporary `--user-data-dir` profiles remain.
+3. **Never indiscriminately kill browsers:** Never run broad commands such as `killall chrome` or `pkill chrome` that could terminate unrelated browser processes or active user sessions.
+4. **Preserve intentional development services:** Protect intentional long-running services on Kiwiberry (`192.168.100.40`), including SVG Animator Studio (`:8088`), Stage 16C widget consumer (`:8091`), Stage 16D benchmark/demo service (`:8092`), and SVG Animation Test Lab viewer (`:8093`).
+5. **Document intentional persistent processes:** Where a test or workflow deliberately requires a persistent browser or helper process, document its purpose, ownership, profile path, and shutdown procedure. See [docs/development/browser-process-lifecycle.md](docs/development/browser-process-lifecycle.md) for the operational procedure.
+
+---
+
 ## 20. Final guiding principle
 
 The primary objective is not simply to make SVG Animator Studio work today. It is to make the application progressively easier to understand, maintain, test, and extend.

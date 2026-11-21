@@ -16,17 +16,22 @@ import (
 	"time"
 
 	"github.com/chromedp/chromedp"
-	"github.com/chromedp/chromedp/remote"
+	"gitea.seaoffate.net/blackgrape/svg-animator/pkg/animlab"
 )
 
 const (
 	kiwiberryHost = "192.168.100.40"
 	apiBase       = "http://192.168.100.40:8088"
 	cdpEndpoint   = "http://127.0.0.1:9222"
+	cpuHost       = "nigel@192.168.100.40"
 	remoteDemoDir = "/home/nigel/mail-demo"
 )
 
 func main() {
+	os.Exit(run())
+}
+
+func run() int {
 	fmt.Println("==================================================================")
 	fmt.Println(" Stage 16B: Mail Scene Property Authoring & Binding Kiwiberry CDP Verification")
 	fmt.Println("==================================================================")
@@ -372,10 +377,14 @@ func main() {
 
 	// Step 7: Drive Google Chrome on Kiwiberry via CDP
 	fmt.Println("\n[STEP 7] Driving Google Chrome on Kiwiberry via CDP...")
-	allocCtx, aCancel := remote.NewAllocator(context.Background(), cdpEndpoint)
-	defer aCancel()
+	sess, err := animlab.AcquireBrowserSession(context.Background(), cdpEndpoint, cpuHost)
+	if err != nil {
+		log.Printf("Failed to acquire browser session: %v", err)
+		return 1
+	}
+	defer sess.Close()
 
-	ctx, cancel := context.WithTimeout(allocCtx, 30*time.Second)
+	ctx, cancel := context.WithTimeout(sess.AllocCtx, 30*time.Second)
 	defer cancel()
 
 	taskCtx, tCancel := chromedp.NewContext(ctx)
@@ -385,18 +394,22 @@ func main() {
 	fmt.Printf("   Navigating Kiwiberry Chrome to: %s\n", fileURL)
 
 	if _, err := chromedp.Run(taskCtx, chromedp.Navigate(fileURL)); err != nil {
-		log.Fatalf("Failed to navigate to demo.html: %v", err)
+		log.Printf("Failed to navigate to demo.html: %v", err)
+		return 1
 	}
 
 	// Wait for DOM elements
 	if _, err := chromedp.Run(taskCtx, chromedp.WaitReady("#container-unit-a svg")); err != nil {
-		log.Fatalf("Instance unit-a SVG failed to mount: %v", err)
+		log.Printf("Instance unit-a SVG failed to mount: %v", err)
+		return 1
 	}
 	if _, err := chromedp.Run(taskCtx, chromedp.WaitReady("#container-unit-b svg")); err != nil {
-		log.Fatalf("Instance unit-b SVG failed to mount: %v", err)
+		log.Printf("Instance unit-b SVG failed to mount: %v", err)
+		return 1
 	}
 	if _, err := chromedp.Run(taskCtx, chromedp.WaitReady("#container-unit-c svg")); err != nil {
-		log.Fatalf("Instance unit-c SVG failed to mount: %v", err)
+		log.Printf("Instance unit-c SVG failed to mount: %v", err)
+		return 1
 	}
 	fmt.Println("[PASS] All 3 instances (unit-a, unit-b, unit-c) mounted successfully via file://")
 
@@ -427,18 +440,22 @@ func main() {
 	}
 	resFillRaw, err := chromedp.Run(taskCtx, chromedp.Evaluate[string](fmt.Sprintf("JSON.stringify(%s)", testFillJS)))
 	if err != nil {
-		log.Fatalf("Failed to test serverFill: %v", err)
+		log.Printf("Failed to test serverFill: %v", err)
+		return 1
 	}
 	json.Unmarshal([]byte(resFillRaw), &resFill)
 
 	if resFill.ValA != "#ff0055" || resFill.FillA != "#ff0055" {
-		log.Fatalf("FAIL: Unit A serverFill did not update to #ff0055: %+v", resFill)
+		log.Printf("FAIL: Unit A serverFill did not update to #ff0055: %+v", resFill)
+		return 1
 	}
 	if resFill.ValB != "#161b22" || resFill.FillB != "#161b22" {
-		log.Fatalf("FAIL: Unit B serverFill crosstalked: %+v", resFill)
+		log.Printf("FAIL: Unit B serverFill crosstalked: %+v", resFill)
+		return 1
 	}
 	if resFill.ValC != "#161b22" || resFill.FillC != "#161b22" {
-		log.Fatalf("FAIL: Unit C serverFill crosstalked: %+v", resFill)
+		log.Printf("FAIL: Unit C serverFill crosstalked: %+v", resFill)
+		return 1
 	}
 	fmt.Println("[PASS] Unit A serverFill updated to #ff0055; Unit B and C remained #161b22 (zero crosstalk).")
 
@@ -471,13 +488,16 @@ func main() {
 	json.Unmarshal([]byte(resStrokeRaw), &resStroke)
 
 	if resStroke.ValB != "#ffaa00" || resStroke.StrokeB != "#ffaa00" {
-		log.Fatalf("FAIL: Unit B flowColor did not update to #ffaa00: %+v", resStroke)
+		log.Printf("FAIL: Unit B flowColor did not update to #ffaa00: %+v", resStroke)
+		return 1
 	}
 	if resStroke.ValA != "#00ffcc" || resStroke.StrokeA != "#00ffcc" {
-		log.Fatalf("FAIL: Unit A flowColor was modified: %+v", resStroke)
+		log.Printf("FAIL: Unit A flowColor was modified: %+v", resStroke)
+		return 1
 	}
 	if resStroke.ValC != "#00ffcc" || resStroke.StrokeC != "#00ffcc" {
-		log.Fatalf("FAIL: Unit C flowColor was modified: %+v", resStroke)
+		log.Printf("FAIL: Unit C flowColor was modified: %+v", resStroke)
+		return 1
 	}
 	fmt.Println("[PASS] Unit B flowColor updated to #ffaa00; Unit A and C remained #00ffcc.")
 
@@ -510,13 +530,16 @@ func main() {
 	json.Unmarshal([]byte(resGlowRaw), &resGlow)
 
 	if resGlow.ValC != "#e11d48" || resGlow.FillC != "#e11d48" {
-		log.Fatalf("FAIL: Unit C glowColor did not update to #e11d48: %+v", resGlow)
+		log.Printf("FAIL: Unit C glowColor did not update to #e11d48: %+v", resGlow)
+		return 1
 	}
 	if resGlow.ValA != "#22c55e" || resGlow.FillA != "#22c55e" {
-		log.Fatalf("FAIL: Unit A glowColor modified: %+v", resGlow)
+		log.Printf("FAIL: Unit A glowColor modified: %+v", resGlow)
+		return 1
 	}
 	if resGlow.ValB != "#22c55e" || resGlow.FillB != "#22c55e" {
-		log.Fatalf("FAIL: Unit B glowColor modified: %+v", resGlow)
+		log.Printf("FAIL: Unit B glowColor modified: %+v", resGlow)
+		return 1
 	}
 	fmt.Println("[PASS] Unit C glowColor updated to #e11d48; Unit A and B remained #22c55e.")
 
@@ -549,13 +572,16 @@ func main() {
 	json.Unmarshal([]byte(resRippleRaw), &resRipple)
 
 	if resRipple.ValA != "#a855f7" || resRipple.StrokeA != "#a855f7" {
-		log.Fatalf("FAIL: Unit A rippleColor did not update to #a855f7: %+v", resRipple)
+		log.Printf("FAIL: Unit A rippleColor did not update to #a855f7: %+v", resRipple)
+		return 1
 	}
 	if resRipple.ValB != "#38bdf8" || resRipple.StrokeB != "#38bdf8" {
-		log.Fatalf("FAIL: Unit B rippleColor modified: %+v", resRipple)
+		log.Printf("FAIL: Unit B rippleColor modified: %+v", resRipple)
+		return 1
 	}
 	if resRipple.ValC != "#38bdf8" || resRipple.StrokeC != "#38bdf8" {
-		log.Fatalf("FAIL: Unit C rippleColor modified: %+v", resRipple)
+		log.Printf("FAIL: Unit C rippleColor modified: %+v", resRipple)
+		return 1
 	}
 	fmt.Println("[PASS] Unit A rippleColor updated to #a855f7; Unit B and C remained #38bdf8.")
 
@@ -579,7 +605,8 @@ func main() {
 	json.Unmarshal([]byte(resSpeedRaw), &resSpeed)
 
 	if resSpeed.SpeedA != 4.5 || resSpeed.PRateA != 1.0 || resSpeed.SpeedB != 2.0 {
-		log.Fatalf("FAIL: flowSpeed crosstalk or root interference: %+v", resSpeed)
+		log.Printf("FAIL: flowSpeed crosstalk or root interference: %+v", resSpeed)
+		return 1
 	}
 	fmt.Println("[PASS] flowSpeed set to 4.5x on Unit A without affecting Unit A root playback rate (1.0) or Unit B (2.0).")
 
@@ -610,7 +637,8 @@ func main() {
 	json.Unmarshal([]byte(resPauseRaw), &resPause)
 
 	if !resPause.PausedA || resPause.PausedB || resPause.PausedC || !resPause.ResumedA {
-		log.Fatalf("FAIL: Independent pause crosstalk or resume failure: %+v", resPause)
+		log.Printf("FAIL: Independent pause crosstalk or resume failure: %+v", resPause)
+		return 1
 	}
 	fmt.Println("[PASS] Unit A independently paused and resumed while Unit B and C continued running.")
 
@@ -636,11 +664,13 @@ func main() {
 
 	speedStr := fmt.Sprintf("%v", resReset.ResetSpeedA)
 	if resReset.ResetFillA != "#161b22" || (speedStr != "2" && speedStr != "2.0") || resReset.StrokeB != "#ffaa00" {
-		log.Fatalf("FAIL: Reset parameters failed: %+v", resReset)
+		log.Printf("FAIL: Reset parameters failed: %+v", resReset)
+		return 1
 	}
 	fmt.Println("[PASS] Unit A reset restored defaults (#161b22, speed: 2) while Unit B preserved custom state (#ffaa00).")
 
 	fmt.Println("\n==================================================================")
 	fmt.Println(" ALL STAGE 16B MAIL SCENE ACCEPTANCE TESTS PASSED ON KIWIBERRY!")
 	fmt.Println("==================================================================")
+	return 0
 }

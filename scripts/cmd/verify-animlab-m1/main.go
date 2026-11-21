@@ -13,7 +13,6 @@ import (
 	"time"
 
 	"github.com/chromedp/chromedp"
-	"github.com/chromedp/chromedp/remote"
 	"gitea.seaoffate.net/blackgrape/svg-animator/pkg/animlab"
 )
 
@@ -24,9 +23,17 @@ type checkResult struct {
 }
 
 func main() {
+	os.Exit(run())
+}
+
+func run() int {
 	cdpEndpoint := os.Getenv("ANIMLAB_CDP")
 	if cdpEndpoint == "" {
 		cdpEndpoint = "http://127.0.0.1:9222"
+	}
+	cpuHost := os.Getenv("ANIMLAB_CPU_HOST")
+	if cpuHost == "" {
+		cpuHost = "nigel@192.168.100.40"
 	}
 	bindIP := os.Getenv("ANIMLAB_BIND_IP")
 	if bindIP == "" {
@@ -47,7 +54,8 @@ func main() {
 	)
 	ln, err := net.Listen("tcp", bindIP+":0")
 	if err != nil {
-		log.Fatalf("listen %s: %v", bindIP, err)
+		log.Printf("listen %s: %v", bindIP, err)
+		return 1
 	}
 	defer ln.Close()
 	srv := &http.Server{
@@ -68,12 +76,17 @@ func main() {
 	defer srv.Close()
 	baseURL := fmt.Sprintf("http://%s/", ln.Addr().String())
 
-	allocCtx, cancelAlloc := remote.NewAllocator(context.Background(), cdpEndpoint)
-	defer cancelAlloc()
-	ctx, cancelCtx := chromedp.NewContext(allocCtx)
+	sess, err := animlab.AcquireBrowserSession(context.Background(), cdpEndpoint, cpuHost)
+	if err != nil {
+		log.Printf("acquire browser session (%s): %v", cdpEndpoint, err)
+		return 1
+	}
+	defer sess.Close()
+	ctx, cancelCtx := sess.NewTab()
 	defer cancelCtx()
 	if _, err := chromedp.Run(ctx, chromedp.Evaluate[string](`'ok'`)); err != nil {
-		log.Fatalf("connect CDP %s: %v", cdpEndpoint, err)
+		log.Printf("connect CDP %s: %v", sess.CDPEndpoint, err)
+		return 1
 	}
 
 	setPage := func(name, ctype, body string) string {
@@ -584,6 +597,7 @@ func main() {
 	}
 	fmt.Printf("\nSUMMARY: %d/%d checks passed (%d failed)\n", len(results)-failed, len(results), failed)
 	if failed > 0 {
-		os.Exit(1)
+		return 1
 	}
+	return 0
 }

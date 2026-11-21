@@ -12,7 +12,7 @@ import (
 
 	"github.com/chromedp/cdproto/network"
 	"github.com/chromedp/chromedp"
-	"github.com/chromedp/chromedp/remote"
+	"gitea.seaoffate.net/blackgrape/svg-animator/pkg/animlab"
 )
 
 const (
@@ -21,6 +21,7 @@ const (
 	gaugeDemoURL = "http://192.168.100.40:8088/gauge-lite-demo.html"
 	consumerURL  = "http://192.168.100.40:8091/index.html"
 	cdpEndpoint  = "http://127.0.0.1:9222"
+	cpuHost      = "nigel@192.168.100.40"
 )
 
 type GateResult struct {
@@ -40,13 +41,18 @@ func runVoid(ctx context.Context, actions ...chromedp.Action[chromedp.Void]) err
 }
 
 func main() {
+	os.Exit(run())
+}
+
+func run() int {
 	fmt.Println("==========================================================================")
 	fmt.Println(" Stage 16D-B-M4: Oscilloscope Lite & 4-Threshold Gauge Acceptance Suite")
 	fmt.Println("==========================================================================")
 
 	widgetJSBytes, err := os.ReadFile("/root/projects/svg-animator/internal/web/static/js/svg-widget.js")
 	if err != nil {
-		log.Fatalf("Failed to read svg-widget.js: %v", err)
+		log.Printf("Failed to read svg-widget.js: %v", err)
+		return 1
 	}
 	widgetJSSource := string(widgetJSBytes)
 
@@ -60,9 +66,13 @@ func main() {
 		fmt.Printf("[%s] %-10s %-46s | %s\n", status, id, name, details)
 	}
 
-	allocCtx, cancelAlloc := remote.NewAllocator(context.Background(), cdpEndpoint)
-	defer cancelAlloc()
-	ctx, cancelTimeout := context.WithTimeout(allocCtx, 180*time.Second)
+	sess, err := animlab.AcquireBrowserSession(context.Background(), cdpEndpoint, cpuHost)
+	if err != nil {
+		log.Printf("Failed to acquire browser session: %v", err)
+		return 1
+	}
+	defer sess.Close()
+	ctx, cancelTimeout := context.WithTimeout(sess.AllocCtx, 180*time.Second)
 	defer cancelTimeout()
 	taskCtx, cancelTask := chromedp.NewContext(ctx)
 	defer cancelTask()
@@ -74,7 +84,8 @@ func main() {
 		chromedp.Navigate(studioURL),
 		chromedp.WaitReady("#railBtn-lite-effects"),
 	); err != nil {
-		log.Fatalf("Failed to open Studio at %s: %v", studioURL, err)
+		log.Printf("Failed to open Studio at %s: %v", studioURL, err)
+		return 1
 	}
 
 	for i := 0; i < 30; i++ {
@@ -784,7 +795,8 @@ func main() {
 		chromedp.Navigate(oscDemoURL),
 		chromedp.WaitReady("#demo-card-presets"),
 	); err != nil {
-		log.Fatalf("Failed to open %s: %v", oscDemoURL, err)
+		log.Printf("Failed to open %s: %v", oscDemoURL, err)
+		return 1
 	}
 	at13JSON, _ := chromedp.Run(taskCtx, chromedp.Evaluate[string](`(() => {
 		const presetCount = document.querySelectorAll('#svg-presets-showcase g[data-osc-variant]').length;
@@ -830,7 +842,8 @@ func main() {
 		chromedp.Navigate(gaugeDemoURL),
 		chromedp.WaitReady("#demo-card-interactive-widgets"),
 	); err != nil {
-		log.Fatalf("Failed to open %s: %v", gaugeDemoURL, err)
+		log.Printf("Failed to open %s: %v", gaugeDemoURL, err)
+		return 1
 	}
 	at14JSON, _ := chromedp.Run(taskCtx, chromedp.Evaluate[string](`(() => {
 		const instA = window._demoGaugeInstA;
@@ -866,7 +879,8 @@ func main() {
 		chromedp.Navigate(consumerURL),
 		chromedp.WaitReady("body"),
 	); err != nil {
-		log.Fatalf("Failed to open %s: %v", consumerURL, err)
+		log.Printf("Failed to open %s: %v", consumerURL, err)
+		return 1
 	}
 	at15JSON, _ := chromedp.Run(taskCtx, chromedp.Evaluate[string](`(() => {
 		return JSON.stringify({
@@ -896,6 +910,7 @@ func main() {
 	fmt.Printf(" Stage 16D-B-M4 Summary: %d / %d Acceptance Gates PASSED\n", passedCount, len(results))
 	fmt.Println("==========================================================================")
 	if passedCount != len(results) {
-		os.Exit(1)
+		return 1
 	}
+	return 0
 }

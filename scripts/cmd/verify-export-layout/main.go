@@ -10,7 +10,7 @@ import (
 
 	"github.com/chromedp/cdproto/emulation"
 	"github.com/chromedp/chromedp"
-	"github.com/chromedp/chromedp/remote"
+	"gitea.seaoffate.net/blackgrape/svg-animator/pkg/animlab"
 )
 
 type ViewportTest struct {
@@ -20,6 +20,10 @@ type ViewportTest struct {
 }
 
 func main() {
+	os.Exit(run())
+}
+
+func run() int {
 	fmt.Println("==================================================================")
 	fmt.Println(" Stage 16B: Export Panel Layout Multi-Viewport Verification")
 	fmt.Println("==================================================================")
@@ -30,10 +34,14 @@ func main() {
 		{Name: "Tablet/Narrow (1024x768)", Width: 1024, Height: 768},
 	}
 
-	allocCtx, aCancel := remote.NewAllocator(context.Background(), "http://127.0.0.1:9222")
-	defer aCancel()
+	sess, err := animlab.AcquireBrowserSession(context.Background(), "http://127.0.0.1:9222", "nigel@192.168.100.40")
+	if err != nil {
+		log.Printf("AcquireBrowserSession failed: %v", err)
+		return 1
+	}
+	defer sess.Close()
 
-	ctx, cancel := context.WithTimeout(allocCtx, 45*time.Second)
+	ctx, cancel := context.WithTimeout(sess.AllocCtx, 45*time.Second)
 	defer cancel()
 
 	taskCtx, tCancel := chromedp.NewContext(ctx)
@@ -49,16 +57,19 @@ func main() {
 			DeviceScaleFactor: 1.0,
 			Mobile:            false,
 		}); err != nil {
-			log.Fatalf("SetDeviceMetricsOverride failed: %v", err)
+			log.Printf("SetDeviceMetricsOverride failed: %v", err)
+			return 1
 		}
 
 		// 2. Navigate and wait for DOM
 		if _, err := chromedp.Run(taskCtx, chromedp.Navigate("http://localhost:8088/")); err != nil {
-			log.Fatalf("Navigate failed: %v", err)
+			log.Printf("Navigate failed: %v", err)
+			return 1
 		}
 
 		if _, err := chromedp.Run(taskCtx, chromedp.WaitReady("#acc-export")); err != nil {
-			log.Fatalf("WaitReady #acc-export failed: %v", err)
+			log.Printf("WaitReady #acc-export failed: %v", err)
+			return 1
 		}
 
 		// 3. Open Right Drawer and Export panel
@@ -84,7 +95,8 @@ func main() {
 		})()`
 
 		if _, err := chromedp.Run(taskCtx, chromedp.Evaluate[any](setupJS)); err != nil {
-			log.Fatalf("Setup JS failed: %v", err)
+			log.Printf("Setup JS failed: %v", err)
+			return 1
 		}
 
 		// Small delay for animation/render
@@ -156,13 +168,15 @@ func main() {
 
 		rawMeasure, err := chromedp.Run(taskCtx, chromedp.Evaluate[string](fmt.Sprintf("JSON.stringify(%s)", measureJS)))
 		if err != nil {
-			log.Fatalf("Measure JS failed: %v", err)
+			log.Printf("Measure JS failed: %v", err)
+			return 1
 		}
 		json.Unmarshal([]byte(rawMeasure), &data)
 
 		// Assertions
 		if !data.IsInsideSettingsPanel || !data.IsInsideRightDrawer {
-			log.Fatalf("[FAIL] #acc-export is not contained inside #settingsPanel / #rightDrawer!")
+			log.Printf("[FAIL] #acc-export is not contained inside #settingsPanel / #rightDrawer!")
+			return 1
 		}
 		fmt.Printf("   ✓ Hierarchy: #acc-export is cleanly inside #settingsPanel and #rightDrawer\n")
 
@@ -177,13 +191,15 @@ func main() {
 
 		// Export panel width must NOT exceed drawer width + padding (e.g. 5px tolerance)
 		if exportW > drawerW+5 {
-			log.Fatalf("[FAIL] Export panel width (%.1fpx) exceeds drawer width (%.1fpx)!", exportW, drawerW)
+			log.Printf("[FAIL] Export panel width (%.1fpx) exceeds drawer width (%.1fpx)!", exportW, drawerW)
+			return 1
 		}
 		fmt.Printf("   ✓ Bounds: Export panel width (%.1fpx) <= drawer width (%.1fpx)\n", exportW, drawerW)
 
 		// Export panel must NOT overlap canvas stage
 		if exportX < canvasR-5 {
-			log.Fatalf("[FAIL] Export panel (X: %.1f) overlaps canvas stage (Right: %.1f)!", exportX, canvasR)
+			log.Printf("[FAIL] Export panel (X: %.1f) overlaps canvas stage (Right: %.1f)!", exportX, canvasR)
+			return 1
 		}
 		fmt.Printf("   ✓ Non-overlapping: Canvas stage right edge (%.1fpx) <= Export panel left edge (%.1fpx)\n", canvasR, exportX)
 
@@ -191,10 +207,12 @@ func main() {
 		fmt.Printf("   ✓ Verified %d export action buttons inside panel:\n", len(data.Buttons))
 		for _, btn := range data.Buttons {
 			if !btn.Visible {
-				log.Fatalf("[FAIL] Button %s (%s) is not visible!", btn.ID, btn.Text)
+				log.Printf("[FAIL] Button %s (%s) is not visible!", btn.ID, btn.Text)
+				return 1
 			}
 			if btn.Width > exportW+5 {
-				log.Fatalf("[FAIL] Button %s width (%.1fpx) overflows export panel width (%.1fpx)!", btn.ID, btn.Width, exportW)
+				log.Printf("[FAIL] Button %s width (%.1fpx) overflows export panel width (%.1fpx)!", btn.ID, btn.Width, exportW)
+				return 1
 			}
 			fmt.Printf("      - [%s] \"%s\" (w: %.1fpx, h: %.1fpx)\n", btn.ID, btn.Text, btn.Width, btn.Height)
 		}
@@ -241,7 +259,8 @@ func main() {
 		rawErr, _ := chromedp.Run(taskCtx, chromedp.Evaluate[string](fmt.Sprintf("JSON.stringify(%s)", checkErrJS)))
 		json.Unmarshal([]byte(rawErr), &consoleErrs)
 		if len(consoleErrs) > 0 {
-			log.Fatalf("[FAIL] Console errors detected at %s: %v", vp.Name, consoleErrs)
+			log.Printf("[FAIL] Console errors detected at %s: %v", vp.Name, consoleErrs)
+			return 1
 		}
 		fmt.Println("   ✓ Zero console errors reported")
 	}
@@ -249,4 +268,5 @@ func main() {
 	fmt.Println("\n==================================================================")
 	fmt.Println(" ALL REAL-BROWSER VIEWPORT LAYOUT TESTS PASSED WITH ZERO REGRESSIONS!")
 	fmt.Println("==================================================================")
+	return 0
 }

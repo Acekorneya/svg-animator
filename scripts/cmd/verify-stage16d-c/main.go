@@ -4,14 +4,13 @@ import (
 	"context"
 	"encoding/json"
 	"fmt"
-	"log"
 	"math"
 	"os"
 	"time"
 
 	"github.com/chromedp/cdproto/network"
 	"github.com/chromedp/chromedp"
-	"github.com/chromedp/chromedp/remote"
+	"gitea.seaoffate.net/blackgrape/svg-animator/pkg/animlab"
 )
 
 const (
@@ -20,6 +19,7 @@ const (
 	consumerURL = "http://192.168.100.40:8091/index.html"
 	testLabURL  = "http://192.168.100.40:8093/"
 	cdpEndpoint = "http://127.0.0.1:9222"
+	cpuHost     = "nigel@192.168.100.40"
 )
 
 type GateResult struct {
@@ -39,6 +39,10 @@ func runVoid(ctx context.Context, actions ...chromedp.Action[chromedp.Void]) err
 }
 
 func main() {
+	os.Exit(run())
+}
+
+func run() int {
 	fmt.Println("================================================================================")
 	fmt.Println(" Stage 16D-C: Text and Typography Consolidated Corrections Acceptance Suite")
 	fmt.Println("================================================================================")
@@ -53,9 +57,14 @@ func main() {
 		fmt.Printf("[%s] %-14s %-52s | %s\n", status, id, name, details)
 	}
 
-	allocCtx, cancelAlloc := remote.NewAllocator(context.Background(), cdpEndpoint)
-	defer cancelAlloc()
-	ctx, cancelTimeout := context.WithTimeout(allocCtx, 240*time.Second)
+	sess, err := animlab.AcquireBrowserSession(context.Background(), cdpEndpoint, cpuHost)
+	if err != nil {
+		fmt.Fprintf(os.Stderr, "Failed to acquire browser session: %v\n", err)
+		return 1
+	}
+	defer sess.Close()
+
+	ctx, cancelTimeout := context.WithTimeout(sess.AllocCtx, 240*time.Second)
 	defer cancelTimeout()
 	taskCtx, cancelTask := chromedp.NewContext(ctx)
 	defer cancelTask()
@@ -67,7 +76,8 @@ func main() {
 		chromedp.Navigate(studioURL),
 		chromedp.WaitReady("#railBtn-lite-effects"),
 	); err != nil {
-		log.Fatalf("Failed to open Studio at %s: %v", studioURL, err)
+		fmt.Fprintf(os.Stderr, "Failed to open Studio at %s: %v\n", studioURL, err)
+		return 1
 	}
 
 	for i := 0; i < 30; i++ {
@@ -233,7 +243,8 @@ func main() {
 		chromedp.WaitReady("#sec-t3-t4"),
 		chromedp.Sleep(400*time.Millisecond),
 	); err != nil {
-		log.Fatalf("Failed to open %s: %v", textDemoURL, err)
+		fmt.Fprintf(os.Stderr, "Failed to open %s: %v\n", textDemoURL, err)
+		return 1
 	}
 
 	// =========================================================================
@@ -770,6 +781,7 @@ func main() {
 	fmt.Printf(" Stage 16D-C Consolidated Corrections Summary: %d / %d Gates PASSED\n", passedCount, len(results))
 	fmt.Println("================================================================================")
 	if passedCount != len(results) || math.IsNaN(float64(passedCount)) {
-		os.Exit(1)
+		return 1
 	}
+	return 0
 }

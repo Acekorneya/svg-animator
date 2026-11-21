@@ -17,7 +17,7 @@ import (
 	"github.com/chromedp/cdproto/performance"
 	cdpruntime "github.com/chromedp/cdproto/runtime"
 	"github.com/chromedp/chromedp"
-	"github.com/chromedp/chromedp/remote"
+	"gitea.seaoffate.net/blackgrape/svg-animator/pkg/animlab"
 )
 
 type ScenarioSpec struct {
@@ -97,16 +97,25 @@ func getPerfMap(ctx context.Context) map[string]float64 {
 }
 
 func main() {
+	os.Exit(run())
+}
+
+func run() int {
 	benchURL := flag.String("url", "http://192.168.100.40:8091/stage16d-benchmark/index.html", "Benchmark page URL")
 	cdpURL := flag.String("cdp", "http://127.0.0.1:9222", "Chrome CDP endpoint")
+	cpuHost := flag.String("cpu-host", "nigel@192.168.100.40", "Target browser SSH host")
 	visAware := flag.Bool("visibility-aware", false, "Enable visibility-aware suspension in scenarios")
 	outPath := flag.String("out", "docs/benchmarks/stage16d-a-baseline.json", "Output JSON report path")
 	flag.Parse()
 
-	allocCtx, aCancel := remote.NewAllocator(context.Background(), *cdpURL)
-	defer aCancel()
+	sess, err := animlab.AcquireBrowserSession(context.Background(), *cdpURL, *cpuHost)
+	if err != nil {
+		log.Printf("Failed to acquire browser session: %v", err)
+		return 1
+	}
+	defer sess.Close()
 
-	ctx, cancel := context.WithTimeout(allocCtx, 180*time.Second)
+	ctx, cancel := context.WithTimeout(sess.AllocCtx, 180*time.Second)
 	defer cancel()
 
 	taskCtx, tCancel := chromedp.NewContext(ctx)
@@ -116,7 +125,8 @@ func main() {
 		log.Printf("Warning: failed to disable cache: %v", err)
 	}
 	if _, err := chromedp.Call(taskCtx, performance.Enable, performance.EnableParams{}); err != nil {
-		log.Fatalf("Failed to enable performance metrics: %v", err)
+		log.Printf("Failed to enable performance metrics: %v", err)
+		return 1
 	}
 	if err := runVoid(taskCtx,
 		chromedp.EmulateViewport(1366, 900),
@@ -124,7 +134,8 @@ func main() {
 		chromedp.WaitReady("#grid"),
 		chromedp.Sleep(500*time.Millisecond),
 	); err != nil {
-		log.Fatalf("Failed to open benchmark page: %v", err)
+		log.Printf("Failed to open benchmark page: %v", err)
+		return 1
 	}
 
 	// Gather environment metadata
@@ -192,7 +203,8 @@ func main() {
 			func(p *cdpruntime.EvaluateParams) { b := true; p.AwaitPromise = &b },
 		))
 		if err != nil {
-			log.Fatalf("Setup %s failed: %v", sc.Name, err)
+			log.Printf("Setup %s failed: %v", sc.Name, err)
+			return 1
 		}
 
 		// Wait 200ms warm-up
@@ -222,7 +234,8 @@ func main() {
 			func(p *cdpruntime.EvaluateParams) { b := true; p.AwaitPromise = &b },
 		))
 		if err != nil {
-			log.Fatalf("MeasureFrames %s failed: %v", sc.Name, err)
+			log.Printf("MeasureFrames %s failed: %v", sc.Name, err)
+			return 1
 		}
 
 		mAfter := getPerfMap(taskCtx)
@@ -261,9 +274,11 @@ func main() {
 	_ = os.MkdirAll(filepath.Dir(*outPath), 0755)
 	outBytes, _ := json.MarshalIndent(report, "", "  ")
 	if err := os.WriteFile(*outPath, outBytes, 0644); err != nil {
-		log.Fatalf("Failed to write report: %v", err)
+		log.Printf("Failed to write report: %v", err)
+		return 1
 	}
 	fmt.Printf("\nSaved benchmark report to %s\n", *outPath)
+	return 0
 }
 
 func round2(v float64) float64 {

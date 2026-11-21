@@ -12,7 +12,7 @@ import (
 
 	"github.com/chromedp/cdproto/network"
 	"github.com/chromedp/chromedp"
-	"github.com/chromedp/chromedp/remote"
+	"gitea.seaoffate.net/blackgrape/svg-animator/pkg/animlab"
 )
 
 const (
@@ -20,6 +20,7 @@ const (
 	demoURL     = "http://192.168.100.40:8088/flow-lite-demo.html"
 	consumerURL = "http://192.168.100.40:8091/index.html"
 	cdpEndpoint = "http://127.0.0.1:9222"
+	cpuHost     = "nigel@192.168.100.40"
 )
 
 type GateResult struct {
@@ -39,13 +40,18 @@ func runVoid(ctx context.Context, actions ...chromedp.Action[chromedp.Void]) err
 }
 
 func main() {
+	os.Exit(run())
+}
+
+func run() int {
 	fmt.Println("==========================================================================")
 	fmt.Println(" Stage 16D-B-M1: Flow Lite Real-Browser Acceptance Verification (AT-M1-01..16)")
 	fmt.Println("==========================================================================")
 
 	widgetJSBytes, err := os.ReadFile("/root/projects/svg-animator/internal/web/static/js/svg-widget.js")
 	if err != nil {
-		log.Fatalf("Failed to read svg-widget.js: %v", err)
+		log.Printf("Failed to read svg-widget.js: %v", err)
+		return 1
 	}
 	widgetJSSource := string(widgetJSBytes)
 
@@ -59,9 +65,13 @@ func main() {
 		fmt.Printf("[%s] %-10s %-44s | %s\n", status, id, name, details)
 	}
 
-	allocCtx, cancelAlloc := remote.NewAllocator(context.Background(), cdpEndpoint)
-	defer cancelAlloc()
-	ctx, cancelTimeout := context.WithTimeout(allocCtx, 180*time.Second)
+	sess, err := animlab.AcquireBrowserSession(context.Background(), cdpEndpoint, cpuHost)
+	if err != nil {
+		log.Printf("Failed to acquire browser session: %v", err)
+		return 1
+	}
+	defer sess.Close()
+	ctx, cancelTimeout := context.WithTimeout(sess.AllocCtx, 180*time.Second)
 	defer cancelTimeout()
 	taskCtx, cancelTask := chromedp.NewContext(ctx)
 	defer cancelTask()
@@ -73,7 +83,8 @@ func main() {
 		chromedp.Navigate(studioURL),
 		chromedp.WaitReady("#railBtn-lite-effects"),
 	); err != nil {
-		log.Fatalf("Failed to open Studio at %s: %v", studioURL, err)
+		log.Printf("Failed to open Studio at %s: %v", studioURL, err)
+		return 1
 	}
 
 	for i := 0; i < 30; i++ {
@@ -219,7 +230,8 @@ func main() {
 		chromedp.WaitReady("#demoGrid"),
 		chromedp.Sleep(300*time.Millisecond),
 	); err != nil {
-		log.Fatalf("Failed to open Flow Lite demo page: %v", err)
+		log.Printf("Failed to open Flow Lite demo page: %v", err)
+		return 1
 	}
 
 	demoCheckJSON, _ := chromedp.Run(taskCtx, chromedp.Evaluate[string](`(() => {
@@ -430,7 +442,8 @@ func main() {
 		chromedp.WaitReady("body"),
 		chromedp.Sleep(500*time.Millisecond),
 	); err != nil {
-		log.Fatalf("Failed to navigate back to Studio: %v", err)
+		log.Printf("Failed to navigate back to Studio: %v", err)
+		return 1
 	}
 	for i := 0; i < 30; i++ {
 		ready, _ := chromedp.Run(taskCtx, chromedp.Evaluate[bool](`Boolean(window.EngineBridge && window.EngineBridge.isReady())`))
@@ -678,7 +691,8 @@ func main() {
 		chromedp.WaitReady("body"),
 		chromedp.Sleep(250*time.Millisecond),
 	); err != nil {
-		log.Fatalf("Failed to check consumer app at %s: %v", consumerURL, err)
+		log.Printf("Failed to check consumer app at %s: %v", consumerURL, err)
+		return 1
 	}
 	consumerTitle, _ := chromedp.Run(taskCtx, chromedp.Evaluate[string](`document.title`))
 	record("AT-M1-15", "Main Flow & Stage 16C Consumer Non-Regression",
@@ -700,6 +714,7 @@ func main() {
 	fmt.Printf(" STAGE 16D-B-M1 VERIFICATION SUMMARY: %d / %d GATES PASSED\n", passed, len(results))
 	fmt.Printf("==========================================================================\n")
 	if passed != len(results) {
-		os.Exit(1)
+		return 1
 	}
+	return 0
 }

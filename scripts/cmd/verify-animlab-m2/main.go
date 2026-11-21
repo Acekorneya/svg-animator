@@ -13,7 +13,6 @@ import (
 	"time"
 
 	"github.com/chromedp/chromedp"
-	"github.com/chromedp/chromedp/remote"
 	"gitea.seaoffate.net/blackgrape/svg-animator/pkg/animlab"
 )
 
@@ -24,6 +23,10 @@ type checkResult struct {
 }
 
 func main() {
+	os.Exit(run())
+}
+
+func run() int {
 	cdpEndpoint := os.Getenv("ANIMLAB_CDP")
 	if cdpEndpoint == "" {
 		cdpEndpoint = "http://127.0.0.1:9222"
@@ -277,13 +280,15 @@ kill -9 "$BP" 2>/dev/null || true
 			rep0 := sc.Repetitions[0]
 			md := animlab.BuildMarkdownReport(cfgBad, resBad)
 			// Dead PID direct probe check
-			allocCtx, aCancel := remote.NewAllocator(context.Background(), cdpEndpoint)
-			ctx, cCancel := chromedp.NewContext(allocCtx)
-			_, _ = chromedp.Run(ctx, chromedp.Navigate("about:blank"))
+			sess, sErr := animlab.AcquireBrowserSession(context.Background(), cdpEndpoint, cpuHost)
+			if sErr == nil {
+				ctx, cCancel := sess.NewTab()
+				_, _ = chromedp.Run(ctx, chromedp.Navigate("about:blank"))
+				cCancel()
+				sess.Close()
+			}
 			deadOwn := animlab.BrowserOwnership{Mode: "external-cdp-isolated-tree", RootPID: 99999999, ClkTck: 100}
 			deadCPU, _, deadErr := animlab.SampleOwnedProcessTreeCPU(deadOwn, cpuHost)
-			cCancel()
-			aCancel()
 			_ = time.Millisecond // keep time used
 
 			ok := rep0.ProcessCPUSec == nil && sc.AvgProcessCPUSec == nil &&
@@ -302,6 +307,7 @@ kill -9 "$BP" 2>/dev/null || true
 	}
 	fmt.Printf("\nSUMMARY: %d/%d M2 checks passed (%d failed)\n", len(results)-failed, len(results), failed)
 	if failed > 0 {
-		os.Exit(1)
+		return 1
 	}
+	return 0
 }

@@ -14,13 +14,14 @@ import (
 	"time"
 
 	"github.com/chromedp/chromedp"
-	"github.com/chromedp/chromedp/remote"
+	"gitea.seaoffate.net/blackgrape/svg-animator/pkg/animlab"
 )
 
 const (
 	kiwiberryHost = "192.168.100.40"
 	apiBase       = "http://192.168.100.40:8088"
 	cdpEndpoint   = "http://127.0.0.1:9222"
+	cpuHost       = "nigel@192.168.100.40"
 	remoteDemoDir = "/home/nigel/acceptance-demo"
 )
 
@@ -31,6 +32,10 @@ type VerificationStep struct {
 }
 
 func main() {
+	os.Exit(run())
+}
+
+func run() int {
 	fmt.Println("==================================================================")
 	fmt.Println(" Stage 16B: Property Eligibility & Unique Binding Acceptance Verification")
 	fmt.Println(" Environment: Kiwiberry Chrome CDP (192.168.100.40)")
@@ -48,10 +53,14 @@ func main() {
 
 	// 1. Connect to Kiwiberry Chrome via CDP
 	fmt.Println("\n[PHASE 1] Connecting to Kiwiberry Chrome via CDP...")
-	allocCtx, aCancel := remote.NewAllocator(context.Background(), cdpEndpoint)
-	defer aCancel()
+	sess, err := animlab.AcquireBrowserSession(context.Background(), cdpEndpoint, cpuHost)
+	if err != nil {
+		log.Printf("Failed to acquire browser session: %v", err)
+		return 1
+	}
+	defer sess.Close()
 
-	ctx, cancel := context.WithTimeout(allocCtx, 45*time.Second)
+	ctx, cancel := context.WithTimeout(sess.AllocCtx, 45*time.Second)
 	defer cancel()
 
 	taskCtx, tCancel := chromedp.NewContext(ctx)
@@ -60,15 +69,18 @@ func main() {
 	// 2. Load SVG Animator Studio on Kiwiberry
 	fmt.Println("\n[PHASE 2] Loading SVG Animator Studio on Kiwiberry (:8088)...")
 	if _, err := chromedp.Run(taskCtx, chromedp.Navigate(apiBase)); err != nil {
-		log.Fatalf("Failed to navigate to %s: %v", apiBase, err)
+		log.Printf("Failed to navigate to %s: %v", apiBase, err)
+		return 1
 	}
 	if _, err := chromedp.Run(taskCtx, chromedp.Sleep(2*time.Second)); err != nil {
-		log.Fatalf("Sleep failed: %v", err)
+		log.Printf("Sleep failed: %v", err)
+		return 1
 	}
 
 	wasmReady, err := chromedp.Run(taskCtx, chromedp.Evaluate[bool](`Boolean(window.EngineBridge && window.EngineBridge.isReady())`))
 	if err != nil {
-		log.Fatalf("Evaluate wasm ready failed: %v", err)
+		log.Printf("Evaluate wasm ready failed: %v", err)
+		return 1
 	}
 	record("StudioLoad", true, "SVG Animator Studio loaded successfully")
 	record("WASMReady", wasmReady, "Go WebAssembly engine is mounted and ready")
@@ -288,18 +300,21 @@ func main() {
 
 	resp, err := http.Post(apiBase+"/api/export/widget-package", "application/json", bytes.NewReader(bodyBytes))
 	if err != nil {
-		log.Fatalf("Export API failed: %v", err)
+		log.Printf("Export API failed: %v", err)
+		return 1
 	}
 	defer resp.Body.Close()
 
 	if resp.StatusCode != http.StatusOK {
 		respErr, _ := io.ReadAll(resp.Body)
-		log.Fatalf("Export API returned status %d: %s", resp.StatusCode, string(respErr))
+		log.Printf("Export API returned status %d: %s", resp.StatusCode, string(respErr))
+		return 1
 	}
 
 	zipData, err := io.ReadAll(resp.Body)
 	if err != nil || len(zipData) == 0 {
-		log.Fatalf("Failed to read export zip: %v", err)
+		log.Printf("Failed to read export zip: %v", err)
+		return 1
 	}
 	record("PackageExport", len(zipData) > 5000, fmt.Sprintf("Exported mail-service package ZIP (%d bytes)", len(zipData)))
 
@@ -309,13 +324,15 @@ func main() {
 
 	cmd := exec.Command("scp", tmpZipPath, fmt.Sprintf("nigel@%s:/tmp/mail-service.zip", kiwiberryHost))
 	if out, err := cmd.CombinedOutput(); err != nil {
-		log.Fatalf("SCP zip failed: %v, out: %s", err, string(out))
+		log.Printf("SCP zip failed: %v, out: %s", err, string(out))
+		return 1
 	}
 
 	unzipCmd := fmt.Sprintf("rm -rf %s && mkdir -p %s && unzip -q /tmp/mail-service.zip -d %s", remoteDemoDir, remoteDemoDir, remoteDemoDir)
 	sshCmd := exec.Command("ssh", fmt.Sprintf("nigel@%s", kiwiberryHost), unzipCmd)
 	if out, err := sshCmd.CombinedOutput(); err != nil {
-		log.Fatalf("SSH unzip failed: %v, out: %s", err, string(out))
+		log.Printf("SSH unzip failed: %v, out: %s", err, string(out))
+		return 1
 	}
 
 	// 9. Open demo.html via file:// on Kiwiberry Chrome & Test Parameters
@@ -323,10 +340,12 @@ func main() {
 	fmt.Printf("\n[PHASE 9] Opening %s in real Chrome on Kiwiberry...\n", demoFileURL)
 
 	if _, err := chromedp.Run(taskCtx, chromedp.Navigate(demoFileURL)); err != nil {
-		log.Fatalf("Navigate demo failed: %v", err)
+		log.Printf("Navigate demo failed: %v", err)
+		return 1
 	}
 	if _, err := chromedp.Run(taskCtx, chromedp.WaitReady("#container-unit-a svg")); err != nil {
-		log.Fatalf("Instance unit-a SVG failed to mount: %v", err)
+		log.Printf("Instance unit-a SVG failed to mount: %v", err)
+		return 1
 	}
 	_, _ = chromedp.Run(taskCtx, chromedp.Sleep(1*time.Second))
 
@@ -360,6 +379,7 @@ func main() {
 		fmt.Println("\n>>> ALL 10 ACCEPTANCE CRITERIA VERIFIED SUCCESSFULLY ON KIWIBERRY <<<")
 	} else {
 		fmt.Println("\n>>> SOME ACCEPTANCE CRITERIA FAILED <<<")
-		os.Exit(1)
+		return 1
 	}
+	return 0
 }

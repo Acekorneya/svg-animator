@@ -11,7 +11,7 @@ import (
 	"time"
 
 	"github.com/chromedp/chromedp"
-	"github.com/chromedp/chromedp/remote"
+	"gitea.seaoffate.net/blackgrape/svg-animator/pkg/animlab"
 )
 
 type Point struct {
@@ -292,6 +292,10 @@ func renderFlowCaseSVG(fc FlowCase, pts []Point, bends []float64) string {
 }
 
 func main() {
+	os.Exit(run())
+}
+
+func run() int {
 	pts := []Point{{60, 80}, {180, 80}, {320, 50}, {460, 100}}
 	bends := []float64{0, 55, -45} // Section 0 straight, Section 1 curved up, Section 2 curved down
 
@@ -332,7 +336,7 @@ func main() {
 	ln, err := net.Listen("tcp", "0.0.0.0:0")
 	if err != nil {
 		fmt.Fprintf(os.Stderr, "listen error: %v\n", err)
-		os.Exit(1)
+		return 1
 	}
 	defer ln.Close()
 	port := ln.Addr().(*net.TCPAddr).Port
@@ -351,9 +355,13 @@ func main() {
 	}
 	testURL := fmt.Sprintf("http://%s:%d/feasibility.html", hostIP, port)
 
-	allocCtx, cancelAlloc := remote.NewAllocator(context.Background(), "http://127.0.0.1:9222")
-	defer cancelAlloc()
-	ctx, cancelTimeout := context.WithTimeout(allocCtx, 30*time.Second)
+	sess, err := animlab.AcquireBrowserSession(context.Background(), "http://127.0.0.1:9222", "nigel@192.168.100.40")
+	if err != nil {
+		fmt.Fprintf(os.Stderr, "Failed to acquire browser session: %v\n", err)
+		return 1
+	}
+	defer sess.Close()
+	ctx, cancelTimeout := context.WithTimeout(sess.AllocCtx, 30*time.Second)
 	defer cancelTimeout()
 	taskCtx, cancel := chromedp.NewContext(ctx)
 	defer cancel()
@@ -522,16 +530,16 @@ func main() {
 
 	if _, err := chromedp.Run(taskCtx, chromedp.Navigate(testURL)); err != nil {
 		fmt.Fprintf(os.Stderr, "CDP Navigate error: %v\n", err)
-		os.Exit(1)
+		return 1
 	}
 	if _, err := chromedp.Run(taskCtx, chromedp.WaitReady("#testSvg")); err != nil {
 		fmt.Fprintf(os.Stderr, "CDP WaitVisible error: %v\n", err)
-		os.Exit(1)
+		return 1
 	}
 	results, err := chromedp.Run(taskCtx, chromedp.Evaluate[[]CaseVerifyResult](jsVerify))
 	if err != nil {
 		fmt.Fprintf(os.Stderr, "CDP Evaluate error: %v\n", err)
-		os.Exit(1)
+		return 1
 	}
 
 	passedCount := 0
@@ -547,6 +555,7 @@ func main() {
 	}
 	fmt.Printf("\nFEASIBILITY GATE SUMMARY: %d / %d combinations PASSED\n", passedCount, len(results))
 	if passedCount != len(results) {
-		os.Exit(1)
+		return 1
 	}
+	return 0
 }

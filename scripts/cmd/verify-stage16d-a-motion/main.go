@@ -15,12 +15,13 @@ import (
 	"time"
 
 	"github.com/chromedp/chromedp"
-	"github.com/chromedp/chromedp/remote"
+	"gitea.seaoffate.net/blackgrape/svg-animator/pkg/animlab"
 )
 
 const (
 	studioURL   = "http://192.168.100.40:8088/"
 	cdpEndpoint = "http://127.0.0.1:9222"
+	cpuHost     = "nigel@192.168.100.40"
 )
 
 type Check struct {
@@ -31,13 +32,21 @@ type Check struct {
 }
 
 func main() {
+	os.Exit(run())
+}
+
+func run() int {
 	fmt.Println("==================================================================")
 	fmt.Println(" Stage 16D-A: Real-Browser Animation, Burst, Geometry & Runtime")
 	fmt.Println("==================================================================")
 
-	allocCtx, aCancel := remote.NewAllocator(context.Background(), cdpEndpoint)
-	defer aCancel()
-	ctx, cCancel := chromedp.NewContext(allocCtx)
+	sess, err := animlab.AcquireBrowserSession(context.Background(), cdpEndpoint, cpuHost)
+	if err != nil {
+		log.Println("acquire browser:", err)
+		return 1
+	}
+	defer sess.Close()
+	ctx, cCancel := sess.NewTab()
 	defer cCancel()
 	ctx, tCancel := context.WithTimeout(ctx, 120*time.Second)
 	defer tCancel()
@@ -53,7 +62,8 @@ func main() {
 	}
 
 	if _, err := chromedp.Run(ctx, chromedp.Navigate(studioURL)); err != nil {
-		log.Fatal(err)
+		log.Println(err)
+		return 1
 	}
 	for i := 0; i < 30; i++ {
 		ready, _ := chromedp.Run(ctx, chromedp.Evaluate[bool](`Boolean(window.EngineBridge && window.EngineBridge.isReady())`))
@@ -71,7 +81,7 @@ func main() {
 	// - lite-5: Burst Tracer CW (4 circuits @ 0.25s = 1.0s burst, 1.2s pause, hold)
 	// - lite-6: Small Pulse Cross (10x6, armThickness=2.5) -> then resize width to 40, check arm stays 2.5
 	// - lite-7: Flash Cross (dur=80ms, repeat=true, repeatInterval=0.8s, armThickness=2)
-	_, err := chromedp.Run(ctx, chromedp.Evaluate[bool](`(() => {
+	_, err = chromedp.Run(ctx, chromedp.Evaluate[bool](`(() => {
 		window.confirm = () => true;
 		window.alert = () => {};
 		window.ProjectManager.resetToNewProject();
@@ -136,7 +146,8 @@ func main() {
 		return true;
 	})()`))
 	if err != nil {
-		log.Fatal("setup:", err)
+		log.Println("setup:", err)
+		return 1
 	}
 	_, _ = chromedp.Run(ctx, chromedp.Sleep(200*time.Millisecond))
 
@@ -281,7 +292,8 @@ func main() {
 	// =========================================================================
 	svgDataURL := "data:image/svg+xml;base64," + base64.StdEncoding.EncodeToString([]byte(standaloneSVG))
 	if _, err := chromedp.Run(ctx, chromedp.Navigate(svgDataURL)); err != nil {
-		log.Fatal("nav standalone:", err)
+		log.Println("nav standalone:", err)
+		return 1
 	}
 
 	type S struct {
@@ -370,7 +382,8 @@ func main() {
 	_ = exec.Command("scp", "internal/web/static/js/svg-widget.js", "nigel@192.168.100.40:/tmp/motion-v2-pkg/motion-v2/js/svg-widget.js").Run()
 
 	if _, err := chromedp.Run(ctx, chromedp.Navigate("file:///tmp/motion-v2-pkg/motion-v2/demo.html")); err != nil {
-		log.Fatal("nav demo:", err)
+		log.Println("nav demo:", err)
+		return 1
 	}
 	_, _ = chromedp.Run(ctx, chromedp.WaitReady("#container-unit-a svg"))
 	_, _ = chromedp.Run(ctx, chromedp.Sleep(350*time.Millisecond))
@@ -412,7 +425,8 @@ func main() {
 
 	// Also open pkgSVG (motion-v2.svg WITH data-sva-widget-instance) directly as standalone SVG and verify burst/pause/restart runs!
 	if _, err := chromedp.Run(ctx, chromedp.Navigate("file:///tmp/motion-v2-pkg/motion-v2/motion-v2.svg")); err != nil {
-		log.Fatal("nav pkgSvg:", err)
+		log.Println("nav pkgSvg:", err)
+		return 1
 	}
 	var pkgBurst []string
 	for i := 0; i < 16; i++ {
@@ -437,8 +451,9 @@ func main() {
 	for _, c := range checks {
 		if !c.Passed {
 			fmt.Println(">>> SOME CHECKS FAILED <<<")
-			os.Exit(1)
+			return 1
 		}
 	}
 	fmt.Println(">>> ALL 10 STAGE 16D-A AUDIT, MOTION, BURST & GEOMETRY CHECKS PASS <<<")
+	return 0
 }

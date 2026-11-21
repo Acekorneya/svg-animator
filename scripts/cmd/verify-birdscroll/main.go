@@ -16,17 +16,22 @@ import (
 	"time"
 
 	"github.com/chromedp/chromedp"
-	"github.com/chromedp/chromedp/remote"
+	"gitea.seaoffate.net/blackgrape/svg-animator/pkg/animlab"
 )
 
 const (
 	kiwiberryHost = "192.168.100.40"
 	apiBase       = "http://192.168.100.40:8088"
 	cdpEndpoint   = "http://127.0.0.1:9222"
+	cpuHost       = "nigel@192.168.100.40"
 	remoteDemoDir = "/home/nigel/birdscroll-demo"
 )
 
 func main() {
+	os.Exit(run())
+}
+
+func run() int {
 	fmt.Println("==================================================================")
 	fmt.Println(" Stage 16B: Birdscroll Scene End-to-End Kiwiberry Chrome Verification")
 	fmt.Println("==================================================================")
@@ -418,10 +423,14 @@ func main() {
 
 	// Step 10: Run Live Browser Acceptance Test in Google Chrome on Kiwiberry via CDP
 	fmt.Println("\n[STEP 10] Running real Chrome acceptance tests via CDP on Kiwiberry...")
-	allocCtx, aCancel := remote.NewAllocator(context.Background(), cdpEndpoint)
-	defer aCancel()
+	sess, err := animlab.AcquireBrowserSession(context.Background(), cdpEndpoint, cpuHost)
+	if err != nil {
+		log.Printf("Failed to acquire browser session: %v", err)
+		return 1
+	}
+	defer sess.Close()
 
-	ctx, cancel := context.WithTimeout(allocCtx, 30*time.Second)
+	ctx, cancel := context.WithTimeout(sess.AllocCtx, 30*time.Second)
 	defer cancel()
 
 	taskCtx, tCancel := chromedp.NewContext(ctx)
@@ -431,18 +440,22 @@ func main() {
 	fmt.Printf("   Navigating Kiwiberry Chrome to: %s\n", fileURL)
 
 	if _, err := chromedp.Run(taskCtx, chromedp.Navigate(fileURL)); err != nil {
-		log.Fatalf("Failed to navigate to demo.html: %v", err)
+		log.Printf("Failed to navigate to demo.html: %v", err)
+		return 1
 	}
 
 	// Wait for DOM elements
 	if _, err := chromedp.Run(taskCtx, chromedp.WaitReady("#container-unit-a svg")); err != nil {
-		log.Fatalf("Instance unit-a SVG failed to mount: %v", err)
+		log.Printf("Instance unit-a SVG failed to mount: %v", err)
+		return 1
 	}
 	if _, err := chromedp.Run(taskCtx, chromedp.WaitReady("#container-unit-b svg")); err != nil {
-		log.Fatalf("Instance unit-b SVG failed to mount: %v", err)
+		log.Printf("Instance unit-b SVG failed to mount: %v", err)
+		return 1
 	}
 	if _, err := chromedp.Run(taskCtx, chromedp.WaitReady("#container-unit-c svg")); err != nil {
-		log.Fatalf("Instance unit-c SVG failed to mount: %v", err)
+		log.Printf("Instance unit-c SVG failed to mount: %v", err)
+		return 1
 	}
 	fmt.Println("[PASS] All 3 instances (unit-a, unit-b, unit-c) mounted successfully in Chrome via file://")
 
@@ -473,18 +486,22 @@ func main() {
 	}
 	resPerchRaw, err := chromedp.Run(taskCtx, chromedp.Evaluate[string](fmt.Sprintf("JSON.stringify(%s)", testPerchJS)))
 	if err != nil {
-		log.Fatalf("Failed to test perchColor: %v", err)
+		log.Printf("Failed to test perchColor: %v", err)
+		return 1
 	}
 	json.Unmarshal([]byte(resPerchRaw), &resPerch)
 
 	if resPerch.ValA != "#FF0000" || resPerch.FillA != "#FF0000" {
-		log.Fatalf("[FAIL] Unit A perchColor did not update to #FF0000: %+v", resPerch)
+		log.Printf("[FAIL] Unit A perchColor did not update to #FF0000: %+v", resPerch)
+		return 1
 	}
 	if resPerch.ValB != "#8B4513" || resPerch.FillB != "#8B4513" {
-		log.Fatalf("[FAIL] Unit B perchColor was improperly modified (crosstalk): %+v", resPerch)
+		log.Printf("[FAIL] Unit B perchColor was improperly modified (crosstalk): %+v", resPerch)
+		return 1
 	}
 	if resPerch.ValC != "#8B4513" || resPerch.FillC != "#8B4513" {
-		log.Fatalf("[FAIL] Unit C perchColor was improperly modified (crosstalk): %+v", resPerch)
+		log.Printf("[FAIL] Unit C perchColor was improperly modified (crosstalk): %+v", resPerch)
+		return 1
 	}
 	fmt.Printf("[PASS] Perch color updated on Unit A (#FF0000) while Unit B and Unit C remained #8B4513 (zero crosstalk).\n")
 
@@ -517,13 +534,16 @@ func main() {
 	json.Unmarshal([]byte(resSunRaw), &resSun)
 
 	if resSun.ValB != "#00FF00" || resSun.FillB != "#00FF00" {
-		log.Fatalf("[FAIL] Unit B sunColor did not update to #00FF00: %+v", resSun)
+		log.Printf("[FAIL] Unit B sunColor did not update to #00FF00: %+v", resSun)
+		return 1
 	}
 	if resSun.ValA != "#F59E0B" || resSun.FillA != "#F59E0B" {
-		log.Fatalf("[FAIL] Unit A sunColor was affected by Unit B update: %+v", resSun)
+		log.Printf("[FAIL] Unit A sunColor was affected by Unit B update: %+v", resSun)
+		return 1
 	}
 	if resSun.ValC != "#F59E0B" || resSun.FillC != "#F59E0B" {
-		log.Fatalf("[FAIL] Unit C sunColor was affected by Unit B update: %+v", resSun)
+		log.Printf("[FAIL] Unit C sunColor was affected by Unit B update: %+v", resSun)
+		return 1
 	}
 	fmt.Printf("[PASS] Sun glow color updated on Unit B (#00FF00) while Unit A and Unit C remained #F59E0B.\n")
 
@@ -556,13 +576,16 @@ func main() {
 	json.Unmarshal([]byte(resSunVisRaw), &resSunVis)
 
 	if resSunVis.ValC != false || resSunVis.VisC != "hidden" {
-		log.Fatalf("[FAIL] Unit C sun-glow was not hidden: %+v", resSunVis)
+		log.Printf("[FAIL] Unit C sun-glow was not hidden: %+v", resSunVis)
+		return 1
 	}
 	if resSunVis.ValA != true || resSunVis.VisA == "hidden" {
-		log.Fatalf("[FAIL] Unit A sun-glow was erroneously hidden: %+v", resSunVis)
+		log.Printf("[FAIL] Unit A sun-glow was erroneously hidden: %+v", resSunVis)
+		return 1
 	}
 	if resSunVis.ValB != true || resSunVis.VisB == "hidden" {
-		log.Fatalf("[FAIL] Unit B sun-glow was erroneously hidden: %+v", resSunVis)
+		log.Printf("[FAIL] Unit B sun-glow was erroneously hidden: %+v", resSunVis)
+		return 1
 	}
 	fmt.Printf("[PASS] Sun glow hidden on Unit C (visibility: hidden) while remaining visible on Unit A and Unit B.\n")
 
@@ -597,13 +620,16 @@ func main() {
 	json.Unmarshal([]byte(resSpeedRaw), &resSpeed)
 
 	if resSpeed.FlowSpeedA != 3.0 {
-		log.Fatalf("[FAIL] Unit A flowSpeed not updated to 3.0: %+v", resSpeed)
+		log.Printf("[FAIL] Unit A flowSpeed not updated to 3.0: %+v", resSpeed)
+		return 1
 	}
 	if resSpeed.InstanceSpeedA != 1.0 {
-		log.Fatalf("[FAIL] Targeted flowSpeed unexpectedly modified Unit A's whole-instance playbackRate (must stay 1.0): %+v", resSpeed)
+		log.Printf("[FAIL] Targeted flowSpeed unexpectedly modified Unit A's whole-instance playbackRate (must stay 1.0): %+v", resSpeed)
+		return 1
 	}
 	if resSpeed.FlowSpeedB != 1.0 || resSpeed.InstanceSpeedB != 1.0 {
-		log.Fatalf("[FAIL] Unit B speed was modified: %+v", resSpeed)
+		log.Printf("[FAIL] Unit B speed was modified: %+v", resSpeed)
+		return 1
 	}
 	fmt.Printf("[PASS] Targeted flowSpeed set to 3.0x on Unit A without affecting Unit A's whole-instance speed (%v) or Unit B (%v).\n", resSpeed.InstanceSpeedA, resSpeed.FlowSpeedB)
 
@@ -627,10 +653,12 @@ func main() {
 	json.Unmarshal([]byte(resGlobalSpeedRaw), &resGlobalSpeed)
 
 	if resGlobalSpeed.RateB != 0.5 {
-		log.Fatalf("[FAIL] Unit B playbackRate not 0.5: %+v", resGlobalSpeed)
+		log.Printf("[FAIL] Unit B playbackRate not 0.5: %+v", resGlobalSpeed)
+		return 1
 	}
 	if resGlobalSpeed.RateA != 1.0 || resGlobalSpeed.RateC != 1.0 {
-		log.Fatalf("[FAIL] Unit A or Unit C affected by Unit B playbackRate change: %+v", resGlobalSpeed)
+		log.Printf("[FAIL] Unit A or Unit C affected by Unit B playbackRate change: %+v", resGlobalSpeed)
+		return 1
 	}
 	fmt.Printf("[PASS] Whole-instance playbackRate set to 0.5 on Unit B while Unit A and Unit C remain at 1.0.\n")
 
@@ -658,7 +686,8 @@ func main() {
 	json.Unmarshal([]byte(resTransportRaw), &resTransport)
 
 	if !resTransport.PausedA || resTransport.PausedB || resTransport.PausedC || !resTransport.ResumedA {
-		log.Fatalf("[FAIL] Independent Play/Pause failed: %+v", resTransport)
+		log.Printf("[FAIL] Independent Play/Pause failed: %+v", resTransport)
+		return 1
 	}
 	fmt.Println("[PASS] Unit A independently paused and resumed while Unit B and Unit C continued active playback.")
 
@@ -687,10 +716,12 @@ func main() {
 	json.Unmarshal([]byte(resResetRaw), &resReset)
 
 	if resReset.PerchColorA != "#8B4513" || resReset.FillA != "#8B4513" || resReset.FlowSpeedA != 1.0 {
-		log.Fatalf("[FAIL] Unit A did not restore defaults: %+v", resReset)
+		log.Printf("[FAIL] Unit A did not restore defaults: %+v", resReset)
+		return 1
 	}
 	if resReset.SunColorB != "#00FF00" {
-		log.Fatalf("[FAIL] Reset on Unit A improperly mutated Unit B state: %+v", resReset)
+		log.Printf("[FAIL] Reset on Unit A improperly mutated Unit B state: %+v", resReset)
+		return 1
 	}
 	fmt.Printf("[PASS] Reset on Unit A restored perchColor (#8B4513) and flowSpeed (1.0) without altering Unit B (#00FF00).\n")
 
@@ -704,11 +735,13 @@ func main() {
 	json.Unmarshal([]byte(jsErrorsRaw), &jsErrors)
 
 	if len(jsErrors) > 0 {
-		log.Fatalf("[FAIL] Detected console errors during execution: %v", jsErrors)
+		log.Printf("[FAIL] Detected console errors during execution: %v", jsErrors)
+		return 1
 	}
 	fmt.Println("[PASS] Zero console errors or uncaught exceptions reported in Google Chrome.")
 
 	fmt.Println("\n==================================================================")
 	fmt.Println(" ALL STAGE 16B BIRDSCROLL VERIFICATION TESTS COMPLETED SUCCESSFULLY!")
 	fmt.Println("==================================================================")
+	return 0
 }

@@ -15,7 +15,6 @@ import (
 
 	"github.com/chromedp/cdproto/emulation"
 	"github.com/chromedp/chromedp"
-	"github.com/chromedp/chromedp/remote"
 	"gitea.seaoffate.net/blackgrape/svg-animator/pkg/animlab"
 )
 
@@ -26,9 +25,17 @@ type checkResult struct {
 }
 
 func main() {
+	os.Exit(run())
+}
+
+func run() int {
 	cdpEndpoint := os.Getenv("ANIMLAB_CDP")
 	if cdpEndpoint == "" {
 		cdpEndpoint = "http://127.0.0.1:9222"
+	}
+	cpuHost := os.Getenv("ANIMLAB_CPU_HOST")
+	if cpuHost == "" {
+		cpuHost = "nigel@192.168.100.40"
 	}
 	bindIP := os.Getenv("ANIMLAB_BIND_IP")
 	if bindIP == "" {
@@ -64,8 +71,13 @@ func main() {
 	defer srv.Close()
 	baseURL := fmt.Sprintf("http://%s/", ln.Addr().String())
 
-	allocCtx, aCancel := remote.NewAllocator(context.Background(), cdpEndpoint)
-	defer aCancel()
+	sess, err := animlab.AcquireBrowserSession(context.Background(), cdpEndpoint, cpuHost)
+	if err != nil {
+		fmt.Fprintf(os.Stderr, "Failed to acquire browser session: %v\n", err)
+		return 1
+	}
+	defer sess.Close()
+	allocCtx := sess.AllocCtx
 
 	var results []checkResult
 	record := func(id string, ok bool, detail string) {
@@ -376,6 +388,7 @@ func main() {
 	}
 	fmt.Printf("\nSUMMARY: %d/%d M4 checks passed (%d failed)\n", len(results)-failed, len(results), failed)
 	if failed > 0 {
-		os.Exit(1)
+		return 1
 	}
+	return 0
 }

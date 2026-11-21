@@ -16,13 +16,14 @@ import (
 	"time"
 
 	"github.com/chromedp/chromedp"
-	"github.com/chromedp/chromedp/remote"
+	"gitea.seaoffate.net/blackgrape/svg-animator/pkg/animlab"
 )
 
 const (
 	kiwiberryHost = "192.168.100.40"
 	apiBase       = "http://192.168.100.40:8088"
 	cdpEndpoint   = "http://127.0.0.1:9222"
+	cpuHost       = "nigel@192.168.100.40"
 	remoteDemoDir = "/home/nigel/acceptance-demo/final-contract"
 )
 
@@ -34,6 +35,10 @@ type CheckResult struct {
 }
 
 func main() {
+	os.Exit(run())
+}
+
+func run() int {
 	fmt.Println("==================================================================")
 	fmt.Println(" Stage 16B: Final Property Contract & Effect Targeting Acceptance")
 	fmt.Println(" Target: Kiwiberry (192.168.100.40:8088) with Chrome CDP")
@@ -56,10 +61,14 @@ func main() {
 	}
 
 	// 1. Set up CDP allocator context
-	allocCtx, aCancel := remote.NewAllocator(context.Background(), cdpEndpoint)
-	defer aCancel()
+	sess, err := animlab.AcquireBrowserSession(context.Background(), cdpEndpoint, cpuHost)
+	if err != nil {
+		log.Printf("Failed to acquire browser session: %v", err)
+		return 1
+	}
+	defer sess.Close()
 
-	ctx, cancel := context.WithTimeout(allocCtx, 60*time.Second)
+	ctx, cancel := context.WithTimeout(sess.AllocCtx, 60*time.Second)
 	defer cancel()
 
 	taskCtx, tCancel := chromedp.NewContext(ctx)
@@ -68,10 +77,12 @@ func main() {
 	// 2. Navigate to Studio
 	fmt.Println("\n[PHASE 1] Navigating to SVG Animator Studio on Kiwiberry...")
 	if _, err := chromedp.Run(taskCtx, chromedp.Navigate(apiBase)); err != nil {
-		log.Fatalf("Failed to navigate to %s: %v", apiBase, err)
+		log.Printf("Failed to navigate to %s: %v", apiBase, err)
+		return 1
 	}
 	if _, err := chromedp.Run(taskCtx, chromedp.Sleep(2*time.Second)); err != nil {
-		log.Fatalf("Sleep failed: %v", err)
+		log.Printf("Sleep failed: %v", err)
+		return 1
 	}
 
 	// Install console error interceptor and dialog override in studio
@@ -93,7 +104,8 @@ func main() {
 	// Verify WASM engine ready
 	wasmReady, err := chromedp.Run(taskCtx, chromedp.Evaluate[bool](`Boolean(window.EngineBridge && window.EngineBridge.isReady())`))
 	if err != nil || !wasmReady {
-		log.Fatalf("WebAssembly engine is not ready on Kiwiberry Studio: %v", err)
+		log.Printf("WebAssembly engine is not ready on Kiwiberry Studio: %v", err)
+		return 1
 	}
 	fmt.Println(" > Go WebAssembly engine mounted and ready.")
 
@@ -129,7 +141,8 @@ func main() {
 	})()`))
 
 	if !uiAuthoringOk {
-		log.Fatalf("UI authoring test in Studio failed")
+		log.Printf("UI authoring test in Studio failed")
+		return 1
 	}
 	fmt.Println(" > Studio compact cards rendered and auto-derived naming verified.")
 
@@ -327,18 +340,21 @@ func main() {
 
 	resp, err := http.Post(apiBase+"/api/export/widget-package", "application/json", bytes.NewReader(reqBytes))
 	if err != nil {
-		log.Fatalf("Package export failed: %v", err)
+		log.Printf("Package export failed: %v", err)
+		return 1
 	}
 	defer resp.Body.Close()
 
 	if resp.StatusCode != http.StatusOK {
 		errBody, _ := io.ReadAll(resp.Body)
-		log.Fatalf("Export status %d: %s", resp.StatusCode, string(errBody))
+		log.Printf("Export status %d: %s", resp.StatusCode, string(errBody))
+		return 1
 	}
 
 	zipBytes, err := io.ReadAll(resp.Body)
 	if err != nil || len(zipBytes) < 5000 {
-		log.Fatalf("Invalid zip returned: %v (len=%d)", err, len(zipBytes))
+		log.Printf("Invalid zip returned: %v (len=%d)", err, len(zipBytes))
+		return 1
 	}
 	fmt.Printf(" > Exported widget package ZIP (%d bytes).\n", len(zipBytes))
 
@@ -346,7 +362,8 @@ func main() {
 	fmt.Println("\n[PHASE 4] Inspecting Exported Manifest & Documentation...")
 	zipReader, err := zip.NewReader(bytes.NewReader(zipBytes), int64(len(zipBytes)))
 	if err != nil {
-		log.Fatalf("Failed to open zip reader: %v", err)
+		log.Printf("Failed to open zip reader: %v", err)
+		return 1
 	}
 
 	var manifestContent string
@@ -406,13 +423,15 @@ func main() {
 
 	scpCmd := exec.Command("scp", localZip, fmt.Sprintf("nigel@%s:/tmp/final-contract.zip", kiwiberryHost))
 	if out, err := scpCmd.CombinedOutput(); err != nil {
-		log.Fatalf("SCP failed: %v, %s", err, string(out))
+		log.Printf("SCP failed: %v, %s", err, string(out))
+		return 1
 	}
 
 	unzipScript := fmt.Sprintf("rm -rf %s && mkdir -p %s && unzip -q /tmp/final-contract.zip -d %s", remoteDemoDir, remoteDemoDir, remoteDemoDir)
 	sshUnzip := exec.Command("ssh", fmt.Sprintf("nigel@%s", kiwiberryHost), unzipScript)
 	if out, err := sshUnzip.CombinedOutput(); err != nil {
-		log.Fatalf("SSH unzip failed: %v, %s", err, string(out))
+		log.Printf("SSH unzip failed: %v, %s", err, string(out))
+		return 1
 	}
 	fmt.Println(" > Unpacked package to Kiwiberry filesystem.")
 
@@ -421,13 +440,16 @@ func main() {
 	fmt.Printf("\n[PHASE 6] Opening %s via file:// in Chrome...\n", demoFileURL)
 
 	if _, err := chromedp.Run(taskCtx, chromedp.Navigate(demoFileURL)); err != nil {
-		log.Fatalf("CDP navigation to file:// failed: %v", err)
+		log.Printf("CDP navigation to file:// failed: %v", err)
+		return 1
 	}
 	if _, err := chromedp.Run(taskCtx, chromedp.WaitReady("#container-unit-a svg")); err != nil {
-		log.Fatalf("Instance SVG failed to mount in demo.html: %v", err)
+		log.Printf("Instance SVG failed to mount in demo.html: %v", err)
+		return 1
 	}
 	if _, err := chromedp.Run(taskCtx, chromedp.Sleep(1*time.Second)); err != nil {
-		log.Fatalf("Sleep failed: %v", err)
+		log.Printf("Sleep failed: %v", err)
+		return 1
 	}
 
 	// Requirement 1: Direct file:// operation
@@ -583,6 +605,7 @@ func main() {
 		fmt.Println("\n>>> ALL 10 STAGE 16B ACCEPTANCE CRITERIA PASS 100% ON KIWIBERRY <<<")
 	} else {
 		fmt.Printf("\n>>> ACCEPTANCE FAILED: %d of 10 criteria passed <<<\n", len(results))
-		os.Exit(1)
+		return 1
 	}
+	return 0
 }

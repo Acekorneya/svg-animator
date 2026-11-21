@@ -13,7 +13,7 @@ import (
 
 	"github.com/chromedp/cdproto/emulation"
 	"github.com/chromedp/chromedp"
-	"github.com/chromedp/chromedp/remote"
+	"gitea.seaoffate.net/blackgrape/svg-animator/pkg/animlab"
 )
 
 type checkResult struct {
@@ -34,6 +34,10 @@ func httpGet(u string) (int, http.Header, string, error) {
 }
 
 func main() {
+	os.Exit(run())
+}
+
+func run() int {
 	baseURL := os.Getenv("ANIMLAB_VIEWER_URL")
 	if baseURL == "" {
 		baseURL = "http://192.168.100.40:8093"
@@ -89,9 +93,13 @@ func main() {
 		fmt.Sprintf("traversal=%d rawCurl=%s dotfile=%d viewBad=%d", t1, curlCode, t2, t3))
 
 	// Browser checks: AT-M5-03 (catalogue <object> animation), AT-M5-04 (side-by-side), AT-M5-08 (M4 demos)
-	allocCtx, aCancel := remote.NewAllocator(context.Background(), cdpEndpoint)
-	defer aCancel()
-	ctx, cCancel := chromedp.NewContext(allocCtx)
+	sess, err := animlab.AcquireBrowserSession(context.Background(), cdpEndpoint, kiwiHost)
+	if err != nil {
+		fmt.Fprintf(os.Stderr, "Failed to acquire browser session: %v\n", err)
+		return 1
+	}
+	defer sess.Close()
+	ctx, cCancel := sess.NewTab()
 	defer cCancel()
 	_, _ = chromedp.Call(ctx, emulation.SetDeviceMetricsOverride, emulation.SetDeviceMetricsOverrideParams{
 		Width: 1366, Height: 900, DeviceScaleFactor: 1, Mobile: false,
@@ -262,6 +270,7 @@ func main() {
 	}
 	fmt.Printf("\nSUMMARY: %d/%d M5 checks passed (%d failed)\n", len(results)-failed, len(results), failed)
 	if failed > 0 {
-		os.Exit(1)
+		return 1
 	}
+	return 0
 }

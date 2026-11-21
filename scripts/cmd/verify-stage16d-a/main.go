@@ -17,7 +17,7 @@ import (
 	"github.com/chromedp/cdproto/network"
 	cdpruntime "github.com/chromedp/cdproto/runtime"
 	"github.com/chromedp/chromedp"
-	"github.com/chromedp/chromedp/remote"
+	"gitea.seaoffate.net/blackgrape/svg-animator/pkg/animlab"
 )
 
 const (
@@ -25,6 +25,7 @@ const (
 	consumerURL = "http://192.168.100.40:8091/index.html"
 	benchURL    = "http://192.168.100.40:8092/stage16d-benchmark/index.html"
 	cdpEndpoint = "http://127.0.0.1:9222"
+	cpuHost     = "nigel@192.168.100.40"
 	remoteDir   = "/home/nigel/acceptance-demo/stage16d-a-widget"
 )
 
@@ -52,6 +53,10 @@ func saveScreenshot(ctx context.Context, path string) {
 }
 
 func main() {
+	os.Exit(run())
+}
+
+func run() int {
 	fmt.Println("==================================================================")
 	fmt.Println(" Stage 16D-A: 20-Scenario Real-Browser Chrome CDP Verification")
 	fmt.Println("==================================================================")
@@ -71,9 +76,13 @@ func main() {
 		fmt.Printf("[%s] Scenario %2d: %-40s - %s\n", status, num, name, msg)
 	}
 
-	allocCtx, aCancel := remote.NewAllocator(context.Background(), cdpEndpoint)
-	defer aCancel()
-	ctx, cancel := context.WithTimeout(allocCtx, 180*time.Second)
+	sess, err := animlab.AcquireBrowserSession(context.Background(), cdpEndpoint, cpuHost)
+	if err != nil {
+		log.Printf("Failed to acquire browser session: %v", err)
+		return 1
+	}
+	defer sess.Close()
+	ctx, cancel := context.WithTimeout(sess.AllocCtx, 180*time.Second)
 	defer cancel()
 	taskCtx, tCancel := chromedp.NewContext(ctx)
 	defer tCancel()
@@ -85,7 +94,8 @@ func main() {
 		chromedp.Navigate(studioURL),
 		chromedp.WaitReady("#railBtn-lite-effects"),
 	); err != nil {
-		log.Fatalf("Failed to open Studio: %v", err)
+		log.Printf("Failed to open Studio: %v", err)
+		return 1
 	}
 
 	for i := 0; i < 30; i++ {
@@ -639,7 +649,8 @@ func main() {
 		return JSON.stringify({ success: Boolean(res && res.success), zipB64: res ? res.zipB64 : '', err: res ? res.error : '' });
 	})()`))
 	if err != nil {
-		log.Fatalf("Export failed: %v", err)
+		log.Printf("Export failed: %v", err)
+		return 1
 	}
 	var expData struct {
 		Success bool   `json:"success"`
@@ -656,7 +667,8 @@ func main() {
 
 	demoURL := fmt.Sprintf("file://%s/lite-effects-demo/demo.html", remoteDir)
 	if err := runVoid(taskCtx, chromedp.Navigate(demoURL), chromedp.WaitReady("#container-unit-a svg"), chromedp.Sleep(400*time.Millisecond)); err != nil {
-		log.Fatalf("Failed to open exported demo.html: %v", err)
+		log.Printf("Failed to open exported demo.html: %v", err)
+		return 1
 	}
 	s18JSON, _ := chromedp.Run(taskCtx, chromedp.Evaluate[string](`(() => {
 		const wA = instances['unit-a'];
@@ -702,7 +714,8 @@ func main() {
 
 	// Also verify Stage 16C independent consumer harness (http://192.168.100.40:8091/index.html) is live and controllable
 	if err := runVoid(taskCtx, chromedp.Navigate(consumerURL), chromedp.WaitReady("#stage-host-a svg"), chromedp.Sleep(400*time.Millisecond)); err != nil {
-		log.Fatalf("Failed to open Stage 16C consumer: %v", err)
+		log.Printf("Failed to open Stage 16C consumer: %v", err)
+		return 1
 	}
 	consumerOK, _ := chromedp.Run(taskCtx, chromedp.Evaluate[bool](`document.querySelectorAll('#stage-host-a svg, #stage-host-b svg, #stage-host-c svg').length === 3`))
 	record(18, "Export & Independent Consumer Control",
@@ -712,7 +725,8 @@ func main() {
 
 	// Scenario 19: Verify visibility-aware suspension & resumption on benchmark harness
 	if err := runVoid(taskCtx, chromedp.Navigate(benchURL), chromedp.WaitReady("#grid"), chromedp.Sleep(300*time.Millisecond)); err != nil {
-		log.Fatalf("Failed to open benchmark URL: %v", err)
+		log.Printf("Failed to open benchmark URL: %v", err)
+		return 1
 	}
 	_, _ = chromedp.Run(taskCtx, chromedp.Evaluate[string](`(async () => JSON.stringify(await window.BenchmarkHarness.setup({count:30,layout:'dashboard',mode:'animated',visibilityAware:true})))()`,
 		func(p *cdpruntime.EvaluateParams) { b := true; p.AwaitPromise = &b }))
@@ -752,7 +766,8 @@ func main() {
 
 	// Scenario 20: Verify existing Studio shapes, Flow, Glow, Ripple and property exposure still work
 	if err := runVoid(taskCtx, chromedp.Navigate(studioURL), chromedp.WaitReady("#railBtn-nodes")); err != nil {
-		log.Fatalf("Failed to reopen Studio: %v", err)
+		log.Printf("Failed to reopen Studio: %v", err)
+		return 1
 	}
 	for i := 0; i < 30; i++ {
 		ready, _ := chromedp.Run(taskCtx, chromedp.Evaluate[bool](`Boolean(window.EngineBridge && window.EngineBridge.isReady())`))
@@ -804,7 +819,8 @@ func main() {
 		}
 	}
 	if !allPassed {
-		os.Exit(1)
+		return 1
 	}
 	fmt.Println(">>> ALL 20 STAGE 16D-A REAL-BROWSER CDP SCENARIOS PASS 100% <<<")
+	return 0
 }

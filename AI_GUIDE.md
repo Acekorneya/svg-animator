@@ -162,7 +162,7 @@ Because the frontend uses browser globals embedded via `//go:embed`, script load
 - **Modules (`docs/modules/`):**
   - [`app.md`](docs/modules/app.md) | [`stage.md`](docs/modules/stage.md) | [`presets.md`](docs/modules/presets.md) | [`nodes.md`](docs/modules/nodes.md) | [`shape-registry.md`](docs/modules/shape-registry.md) | [`flows.md`](docs/modules/flows.md) | [`glows.md`](docs/modules/glows.md) | [`ripples.md`](docs/modules/ripples.md) | [`effects.md`](docs/modules/effects.md) | [`history.md`](docs/modules/history.md) | [`projects.md`](docs/modules/projects.md)
 - **Development Guides (`docs/development/`):**
-  - [`coding-conventions.md`](docs/development/coding-conventions.md) | [`module-development-guide.md`](docs/development/module-development-guide.md) | [`testing-requirements.md`](docs/development/testing-requirements.md) | [`adding-new-features.md`](docs/development/adding-new-features.md)
+  - [`coding-conventions.md`](docs/development/coding-conventions.md) | [`module-development-guide.md`](docs/development/module-development-guide.md) | [`testing-requirements.md`](docs/development/testing-requirements.md) | [`adding-new-features.md`](docs/development/adding-new-features.md) | [`browser-process-lifecycle.md`](docs/development/browser-process-lifecycle.md)
 - **Architecture Decision Records (`docs/decisions/`):**
   - [`ADR-001-architectural-separation.md`](docs/decisions/ADR-001-architectural-separation.md)
   - [`ADR-002-application-coordination.md`](docs/decisions/ADR-002-application-coordination.md)

@@ -11,12 +11,13 @@ import (
 	"time"
 
 	"github.com/chromedp/chromedp"
-	"github.com/chromedp/chromedp/remote"
+	"gitea.seaoffate.net/blackgrape/svg-animator/pkg/animlab"
 )
 
 const (
 	demoURL     = "http://192.168.100.40:8091/index.html"
 	cdpEndpoint = "http://127.0.0.1:9222"
+	cpuHost     = "nigel@192.168.100.40"
 )
 
 type CheckResult struct {
@@ -36,6 +37,10 @@ func runVoid(ctx context.Context, actions ...chromedp.Action[chromedp.Void]) err
 }
 
 func main() {
+	os.Exit(run())
+}
+
+func run() int {
 	fmt.Println("==================================================================")
 	fmt.Println(" Stage 16C: External Data-Driven Widget Integration Verification")
 	fmt.Println(" Target: http://192.168.100.40:8091/index.html via Chrome CDP")
@@ -56,10 +61,14 @@ func main() {
 		fmt.Printf("[%s] Criteria %2d: %-36s - %s\n", status, num, name, msg)
 	}
 
-	allocCtx, aCancel := remote.NewAllocator(context.Background(), cdpEndpoint)
-	defer aCancel()
+	sess, err := animlab.AcquireBrowserSession(context.Background(), cdpEndpoint, cpuHost)
+	if err != nil {
+		log.Printf("Failed to acquire browser session: %v", err)
+		return 1
+	}
+	defer sess.Close()
 
-	ctx, cancel := context.WithTimeout(allocCtx, 60*time.Second)
+	ctx, cancel := context.WithTimeout(sess.AllocCtx, 60*time.Second)
 	defer cancel()
 
 	taskCtx, tCancel := chromedp.NewContext(ctx)
@@ -71,7 +80,8 @@ func main() {
 		chromedp.WaitReady("#stage-host-a svg"),
 		chromedp.Sleep(1*time.Second),
 	); err != nil {
-		log.Fatalf("Failed to navigate/mount at %s: %v", demoURL, err)
+		log.Printf("Failed to navigate/mount at %s: %v", demoURL, err)
+		return 1
 	}
 
 	// 1. Check zero Studio dependencies and 3 mounted instances
@@ -101,7 +111,8 @@ func main() {
 		});
 	})()`))
 	if err != nil {
-		log.Fatalf("Initial evaluation failed: %v", err)
+		log.Printf("Initial evaluation failed: %v", err)
+		return 1
 	}
 
 	var initData struct {
@@ -131,7 +142,8 @@ func main() {
 		chromedp.Click(`button[data-action="cpu-zero"][data-host="host-a"]`),
 		chromedp.Sleep(200*time.Millisecond),
 	); err != nil {
-		log.Fatalf("Click cpu-zero failed: %v", err)
+		log.Printf("Click cpu-zero failed: %v", err)
+		return 1
 	}
 
 	zeroReport, _ := chromedp.Run(taskCtx, chromedp.Evaluate[string](`(() => {
@@ -146,7 +158,8 @@ func main() {
 		chromedp.Click(`button[data-action="cpu-missing"][data-host="host-a"]`),
 		chromedp.Sleep(200*time.Millisecond),
 	); err != nil {
-		log.Fatalf("Click cpu-missing failed: %v", err)
+		log.Printf("Click cpu-missing failed: %v", err)
+		return 1
 	}
 
 	missingReport, _ := chromedp.Run(taskCtx, chromedp.Evaluate[string](`(() => {
@@ -178,7 +191,8 @@ func main() {
 		chromedp.Click(`button[data-action="toggle-online"][data-host="host-b"]`),
 		chromedp.Sleep(200*time.Millisecond),
 	); err != nil {
-		log.Fatalf("Toggle online failed: %v", err)
+		log.Printf("Toggle online failed: %v", err)
+		return 1
 	}
 	hostBOnlineOk, _ := chromedp.Run(taskCtx, chromedp.Evaluate[bool](`(() => {
 		const svgB = document.querySelector('#stage-host-b svg');
@@ -192,7 +206,8 @@ func main() {
 		chromedp.Click(`button[data-action="test-invalid"][data-host="host-a"]`),
 		chromedp.Sleep(150*time.Millisecond),
 	); err != nil {
-		log.Fatalf("Click test-invalid failed: %v", err)
+		log.Printf("Click test-invalid failed: %v", err)
+		return 1
 	}
 	invalidReport, _ := chromedp.Run(taskCtx, chromedp.Evaluate[string](`document.getElementById('errorBanner')?.textContent || ''`))
 	record(6, "Invalid Value Explicit Error", strings.Contains(invalidReport, "above maximum allowed"),
@@ -203,14 +218,16 @@ func main() {
 		chromedp.Click(`button[data-action="toggle-mount"][data-host="host-b"]`),
 		chromedp.Sleep(150*time.Millisecond),
 	); err != nil {
-		log.Fatalf("Unmount failed: %v", err)
+		log.Printf("Unmount failed: %v", err)
+		return 1
 	}
 	unmountedOk, _ := chromedp.Run(taskCtx, chromedp.Evaluate[bool](`!document.querySelector('#stage-host-b svg') && Boolean(document.querySelector('#stage-host-a svg'))`))
 	if err := runVoid(taskCtx,
 		chromedp.Click(`button[data-action="toggle-mount"][data-host="host-b"]`),
 		chromedp.Sleep(150*time.Millisecond),
 	); err != nil {
-		log.Fatalf("Remount failed: %v", err)
+		log.Printf("Remount failed: %v", err)
+		return 1
 	}
 	remountedOk, _ := chromedp.Run(taskCtx, chromedp.Evaluate[bool](`Boolean(document.querySelector('#stage-host-b svg'))`))
 	record(7, "Safe Unmount & Remount Lifecycle", unmountedOk && remountedOk, "host-b unmounted cleanly without affecting host-a and remounted cleanly")
@@ -221,7 +238,8 @@ func main() {
 		chromedp.Click(`#btnLoadPackage`),
 		chromedp.Sleep(300*time.Millisecond),
 	); err != nil {
-		log.Fatalf("Broken package test failed: %v", err)
+		log.Printf("Broken package test failed: %v", err)
+		return 1
 	}
 	brokenErr, _ := chromedp.Run(taskCtx, chromedp.Evaluate[string](`document.getElementById('errorBanner')?.textContent || ''`))
 	record(8, "Inconsistent Package Rejection", strings.Contains(brokenErr, "Package consistency error"),
@@ -234,7 +252,8 @@ func main() {
 		chromedp.Click(`#btnLoadPackage`),
 		chromedp.Sleep(300*time.Millisecond),
 	); err != nil {
-		log.Fatalf("Stale mapping test failed: %v", err)
+		log.Printf("Stale mapping test failed: %v", err)
+		return 1
 	}
 	staleErr, _ := chromedp.Run(taskCtx, chromedp.Evaluate[string](`document.getElementById('errorBanner')?.textContent || ''`))
 
@@ -243,7 +262,8 @@ func main() {
 		chromedp.Click(`#btnLoadPackage`),
 		chromedp.Sleep(300*time.Millisecond),
 	); err != nil {
-		log.Fatalf("v2 package load failed: %v", err)
+		log.Printf("v2 package load failed: %v", err)
+		return 1
 	}
 	v2Ok, _ := chromedp.Run(taskCtx, chromedp.Evaluate[bool](`(() => {
 		const err = document.getElementById('errorBanner')?.textContent || '';
@@ -268,7 +288,8 @@ func main() {
 		fmt.Printf("[%s] Criteria %2d: %-36s : %s\n", status, r.Number, r.Name, r.Message)
 	}
 	if !allPassed {
-		os.Exit(1)
+		return 1
 	}
 	fmt.Println("\n>>> ALL 9 STAGE 16C REAL-BROWSER CDP CRITERIA PASS 100% ON KIWIBERRY <<<")
+	return 0
 }
