@@ -126,6 +126,14 @@ func DeepCopySelection(sel SelectionState) SelectionState {
 	return cp
 }
 
+func deepCopyFloatPtr(p *float64) *float64 {
+	if p == nil {
+		return nil
+	}
+	v := *p
+	return &v
+}
+
 // DeepCopyLiteEffect creates an isolated deep copy of a LiteEffect.
 func DeepCopyLiteEffect(l LiteEffect) LiteEffect {
 	cp := l
@@ -133,6 +141,11 @@ func DeepCopyLiteEffect(l LiteEffect) LiteEffect {
 	cp.MaintainAspectRatio = deepCopyBoolPtr(l.MaintainAspectRatio)
 	cp.ShowGuide = deepCopyBoolPtr(l.ShowGuide)
 	cp.Visible = deepCopyBoolPtr(l.Visible)
+	cp.Value = deepCopyFloatPtr(l.Value)
+	cp.MinValue = deepCopyFloatPtr(l.MinValue)
+	cp.MaxValue = deepCopyFloatPtr(l.MaxValue)
+	cp.WarnThreshold = deepCopyFloatPtr(l.WarnThreshold)
+	cp.CritThreshold = deepCopyFloatPtr(l.CritThreshold)
 	if l.Points != nil {
 		cp.Points = make([]geometry.Point, len(l.Points))
 		copy(cp.Points, l.Points)

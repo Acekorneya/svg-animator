@@ -1,9 +1,9 @@
 # Stage 16D-B — Proposed Implementation Plan
 
-**Status:** **M1 ACCEPTED (`a3a7d24`); Stage 16D-B-M2 — IMPLEMENTED, AWAITING USER ACCEPTANCE (M3–M4 NOT YET AUTHORISED)**
-**Project:** SVG Animator Studio  
-**Stage:** Stage 16D-B (Flows, Data Indicators and Waveforms)  
-**Implementation Authorisation:** **M1 (`16D-B-M1`: Flow Lite) ACCEPTED (`a3a7d24`); Stage 16D-B-M2 (`16D-B-M2`: Radar Ping Lite + M1 Minor Inspector Corrections) IMPLEMENTED — AWAITING USER ACCEPTANCE** (M3–M4 remain unauthorised until M2 is reviewed and accepted)
+**Status:** **M1 ACCEPTED (`a3a7d24`); M2 ACCEPTED (`ad814bb`); Stage 16D-B-M3 — IMPLEMENTED, AWAITING USER ACCEPTANCE (M4 NOT YET AUTHORISED)**
+**Project:** SVG Animator Studio
+**Stage:** Stage 16D-B (Flows, Data Indicators and Waveforms)
+**Implementation Authorisation:** **M1 (`16D-B-M1`: Flow Lite) ACCEPTED (`a3a7d24`); M2 (`16D-B-M2`: Radar Ping Lite) ACCEPTED (`ad814bb`); Stage 16D-B-M3 (`16D-B-M3`: Gauge / Level Lite) IMPLEMENTED — AWAITING USER ACCEPTANCE** (M4 remains unauthorised until M3 is reviewed and accepted)
 **Baseline Commits:** `bf7ee3e` (Test Lab M6 closeout) and `7e8d4f6` (Stage 16D-A standalone SVG export audit)  
 **Engineering Guidance Reference:** [`docs/architecture/svg-animation-engineering-guidance.md`](architecture/svg-animation-engineering-guidance.md)  
 **Test Lab Comparative Evidence:** [`testlab/m6-evidence/M6_FINAL_COMPARATIVE_REPORT.md`](../testlab/m6-evidence/M6_FINAL_COMPARATIVE_REPORT.md) (BookStack Book 468, Page 470, revision 13; live viewer at `http://192.168.100.40:8093/`)
@@ -333,7 +333,8 @@ During design review, two implementation approaches were evaluated for open-path
 
 1. **Approve the revised Stage 16D-B plan** incorporating the multi-point path and per-section bend model, independent start/end Abrupt and Tunnel modes, declarative Start Delay and End Delay timing, pixel-based Dashed/Dotted/Single Segment pattern controls, and the static Gauge Lite colour precedence contract.
 2. **Authorise Milestone 1 (`16D-B-M1`: Flow Lite) only** for implementation. (Approved; M1 implemented in commit `a3a7d24` and **ACCEPTED** by user.)
-3. **Authorise Milestone 2 (`16D-B-M2`: Radar Ping Lite) and the two minor M1 Flow Lite inspector corrections.** (Approved; M2 implemented and awaiting user acceptance.)
+3. **Authorise Milestone 2 (`16D-B-M2`: Radar Ping Lite) and the two minor M1 Flow Lite inspector corrections.** (Approved; M2 implemented in commit `ad814bb` and **ACCEPTED** by user.)
+4. **Authorise Milestone 3 (`16D-B-M3`: Gauge / Level Lite) only** for implementation. (Approved; M3 implemented and awaiting user acceptance.)
 
 ---
 
@@ -388,7 +389,7 @@ Before integrating Flow Lite into Studio, an automated Chromium CDP feasibility 
 
 ## J. Milestone 2 (`16D-B-M2`: Radar Ping Lite) Implementation Evidence & Status
 
-**Milestone Status:** **Stage 16D-B-M2 — IMPLEMENTED, AWAITING USER ACCEPTANCE**
+**Milestone Status:** **ACCEPTED (`ad814bb`)**
 **Live Studio URL:** `http://192.168.100.40:8088/`
 **Live 9-Example Radar Ping Lite Visual Showcase URL:** `http://192.168.100.40:8088/radar-lite-demo.html`
 **Live 10-Example Flow Lite Visual Showcase URL:** `http://192.168.100.40:8088/flow-lite-demo.html`
@@ -410,3 +411,38 @@ Before integrating Flow Lite into Studio, an automated Chromium CDP feasibility 
 - **Node Regression Harness (`node scripts/regression-harness.js`):** **90 / 90 Scenarios PASS** (including Scenario 90 verifying Flow Lite `30.0 s` Cycle Duration and Radar Ping Lite `single`, `multi` `1..6` rings, `fading-ping`, elliptical geometry, centre marker, and `.sva` / project round-trip).
 - **Stage 16D-B-M1 Real-Browser Acceptance Suite (`go run ./scripts/cmd/verify-stage16d-b-m1/main.go`):** **16 / 16 Gates PASS**.
 - **Stage 16D-B-M2 Real-Browser Acceptance Suite (`go run ./scripts/cmd/verify-stage16d-b-m2/main.go`):** **16 / 16 Gates PASS (`AT-M2-01` through `AT-M2-16`)**, including temporal browser sampling of monotonic outward ring expansion, opacity fade-out, multi-ring staggered phase separation, negative controls for stationary/synchronized rings, standalone SVG export, Stage 16C multi-instance widget isolation, and off-screen suspension/resumption.
+
+---
+
+## K. Milestone 3 (`16D-B-M3`: Gauge / Level Lite) Implementation Evidence & Status
+
+**Milestone Status:** **Stage 16D-B-M3 — IMPLEMENTED, AWAITING USER ACCEPTANCE**
+**Live Studio URL:** `http://192.168.100.40:8088/`
+**Live Gauge / Level Lite Visual Showcase URL:** `http://192.168.100.40:8088/gauge-lite-demo.html`
+**Live Radar Ping Lite Visual Showcase URL:** `http://192.168.100.40:8088/radar-lite-demo.html`
+**Live Flow Lite Visual Showcase URL:** `http://192.168.100.40:8088/flow-lite-demo.html`
+**Live Stage 16C Widget Consumer URL:** `http://192.168.100.40:8091/index.html`
+
+### 1. Five Planned Gauge / Level Lite Variants Implemented
+All five planned indicator styles from Section D.4.2 are implemented under `kind: "gauge-lite"` with zero idle CSS, SMIL, or `requestAnimationFrame` loops:
+1. **Circular / Ring Gauge (`variant: "ring"`):** Background track `<ellipse pathLength="100">` paired with a foreground value arc `<ellipse pathLength="100" stroke-dasharray="{frac*100} 200">` starting at 12 o'clock (`rotate(-90)`), supporting both clockwise (`forward`) and counter-clockwise (`reverse`) fill directions.
+2. **Horizontal Bar Gauge (`variant: "hbar"`):** Rounded background track `<rect>` paired with a proportional horizontal fill `<rect>` anchored left-to-right (`forward`) or right-to-left (`reverse`).
+3. **Vertical Bar Gauge (`variant: "vbar"`):** Rounded background track `<rect>` paired with a proportional vertical fill `<rect>` anchored bottom-to-top (`forward`) or top-to-bottom (`reverse`).
+4. **Segmented Bar Gauge (`variant: "segmented"`):** Discrete cell array (`segments`, `2..32`, default `10`), lighting `round(frac * segments)` cells in the active fill colour and remaining cells in `bgColor`.
+5. **Filled-Level Indicator (`variant: "level"`):** Framed vessel container `<rect>` stroked in the active status colour with a translucent interior background and a rising (or top-down) interior fill `<rect>`.
+
+### 2. Range, Valid Zero, Threshold Banding & Colour Precedence Contract
+- **Actual Numeric Domain & Valid Zero:**
+  - `Value`, `MinValue`, `MaxValue`, `WarnThreshold`, and `CritThreshold` are stored as `*float64` in Go (`pkg/engine/scene/model.go`) so `0.0` is preserved as an explicit valid number and never confused with missing data.
+  - Visual fill fraction `frac = clamp((value - minValue) / (maxValue - minValue), 0.0, 1.0)` clamps only the graphical indicator to `[0.0, 1.0]` while preserving the exact incoming semantic value in `data-gauge-value` and the optional value readout text.
+- **Colour Precedence Rule:**
+  1. **Explicit Application Colour Override (`setParameter('<name>-lite-color', '#...')`):** Sets `data-gauge-color-override="true"` and `data-gauge-override-color` on the gauge instance, taking precedence over automatic threshold banding. Calling `resetParameters()` clears the override and restores automatic threshold evaluation.
+  2. **Optional Threshold Banding (`useThresholds: true`):** Evaluates in the gauge's actual `[minValue, maxValue]` numeric domain (`value >= critThreshold` → `critColor`; `value >= warnThreshold` → `warnColor`; otherwise base `color`).
+  3. **Base Authored Colour (`color`):** Used when neither an application override nor threshold banding is active.
+
+### 3. Verification Results Summary
+- **Go Unit & Package Tests (`go vet ./... && go test ./...`):** **PASS (100%)** (including `TestGaugeLiteVariantsRangesThresholdsAndPersistence` in `pkg/engine/scene/lite_effect_test.go`).
+- **Node Regression Harness (`node scripts/regression-harness.js`):** **91 / 91 Scenarios PASS** (including Scenario 91 verifying all 5 Gauge Lite variants, actual-domain RPM thresholds, valid zero, and project serialization round-trip).
+- **Stage 16D-B-M1 Real-Browser Acceptance Suite (`go run ./scripts/cmd/verify-stage16d-b-m1/main.go`):** **16 / 16 Gates PASS**.
+- **Stage 16D-B-M2 Real-Browser Acceptance Suite (`go run ./scripts/cmd/verify-stage16d-b-m2/main.go`):** **16 / 16 Gates PASS**.
+- **Stage 16D-B-M3 Real-Browser Acceptance Suite (`go run ./scripts/cmd/verify-stage16d-b-m3/main.go`):** **16 / 16 Gates PASS (`AT-M3-01` through `AT-M3-16`)**.

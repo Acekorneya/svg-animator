@@ -11695,6 +11695,80 @@ async function runHarness() {
   }
   console.log('[HARNESS] Scenario 90 PASS: Stage 16D-B-M2 Radar Ping Lite & Flow Lite 30.0 s Cycle Duration verified.');
 
+  // =========================================================================
+  // SCENARIO 91: Stage 16D-B-M3 Gauge / Level Lite (All 5 Variants, Negative
+  //              & Non-Zero Domains, Valid Zero, Threshold Banding & Persistence)
+  // =========================================================================
+  console.log('\n[HARNESS] Testing Scenario 91: Stage 16D-B-M3 Gauge / Level Lite (5 Variants, Domains, Thresholds & Persistence)...');
+  {
+    // 1. Create Ring Gauge in actual RPM domain [0, 3600] with threshold banding
+    const rpmGauge = window.LiteEffects.createLiteEffect({
+      name: 'spindleRpm',
+      kind: 'gauge-lite',
+      variant: 'ring',
+      minValue: 0,
+      maxValue: 3600,
+      value: 2950,
+      color: '#22c55e',
+      bgColor: '#1e293b',
+      useThresholds: true,
+      warnThreshold: 2800,
+      warnColor: '#f59e0b',
+      critThreshold: 3300,
+      critColor: '#ef4444',
+      unit: ' RPM',
+      labelText: 'Spindle'
+    });
+    assert.strictEqual(rpmGauge.kind, 'gauge-lite', 'W16DBM3-01: Gauge Lite kind preserved');
+    assert.strictEqual(rpmGauge.variant, 'ring', 'W16DBM3-02: Ring variant preserved');
+    assert.strictEqual(rpmGauge.minValue, 0, 'W16DBM3-03: minValue 0 preserved');
+    assert.strictEqual(rpmGauge.maxValue, 3600, 'W16DBM3-04: maxValue 3600 preserved');
+    assert.strictEqual(rpmGauge.value, 2950, 'W16DBM3-05: value 2950 preserved');
+
+    const renderedRing = window.LiteEffects.renderLiteElement(rpmGauge);
+    assert(renderedRing.includes('data-lite-kind="gauge-lite"'), 'W16DBM3-06: Rendered group has data-lite-kind="gauge-lite"');
+    assert(renderedRing.includes('data-gauge-variant="ring"'), 'W16DBM3-07: Rendered group has data-gauge-variant="ring"');
+    assert(renderedRing.includes('data-gauge-active-color="#f59e0b"'), 'W16DBM3-08: Value 2950 in [2800, 3300) selects warning colour #f59e0b');
+    assert(!renderedRing.includes('@keyframes'), 'W16DBM3-09: Static gauge emits zero CSS @keyframes');
+    assert(!renderedRing.includes('<animate'), 'W16DBM3-10: Static gauge emits zero SMIL <animate> elements');
+
+    // 2. Test Critical threshold & Valid Zero (0 !== missing)
+    window.LiteEffects.updateLiteEffect(rpmGauge.id, { value: 3450 });
+    const renderedCrit = window.LiteEffects.renderLiteElement(window.LiteEffects.getLiteEffect(rpmGauge.id));
+    assert(renderedCrit.includes('data-gauge-active-color="#ef4444"'), 'W16DBM3-11: Value 3450 >= 3300 selects critical colour #ef4444');
+
+    window.LiteEffects.updateLiteEffect(rpmGauge.id, { value: 0 });
+    const updatedZero = window.LiteEffects.getLiteEffect(rpmGauge.id);
+    assert.strictEqual(updatedZero.value, 0, 'W16DBM3-12: Valid zero value (0) preserved without fallback');
+    const renderedZero = window.LiteEffects.renderLiteElement(updatedZero);
+    assert(renderedZero.includes('data-gauge-fraction="0.0000"'), 'W16DBM3-13: Zero at minValue=0 produces 0.0000 fill fraction');
+    assert(renderedZero.includes('data-gauge-active-color="#22c55e"'), 'W16DBM3-14: Zero value selects healthy base colour #22c55e');
+
+    // 3. Test remaining 4 variants: hbar, vbar, segmented, level
+    for (const v of ['hbar', 'vbar', 'segmented', 'level']) {
+      window.LiteEffects.updateLiteEffect(rpmGauge.id, { variant: v, value: 1800, segments: 12 });
+      const cur = window.LiteEffects.getLiteEffect(rpmGauge.id);
+      assert.strictEqual(cur.variant, v, `W16DBM3-15 (${v}): Variant updated to ${v}`);
+      const markup = window.LiteEffects.renderLiteElement(cur);
+      assert(markup.includes(`data-gauge-variant="${v}"`), `W16DBM3-16 (${v}): Rendered markup has data-gauge-variant="${v}"`);
+      assert(markup.includes('data-gauge-fraction="0.5000"'), `W16DBM3-17 (${v}): Midrange 1800/3600 produces 0.5000 fraction`);
+    }
+
+    // 4. Project serialization round-trip preserves Gauge Lite
+    const serialized91 = window.ProjectManager.serializeStudioState();
+    window.ProjectManager.resetToNewProject();
+    window.ProjectManager.applyStudioState(serialized91);
+    const restoredGauge = window.LiteEffects.getLiteEffect(rpmGauge.id);
+    assert(restoredGauge && restoredGauge.kind === 'gauge-lite', 'W16DBM3-18: Gauge Lite restored after round-trip');
+    assert.strictEqual(restoredGauge.variant, 'level', 'W16DBM3-19: Gauge Lite variant restored');
+    assert.strictEqual(restoredGauge.maxValue, 3600, 'W16DBM3-20: Gauge Lite maxValue restored');
+    assert.strictEqual(restoredGauge.warnThreshold, 2800, 'W16DBM3-21: Gauge Lite warnThreshold restored');
+
+    window.ProjectManager.resetToNewProject();
+    window.EngineBridge.setWidgetParameters([]);
+  }
+  console.log('[HARNESS] Scenario 91 PASS: Stage 16D-B-M3 Gauge / Level Lite (5 Variants, Domains, Thresholds & Persistence) verified.');
+
   console.log('[HARNESS] REG-03 PASS: Stage 3, 4, 5, 6, 7, 8, 9, 11, 12, 13, 14, 15 & 16 non-destructive cropping, background extraction, image baking, dedicated crop clip & snip workspace, object-local clipping, unified layer management, independent image objects, persistent groups, duplication, copy/paste with flow remapping, multi-selection, alignment, distribution, colour tools, selection retention, notifications, naming sync, history(50), schema 1.2.0, .sva packaging, background photo restoration, SVG compilation, export payload builders, collision-free widgets, external runtime parameters, and Go WASM engines verified.');
 }
 

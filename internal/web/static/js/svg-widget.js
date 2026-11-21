@@ -444,10 +444,143 @@
     }
   }
 
+  function updateGaugeLiteDOM(el) {
+    if (!el || el.getAttribute('data-lite-kind') !== 'gauge-lite') return;
+    const variant = el.getAttribute('data-gauge-variant') || 'ring';
+    const minV = parseFloat(el.getAttribute('data-gauge-min'));
+    const maxV = parseFloat(el.getAttribute('data-gauge-max'));
+    const val = parseFloat(el.getAttribute('data-gauge-value'));
+    const safeMin = Number.isFinite(minV) ? minV : 0;
+    const safeMax = (Number.isFinite(maxV) && maxV > safeMin) ? maxV : (safeMin + 100);
+    const safeVal = Number.isFinite(val) ? val : safeMin;
+    const span = safeMax - safeMin;
+    const rawFrac = span > 0 ? (safeVal - safeMin) / span : 0;
+    const frac = Math.max(0, Math.min(1, rawFrac));
+    el.setAttribute('data-gauge-fraction', frac.toFixed(4));
+
+    const baseColor = el.getAttribute('data-gauge-base-color') || '#38bdf8';
+    const bgCol = el.getAttribute('data-gauge-bg-color') || '#1e293b';
+    const useThresh = el.getAttribute('data-gauge-use-thresholds') === 'true';
+    const warnT = parseFloat(el.getAttribute('data-gauge-warn-threshold'));
+    const critT = parseFloat(el.getAttribute('data-gauge-crit-threshold'));
+    const warnCol = el.getAttribute('data-gauge-warn-color') || '#f59e0b';
+    const critCol = el.getAttribute('data-gauge-crit-color') || '#ef4444';
+    const overrideColor = el.getAttribute('data-gauge-override-color') || '';
+    const hasOverride = el.getAttribute('data-gauge-color-override') === 'true' && overrideColor !== '';
+    const dir = el.getAttribute('data-gauge-direction') === 'reverse' ? 'reverse' : 'forward';
+
+    let activeColor = baseColor;
+    if (hasOverride) {
+      activeColor = overrideColor;
+    } else if (useThresh) {
+      if (Number.isFinite(critT) && safeVal >= critT) activeColor = critCol;
+      else if (Number.isFinite(warnT) && safeVal >= warnT) activeColor = warnCol;
+    }
+    el.setAttribute('data-gauge-active-color', activeColor);
+
+    const x = parseFloat(el.getAttribute('data-gauge-x')) || 0;
+    const y = parseFloat(el.getAttribute('data-gauge-y')) || 0;
+    const w = parseFloat(el.getAttribute('data-gauge-w')) || 96;
+    const h = parseFloat(el.getAttribute('data-gauge-h')) || 96;
+    const cr = parseFloat(el.getAttribute('data-gauge-cr')) || 6;
+
+    if (variant === 'ring') {
+      const arc = el.querySelector('.lite-gauge-arc');
+      const track = el.querySelector('.lite-gauge-track');
+      if (track) {
+        track.setAttribute('stroke', bgCol);
+        if (track.style) track.style.stroke = bgCol;
+      }
+      if (arc) {
+        const arcLen = Number((frac * 100).toFixed(3));
+        arc.setAttribute('stroke-dasharray', arcLen <= 0.001 ? '0 200' : `${arcLen} 200`);
+        arc.setAttribute('stroke-linecap', arcLen <= 0.001 ? 'butt' : 'round');
+        arc.setAttribute('stroke', activeColor);
+        if (arc.style) arc.style.stroke = activeColor;
+      }
+    } else if (variant === 'hbar') {
+      const track = el.querySelector('.lite-gauge-track');
+      const fillRect = el.querySelector('.lite-gauge-hbar');
+      if (track) {
+        track.setAttribute('fill', bgCol);
+        track.setAttribute('stroke', bgCol);
+      }
+      if (fillRect) {
+        const barR = Math.min(cr, h / 2, w / 2);
+        const fillW = Number((w * frac).toFixed(2));
+        const fillX = dir === 'reverse' ? (x + w - fillW) : x;
+        const fillR = fillW > 0.5 ? Math.min(barR, fillW / 2) : 0;
+        fillRect.setAttribute('x', fillX.toFixed(2));
+        fillRect.setAttribute('width', fillW.toFixed(2));
+        fillRect.setAttribute('rx', fillR.toFixed(2));
+        fillRect.setAttribute('fill', activeColor);
+        if (fillRect.style) fillRect.style.fill = activeColor;
+      }
+    } else if (variant === 'vbar') {
+      const track = el.querySelector('.lite-gauge-track');
+      const fillRect = el.querySelector('.lite-gauge-vbar');
+      if (track) {
+        track.setAttribute('fill', bgCol);
+        track.setAttribute('stroke', bgCol);
+      }
+      if (fillRect) {
+        const barR = Math.min(cr, w / 2, h / 2);
+        const fillH = Number((h * frac).toFixed(2));
+        const fillY = dir === 'reverse' ? y : (y + h - fillH);
+        const fillR = fillH > 0.5 ? Math.min(barR, fillH / 2) : 0;
+        fillRect.setAttribute('y', fillY.toFixed(2));
+        fillRect.setAttribute('height', fillH.toFixed(2));
+        fillRect.setAttribute('rx', fillR.toFixed(2));
+        fillRect.setAttribute('fill', activeColor);
+        if (fillRect.style) fillRect.style.fill = activeColor;
+      }
+    } else if (variant === 'segmented') {
+      const cells = Array.from(el.querySelectorAll('.lite-gauge-cell'));
+      const segCount = cells.length || parseInt(el.getAttribute('data-gauge-segments') || '10', 10) || 10;
+      const activeSegs = frac <= 0 ? 0 : Math.min(segCount, Math.round(frac * segCount));
+      cells.forEach((cell, idx) => {
+        const logicalIdxAttr = cell.getAttribute('data-cell-index');
+        const logicalIdx = logicalIdxAttr !== null ? parseInt(logicalIdxAttr, 10) : (dir === 'reverse' ? (segCount - 1 - idx) : idx);
+        const isLit = logicalIdx < activeSegs;
+        const cCol = isLit ? activeColor : bgCol;
+        cell.setAttribute('data-cell-lit', isLit ? 'true' : 'false');
+        cell.setAttribute('fill', cCol);
+        if (cell.style) cell.style.fill = cCol;
+      });
+    } else if (variant === 'level') {
+      const vessel = el.querySelector('.lite-gauge-vessel');
+      const fillRect = el.querySelector('.lite-gauge-level');
+      if (vessel) {
+        vessel.setAttribute('fill', bgCol);
+        vessel.setAttribute('stroke', activeColor);
+        if (vessel.style) vessel.style.stroke = activeColor;
+      }
+      if (fillRect) {
+        const innerY = parseFloat(fillRect.getAttribute('data-inner-y')) || (y + 4);
+        const innerH = parseFloat(fillRect.getAttribute('data-inner-h')) || Math.max(2, h - 8);
+        const fillH = Number((innerH * frac).toFixed(2));
+        const fillY = dir === 'reverse' ? innerY : (innerY + innerH - fillH);
+        fillRect.setAttribute('y', fillY.toFixed(2));
+        fillRect.setAttribute('height', fillH.toFixed(2));
+        fillRect.setAttribute('fill', activeColor);
+        if (fillRect.style) fillRect.style.fill = activeColor;
+      }
+    }
+
+    const unitStr = el.getAttribute('data-gauge-unit') || '';
+    const labelStr = el.getAttribute('data-gauge-label') || '';
+    const formattedVal = Number.isInteger(safeVal) ? String(safeVal) : String(Math.round(safeVal * 100) / 100);
+    const displayStr = `${formattedVal}${unitStr}`;
+    const valTxtEl = el.querySelector('.lite-gauge-value-text');
+    if (valTxtEl) {
+      valTxtEl.textContent = ((variant === 'hbar' || variant === 'segmented') && labelStr) ? `${labelStr}: ${displayStr}` : displayStr;
+    }
+  }
+
   /**
    * Applies validated property to the resolved DOM element.
    */
-  function applyPropertyToElement(el, property, value, paramDef, instance) {
+  function applyPropertyToElement(el, property, value, paramDef, instance, isInitialMount = false) {
     const svgEl = instance ? (instance.svgElement || (instance.wrapper && instance.wrapper.querySelector('svg'))) : null;
 
     // Detect specialized entity types
@@ -570,6 +703,16 @@
             c.style.stroke = value;
           });
         } else if (isLite) {
+          if (el.getAttribute('data-lite-kind') === 'gauge-lite') {
+            if (isInitialMount) {
+              el.setAttribute('data-gauge-base-color', value);
+            } else {
+              el.setAttribute('data-gauge-color-override', 'true');
+              el.setAttribute('data-gauge-override-color', value);
+            }
+            updateGaugeLiteDOM(el);
+            break;
+          }
           // Lite effects: recolour visible .lite-payload & .lite-guide-track elements, preserving .lite-hit-target
           el.querySelectorAll('.lite-payload').forEach(c => {
             const curStroke = c.getAttribute('stroke');
@@ -765,14 +908,52 @@
       }
       case 'strokeWidth': {
         if (el) {
-          const sw = Math.max(0.5, Math.min(24, parseFloat(value) || 2.5));
+          const sw = Math.max(0.5, Math.min(32, parseFloat(value) || 2.5));
           el.setAttribute('data-flow-stroke-width', String(sw));
+          el.setAttribute('data-gauge-sw', String(sw));
+          if (el.getAttribute('data-lite-kind') === 'gauge-lite') {
+            const variant = el.getAttribute('data-gauge-variant') || 'ring';
+            if (variant === 'ring') {
+              el.querySelectorAll('.lite-gauge-track, .lite-gauge-arc').forEach(node => {
+                node.setAttribute('stroke-width', String(sw));
+              });
+            } else if (variant === 'level') {
+              const vessel = el.querySelector('.lite-gauge-vessel');
+              if (vessel) vessel.setAttribute('stroke-width', String(sw));
+            }
+            break;
+          }
           el.querySelectorAll('.lite-payload').forEach(node => {
             node.setAttribute('stroke-width', String(sw));
             if (node.style && typeof node.style.setProperty === 'function') {
               node.style.setProperty('--sva-base-sw', `${sw}px`);
             }
           });
+        }
+        break;
+      }
+      case 'bgColor': {
+        if (el && el.getAttribute('data-lite-kind') === 'gauge-lite') {
+          el.setAttribute('data-gauge-bg-color', value);
+          updateGaugeLiteDOM(el);
+        }
+        break;
+      }
+      case 'value':
+      case 'minValue':
+      case 'maxValue': {
+        if (el && el.getAttribute('data-lite-kind') === 'gauge-lite') {
+          const numVal = parseFloat(value);
+          if (Number.isFinite(numVal)) {
+            if (property === 'value') {
+              el.setAttribute('data-gauge-value', String(numVal));
+            } else if (property === 'minValue') {
+              el.setAttribute('data-gauge-min', String(numVal));
+            } else if (property === 'maxValue') {
+              el.setAttribute('data-gauge-max', String(numVal));
+            }
+            updateGaugeLiteDOM(el);
+          }
         }
         break;
       }
@@ -1368,13 +1549,14 @@
           return handle.setParameters(batch);
         },
 
-        setParameters(batch) {
+        setParameters(batch, opts = {}) {
           if (handle.isDestroyed) {
             throw new Error(`Cannot setParameters on destroyed widget instance '${handle.instanceId}'.`);
           }
           if (!batch || typeof batch !== 'object') {
             throw new Error('setParameters expects a key-value object of parameter names and values.');
           }
+          const isInit = Boolean(opts && opts._initialMount);
 
           // Phase 1: Full validation check (atomic)
           const validatedUpdates = [];
@@ -1400,7 +1582,7 @@
           for (const { paramDef, targetEl, cleanVal } of validatedUpdates) {
             currentValues[paramDef.name] = cleanVal;
             changed[paramDef.name] = cleanVal;
-            applyPropertyToElement(targetEl, paramDef.property, cleanVal, paramDef, handle);
+            applyPropertyToElement(targetEl, paramDef.property, cleanVal, paramDef, handle, isInit);
           }
 
           handle._emit('change', { instanceId: handle.instanceId, parameters: changed });
@@ -1409,13 +1591,19 @@
         },
 
         resetParameters() {
+          if (svgEl) {
+            svgEl.querySelectorAll('[data-lite-kind="gauge-lite"]').forEach((g) => {
+              g.removeAttribute('data-gauge-color-override');
+              g.removeAttribute('data-gauge-override-color');
+            });
+          }
           const defaults = {};
           for (const p of manifest.parameters) {
             if (p.default !== undefined) {
               defaults[p.name] = p.default;
             }
           }
-          return handle.setParameters(defaults);
+          return handle.setParameters(defaults, { _initialMount: true });
         },
 
         // Animation playback controls
@@ -1590,12 +1778,20 @@
       };
 
       // 8. Apply initial parameters if provided in options or manifest defaults
-      const initialParams = Object.assign({}, currentValues, options.parameters || options.initialParameters || {});
-      if (Object.keys(initialParams).length > 0) {
+      const hasExplicitInit = Boolean((options.parameters && Object.keys(options.parameters).length > 0) ||
+        (options.initialParameters && Object.keys(options.initialParameters).length > 0));
+      if (Object.keys(currentValues).length > 0) {
         try {
-          handle.setParameters(initialParams);
+          handle.setParameters(currentValues, { _initialMount: true });
         } catch (err) {
           console.warn('[SVGWidget] Failed applying initial parameters on mount:', err);
+        }
+      }
+      if (hasExplicitInit) {
+        try {
+          handle.setParameters(Object.assign({}, options.parameters || {}, options.initialParameters || {}), { _initialMount: false });
+        } catch (err) {
+          console.warn('[SVGWidget] Failed applying explicit initial parameters on mount:', err);
         }
       }
 

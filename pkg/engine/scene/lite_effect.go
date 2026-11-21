@@ -72,7 +72,7 @@ func ValidateLiteEffect(l *LiteEffect) error {
 		return errors.New("nil lite effect")
 	}
 	switch l.Kind {
-	case "perimeter-tracer", "pulse", "flash", "flow-lite", "radar-lite":
+	case "perimeter-tracer", "pulse", "flash", "flow-lite", "radar-lite", "gauge-lite":
 	default:
 		return fmt.Errorf("unsupported lite effect kind %q", l.Kind)
 	}
@@ -188,6 +188,34 @@ func ValidateLiteEffect(l *LiteEffect) error {
 		}
 		if l.StrokeWidth < 0.5 || l.StrokeWidth > 20.0 {
 			return errors.New("radar-lite strokeWidth must be between 0.5 and 20.0")
+		}
+	}
+	if l.Kind == "gauge-lite" {
+		if l.Variant != "" && l.Variant != "ring" && l.Variant != "hbar" && l.Variant != "vbar" && l.Variant != "segmented" && l.Variant != "level" {
+			return fmt.Errorf("unsupported gauge-lite variant %q", l.Variant)
+		}
+		if l.MinValue == nil || l.MaxValue == nil || math.IsNaN(*l.MinValue) || math.IsNaN(*l.MaxValue) {
+			return errors.New("gauge-lite requires valid finite minValue and maxValue")
+		}
+		if *l.MaxValue <= *l.MinValue {
+			return errors.New("gauge-lite maxValue must be strictly greater than minValue")
+		}
+		if l.Value == nil || math.IsNaN(*l.Value) || math.IsInf(*l.Value, 0) {
+			return errors.New("gauge-lite requires a valid finite value")
+		}
+		if l.Variant == "segmented" && (l.Segments < 2 || l.Segments > 32) {
+			return errors.New("gauge-lite segmented variant requires segments between 2 and 32")
+		}
+		if l.UseThresholds && l.WarnThreshold != nil && l.CritThreshold != nil {
+			if *l.CritThreshold < *l.WarnThreshold {
+				return errors.New("gauge-lite critThreshold cannot be less than warnThreshold")
+			}
+		}
+		if l.StrokeWidth < 0.5 || l.StrokeWidth > 32.0 {
+			return errors.New("gauge-lite strokeWidth must be between 0.5 and 32.0")
+		}
+		if l.Direction != "" && l.Direction != "cw" && l.Direction != "ccw" && l.Direction != "forward" && l.Direction != "reverse" {
+			return fmt.Errorf("unsupported gauge-lite direction %q", l.Direction)
 		}
 	}
 	return nil
@@ -459,6 +487,84 @@ func applyLiteEffectDefaults(l *LiteEffect) {
 			mar := true
 			l.MaintainAspectRatio = &mar
 		}
+	case "gauge-lite":
+		if l.Variant == "" {
+			l.Variant = "ring"
+		}
+		if l.MinValue == nil {
+			minV := 0.0
+			l.MinValue = &minV
+		}
+		if l.MaxValue == nil {
+			maxV := 100.0
+			l.MaxValue = &maxV
+		}
+		if *l.MaxValue <= *l.MinValue {
+			maxV := *l.MinValue + 100.0
+			l.MaxValue = &maxV
+		}
+		if l.Value == nil {
+			defV := *l.MinValue + (*l.MaxValue-*l.MinValue)*0.65
+			l.Value = &defV
+		}
+		if l.BgColor == "" {
+			l.BgColor = "#1e293b"
+		}
+		if l.WarnColor == "" {
+			l.WarnColor = "#f59e0b"
+		}
+		if l.CritColor == "" {
+			l.CritColor = "#ef4444"
+		}
+		if l.WarnThreshold == nil {
+			wt := *l.MinValue + (*l.MaxValue-*l.MinValue)*0.70
+			l.WarnThreshold = &wt
+		}
+		if l.CritThreshold == nil {
+			ct := *l.MinValue + (*l.MaxValue-*l.MinValue)*0.90
+			l.CritThreshold = &ct
+		}
+		if *l.CritThreshold < *l.WarnThreshold {
+			ct := *l.WarnThreshold
+			l.CritThreshold = &ct
+		}
+		if l.Segments <= 0 {
+			l.Segments = 10
+		} else if l.Segments < 2 {
+			l.Segments = 2
+		} else if l.Segments > 32 {
+			l.Segments = 32
+		}
+		if l.Direction == "" {
+			l.Direction = "forward"
+		}
+		if l.ShowGuide == nil {
+			sg := true
+			l.ShowGuide = &sg
+		}
+		if l.StrokeWidth <= 0 || l.StrokeWidth == 2.5 {
+			if l.Variant == "ring" {
+				l.StrokeWidth = 8.0
+			} else {
+				l.StrokeWidth = 2.0
+			}
+		}
+		if l.Width == 140 && l.Height == 80 {
+			switch l.Variant {
+			case "ring":
+				l.Width = 96
+				l.Height = 96
+			case "hbar", "segmented":
+				l.Width = 160
+				l.Height = 32
+			case "vbar":
+				l.Width = 36
+				l.Height = 140
+			case "level":
+				l.Width = 84
+				l.Height = 120
+			}
+		}
 	}
 }
 
@@ -723,6 +829,65 @@ func (s *Scene) UpdateLiteEffect(id StringID, patch map[string]any) (LiteEffect,
 	}
 	if v, ok := toFloat(patch["endDelay"]); ok {
 		existing.EndDelay = math.Max(0, math.Min(60, v))
+	}
+	if v, ok := toFloat(patch["value"]); ok {
+		val := v
+		existing.Value = &val
+	}
+	if v, ok := toFloat(patch["minValue"]); ok {
+		minV := v
+		existing.MinValue = &minV
+	}
+	if v, ok := toFloat(patch["maxValue"]); ok {
+		maxV := v
+		existing.MaxValue = &maxV
+	}
+	if existing.Kind == "gauge-lite" && existing.MinValue != nil && existing.MaxValue != nil && *existing.MaxValue <= *existing.MinValue {
+		if _, hasMin := patch["minValue"]; hasMin && patch["maxValue"] == nil {
+			maxV := *existing.MinValue + 1.0
+			existing.MaxValue = &maxV
+		} else if _, hasMax := patch["maxValue"]; hasMax && patch["minValue"] == nil {
+			minV := *existing.MaxValue - 1.0
+			existing.MinValue = &minV
+		}
+	}
+	if v, ok := patch["bgColor"].(string); ok && v != "" {
+		existing.BgColor = v
+	}
+	if v, ok := patch["useThresholds"].(bool); ok {
+		existing.UseThresholds = v
+	}
+	if v, ok := toFloat(patch["warnThreshold"]); ok {
+		wt := v
+		existing.WarnThreshold = &wt
+	}
+	if v, ok := patch["warnColor"].(string); ok && v != "" {
+		existing.WarnColor = v
+	}
+	if v, ok := toFloat(patch["critThreshold"]); ok {
+		ct := v
+		existing.CritThreshold = &ct
+	}
+	if v, ok := patch["critColor"].(string); ok && v != "" {
+		existing.CritColor = v
+	}
+	if existing.Kind == "gauge-lite" && existing.WarnThreshold != nil && existing.CritThreshold != nil && *existing.CritThreshold < *existing.WarnThreshold {
+		if _, hasWarn := patch["warnThreshold"]; hasWarn && patch["critThreshold"] == nil {
+			ct := *existing.WarnThreshold
+			existing.CritThreshold = &ct
+		} else if _, hasCrit := patch["critThreshold"]; hasCrit && patch["warnThreshold"] == nil {
+			wt := *existing.CritThreshold
+			existing.WarnThreshold = &wt
+		}
+	}
+	if v, ok := patch["unit"].(string); ok {
+		existing.Unit = strings.TrimSpace(v)
+	}
+	if v, ok := patch["labelText"].(string); ok {
+		existing.LabelText = strings.TrimSpace(v)
+	}
+	if existing.Kind == "gauge-lite" {
+		applyLiteEffectDefaults(&existing)
 	}
 
 	if err := ValidateLiteEffect(&existing); err != nil {

@@ -1,6 +1,7 @@
 package scene
 
 import (
+	"math"
 	"strings"
 	"testing"
 
@@ -486,6 +487,99 @@ func TestRadarPingLiteVariantsRingsScaleAndPersistence(t *testing.T) {
 			Property: prop,
 		}); err != nil {
 			t.Fatalf("AddParameter(radar-lite %s) failed: %v", prop, err)
+		}
+	}
+}
+
+func TestGaugeLiteVariantsRangesThresholdsAndPersistence(t *testing.T) {
+	sc := NewScene()
+
+	// 1. Create default gauge-lite (ring variant, 0..100, value=65)
+	g := sc.CreateLiteEffect(LiteEffect{
+		Name: "rpmGauge",
+		Kind: "gauge-lite",
+	})
+	if g.Variant != "ring" {
+		t.Fatalf("expected default gauge-lite variant 'ring', got %q", g.Variant)
+	}
+	if g.MinValue == nil || *g.MinValue != 0.0 || g.MaxValue == nil || *g.MaxValue != 100.0 {
+		t.Fatalf("expected default range [0, 100], got [%v, %v]", g.MinValue, g.MaxValue)
+	}
+	if g.Value == nil || math.Abs(*g.Value-65.0) > 0.01 {
+		t.Fatalf("expected default value 65.0, got %v", g.Value)
+	}
+	if g.BgColor != "#1e293b" || g.WarnColor != "#f59e0b" || g.CritColor != "#ef4444" {
+		t.Fatalf("unexpected default gauge colours: bg=%s warn=%s crit=%s", g.BgColor, g.WarnColor, g.CritColor)
+	}
+
+	// 2. Test all 5 gauge variants ("ring", "hbar", "vbar", "segmented", "level")
+	for _, variant := range []string{"ring", "hbar", "vbar", "segmented", "level"} {
+		upd, err := sc.UpdateLiteEffect(g.ID, map[string]any{
+			"variant":  variant,
+			"segments": 12,
+		})
+		if err != nil {
+			t.Fatalf("UpdateLiteEffect(variant=%s) failed: %v", variant, err)
+		}
+		if upd.Variant != variant {
+			t.Fatalf("expected variant %q, got %q", variant, upd.Variant)
+		}
+	}
+
+	// 3. Test negative domain (-40 to +120 °C), valid zero value (0.0), and actual-domain thresholds
+	updNeg, err := sc.UpdateLiteEffect(g.ID, map[string]any{
+		"minValue":      -40.0,
+		"maxValue":      120.0,
+		"value":         0.0,
+		"useThresholds": true,
+		"warnThreshold": 85.0,
+		"critThreshold": 105.0,
+		"unit":          "°C",
+		"labelText":     "Core Temp",
+	})
+	if err != nil {
+		t.Fatalf("UpdateLiteEffect(negative domain & zero value) failed: %v", err)
+	}
+	if *updNeg.MinValue != -40.0 || *updNeg.MaxValue != 120.0 || *updNeg.Value != 0.0 {
+		t.Fatalf("expected [-40, 120] with value 0.0, got [%v, %v] val=%v", *updNeg.MinValue, *updNeg.MaxValue, *updNeg.Value)
+	}
+	if !updNeg.UseThresholds || *updNeg.WarnThreshold != 85.0 || *updNeg.CritThreshold != 105.0 {
+		t.Fatalf("expected actual-domain thresholds 85/105, got %v/%v", *updNeg.WarnThreshold, *updNeg.CritThreshold)
+	}
+
+	// 4. Snapshot and History Undo/Redo isolation
+	sc.RecordHistory()
+	_, _ = sc.UpdateLiteEffect(g.ID, map[string]any{"value": 98.0})
+	sc.RecordHistory()
+	if _, err := sc.UndoHistory(); err != nil {
+		t.Fatalf("UndoHistory failed: %v", err)
+	}
+	afterUndo, _ := sc.GetLiteEffect(g.ID)
+	if afterUndo.Value == nil || *afterUndo.Value != 0.0 {
+		t.Fatalf("UndoHistory did not preserve valid zero gauge value: %+v", afterUndo)
+	}
+
+	// 5. Widget parameter bindings for gauge-lite properties
+	gaugeProps := map[string]string{
+		"value":       "number",
+		"minValue":    "number",
+		"maxValue":    "number",
+		"color":       "color",
+		"bgColor":     "color",
+		"strokeWidth": "number",
+		"opacity":     "number",
+		"visibility":  "boolean",
+		"showGuide":   "boolean",
+	}
+	for prop, pType := range gaugeProps {
+		pName := GenerateParameterName("rpmGauge", prop, "lite")
+		if err := sc.AddParameter(WidgetParameter{
+			Name:     pName,
+			Type:     pType,
+			Target:   "lite-" + string(g.ID),
+			Property: prop,
+		}); err != nil {
+			t.Fatalf("AddParameter(gauge-lite %s) failed: %v", prop, err)
 		}
 	}
 }

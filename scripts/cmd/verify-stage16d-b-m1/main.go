@@ -43,6 +43,12 @@ func main() {
 	fmt.Println(" Stage 16D-B-M1: Flow Lite Real-Browser Acceptance Verification (AT-M1-01..16)")
 	fmt.Println("==========================================================================")
 
+	widgetJSBytes, err := os.ReadFile("/root/projects/svg-animator/internal/web/static/js/svg-widget.js")
+	if err != nil {
+		log.Fatalf("Failed to read svg-widget.js: %v", err)
+	}
+	widgetJSSource := string(widgetJSBytes)
+
 	var results []GateResult
 	record := func(id, name string, passed bool, details string) {
 		results = append(results, GateResult{ID: id, Name: name, Passed: passed, Details: details})
@@ -515,6 +521,7 @@ func main() {
 		fmt.Sprintf("bytes=%d hasFlowLite=%v zeroWasmDependency=%v", len(at12SVG), hasFlowLite, hasNoWasm))
 
 	// AT-M1-13 & AT-M1-14: Stage 16B/16C Widget Export & Multi-Instance Isolation + Off-Screen Suspension
+	_, _ = chromedp.Run(taskCtx, chromedp.Evaluate[bool](widgetJSSource+"\n;Boolean(window.SVGWidget)"))
 	at1314JSON, _ := chromedp.Run(taskCtx, chromedp.Evaluate[string](`(() => {
 		try {
 			const fl = window.LiteEffects.getLiteEffects ? window.LiteEffects.getLiteEffects()[0] : window.LiteEffects.list[0];

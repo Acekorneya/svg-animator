@@ -123,6 +123,50 @@ window.LiteEffects = {
       if (!le.height || le.height <= 0) le.height = 80;
       if (le.showGuide === undefined || le.showGuide === null) le.showGuide = true;
       if (le.maintainAspectRatio === undefined || le.maintainAspectRatio === null) le.maintainAspectRatio = true;
+    } else if (le.kind === 'gauge-lite') {
+      if (!le.variant || !['ring', 'hbar', 'vbar', 'segmented', 'level'].includes(le.variant)) le.variant = 'ring';
+      const minV = (le.minValue !== undefined && le.minValue !== null && Number.isFinite(Number(le.minValue))) ? Number(le.minValue) : 0;
+      let maxV = (le.maxValue !== undefined && le.maxValue !== null && Number.isFinite(Number(le.maxValue))) ? Number(le.maxValue) : 100;
+      if (maxV <= minV) maxV = minV + 100;
+      le.minValue = minV;
+      le.maxValue = maxV;
+      if (le.value === undefined || le.value === null || !Number.isFinite(Number(le.value))) {
+        le.value = Math.round((minV + (maxV - minV) * 0.65) * 100) / 100;
+      } else {
+        le.value = Number(le.value);
+      }
+      if (!le.bgColor) le.bgColor = '#1e293b';
+      if (!le.warnColor) le.warnColor = '#f59e0b';
+      if (!le.critColor) le.critColor = '#ef4444';
+      if (le.warnThreshold === undefined || le.warnThreshold === null || !Number.isFinite(Number(le.warnThreshold))) {
+        le.warnThreshold = Math.round((minV + (maxV - minV) * 0.70) * 100) / 100;
+      } else {
+        le.warnThreshold = Number(le.warnThreshold);
+      }
+      if (le.critThreshold === undefined || le.critThreshold === null || !Number.isFinite(Number(le.critThreshold))) {
+        le.critThreshold = Math.round((minV + (maxV - minV) * 0.90) * 100) / 100;
+      } else {
+        le.critThreshold = Number(le.critThreshold);
+      }
+      if (le.critThreshold < le.warnThreshold) le.critThreshold = le.warnThreshold;
+      le.useThresholds = Boolean(le.useThresholds);
+      if (!le.segments || le.segments < 2) le.segments = 10;
+      else if (le.segments > 32) le.segments = 32;
+      if (!le.direction || le.direction === 'cw') le.direction = 'forward';
+      else if (le.direction === 'ccw') le.direction = 'reverse';
+      if (le.showGuide === undefined || le.showGuide === null) le.showGuide = true;
+      if (!le.strokeWidth || le.strokeWidth <= 0) le.strokeWidth = le.variant === 'ring' ? 8.0 : 2.0;
+      if (!le.width || le.width <= 0) {
+        le.width = le.variant === 'ring' ? 96 : (le.variant === 'vbar' ? 36 : (le.variant === 'level' ? 84 : 160));
+      }
+      if (!le.height || le.height <= 0) {
+        le.height = le.variant === 'ring' ? 96 : (le.variant === 'vbar' ? 140 : (le.variant === 'level' ? 120 : 32));
+      }
+      if (le.maintainAspectRatio === undefined || le.maintainAspectRatio === null) {
+        le.maintainAspectRatio = le.variant === 'ring';
+      }
+      le.unit = le.unit !== undefined && le.unit !== null ? String(le.unit) : '%';
+      le.labelText = le.labelText !== undefined && le.labelText !== null ? String(le.labelText) : '';
     }
     return le;
   },
@@ -141,11 +185,17 @@ window.LiteEffects = {
     const isTracer = kind === 'perimeter-tracer';
     const isFlowLite = kind === 'flow-lite';
     const isRadar = kind === 'radar-lite';
-    const defaultW = isTracer ? 140 : (isRadar ? 80 : 56);
-    const defaultH = isTracer ? 80 : (isRadar ? 80 : 56);
+    const isGauge = kind === 'gauge-lite';
+    const reqVariant = initialProps.variant || '';
     const defaultVariant = isFlowLite
       ? 'dashed'
-      : (isRadar ? 'multi' : (isTracer ? 'rounded' : (kind === 'flash' ? 'diamond' : 'circle')));
+      : (isRadar ? 'multi' : (isGauge ? (reqVariant || 'ring') : (isTracer ? 'rounded' : (kind === 'flash' ? 'diamond' : 'circle'))));
+    const defaultW = isTracer
+      ? 140
+      : (isRadar ? 80 : (isGauge ? (defaultVariant === 'ring' ? 96 : (defaultVariant === 'vbar' ? 36 : (defaultVariant === 'level' ? 84 : 160))) : 56));
+    const defaultH = isTracer
+      ? 80
+      : (isRadar ? 80 : (isGauge ? (defaultVariant === 'ring' ? 96 : (defaultVariant === 'vbar' ? 140 : (defaultVariant === 'level' ? 120 : 32))) : 56));
     const payload = Object.assign({
       kind,
       originMode: 'center',
@@ -154,17 +204,17 @@ window.LiteEffects = {
       y: 180,
       width: defaultW,
       height: defaultH,
-      radius: isRadar ? 40 : 28,
-      cornerRadius: 10,
+      radius: isRadar ? 40 : (isGauge ? 48 : 28),
+      cornerRadius: isGauge ? 6 : 10,
       color: kind === 'flash' ? '#f59e0b' : ((kind === 'pulse' || isRadar) ? '#22c55e' : '#38bdf8'),
-      opacity: 0.9,
-      strokeWidth: isFlowLite ? 3.0 : (isRadar ? 2.0 : 2.5),
-      segments: 2,
+      opacity: isGauge ? 1.0 : 0.9,
+      strokeWidth: isFlowLite ? 3.0 : (isRadar ? 2.0 : (isGauge ? (defaultVariant === 'ring' ? 8.0 : 2.0) : 2.5)),
+      segments: isGauge ? 10 : 2,
       rings: isRadar ? 3 : undefined,
       lineGapRatio: '1:3',
       segmentStyle: 'rounded',
       startOffset: 0,
-      direction: isFlowLite ? 'forward' : 'cw',
+      direction: (isFlowLite || isGauge) ? 'forward' : 'cw',
       playbackMode: 'loop',
       speed: isFlowLite ? 2.0 : (isRadar ? 2.4 : 3.0),
       period: kind === 'flash' ? 3.0 : (isRadar ? 2.4 : 1.8),
@@ -172,7 +222,7 @@ window.LiteEffects = {
       intensity: kind === 'flash' ? 0.75 : 0.85,
       minScale: isRadar ? 0.15 : 0.85,
       maxScale: isRadar ? 1.0 : 1.15,
-      maintainAspectRatio: !isTracer && !isFlowLite,
+      maintainAspectRatio: isGauge ? (defaultVariant === 'ring') : (!isTracer && !isFlowLite),
       showGuide: true,
       repeat: false,
       triggerNonce: 0,
@@ -186,6 +236,17 @@ window.LiteEffects = {
       endMode: 'tunnel',
       delay: 0,
       endDelay: 0,
+      value: isGauge ? 65 : undefined,
+      minValue: isGauge ? 0 : undefined,
+      maxValue: isGauge ? 100 : undefined,
+      bgColor: isGauge ? '#1e293b' : undefined,
+      useThresholds: isGauge ? false : undefined,
+      warnThreshold: isGauge ? 70 : undefined,
+      warnColor: isGauge ? '#f59e0b' : undefined,
+      critThreshold: isGauge ? 90 : undefined,
+      critColor: isGauge ? '#ef4444' : undefined,
+      unit: isGauge ? '%' : undefined,
+      labelText: isGauge ? '' : undefined,
       visible: true
     }, initialProps);
 
@@ -848,6 +909,127 @@ window.LiteEffects = {
       return `<g ${baseAttrs} data-radar-variant="${this.escapeXML(variant)}" data-radar-rings="${ringCount}" data-radar-min="${minScale}" data-radar-max="${maxScale}" data-radar-period="${period}" style="opacity:${opacity};">${hitMarkup}${rings.join('')}${centerDot}</g>`;
     }
 
+    if (le.kind === 'gauge-lite') {
+      const variant = ['ring', 'hbar', 'vbar', 'segmented', 'level'].includes(le.variant) ? le.variant : 'ring';
+      const minV = (le.minValue !== undefined && le.minValue !== null && Number.isFinite(Number(le.minValue))) ? Number(le.minValue) : 0;
+      let maxV = (le.maxValue !== undefined && le.maxValue !== null && Number.isFinite(Number(le.maxValue))) ? Number(le.maxValue) : 100;
+      if (maxV <= minV) maxV = minV + 100;
+      const val = (le.value !== undefined && le.value !== null && Number.isFinite(Number(le.value))) ? Number(le.value) : minV;
+      const span = maxV - minV;
+      const rawFrac = span > 0 ? (val - minV) / span : 0;
+      const frac = Math.max(0, Math.min(1, rawFrac));
+      const bgCol = this.sanitizeColor(le.bgColor, '#1e293b');
+      const warnCol = this.sanitizeColor(le.warnColor, '#f59e0b');
+      const critCol = this.sanitizeColor(le.critColor, '#ef4444');
+      const warnT = (le.warnThreshold !== undefined && le.warnThreshold !== null && Number.isFinite(Number(le.warnThreshold))) ? Number(le.warnThreshold) : (minV + span * 0.70);
+      const critT = (le.critThreshold !== undefined && le.critThreshold !== null && Number.isFinite(Number(le.critThreshold))) ? Number(le.critThreshold) : (minV + span * 0.90);
+      const useThresh = Boolean(le.useThresholds);
+      const dir = (le.direction === 'reverse' || le.direction === 'ccw') ? 'reverse' : 'forward';
+
+      let activeColor = color;
+      if (useThresh) {
+        if (val >= critT) activeColor = critCol;
+        else if (val >= warnT) activeColor = warnCol;
+      }
+
+      const showReadout = le.showGuide !== false;
+      const readoutVis = showReadout ? 'visible' : 'hidden';
+      const unitStr = le.unit !== undefined && le.unit !== null ? String(le.unit) : '%';
+      const labelStr = le.labelText !== undefined && le.labelText !== null ? String(le.labelText) : '';
+      const formattedVal = Number.isInteger(val) ? String(val) : String(Math.round(val * 100) / 100);
+      const displayStr = `${formattedVal}${unitStr}`;
+
+      const hitMarkup = `<rect class="lite-hit-target" data-semantic-role="hit-target" x="${x.toFixed(2)}" y="${y.toFixed(2)}" width="${w.toFixed(2)}" height="${h.toFixed(2)}" fill="transparent" pointer-events="all" style="cursor:pointer;" />`;
+      let gaugeBody = '';
+      let textMarkup = '';
+
+      if (variant === 'ring') {
+        const ringSw = Math.max(1, Math.min(Math.min(w, h) * 0.42, sw));
+        const erx = Math.max(4, rx - ringSw / 2);
+        const ery = Math.max(4, ry - ringSw / 2);
+        const arcLen = Number((frac * 100).toFixed(3));
+        const dashArr = arcLen <= 0.001 ? `0 200` : `${arcLen} 200`;
+        const scalePre = dir === 'reverse' ? ` translate(${(2 * cx).toFixed(2)}, 0) scale(-1, 1)` : '';
+        const ringTf = `transform="rotate(-90, ${cx.toFixed(2)}, ${cy.toFixed(2)})${scalePre}"`;
+        const linecap = arcLen <= 0.001 ? 'butt' : 'round';
+        gaugeBody = `<ellipse class="lite-guide-track lite-gauge-track" cx="${cx.toFixed(2)}" cy="${cy.toFixed(2)}" rx="${erx.toFixed(2)}" ry="${ery.toFixed(2)}" pathLength="100" fill="none" stroke="${bgCol}" stroke-width="${ringSw.toFixed(2)}" shape-rendering="geometricPrecision" pointer-events="none" />` +
+          `<ellipse class="lite-payload lite-gauge-fill lite-gauge-arc" data-semantic-role="payload" cx="${cx.toFixed(2)}" cy="${cy.toFixed(2)}" rx="${erx.toFixed(2)}" ry="${ery.toFixed(2)}" pathLength="100" fill="none" stroke="${activeColor}" stroke-width="${ringSw.toFixed(2)}" stroke-dasharray="${dashArr}" stroke-linecap="${linecap}" ${ringTf} shape-rendering="geometricPrecision" pointer-events="none" />`;
+        const fontSize = Math.max(10, Math.min(26, Math.round(Math.min(w, h) * 0.21)));
+        const lblSize = Math.max(8, Math.round(fontSize * 0.58));
+        const valY = labelStr ? (cy - lblSize * 0.35) : (cy + fontSize * 0.34);
+        textMarkup = `<g class="lite-guide-track lite-gauge-readout" visibility="${readoutVis}" style="visibility:${readoutVis};" pointer-events="none">` +
+          `<text class="lite-gauge-value-text" x="${cx.toFixed(2)}" y="${valY.toFixed(2)}" text-anchor="middle" fill="#f8fafc" font-family="system-ui, -apple-system, sans-serif" font-size="${fontSize}" font-weight="700">${this.escapeXML(displayStr)}</text>` +
+          (labelStr ? `<text class="lite-gauge-label-text" x="${cx.toFixed(2)}" y="${(cy + lblSize * 1.05).toFixed(2)}" text-anchor="middle" fill="#94a3b8" font-family="system-ui, -apple-system, sans-serif" font-size="${lblSize}" font-weight="600">${this.escapeXML(labelStr)}</text>` : '') +
+          `</g>`;
+      } else if (variant === 'hbar') {
+        const barR = Math.min(cr, h / 2, w / 2);
+        const fillW = Number((w * frac).toFixed(2));
+        const fillX = dir === 'reverse' ? (x + w - fillW) : x;
+        const fillR = fillW > 0.5 ? Math.min(barR, fillW / 2) : 0;
+        gaugeBody = `<rect class="lite-guide-track lite-gauge-track" x="${x.toFixed(2)}" y="${y.toFixed(2)}" width="${w.toFixed(2)}" height="${h.toFixed(2)}" rx="${barR.toFixed(2)}" fill="${bgCol}" stroke="${bgCol}" stroke-width="1" shape-rendering="geometricPrecision" pointer-events="none" />` +
+          `<rect class="lite-payload lite-gauge-fill lite-gauge-hbar" data-semantic-role="payload" x="${fillX.toFixed(2)}" y="${y.toFixed(2)}" width="${fillW.toFixed(2)}" height="${h.toFixed(2)}" rx="${fillR.toFixed(2)}" fill="${activeColor}" shape-rendering="geometricPrecision" pointer-events="none" />`;
+        const fontSize = Math.max(9, Math.min(18, Math.round(h * 0.48)));
+        const fullTxt = labelStr ? `${labelStr}: ${displayStr}` : displayStr;
+        textMarkup = `<g class="lite-guide-track lite-gauge-readout" visibility="${readoutVis}" style="visibility:${readoutVis};" pointer-events="none">` +
+          `<text class="lite-gauge-value-text" x="${cx.toFixed(2)}" y="${(cy + fontSize * 0.35).toFixed(2)}" text-anchor="middle" fill="#f8fafc" font-family="system-ui, -apple-system, sans-serif" font-size="${fontSize}" font-weight="700">${this.escapeXML(fullTxt)}</text>` +
+          `</g>`;
+      } else if (variant === 'vbar') {
+        const barR = Math.min(cr, w / 2, h / 2);
+        const fillH = Number((h * frac).toFixed(2));
+        const fillY = dir === 'reverse' ? y : (y + h - fillH);
+        const fillR = fillH > 0.5 ? Math.min(barR, fillH / 2) : 0;
+        gaugeBody = `<rect class="lite-guide-track lite-gauge-track" x="${x.toFixed(2)}" y="${y.toFixed(2)}" width="${w.toFixed(2)}" height="${h.toFixed(2)}" rx="${barR.toFixed(2)}" fill="${bgCol}" stroke="${bgCol}" stroke-width="1" shape-rendering="geometricPrecision" pointer-events="none" />` +
+          `<rect class="lite-payload lite-gauge-fill lite-gauge-vbar" data-semantic-role="payload" x="${x.toFixed(2)}" y="${fillY.toFixed(2)}" width="${w.toFixed(2)}" height="${fillH.toFixed(2)}" rx="${fillR.toFixed(2)}" fill="${activeColor}" shape-rendering="geometricPrecision" pointer-events="none" />`;
+        const fontSize = Math.max(9, Math.min(15, Math.round(w * 0.36)));
+        textMarkup = `<g class="lite-guide-track lite-gauge-readout" visibility="${readoutVis}" style="visibility:${readoutVis};" pointer-events="none">` +
+          `<text class="lite-gauge-value-text" x="${cx.toFixed(2)}" y="${(cy + fontSize * 0.35).toFixed(2)}" text-anchor="middle" fill="#f8fafc" font-family="system-ui, -apple-system, sans-serif" font-size="${fontSize}" font-weight="700">${this.escapeXML(displayStr)}</text>` +
+          `</g>`;
+      } else if (variant === 'segmented') {
+        const segCount = Math.max(2, Math.min(32, Math.round(Number(le.segments) || 10)));
+        const activeSegs = frac <= 0 ? 0 : Math.min(segCount, Math.round(frac * segCount));
+        const gap = Math.max(2, Math.min(6, Math.round(w / (segCount * 4.5))));
+        const cellW = Math.max(2, (w - gap * (segCount - 1)) / segCount);
+        const cellR = Math.min(3, cellW / 2, h / 2);
+        const cells = [];
+        for (let i = 0; i < segCount; i++) {
+          const logicalIdx = dir === 'reverse' ? (segCount - 1 - i) : i;
+          const isLit = logicalIdx < activeSegs;
+          const cellX = x + i * (cellW + gap);
+          const cellCol = isLit ? activeColor : bgCol;
+          cells.push(`<rect class="lite-payload lite-gauge-cell" data-semantic-role="payload" data-cell-index="${logicalIdx}" data-cell-lit="${isLit ? 'true' : 'false'}" x="${cellX.toFixed(2)}" y="${y.toFixed(2)}" width="${cellW.toFixed(2)}" height="${h.toFixed(2)}" rx="${cellR.toFixed(2)}" fill="${cellCol}" shape-rendering="geometricPrecision" pointer-events="none" />`);
+        }
+        gaugeBody = cells.join('');
+        const fontSize = Math.max(9, Math.min(14, Math.round(h * 0.42)));
+        const fullTxt = labelStr ? `${labelStr}: ${displayStr}` : displayStr;
+        textMarkup = `<g class="lite-guide-track lite-gauge-readout" visibility="${readoutVis}" style="visibility:${readoutVis};" pointer-events="none">` +
+          `<text class="lite-gauge-value-text" x="${cx.toFixed(2)}" y="${(y - 4).toFixed(2)}" text-anchor="middle" fill="#f8fafc" font-family="system-ui, -apple-system, sans-serif" font-size="${fontSize}" font-weight="700">${this.escapeXML(fullTxt)}</text>` +
+          `</g>`;
+      } else if (variant === 'level') {
+        const frameSw = Math.max(1.5, Math.min(10, sw));
+        const pad = Math.max(3, frameSw + 1.5);
+        const innerX = x + pad;
+        const innerY = y + pad;
+        const innerW = Math.max(2, w - pad * 2);
+        const innerH = Math.max(2, h - pad * 2);
+        const fillH = Number((innerH * frac).toFixed(2));
+        const fillY = dir === 'reverse' ? innerY : (innerY + innerH - fillH);
+        const outerR = Math.min(cr, w / 2, h / 2);
+        const innerR = Math.max(0, outerR - pad * 0.5);
+        gaugeBody = `<rect class="lite-guide-track lite-gauge-track lite-gauge-vessel" x="${x.toFixed(2)}" y="${y.toFixed(2)}" width="${w.toFixed(2)}" height="${h.toFixed(2)}" rx="${outerR.toFixed(2)}" fill="${bgCol}" fill-opacity="0.65" stroke="${activeColor}" stroke-width="${frameSw.toFixed(2)}" shape-rendering="geometricPrecision" pointer-events="none" />` +
+          `<rect class="lite-payload lite-gauge-fill lite-gauge-level" data-semantic-role="payload" data-inner-x="${innerX.toFixed(2)}" data-inner-y="${innerY.toFixed(2)}" data-inner-w="${innerW.toFixed(2)}" data-inner-h="${innerH.toFixed(2)}" x="${innerX.toFixed(2)}" y="${fillY.toFixed(2)}" width="${innerW.toFixed(2)}" height="${fillH.toFixed(2)}" rx="${(fillH > 0.5 ? Math.min(innerR, fillH / 2) : 0).toFixed(2)}" fill="${activeColor}" fill-opacity="0.88" shape-rendering="geometricPrecision" pointer-events="none" />`;
+        const fontSize = Math.max(10, Math.min(20, Math.round(Math.min(w, h) * 0.22)));
+        const lblSize = Math.max(8, Math.round(fontSize * 0.65));
+        const valY = labelStr ? (cy - lblSize * 0.25) : (cy + fontSize * 0.35);
+        textMarkup = `<g class="lite-guide-track lite-gauge-readout" visibility="${readoutVis}" style="visibility:${readoutVis};" pointer-events="none">` +
+          `<text class="lite-gauge-value-text" x="${cx.toFixed(2)}" y="${valY.toFixed(2)}" text-anchor="middle" fill="#f8fafc" font-family="system-ui, -apple-system, sans-serif" font-size="${fontSize}" font-weight="700">${this.escapeXML(displayStr)}</text>` +
+          (labelStr ? `<text class="lite-gauge-label-text" x="${cx.toFixed(2)}" y="${(cy + lblSize * 1.1).toFixed(2)}" text-anchor="middle" fill="#cbd5e1" font-family="system-ui, -apple-system, sans-serif" font-size="${lblSize}" font-weight="600">${this.escapeXML(labelStr)}</text>` : '') +
+          `</g>`;
+      }
+
+      const gaugeDataAttrs = `data-gauge-variant="${this.escapeXML(variant)}" data-gauge-value="${val}" data-gauge-min="${minV}" data-gauge-max="${maxV}" data-gauge-fraction="${frac.toFixed(4)}" data-gauge-base-color="${color}" data-gauge-active-color="${activeColor}" data-gauge-bg-color="${bgCol}" data-gauge-use-thresholds="${useThresh ? 'true' : 'false'}" data-gauge-warn-threshold="${warnT}" data-gauge-warn-color="${warnCol}" data-gauge-crit-threshold="${critT}" data-gauge-crit-color="${critCol}" data-gauge-segments="${le.segments || 10}" data-gauge-direction="${dir}" data-gauge-unit="${this.escapeXML(unitStr)}" data-gauge-label="${this.escapeXML(labelStr)}" data-gauge-x="${x.toFixed(2)}" data-gauge-y="${y.toFixed(2)}" data-gauge-w="${w.toFixed(2)}" data-gauge-h="${h.toFixed(2)}" data-gauge-cx="${cx.toFixed(2)}" data-gauge-cy="${cy.toFixed(2)}" data-gauge-cr="${cr.toFixed(2)}" data-gauge-sw="${sw.toFixed(2)}"`;
+      return `<g ${baseAttrs} ${gaugeDataAttrs} style="opacity:${opacity};">${hitMarkup}${gaugeBody}${textMarkup}</g>`;
+    }
+
     return '';
   },
 
@@ -968,6 +1150,7 @@ window.LiteEffects = {
     bindBtn('btnAddLiteFlash', () => this.addByKind('flash'));
     bindBtn('btnAddLiteFlow', () => this.addByKind('flow-lite'));
     bindBtn('btnAddLiteRadar', () => this.addByKind('radar-lite'));
+    bindBtn('btnAddLiteGauge', () => this.addByKind('gauge-lite'));
     bindBtn('btnTriggerLiteFlash', () => {
       if (this.activeId) this.triggerFlash(this.activeId);
     });
@@ -1134,6 +1317,23 @@ window.LiteEffects = {
     bindPair('liteRadarMaxScale', 'maxScale');
     bindPair('liteRadarPeriod', 'period');
     bindPair('liteRadarStrokeWidth', 'strokeWidth');
+
+    // Gauge / Level Lite inspector bindings
+    bindPair('liteGaugeValue', 'value');
+    bindField('liteGaugeMinNum', 'minValue', true);
+    bindField('liteGaugeMaxNum', 'maxValue', true);
+    bindField('liteGaugeBgColorPicker', 'bgColor');
+    bindField('liteGaugeDirectionSelect', 'direction');
+    bindPair('liteGaugeSegments', 'segments', true);
+    bindPair('liteGaugeStrokeWidth', 'strokeWidth');
+    bindField('liteGaugeShowGuideChk', 'showGuide', false, true);
+    bindField('liteGaugeUnitInput', 'unit');
+    bindField('liteGaugeLabelInput', 'labelText');
+    bindField('liteGaugeUseThresholdsChk', 'useThresholds', false, true);
+    bindField('liteGaugeWarnThresholdNum', 'warnThreshold', true);
+    bindField('liteGaugeWarnColorPicker', 'warnColor');
+    bindField('liteGaugeCritThresholdNum', 'critThreshold', true);
+    bindField('liteGaugeCritColorPicker', 'critColor');
   },
 
   addWaypointToActive() {
@@ -1439,6 +1639,36 @@ window.LiteEffects = {
       } else if ((value === 'multi' || value === 'fading-ping') && (!existing.rings || existing.rings < 2)) {
         patch.rings = 3;
       }
+    } else if (existing.kind === 'gauge-lite') {
+      if (key === 'variant') {
+        if (value === 'ring') {
+          patch.width = 96;
+          patch.height = 96;
+          patch.maintainAspectRatio = true;
+          if (!existing.strokeWidth || existing.strokeWidth < 4) patch.strokeWidth = 8.0;
+        } else if (value === 'hbar' || value === 'segmented') {
+          patch.width = 160;
+          patch.height = 32;
+          patch.maintainAspectRatio = false;
+        } else if (value === 'vbar') {
+          patch.width = 36;
+          patch.height = 140;
+          patch.maintainAspectRatio = false;
+        } else if (value === 'level') {
+          patch.width = 84;
+          patch.height = 120;
+          patch.maintainAspectRatio = false;
+          if (existing.strokeWidth > 6) patch.strokeWidth = 2.5;
+        }
+      } else if (key === 'minValue' && Number(value) >= Number(existing.maxValue)) {
+        patch.maxValue = Number(value) + 10;
+      } else if (key === 'maxValue' && Number(value) <= Number(existing.minValue)) {
+        patch.minValue = Number(value) - 10;
+      } else if (key === 'warnThreshold' && Number(value) > Number(existing.critThreshold)) {
+        patch.critThreshold = Number(value);
+      } else if (key === 'critThreshold' && Number(value) < Number(existing.warnThreshold)) {
+        patch.warnThreshold = Number(value);
+      }
     }
 
     const updated = this.updateLiteEffect(this.activeId, patch);
@@ -1495,15 +1725,21 @@ window.LiteEffects = {
         'pulse': ['circle', 'square', 'diamond', 'cross', 'ring'],
         'flash': ['diamond', 'circle', 'square', 'cross', 'star'],
         'flow-lite': ['dashed', 'dotted', 'single'],
-        'radar-lite': ['multi', 'single', 'fading-ping']
+        'radar-lite': ['multi', 'single', 'fading-ping'],
+        'gauge-lite': ['ring', 'hbar', 'vbar', 'segmented', 'level']
       };
       const labelsByOpt = {
         'multi': 'Multiple Pings (multi)',
         'single': 'Single Ping (single)',
-        'fading-ping': 'Fading Ping (fading-ping)'
+        'fading-ping': 'Fading Ping (fading-ping)',
+        'ring': 'Circular / Ring Gauge (ring)',
+        'hbar': 'Horizontal Bar Gauge (hbar)',
+        'vbar': 'Vertical Bar Gauge (vbar)',
+        'segmented': 'Segmented Bar Gauge (segmented)',
+        'level': 'Filled-Level Indicator (level)'
       };
       const opts = optsByKind[le.kind] || ['circle'];
-      variantSel.innerHTML = opts.map((o) => `<option value="${o}">${le.kind === 'radar-lite' && labelsByOpt[o] ? labelsByOpt[o] : o}</option>`).join('');
+      variantSel.innerHTML = opts.map((o) => `<option value="${o}">${(le.kind === 'radar-lite' || le.kind === 'gauge-lite') && labelsByOpt[o] ? labelsByOpt[o] : o}</option>`).join('');
     }
 
     const durMs = Math.round((Number(le.dur) || 0.10) * 1000);
@@ -1553,17 +1789,49 @@ window.LiteEffects = {
     const flashGroup = document.getElementById('liteFlashGroup');
     const flowGroup = document.getElementById('liteFlowGroup');
     const radarGroup = document.getElementById('liteRadarGroup');
+    const gaugeGroup = document.getElementById('liteGaugeGroup');
     const intensityRow = document.getElementById('liteIntensityRow');
     if (dimGroup) dimGroup.style.display = le.kind === 'flow-lite' ? 'none' : '';
     if (posRow) posRow.style.display = le.kind === 'flow-lite' ? 'none' : '';
     if (tracerGroup) tracerGroup.style.display = le.kind === 'perimeter-tracer' ? 'block' : 'none';
-    if (cornerRow) cornerRow.style.display = (le.kind === 'perimeter-tracer' && le.variant === 'rounded') ? '' : 'none';
+    if (cornerRow) cornerRow.style.display = ((le.kind === 'perimeter-tracer' && le.variant === 'rounded') || (le.kind === 'gauge-lite' && ['hbar', 'vbar', 'level'].includes(le.variant))) ? '' : 'none';
     if (armRow) armRow.style.display = ((le.kind === 'pulse' || le.kind === 'flash') && (le.variant === 'cross' || le.variant === 'star')) ? '' : 'none';
     if (pulseGroup) pulseGroup.style.display = le.kind === 'pulse' ? 'block' : 'none';
     if (flashGroup) flashGroup.style.display = le.kind === 'flash' ? 'block' : 'none';
     if (flowGroup) flowGroup.style.display = le.kind === 'flow-lite' ? 'block' : 'none';
     if (radarGroup) radarGroup.style.display = le.kind === 'radar-lite' ? 'block' : 'none';
+    if (gaugeGroup) gaugeGroup.style.display = le.kind === 'gauge-lite' ? 'block' : 'none';
     if (intensityRow) intensityRow.style.display = (le.kind === 'pulse' || le.kind === 'flash') ? '' : 'none';
+
+    if (le.kind === 'gauge-lite') {
+      const minV = le.minValue !== undefined ? le.minValue : 0;
+      const maxV = le.maxValue !== undefined ? le.maxValue : 100;
+      const valSlider = document.getElementById('liteGaugeValueSlider');
+      if (valSlider) {
+        valSlider.min = String(minV);
+        valSlider.max = String(maxV);
+        valSlider.step = String(Math.max(0.01, Math.round(((maxV - minV) / 200) * 100) / 100));
+      }
+      setPair('liteGaugeValue', le.value !== undefined ? le.value : 65);
+      setVal('liteGaugeMinNum', minV);
+      setVal('liteGaugeMaxNum', maxV);
+      setVal('liteGaugeBgColorPicker', le.bgColor || '#1e293b');
+      setVal('liteGaugeDirectionSelect', (le.direction === 'reverse' || le.direction === 'ccw') ? 'reverse' : 'forward');
+      setPair('liteGaugeSegments', le.segments || 10);
+      setPair('liteGaugeStrokeWidth', le.strokeWidth || (le.variant === 'ring' ? 8.0 : 2.0));
+      setChk('liteGaugeShowGuideChk', le.showGuide !== false);
+      setVal('liteGaugeUnitInput', le.unit !== undefined ? le.unit : '%');
+      setVal('liteGaugeLabelInput', le.labelText || '');
+      setChk('liteGaugeUseThresholdsChk', Boolean(le.useThresholds));
+      setVal('liteGaugeWarnThresholdNum', le.warnThreshold !== undefined ? le.warnThreshold : 70);
+      setVal('liteGaugeWarnColorPicker', le.warnColor || '#f59e0b');
+      setVal('liteGaugeCritThresholdNum', le.critThreshold !== undefined ? le.critThreshold : 90);
+      setVal('liteGaugeCritColorPicker', le.critColor || '#ef4444');
+      const segRow = document.getElementById('liteGaugeSegmentsRow');
+      if (segRow) segRow.style.display = le.variant === 'segmented' ? '' : 'none';
+      const threshPanel = document.getElementById('liteGaugeThresholdsPanel');
+      if (threshPanel) threshPanel.style.display = le.useThresholds ? 'block' : 'none';
+    }
 
     if (le.kind === 'radar-lite') {
       setChk('liteRadarShowGuideChk', le.showGuide !== false);
@@ -1640,8 +1908,8 @@ window.LiteEffects = {
       listEl.innerHTML = '<div class="stage-hint" id="emptyLiteListHint">No low-load effects active.</div>';
       return;
     }
-    const iconByKind = { 'perimeter-tracer': '▭', 'pulse': '◎', 'flash': '✦', 'flow-lite': '↝', 'radar-lite': '◉' };
-    const kindShort = { 'perimeter-tracer': 'Tracer', 'pulse': 'Pulse', 'flash': 'Flash', 'flow-lite': 'Flow', 'radar-lite': 'Radar' };
+    const iconByKind = { 'perimeter-tracer': '▭', 'pulse': '◎', 'flash': '✦', 'flow-lite': '↝', 'radar-lite': '◉', 'gauge-lite': '◕' };
+    const kindShort = { 'perimeter-tracer': 'Tracer', 'pulse': 'Pulse', 'flash': 'Flash', 'flow-lite': 'Flow', 'radar-lite': 'Radar', 'gauge-lite': 'Gauge' };
     this.list.forEach((le) => {
       const row = document.createElement('div');
       const isActive = String(this.activeId) === String(le.id);

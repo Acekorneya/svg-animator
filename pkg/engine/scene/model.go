@@ -438,13 +438,13 @@ type WidgetManifest struct {
 }
 
 // LiteEffect represents a low-load declarative SVG visual effect (Stage 16D).
-// Kind values in 16D-A / 16D-B-M1..M2: "perimeter-tracer", "pulse", "flash", "flow-lite", "radar-lite".
+// Kind values in 16D-A / 16D-B-M1..M3: "perimeter-tracer", "pulse", "flash", "flow-lite", "radar-lite", "gauge-lite".
 type LiteEffect struct {
 	ID                  StringID         `json:"id"`
 	Name                string           `json:"name,omitempty"`
 	Metadata            map[string]any   `json:"metadata,omitempty"`
-	Kind                string           `json:"kind"`              // "perimeter-tracer" | "pulse" | "flash" | "flow-lite" | "radar-lite"
-	Variant             string           `json:"variant,omitempty"` // e.g. "rect", "rounded", "circle", "ellipse", "square", "diamond", "cross", "ring", "star", "dashed", "dotted", "single", "multi", "fading-ping"
+	Kind                string           `json:"kind"`              // "perimeter-tracer" | "pulse" | "flash" | "flow-lite" | "radar-lite" | "gauge-lite"
+	Variant             string           `json:"variant,omitempty"` // e.g. "rect", "rounded", "circle", "ellipse", "square", "diamond", "cross", "ring", "star", "dashed", "dotted", "single", "multi", "fading-ping", "hbar", "vbar", "segmented", "level"
 	TargetID            string           `json:"targetId,omitempty"`
 	X                   float64          `json:"x"`
 	Y                   float64          `json:"y"`
@@ -489,6 +489,17 @@ type LiteEffect struct {
 	EndMode             string           `json:"endMode,omitempty"`             // flow-lite end endpoint behaviour ("tunnel" | "abrupt")
 	Delay               float64          `json:"delay,omitempty"`               // flow-lite start delay in seconds (0..60)
 	EndDelay            float64          `json:"endDelay,omitempty"`            // flow-lite end delay in seconds (0..60)
+	Value               *float64         `json:"value,omitempty"`               // gauge-lite current numeric value
+	MinValue            *float64         `json:"minValue,omitempty"`            // gauge-lite minimum domain bound
+	MaxValue            *float64         `json:"maxValue,omitempty"`            // gauge-lite maximum domain bound (must be > minValue)
+	BgColor             string           `json:"bgColor,omitempty"`             // gauge-lite background track / unlit cell colour
+	UseThresholds       bool             `json:"useThresholds,omitempty"`       // gauge-lite enable warning/critical threshold banding
+	WarnThreshold       *float64         `json:"warnThreshold,omitempty"`       // gauge-lite warning threshold in actual numeric domain
+	WarnColor           string           `json:"warnColor,omitempty"`           // gauge-lite warning band colour
+	CritThreshold       *float64         `json:"critThreshold,omitempty"`       // gauge-lite critical threshold in actual numeric domain
+	CritColor           string           `json:"critColor,omitempty"`           // gauge-lite critical band colour
+	Unit                string           `json:"unit,omitempty"`                // gauge-lite optional unit suffix (e.g. "%", "RPM", "°C")
+	LabelText           string           `json:"labelText,omitempty"`           // gauge-lite optional short title/caption
 	Visible             *bool            `json:"visible,omitempty"`
 	Locked              bool             `json:"locked"`
 }

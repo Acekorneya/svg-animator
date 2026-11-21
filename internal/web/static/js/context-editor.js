@@ -463,15 +463,21 @@ window.FloatingPropertiesEditor = {
             'pulse': ['circle', 'square', 'diamond', 'cross', 'ring'],
             'flash': ['diamond', 'circle', 'square', 'cross', 'star'],
             'flow-lite': ['dashed', 'dotted', 'single'],
-            'radar-lite': ['multi', 'single', 'fading-ping']
+            'radar-lite': ['multi', 'single', 'fading-ping'],
+            'gauge-lite': ['ring', 'hbar', 'vbar', 'segmented', 'level']
           };
           const labelsByOpt = {
             'multi': 'Multiple Pings (multi)',
             'single': 'Single Ping (single)',
-            'fading-ping': 'Fading Ping (fading-ping)'
+            'fading-ping': 'Fading Ping (fading-ping)',
+            'ring': 'Circular / Ring Gauge (ring)',
+            'hbar': 'Horizontal Bar Gauge (hbar)',
+            'vbar': 'Vertical Bar Gauge (vbar)',
+            'segmented': 'Segmented Bar Gauge (segmented)',
+            'level': 'Filled-Level Indicator (level)'
           };
           const opts = optsByKind[le.kind] || ['circle'];
-          variantSel.innerHTML = opts.map((o) => `<option value="${o}">${le.kind === 'radar-lite' && labelsByOpt[o] ? labelsByOpt[o] : o}</option>`).join('');
+          variantSel.innerHTML = opts.map((o) => `<option value="${o}">${(le.kind === 'radar-lite' || le.kind === 'gauge-lite') && labelsByOpt[o] ? labelsByOpt[o] : o}</option>`).join('');
         }
         const durMs = Math.round((Number(le.dur) || 0.10) * 1000);
         this._setVal('fctx-liteNameInput', le.name || '');
@@ -514,16 +520,48 @@ window.FloatingPropertiesEditor = {
         const fg = document.getElementById('fctx-liteFlashGroup');
         const flg = document.getElementById('fctx-liteFlowGroup');
         const rdg = document.getElementById('fctx-liteRadarGroup');
+        const gg = document.getElementById('fctx-liteGaugeGroup');
         const trigBtn = document.getElementById('fctx-btnTriggerLiteFlash');
         if (dimGrp) dimGrp.style.display = le.kind === 'flow-lite' ? 'none' : '';
         if (tg) tg.style.display = le.kind === 'perimeter-tracer' ? 'block' : 'none';
-        if (crRow) crRow.style.display = (le.kind === 'perimeter-tracer' && le.variant === 'rounded') ? '' : 'none';
+        if (crRow) crRow.style.display = ((le.kind === 'perimeter-tracer' && le.variant === 'rounded') || (le.kind === 'gauge-lite' && ['hbar', 'vbar', 'level'].includes(le.variant))) ? '' : 'none';
         if (armRow) armRow.style.display = ((le.kind === 'pulse' || le.kind === 'flash') && (le.variant === 'cross' || le.variant === 'star')) ? '' : 'none';
         if (pg) pg.style.display = le.kind === 'pulse' ? 'block' : 'none';
         if (fg) fg.style.display = le.kind === 'flash' ? 'block' : 'none';
         if (flg) flg.style.display = le.kind === 'flow-lite' ? 'block' : 'none';
         if (rdg) rdg.style.display = le.kind === 'radar-lite' ? 'block' : 'none';
+        if (gg) gg.style.display = le.kind === 'gauge-lite' ? 'block' : 'none';
         if (trigBtn) trigBtn.style.display = le.kind === 'flash' ? 'inline-block' : 'none';
+
+        if (le.kind === 'gauge-lite') {
+          const minV = le.minValue !== undefined ? le.minValue : 0;
+          const maxV = le.maxValue !== undefined ? le.maxValue : 100;
+          const valSlider = document.getElementById('fctx-liteGaugeValueSlider');
+          if (valSlider) {
+            valSlider.min = String(minV);
+            valSlider.max = String(maxV);
+            valSlider.step = String(Math.max(0.01, Math.round(((maxV - minV) / 200) * 100) / 100));
+          }
+          this._setPair('fctx-liteGaugeValue', le.value !== undefined ? le.value : 65);
+          this._setVal('fctx-liteGaugeMinNum', minV);
+          this._setVal('fctx-liteGaugeMaxNum', maxV);
+          this._setVal('fctx-liteGaugeBgColorPicker', le.bgColor || '#1e293b');
+          this._setVal('fctx-liteGaugeDirectionSelect', (le.direction === 'reverse' || le.direction === 'ccw') ? 'reverse' : 'forward');
+          this._setPair('fctx-liteGaugeSegments', le.segments || 10);
+          this._setPair('fctx-liteGaugeStrokeWidth', le.strokeWidth || (le.variant === 'ring' ? 8.0 : 2.0));
+          this._setChk('fctx-liteGaugeShowGuideChk', le.showGuide !== false);
+          this._setVal('fctx-liteGaugeUnitInput', le.unit !== undefined ? le.unit : '%');
+          this._setVal('fctx-liteGaugeLabelInput', le.labelText || '');
+          this._setChk('fctx-liteGaugeUseThresholdsChk', Boolean(le.useThresholds));
+          this._setVal('fctx-liteGaugeWarnThresholdNum', le.warnThreshold !== undefined ? le.warnThreshold : 70);
+          this._setVal('fctx-liteGaugeWarnColorPicker', le.warnColor || '#f59e0b');
+          this._setVal('fctx-liteGaugeCritThresholdNum', le.critThreshold !== undefined ? le.critThreshold : 90);
+          this._setVal('fctx-liteGaugeCritColorPicker', le.critColor || '#ef4444');
+          const fctxSegRow = document.getElementById('fctx-liteGaugeSegmentsRow');
+          if (fctxSegRow) fctxSegRow.style.display = le.variant === 'segmented' ? '' : 'none';
+          const fctxThreshPanel = document.getElementById('fctx-liteGaugeThresholdsPanel');
+          if (fctxThreshPanel) fctxThreshPanel.style.display = le.useThresholds ? 'block' : 'none';
+        }
 
         if (le.kind === 'radar-lite') {
           this._setChk('fctx-liteRadarShowGuideChk', le.showGuide !== false);
@@ -1368,7 +1406,10 @@ window.FloatingPropertiesEditor = {
       ['fctx-liteRadarMinScale', 'minScale', false],
       ['fctx-liteRadarMaxScale', 'maxScale', false],
       ['fctx-liteRadarPeriod', 'period', false],
-      ['fctx-liteRadarStrokeWidth', 'strokeWidth', false]
+      ['fctx-liteRadarStrokeWidth', 'strokeWidth', false],
+      ['fctx-liteGaugeValue', 'value', false],
+      ['fctx-liteGaugeSegments', 'segments', true],
+      ['fctx-liteGaugeStrokeWidth', 'strokeWidth', false]
     ];
     litePairs.forEach(([baseId, prop, isInt]) => {
       const slider = document.getElementById(baseId + 'Slider');
@@ -1438,6 +1479,18 @@ window.FloatingPropertiesEditor = {
     bindLiteSimple('fctx-liteFlowDirectionSelect', 'direction', 'change');
     bindLiteSimple('fctx-liteFlowPlaybackModeSelect', 'playbackMode', 'change');
     bindLiteSimple('fctx-liteRadarShowGuideChk', 'showGuide', 'change', true);
+    bindLiteSimple('fctx-liteGaugeMinNum', 'minValue', 'input');
+    bindLiteSimple('fctx-liteGaugeMaxNum', 'maxValue', 'input');
+    bindLiteSimple('fctx-liteGaugeBgColorPicker', 'bgColor', 'input');
+    bindLiteSimple('fctx-liteGaugeDirectionSelect', 'direction', 'change');
+    bindLiteSimple('fctx-liteGaugeShowGuideChk', 'showGuide', 'change', true);
+    bindLiteSimple('fctx-liteGaugeUnitInput', 'unit', 'input');
+    bindLiteSimple('fctx-liteGaugeLabelInput', 'labelText', 'input');
+    bindLiteSimple('fctx-liteGaugeUseThresholdsChk', 'useThresholds', 'change', true);
+    bindLiteSimple('fctx-liteGaugeWarnThresholdNum', 'warnThreshold', 'input');
+    bindLiteSimple('fctx-liteGaugeWarnColorPicker', 'warnColor', 'input');
+    bindLiteSimple('fctx-liteGaugeCritThresholdNum', 'critThreshold', 'input');
+    bindLiteSimple('fctx-liteGaugeCritColorPicker', 'critColor', 'input');
 
     document.getElementById('fctx-btnAddLiteFlowNode')?.addEventListener('click', () => {
       if (this.activeType === 'lite' && window.LiteEffects) {

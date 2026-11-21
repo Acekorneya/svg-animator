@@ -469,6 +469,10 @@ var ObjectPropertyCatalog = map[string][]EligibleProperty{
 	},
 	"lite": {
 		{Property: "color", Type: "color", Label: "Effect Colour", ParamSuffix: "color", Description: "Primary stroke or fill colour of the low-load effect", Default: "#38bdf8", DefaultSource: "lite.color", RuntimeSemantics: "recolours lite effect payload and guide; hit-targets untouched"},
+		{Property: "bgColor", Type: "color", Label: "Track / Background Colour", ParamSuffix: "bgColor", Description: "Background track or unlit segment colour for Gauge Lite", Default: "#1e293b", DefaultSource: "lite.bgColor", RuntimeSemantics: "recolours gauge background track and unlit segments"},
+		{Property: "value", Type: "number", Label: "Gauge Value", ParamSuffix: "value", Description: "Current numeric value for Gauge / Level Lite indicators", Default: 65.0, DefaultSource: "lite.value", RuntimeSemantics: "updates static gauge fill geometry and threshold colour"},
+		{Property: "minValue", Type: "number", Label: "Gauge Min Value", ParamSuffix: "minValue", Description: "Minimum numeric domain bound for Gauge / Level Lite", Default: 0.0, DefaultSource: "lite.minValue", RuntimeSemantics: "updates gauge minimum domain bound and recalculates fill"},
+		{Property: "maxValue", Type: "number", Label: "Gauge Max Value", ParamSuffix: "maxValue", Description: "Maximum numeric domain bound for Gauge / Level Lite", Default: 100.0, DefaultSource: "lite.maxValue", RuntimeSemantics: "updates gauge maximum domain bound and recalculates fill"},
 		{Property: "opacity", Type: "number", Label: "Opacity", ParamSuffix: "opacity", Description: "Transparency of the low-load effect (0.0 to 1.0)", Min: floatPtr(0), Max: floatPtr(1), Default: 0.9, DefaultSource: "lite.opacity", RuntimeSemantics: "sets lite effect overall opacity"},
 		{Property: "visibility", Type: "boolean", Label: "Visibility", ParamSuffix: "visibility", Description: "Toggle visibility of the low-load effect", Default: true, DefaultSource: "true", RuntimeSemantics: "toggles lite effect visibility"},
 		{Property: "speed", Type: "speed", Label: "Speed / Rate", ParamSuffix: "speed", Description: "Playback speed multiplier for the effect (0.1 to 10.0)", Min: floatPtr(0.1), Max: floatPtr(10.0), Default: 1.0, DefaultSource: "1.0", RuntimeSemantics: "scales CSS animation duration"},
@@ -754,8 +758,8 @@ func ValidateWidgetParameter(p WidgetParameter) error {
 	// Validate property compatibility with type
 	switch p.Type {
 	case "color":
-		if prop != "fill" && prop != "stroke" && prop != "color" {
-			return fmt.Errorf("color parameter does not support property %q (allowed: fill, stroke, color)", prop)
+		if prop != "fill" && prop != "stroke" && prop != "color" && prop != "bgColor" {
+			return fmt.Errorf("color parameter does not support property %q (allowed: fill, stroke, color, bgColor)", prop)
 		}
 	case "boolean":
 		if prop != "visibility" && prop != "display" && prop != "showGuide" && prop != "repeat" {

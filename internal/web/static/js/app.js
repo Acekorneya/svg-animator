@@ -2662,6 +2662,10 @@ function getDrawerWidgetPropDefs(type) {
     ],
     lite: [
       { prop: 'color', label: 'Effect Colour', type: 'color', desc: 'Primary stroke or fill colour of the low-load effect' },
+      { prop: 'bgColor', label: 'Track / Background Colour', type: 'color', desc: 'Background track or unlit segment colour for Gauge Lite' },
+      { prop: 'value', label: 'Gauge Value', type: 'number', desc: 'Current numeric value for Gauge / Level Lite indicators' },
+      { prop: 'minValue', label: 'Gauge Min Value', type: 'number', desc: 'Minimum numeric domain bound for Gauge / Level Lite' },
+      { prop: 'maxValue', label: 'Gauge Max Value', type: 'number', desc: 'Maximum numeric domain bound for Gauge / Level Lite' },
       { prop: 'opacity', label: 'Opacity (0..1)', type: 'number', min: 0, max: 1, desc: 'Transparency of the low-load effect (0.0 to 1.0)' },
       { prop: 'visibility', label: 'Visibility (Toggle)', type: 'boolean', desc: 'Toggle visibility of the low-load effect' },
       { prop: 'speed', label: 'Speed / Rate', type: 'speed', min: 0.1, max: 10, desc: 'Playback speed multiplier for the effect (0.1 to 10.0)' },
@@ -2752,10 +2756,14 @@ function getObjectPropValue(type, id, prop) {
     if (le) {
       switch (prop) {
         case 'color': return le.color || '#38bdf8';
-        case 'opacity': return le.opacity !== undefined ? le.opacity : 0.9;
+        case 'bgColor': return le.bgColor || '#1e293b';
+        case 'value': return le.value !== undefined ? le.value : 65;
+        case 'minValue': return le.minValue !== undefined ? le.minValue : 0;
+        case 'maxValue': return le.maxValue !== undefined ? le.maxValue : 100;
+        case 'opacity': return le.opacity !== undefined ? le.opacity : (le.kind === 'gauge-lite' ? 1.0 : 0.9);
         case 'visibility': return le.visible !== false;
         case 'speed': return 1.0;
-        case 'strokeWidth': return le.strokeWidth !== undefined ? le.strokeWidth : (le.kind === 'flow-lite' ? 3.0 : (le.kind === 'radar-lite' ? 2.0 : 2.5));
+        case 'strokeWidth': return le.strokeWidth !== undefined ? le.strokeWidth : (le.kind === 'flow-lite' ? 3.0 : (le.kind === 'radar-lite' ? 2.0 : (le.kind === 'gauge-lite' ? (le.variant === 'ring' ? 8.0 : 2.0) : 2.5)));
         case 'dashLength': return le.dashLength !== undefined ? le.dashLength : (le.variant === 'single' ? 36 : 18);
         case 'gapLength': return le.gapLength !== undefined ? le.gapLength : 14;
         case 'dotSize': return le.dotSize !== undefined ? le.dotSize : 5;
@@ -2817,7 +2825,7 @@ window.renderWidgetPropertyCards = function(containerEl, sel, statusMsgEl) {
     if (le) {
       liteKind = le.kind || '';
       if (!objName) objName = le.name || '';
-      const kindMap = { 'perimeter-tracer': 'Tracer', 'pulse': 'Pulse', 'flash': 'Flash', 'flow-lite': 'Flow', 'radar-lite': 'Radar' };
+      const kindMap = { 'perimeter-tracer': 'Tracer', 'pulse': 'Pulse', 'flash': 'Flash', 'flow-lite': 'Flow', 'radar-lite': 'Radar', 'gauge-lite': 'Gauge' };
       const kindLabel = kindMap[le.kind] || 'Lite';
       objDisplayName = le.name ? `${le.name} (${kindLabel} #${sel.id})` : `${kindLabel} #${sel.id}`;
     }
@@ -2841,7 +2849,10 @@ window.renderWidgetPropertyCards = function(containerEl, sel, statusMsgEl) {
         return liteKind === 'perimeter-tracer';
       }
       if (['strokeWidth', 'showGuide'].includes(p.prop)) {
-        return liteKind === 'perimeter-tracer' || liteKind === 'flow-lite' || liteKind === 'radar-lite';
+        return liteKind === 'perimeter-tracer' || liteKind === 'flow-lite' || liteKind === 'radar-lite' || liteKind === 'gauge-lite';
+      }
+      if (['value', 'minValue', 'maxValue', 'bgColor'].includes(p.prop)) {
+        return liteKind === 'gauge-lite';
       }
       if (['direction', 'playbackMode'].includes(p.prop)) {
         return liteKind === 'perimeter-tracer' || liteKind === 'flow-lite';
@@ -3335,7 +3346,7 @@ window.renderWidgetParametersOverview = function(selectionPayload) {
         const le = window.LiteEffects.getLiteEffect(sel.id);
         if (le) {
           currentName = le.name || '';
-          const kindMap = { 'perimeter-tracer': 'Tracer', 'pulse': 'Pulse', 'flash': 'Flash', 'flow-lite': 'Flow', 'radar-lite': 'Radar' };
+          const kindMap = { 'perimeter-tracer': 'Tracer', 'pulse': 'Pulse', 'flash': 'Flash', 'flow-lite': 'Flow', 'radar-lite': 'Radar', 'gauge-lite': 'Gauge' };
           const kindLabel = kindMap[le.kind] || 'Lite';
           objDisplayName = le.name ? `${le.name} (${kindLabel} #${sel.id})` : `${kindLabel} #${sel.id}`;
         }
