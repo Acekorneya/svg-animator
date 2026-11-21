@@ -386,14 +386,14 @@
       }
     }
 
-    // 5. Stable entity data attributes (data-node-id, data-flow-id, data-image-id, data-glow-id, data-ripple-id, data-lite-id)
-    el = svgEl.querySelector(`[data-node-id="${targetName}"], [data-flow-id="${targetName}"], [data-image-id="${targetName}"], [data-glow-id="${targetName}"], [data-ripple-id="${targetName}"], [data-lite-id="${targetName}"]`);
+    // 5. Stable entity data attributes (data-node-id, data-flow-id, data-image-id, data-glow-id, data-ripple-id, data-lite-id, data-group-id)
+    el = svgEl.querySelector(`[data-node-id="${targetName}"], [data-flow-id="${targetName}"], [data-image-id="${targetName}"], [data-glow-id="${targetName}"], [data-ripple-id="${targetName}"], [data-lite-id="${targetName}"], [data-group-id="${targetName}"]`);
     if (el) return el;
 
-    // Stripped prefix fallback (e.g. "node-1" -> "1")
-    const strippedId = String(targetName).replace(/^(node|flow|glow|ripple|image|lite)-/, '');
+    // Stripped prefix fallback (e.g. "node-1" -> "1", "group-1" -> "1")
+    const strippedId = String(targetName).replace(/^(node|flow|glow|ripple|image|lite|group)-/, '');
     if (strippedId !== targetName) {
-      el = svgEl.querySelector(`[data-node-id="${strippedId}"], [data-flow-id="${strippedId}"], [data-image-id="${strippedId}"], [data-glow-id="${strippedId}"], [data-ripple-id="${strippedId}"], [data-lite-id="${strippedId}"]`);
+      el = svgEl.querySelector(`[data-node-id="${strippedId}"], [data-flow-id="${strippedId}"], [data-image-id="${strippedId}"], [data-glow-id="${strippedId}"], [data-ripple-id="${strippedId}"], [data-lite-id="${strippedId}"], [data-group-id="${strippedId}"], [data-group-id="group-${strippedId}"]`);
       if (el) return el;
     }
 
@@ -414,9 +414,28 @@
     return null;
   }
 
+  function getEffectiveLocalSpeedFactor(node, fallbackEl) {
+    let factor = 1.0;
+    const startEl = node || fallbackEl;
+    if (!startEl) return factor;
+    const groupEl = (typeof startEl.closest === 'function' && startEl.closest('[data-group-id], .scene-group')) ||
+      ((fallbackEl && typeof fallbackEl.hasAttribute === 'function' && (fallbackEl.hasAttribute('data-group-id') || fallbackEl.classList?.contains('scene-group'))) ? fallbackEl : null);
+    const memberEl = (typeof startEl.closest === 'function' && startEl.closest('[data-lite-id], [data-flow-id], [data-node-id], [data-glow-id], [data-ripple-id]')) ||
+      ((fallbackEl && fallbackEl !== groupEl) ? fallbackEl : null);
+    if (groupEl && typeof groupEl.getAttribute === 'function') {
+      const gSpd = parseFloat(groupEl.getAttribute('data-local-speed'));
+      if (Number.isFinite(gSpd) && gSpd > 0) factor *= gSpd;
+    }
+    if (memberEl && memberEl !== groupEl && typeof memberEl.getAttribute === 'function') {
+      const mSpd = parseFloat(memberEl.getAttribute('data-local-speed'));
+      if (Number.isFinite(mSpd) && mSpd > 0) factor *= mSpd;
+    }
+    return factor;
+  }
+
   /**
    * Applies targeted animation speed multiplier to element sub-animations,
-   * respecting the formula: Effective Speed = Master Playback Rate × Targeted Flow Speed.
+   * respecting the formula: Effective Speed = Master Playback Rate × Group Speed × Member Speed.
    */
   function applyTargetedSpeed(el, localRate, masterRate) {
     if (!el) return;
@@ -424,14 +443,23 @@
     const mRate = Number(masterRate);
     const validLocal = (!isNaN(lRate) && lRate > 0) ? lRate : 1.0;
     const validMaster = (!isNaN(mRate) && mRate >= 0) ? mRate : 1.0;
-    const effectiveSpeed = Math.max(0.001, validMaster * validLocal);
+    if (typeof el.setAttribute === 'function') {
+      el.setAttribute('data-local-speed', String(validLocal));
+    }
+
+    const computeNodeSpeed = (node) => {
+      const localFactor = getEffectiveLocalSpeedFactor(node, el);
+      return Math.max(0.001, validMaster * localFactor);
+    };
 
     // 1. Web Animations API within target element subtree only
     if (typeof el.getAnimations === 'function') {
       const anims = el.getAnimations({ subtree: true });
       if (anims && anims.length > 0) {
         anims.forEach((a) => {
-          try { a.playbackRate = effectiveSpeed; } catch (err) {}
+          const targetNode = (a && a.effect && a.effect.target) ? a.effect.target : el;
+          const eff = computeNodeSpeed(targetNode);
+          try { a.playbackRate = eff; } catch (err) {}
         });
       }
     }
@@ -446,7 +474,8 @@
           baseDur = String(curDur);
           animEl.setAttribute('data-base-dur', baseDur);
         }
-        const newDur = (parseFloat(baseDur) / effectiveSpeed).toFixed(3);
+        const eff = computeNodeSpeed(animEl);
+        const newDur = (parseFloat(baseDur) / eff).toFixed(3);
         animEl.setAttribute('dur', `${newDur}s`);
       });
 
@@ -460,7 +489,8 @@
         const parsed = parseFloat(baseDur);
         if (!isNaN(parsed) && parsed > 0) {
           payEl.setAttribute('data-base-dur', String(parsed));
-          const newDur = parsed / effectiveSpeed;
+          const eff = computeNodeSpeed(payEl);
+          const newDur = parsed / eff;
           payEl.style.animationDuration = `${newDur.toFixed(4)}s`;
           const phaseRatio = parseFloat(payEl.style.getPropertyValue && payEl.style.getPropertyValue('--sva-phase-ratio'));
           if (!isNaN(phaseRatio) && phaseRatio > 0) {
@@ -963,16 +993,19 @@
     if (anim === 'ticker-h') {
       const tw = measureTextLiteWidth(el, txtEl, currentStr);
       const dist = Math.max(20, w + tw);
-      const dur = Math.max(0.15, dist / spd);
+      const baseDur = Math.max(0.15, dist / spd);
+      const localSpdFactor = getEffectiveLocalSpeedFactor(txtEl, el);
+      const dur = Math.max(0.05, baseDur / Math.max(0.001, localSpdFactor));
       const startPx = dir === 'reverse' ? (-tw) : w;
       const endPx = pMode === 'once' ? pad : (dir === 'reverse' ? w : (-tw));
       txtEl.setAttribute('data-ticker-measured-w', tw.toFixed(2));
+      txtEl.setAttribute('data-base-dur', baseDur.toFixed(4));
       txtEl.setAttribute('data-ticker-duration-s', dur.toFixed(4));
       el.setAttribute('data-ticker-duration-s', dur.toFixed(4));
       if (txtEl.style && typeof txtEl.style.setProperty === 'function') {
         txtEl.style.setProperty('--sva-ticker-start', `${startPx.toFixed(2)}px`);
         txtEl.style.setProperty('--sva-ticker-end', `${endPx.toFixed(2)}px`);
-        txtEl.style.setProperty('--sva-base-dur', `${dur.toFixed(4)}s`);
+        txtEl.style.setProperty('--sva-base-dur', `${baseDur.toFixed(4)}s`);
         txtEl.style.animationDuration = `${dur.toFixed(4)}s`;
       }
     } else if (anim === 'ticker-v' || anim === 'stacked-v') {
@@ -982,15 +1015,18 @@
         ? (typeSpeed * lineAdvance)
         : (linesPerSec * lineAdvance);
       const dist = Math.max(16, h + blockH);
-      const dur = Math.max(0.15, dist / Math.max(1, effLinearSpd));
+      const baseDur = Math.max(0.15, dist / Math.max(1, effLinearSpd));
+      const localSpdFactor = getEffectiveLocalSpeedFactor(txtEl, el);
+      const dur = Math.max(0.05, baseDur / Math.max(0.001, localSpdFactor));
       const startPx = dir === 'reverse' ? (-blockH - 4) : (h + 4);
       const endPx = pMode === 'once' ? pad : (dir === 'reverse' ? (h + 4) : (-blockH - 4));
+      txtEl.setAttribute('data-base-dur', baseDur.toFixed(4));
       txtEl.setAttribute('data-ticker-duration-s', dur.toFixed(4));
       el.setAttribute('data-ticker-duration-s', dur.toFixed(4));
       if (txtEl.style && typeof txtEl.style.setProperty === 'function') {
         txtEl.style.setProperty('--sva-ticker-start', `${startPx.toFixed(2)}px`);
         txtEl.style.setProperty('--sva-ticker-end', `${endPx.toFixed(2)}px`);
-        txtEl.style.setProperty('--sva-base-dur', `${dur.toFixed(4)}s`);
+        txtEl.style.setProperty('--sva-base-dur', `${baseDur.toFixed(4)}s`);
         txtEl.style.animationDuration = `${dur.toFixed(4)}s`;
       }
     }
@@ -1003,16 +1039,18 @@
     const svgEl = instance ? (instance.svgElement || (instance.wrapper && instance.wrapper.querySelector('svg'))) : null;
 
     // Detect specialized entity types
-    const isFlow = el && (Boolean(el.classList?.contains('diagram-flow-instance')) ||
+    const isGroup = el && (Boolean(el.classList?.contains('scene-group')) ||
+                    Boolean(typeof el.hasAttribute === 'function' && el.hasAttribute('data-group-id')));
+    const isFlow = !isGroup && el && (Boolean(el.classList?.contains('diagram-flow-instance')) ||
                    Boolean(typeof el.hasAttribute === 'function' && el.hasAttribute('data-flow-id')) ||
                    Boolean(el.querySelector?.('.flow-track-path')));
-    const isGlow = el && (Boolean(el.classList?.contains('diagram-glow-instance')) ||
+    const isGlow = !isGroup && el && (Boolean(el.classList?.contains('diagram-glow-instance')) ||
                    Boolean(typeof el.hasAttribute === 'function' && el.hasAttribute('data-glow-id')) ||
                    Boolean(el.querySelector?.('.glow-hit-target')));
-    const isRipple = el && (Boolean(el.classList?.contains('diagram-ripple-instance')) ||
+    const isRipple = !isGroup && el && (Boolean(el.classList?.contains('diagram-ripple-instance')) ||
                      Boolean(typeof el.hasAttribute === 'function' && el.hasAttribute('data-ripple-id')) ||
                      Boolean(el.querySelector?.('.ripple-hit-target')));
-    const isLite = el && (Boolean(el.classList?.contains('diagram-lite-instance')) ||
+    const isLite = !isGroup && el && (Boolean(el.classList?.contains('diagram-lite-instance')) ||
                    Boolean(typeof el.hasAttribute === 'function' && el.hasAttribute('data-lite-id')) ||
                    Boolean(el.querySelector?.('.lite-payload')));
 
@@ -1216,7 +1254,10 @@
       case 'opacity': {
         if (!el) break;
         const num = Math.max(0, Math.min(1, parseFloat(value) || 0));
-        if (isRipple) {
+        if (isGroup) {
+          el.setAttribute('opacity', String(num));
+          if (el.style) el.style.opacity = String(num);
+        } else if (isRipple) {
           // Ripple opacity: target only visible wave crests, never hit-target or background
           el.querySelectorAll('circle, path').forEach(c => {
             if (c.classList?.contains('ripple-hit-target') || c.getAttribute('fill') === 'transparent') return;
@@ -2108,7 +2149,10 @@
         function tickStep() {
           ctrl.timerId = null;
           if (isSuspended || handle.isDestroyed) return;
-          const rate = Math.max(1, Math.min(120, parseFloat(el.getAttribute('data-text-type-speed')) || 14));
+          const baseRate = Math.max(1, Math.min(120, parseFloat(el.getAttribute('data-text-type-speed')) || 14));
+          const localSpdFactor = getEffectiveLocalSpeedFactor(el, el);
+          const masterSpd = (typeof currentSpeed === 'number' && currentSpeed > 0) ? currentSpeed : 1.0;
+          const rate = Math.max(0.5, baseRate * localSpdFactor * masterSpd);
           const stepMs = Math.max(8, Math.round(1000 / rate));
           const holdMs = Math.max(0, (parseFloat(el.getAttribute('data-text-hold-delay')) || 1.2) * 1000);
           let typeMode = el.getAttribute('data-text-type-mode') || 'hold';

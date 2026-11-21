@@ -412,3 +412,158 @@ func TestBatch4GroupIntegrityAndLocking(t *testing.T) {
 		t.Fatalf("expected error renaming locked node")
 	}
 }
+
+func TestStage16EM1GroupWidgetTargetsAndLiteClipboard(t *testing.T) {
+	sc := NewScene()
+
+	n1 := sc.CreateNode(Node{Shape: "rect", X: 20, Y: 20, Width: 120, Height: 60, Name: "PanelBox"}, nil, false)
+	val45 := 45.0
+	val0 := 0.0
+	val100 := 100.0
+	leGauge := sc.CreateLiteEffect(LiteEffect{
+		Kind:     "gauge-lite",
+		Variant:  "ring",
+		Name:     "CpuGauge",
+		X:        300,
+		Y:        200,
+		Width:    140,
+		Height:   140,
+		Value:    &val45,
+		MinValue: &val0,
+		MaxValue: &val100,
+	})
+	leText := sc.CreateLiteEffect(LiteEffect{
+		Kind:      "text-lite",
+		Variant:   "ticker-h",
+		Name:      "StatusTicker",
+		X:         300,
+		Y:         360,
+		Width:     220,
+		Height:    50,
+		LabelText: "CPU OK",
+	})
+
+	grp, err := sc.CreateGroup("cpuwindow", []GroupMember{
+		{Type: SelectionNode, ID: n1.ID},
+		{Type: SelectionLite, ID: leGauge.ID},
+		{Type: SelectionLite, ID: leText.ID},
+	})
+	if err != nil {
+		t.Fatalf("CreateGroup with LiteEffects failed: %v", err)
+	}
+
+	// 1. Expose group opacity, visibility, speed parameters
+	minSpeed := 0.1
+	maxSpeed := 10.0
+	if err := sc.AddParameter(WidgetParameter{
+		Name:     "cpuwindow-group-speed",
+		Type:     "speed",
+		Target:   string(grp.ID),
+		Property: "speed",
+		Default:  1.0,
+		Min:      &minSpeed,
+		Max:      &maxSpeed,
+	}); err != nil {
+		t.Fatalf("AddParameter for group speed failed: %v", err)
+	}
+	if err := sc.AddParameter(WidgetParameter{
+		Name:     "cpuwindow-group-opacity",
+		Type:     "number",
+		Target:   string(grp.ID),
+		Property: "opacity",
+		Default:  1.0,
+	}); err != nil {
+		t.Fatalf("AddParameter for group opacity failed: %v", err)
+	}
+	if err := sc.AddParameter(WidgetParameter{
+		Name:     "cpugauge-lite-value",
+		Type:     "number",
+		Target:   "lite-" + string(leGauge.ID),
+		Property: "value",
+		Default:  45.0,
+	}); err != nil {
+		t.Fatalf("AddParameter for lite gauge value failed: %v", err)
+	}
+
+	// 2. RenameGroup regenerates bound group parameter names
+	if _, err := sc.RenameGroup(grp.ID, "serverpod"); err != nil {
+		t.Fatalf("RenameGroup failed: %v", err)
+	}
+	params := sc.GetParameters()
+	foundSpeed := false
+	foundOpacity := false
+	for _, p := range params {
+		if p.Name == "serverpod-group-speed" {
+			foundSpeed = true
+		}
+		if p.Name == "serverpod-group-opacity" {
+			foundOpacity = true
+		}
+	}
+	if !foundSpeed || !foundOpacity {
+		t.Fatalf("expected group parameter names to update after RenameGroup, got: %+v", params)
+	}
+
+	// 3. Copy & Paste group with LiteEffects and WidgetParameters
+	payload, err := sc.CopySelection(nil, grp.ID)
+	if err != nil {
+		t.Fatalf("CopySelection for group failed: %v", err)
+	}
+	if len(payload.LiteEffects) != 2 {
+		t.Fatalf("expected 2 LiteEffects in clipboard payload, got %d", len(payload.LiteEffects))
+	}
+	if len(payload.Parameters) != 3 {
+		t.Fatalf("expected 3 WidgetParameters in clipboard payload, got %d", len(payload.Parameters))
+	}
+
+	newItems, newGroupID, err := sc.PastePayload(payload, 10.0, 10.0)
+	if err != nil {
+		t.Fatalf("PastePayload failed: %v", err)
+	}
+	if newGroupID == "" || newGroupID == grp.ID {
+		t.Fatalf("expected new pasted group ID, got %q", newGroupID)
+	}
+	if len(newItems) != 3 {
+		t.Fatalf("expected 3 new items pasted, got %d", len(newItems))
+	}
+
+	// 4. ValidateWidgetExport resolves group target in isolated SVG
+	rawSVG := `<svg xmlns="http://www.w3.org/2000/svg" width="1280" height="720">
+		<g id="group-1" class="scene-group" data-group-id="group-1" data-semantic-target="group-1" data-semantic-name="serverpod">
+			<g id="node-1" data-node-id="1" data-semantic-target="node-1"><rect width="120" height="60"/></g>
+			<g id="lite-effect-1" data-lite-id="1" data-semantic-target="lite-1"><circle r="50"/></g>
+			<g id="lite-effect-2" data-lite-id="2" data-semantic-target="lite-2"><text>CPU OK</text></g>
+		</g>
+		<g id="group-2" class="scene-group" data-group-id="group-2" data-semantic-target="group-2">
+			<g id="node-2" data-node-id="2" data-semantic-target="node-2"><rect width="120" height="60"/></g>
+			<g id="lite-effect-3" data-lite-id="3" data-semantic-target="lite-3"><circle r="50"/></g>
+			<g id="lite-effect-4" data-lite-id="4" data-semantic-target="lite-4"><text>CPU OK</text></g>
+		</g>
+	</svg>`
+	isoSVG, _, err := IsolateSVGWidget(rawSVG, WidgetIsolationOptions{
+		InstanceID: "test-m1",
+		Prefix:     "test_m1__",
+		ScopeCSS:   true,
+	})
+	if err != nil {
+		t.Fatalf("IsolateSVGWidget failed: %v", err)
+	}
+	manifest := &WidgetManifest{
+		SchemaVersion: 1,
+		Parameters:    sc.GetParameters(),
+	}
+	if err := ValidateWidgetExport(manifest, isoSVG, sc); err != nil {
+		t.Fatalf("ValidateWidgetExport failed for group target: %v", err)
+	}
+
+	// 5. Ungroup prunes group parameters
+	if _, err := sc.Ungroup(grp.ID); err != nil {
+		t.Fatalf("Ungroup failed: %v", err)
+	}
+	for _, p := range sc.GetParameters() {
+		if p.Target == string(grp.ID) {
+			t.Fatalf("expected group parameter %q for %s to be pruned on Ungroup", p.Name, grp.ID)
+		}
+	}
+}
+

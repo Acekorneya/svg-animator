@@ -383,10 +383,15 @@
       const includeImages = overrides.includeImages !== false;
       const includeNodes = overrides.includeNodes !== false;
 
-      // If LayerManager has authoritative unified layers, render in strict layer order
-      if (window.LayerManager && typeof window.LayerManager.getLayers === 'function') {
-        const layers = window.LayerManager.getLayers();
-        if (Array.isArray(layers) && layers.length > 0) {
+      // If LayerManager has authoritative unified layers (or active groups exist), render in strict layer order with <g class="scene-group"> containers
+      const activeGroups = (window.EngineBridge && typeof window.EngineBridge.isReady === 'function' && window.EngineBridge.isReady() && typeof window.EngineBridge.listGroups === 'function')
+        ? (window.EngineBridge.listGroups() || [])
+        : ((window.ObjectGroups && Array.isArray(window.ObjectGroups.list)) ? window.ObjectGroups.list : []);
+      if ((window.LayerManager && typeof window.LayerManager.getLayers === 'function') || activeGroups.length > 0) {
+        const layers = (window.LayerManager && typeof window.LayerManager.getLayers === 'function')
+          ? (window.LayerManager.getLayers() || [])
+          : [];
+        if ((Array.isArray(layers) && layers.length > 0) || activeGroups.length > 0) {
           const canvasW = (state && state.image && state.image.width) || 1280;
           const canvasH = (state && state.image && state.image.height) || 720;
 
@@ -409,6 +414,48 @@
 
           let elements = '';
           const rendered = new Set();
+          let openGroupId = null;
+
+          const escAttr = (val) => String(val === undefined || val === null ? '' : val)
+            .replace(/&/g, '&amp;')
+            .replace(/"/g, '&quot;')
+            .replace(/</g, '&lt;')
+            .replace(/>/g, '&gt;');
+
+          const resolveMemberGroup = (type, id) => {
+            if (window.AppCoordinator && typeof window.AppCoordinator.findGroupByMember === 'function') {
+              const g = window.AppCoordinator.findGroupByMember(type, id);
+              if (g && g.id) return g;
+            }
+            if (window.EngineBridge && typeof window.EngineBridge.findGroupByMember === 'function') {
+              const g = window.EngineBridge.findGroupByMember(type, id);
+              if (g && g.id) return g;
+            }
+            if (window.ObjectGroups && typeof window.ObjectGroups.findGroupByMember === 'function') {
+              const g = window.ObjectGroups.findGroupByMember(type, id);
+              if (g && g.id) return g;
+            }
+            return null;
+          };
+
+          const appendObjectMarkup = (type, id, markup) => {
+            if (!markup) return;
+            const grp = resolveMemberGroup(type, id);
+            const targetGrpId = (grp && grp.id) ? String(grp.id) : null;
+            if (targetGrpId !== openGroupId) {
+              if (openGroupId !== null) {
+                elements += '</g>\n';
+                openGroupId = null;
+              }
+              if (targetGrpId !== null) {
+                const gidAttr = escAttr(targetGrpId);
+                const gNameAttr = escAttr(grp.name || targetGrpId);
+                elements += `<g id="${gidAttr}" class="scene-group" data-group-id="${gidAttr}" data-semantic-target="${gidAttr}" data-semantic-name="${gNameAttr}">\n`;
+                openGroupId = targetGrpId;
+              }
+            }
+            elements += markup + '\n';
+          };
 
           layers.forEach((l) => {
             if (!l || !l.type || l.id == null) return;
@@ -422,19 +469,19 @@
 
             if (l.type === 'node' && includeNodes && window.DiagramNodes) {
               const n = window.DiagramNodes.getNode(l.id);
-              if (n) elements += window.DiagramNodes.renderNodeElement(n, canvasW, canvasH) + '\n';
+              if (n) appendObjectMarkup('node', l.id, window.DiagramNodes.renderNodeElement(n, canvasW, canvasH));
             } else if (l.type === 'flow' && includeFlows && window.DataFlows) {
               const f = window.DataFlows.getFlow(l.id);
-              if (f) elements += window.DataFlows.renderFlowElement(f, canvasW, canvasH) + '\n';
+              if (f) appendObjectMarkup('flow', l.id, window.DataFlows.renderFlowElement(f, canvasW, canvasH));
             } else if (l.type === 'glow' && includeGlows && window.Glows) {
               const g = window.Glows.getGlow(l.id);
-              if (g) elements += window.Glows.renderGlowElement(g, canvasW, canvasH) + '\n';
+              if (g) appendObjectMarkup('glow', l.id, window.Glows.renderGlowElement(g, canvasW, canvasH));
             } else if (l.type === 'ripple' && includeRipples && window.Ripples) {
               const r = window.Ripples.getRipple(l.id);
-              if (r) elements += window.Ripples.renderRippleElement(r, state) + '\n';
+              if (r) appendObjectMarkup('ripple', l.id, window.Ripples.renderRippleElement(r, state));
             } else if (l.type === 'lite' && window.LiteEffects) {
               const le = window.LiteEffects.getLiteEffect(l.id);
-              if (le) elements += window.LiteEffects.renderLiteElement(le) + '\n';
+              if (le) appendObjectMarkup('lite', l.id, window.LiteEffects.renderLiteElement(le));
             } else if (l.type === 'image' && includeImages) {
               const img = (window.ImageObjects && typeof window.ImageObjects.getImage === 'function')
                 ? window.ImageObjects.getImage(l.id)
@@ -447,7 +494,7 @@
                   : (window.ImageManager && typeof window.ImageManager.renderImageElement === 'function')
                     ? window.ImageManager.renderImageElement.bind(window.ImageManager)
                     : null;
-                if (renderer) elements += renderer(img, canvasW, canvasH) + '\n';
+                if (renderer) appendObjectMarkup('image', l.id, renderer(img, canvasW, canvasH));
               }
             }
           });
@@ -460,7 +507,7 @@
                   const eff = window.LayerManager.getEffective('ripple', r.id);
                   if (eff && !eff.visible) return;
                 }
-                elements += window.Ripples.renderRippleElement(r, state) + '\n';
+                appendObjectMarkup('ripple', r.id, window.Ripples.renderRippleElement(r, state));
               }
             });
           }
@@ -471,7 +518,7 @@
                   const eff = window.LayerManager.getEffective('glow', g.id);
                   if (eff && !eff.visible) return;
                 }
-                elements += window.Glows.renderGlowElement(g, canvasW, canvasH) + '\n';
+                appendObjectMarkup('glow', g.id, window.Glows.renderGlowElement(g, canvasW, canvasH));
               }
             });
           }
@@ -482,7 +529,7 @@
                   const eff = window.LayerManager.getEffective('flow', f.id);
                   if (eff && !eff.visible) return;
                 }
-                elements += window.DataFlows.renderFlowElement(f, canvasW, canvasH) + '\n';
+                appendObjectMarkup('flow', f.id, window.DataFlows.renderFlowElement(f, canvasW, canvasH));
               }
             });
           }
@@ -493,7 +540,7 @@
                   const eff = window.LayerManager.getEffective('image', img.id);
                   if (eff && !eff.visible) return;
                 }
-                elements += window.ImageObjects.renderImageElement(img, canvasW, canvasH) + '\n';
+                appendObjectMarkup('image', img.id, window.ImageObjects.renderImageElement(img, canvasW, canvasH));
               }
             });
           }
@@ -504,7 +551,7 @@
                   const eff = window.LayerManager.getEffective('node', n.id);
                   if (eff && !eff.visible) return;
                 }
-                elements += window.DiagramNodes.renderNodeElement(n, canvasW, canvasH) + '\n';
+                appendObjectMarkup('node', n.id, window.DiagramNodes.renderNodeElement(n, canvasW, canvasH));
               }
             });
           }
@@ -515,9 +562,14 @@
                   const eff = window.LayerManager.getEffective('lite', le.id);
                   if (eff && !eff.visible) return;
                 }
-                elements += window.LiteEffects.renderLiteElement(le) + '\n';
+                appendObjectMarkup('lite', le.id, window.LiteEffects.renderLiteElement(le));
               }
             });
+          }
+
+          if (openGroupId !== null) {
+            elements += '</g>\n';
+            openGroupId = null;
           }
 
           let svgString = window.Effects.build(state);

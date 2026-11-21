@@ -2657,8 +2657,9 @@ function getDrawerWidgetPropDefs(type) {
       { prop: 'visibility', label: 'Visibility (Toggle)', type: 'boolean', desc: 'Shows or hides this image object' }
     ],
     group: [
-      { prop: 'opacity', label: 'Group Opacity (0..1)', type: 'number', min: 0, max: 1, desc: 'Opacity of the group' },
-      { prop: 'visibility', label: 'Visibility (Toggle)', type: 'boolean', desc: 'Shows or hides this group' }
+      { prop: 'opacity', label: 'Group Opacity (0..1)', type: 'number', min: 0, max: 1, default: 1.0, desc: 'Opacity of the group (0.0 to 1.0)' },
+      { prop: 'visibility', label: 'Visibility (Toggle)', type: 'boolean', default: true, desc: 'Shows or hides this group' },
+      { prop: 'speed', label: 'Group Animation Speed (0.1..10x)', type: 'speed', min: 0.1, max: 10, default: 1.0, desc: 'Playback speed multiplier for all animations inside this group (0.1 to 10.0)' }
     ],
     lite: [
       { prop: 'text', label: 'Text Content', type: 'text', desc: 'Displayed text content for Text Box Lite (immediate update on static text, cycle-boundary handover on animated text)' },
@@ -2756,6 +2757,12 @@ function getObjectPropValue(type, id, prop) {
         case 'visibility': return img.visible !== false;
       }
     }
+  } else if (type === 'group') {
+    switch (prop) {
+      case 'opacity': return 1.0;
+      case 'visibility': return true;
+      case 'speed': return 1.0;
+    }
   } else if (type === 'lite' && window.LiteEffects) {
     const le = window.LiteEffects.getLiteEffect(id);
     if (le) {
@@ -2845,13 +2852,23 @@ window.renderWidgetPropertyCards = function(containerEl, sel, statusMsgEl) {
       if (!objName) objName = img.name || '';
       objDisplayName = img.name ? `${img.name} (#${sel.id})` : `Image #${sel.id}`;
     }
+  } else if (sel.type === 'group') {
+    const grp = (window.AppCoordinator && typeof window.AppCoordinator.getGroup === 'function')
+      ? window.AppCoordinator.getGroup(sel.id)
+      : null;
+    if (grp) {
+      if (!objName) objName = grp.name || '';
+      objDisplayName = grp.name ? `${grp.name} (${grp.id})` : `Group ${grp.id}`;
+    }
   }
 
   let allParams = [];
   if (window.EngineBridge && typeof window.EngineBridge.getWidgetParameters === 'function') {
     allParams = window.EngineBridge.getWidgetParameters() || [];
   }
-  const targetId = `${sel.type}-${sel.id}`;
+  const targetId = (sel.type === 'group' && String(sel.id).startsWith('group-'))
+    ? String(sel.id)
+    : `${sel.type}-${sel.id}`;
   let propDefs = getDrawerWidgetPropDefs(sel.type);
   if (sel.type === 'lite' && liteKind) {
     propDefs = propDefs.filter((p) => {
@@ -3115,7 +3132,9 @@ window.initDrawerWidgetEvents = function() {
       const newName = renameIn.value.trim();
       const statusMsg = document.getElementById('drawerWidgetStatusMsg');
       if (window.EngineBridge && typeof window.EngineBridge.renameObject === 'function') {
-        const res = window.EngineBridge.renameObject(sel.type, sel.id, newName);
+        const res = (sel.type === 'group' && window.AppCoordinator && typeof window.AppCoordinator.renameGroup === 'function')
+          ? window.AppCoordinator.renameGroup(sel.id, newName || sel.id)
+          : window.EngineBridge.renameObject(sel.type, sel.id, newName);
         if (res && res.success) {
           if (sel.type === 'node' && window.DiagramNodes) {
             const n = window.DiagramNodes.getNode(sel.id);
@@ -3139,6 +3158,10 @@ window.initDrawerWidgetEvents = function() {
           } else if (sel.type === 'image' && window.ImageObjects) {
             const img = window.ImageObjects.getImage(sel.id);
             if (img) img.name = newName;
+          } else if (sel.type === 'group') {
+            if (window.LayersPanel && typeof window.LayersPanel.render === 'function') {
+              window.LayersPanel.render();
+            }
           }
           if (statusMsg) {
             statusMsg.style.color = '#3fb950';
@@ -3278,7 +3301,7 @@ window.renderWidgetParametersOverview = function(selectionPayload) {
       : null);
 
   if (btnExposeActive) {
-    if (sel && ['node', 'flow', 'glow', 'ripple', 'lite', 'image'].includes(sel.type) && sel.id !== null) {
+    if (sel && ['node', 'flow', 'glow', 'ripple', 'lite', 'image', 'group'].includes(sel.type) && sel.id !== null) {
       btnExposeActive.style.display = 'inline-block';
       btnExposeActive.textContent = `+ Expose ${sel.type.charAt(0).toUpperCase() + sel.type.slice(1)}`;
       btnExposeActive.title = `Expose selected ${sel.type} #${sel.id} as a widget parameter`;
@@ -3334,7 +3357,7 @@ window.renderWidgetParametersOverview = function(selectionPayload) {
   const drawerStatusMsg = document.getElementById('drawerWidgetStatusMsg');
 
   if (drawerDeck && drawerNoSel) {
-    if (sel && ['node', 'flow', 'glow', 'ripple', 'lite', 'image'].includes(sel.type) && sel.id !== null) {
+    if (sel && ['node', 'flow', 'glow', 'ripple', 'lite', 'image', 'group'].includes(sel.type) && sel.id !== null) {
       drawerNoSel.style.display = 'none';
       drawerDeck.style.display = 'block';
       if (drawerObjTypeBadge) drawerObjTypeBadge.textContent = sel.type.toUpperCase();
@@ -3378,6 +3401,14 @@ window.renderWidgetParametersOverview = function(selectionPayload) {
         if (img) {
           currentName = img.name || '';
           objDisplayName = img.name ? `${img.name} (#${sel.id})` : `Image #${sel.id}`;
+        }
+      } else if (sel.type === 'group') {
+        const grp = (window.AppCoordinator && typeof window.AppCoordinator.getGroup === 'function')
+          ? window.AppCoordinator.getGroup(sel.id)
+          : null;
+        if (grp) {
+          currentName = grp.name || '';
+          objDisplayName = grp.name ? `${grp.name} (${grp.id})` : `Group ${grp.id}`;
         }
       }
 
@@ -3497,9 +3528,15 @@ window.renderWidgetParametersOverview = function(selectionPayload) {
         const parts = target.split('-');
         if (parts.length >= 2) {
           const objType = parts[0];
-          const objId = parseInt(parts[1], 10);
-          if (window.AppCoordinator && typeof window.AppCoordinator.selectObject === 'function') {
-            window.AppCoordinator.selectObject(objType, objId);
+          if (objType === 'group') {
+            if (window.AppCoordinator && typeof window.AppCoordinator.selectGroup === 'function') {
+              window.AppCoordinator.selectGroup(target);
+            }
+          } else {
+            const objId = parseInt(parts[1], 10);
+            if (window.AppCoordinator && typeof window.AppCoordinator.selectObject === 'function') {
+              window.AppCoordinator.selectObject(objType, objId);
+            }
           }
           const rightDrawer = document.getElementById('rightDrawer');
           if (rightDrawer && rightDrawer.classList.contains('collapsed') && typeof window.toggleDrawer === 'function') {

@@ -195,15 +195,17 @@ func BuildProjectFromStudioState(projectName string, projectDesc string, schemaJ
 		FlowsCounter    int                     `json:"flowsCounter"`
 		Glows           []scene.Glow            `json:"glows"`
 		GlowsCounter    int                     `json:"glowsCounter"`
-		Ripples         []scene.Ripple          `json:"ripples"`
-		RipplesCounter  int                     `json:"ripplesCounter"`
-		Groups          []scene.Group           `json:"groups"`
-		GroupsCounter   int                     `json:"groupsCounter"`
-		Images          []scene.Image           `json:"images"`
-		ImagesCounter   int                     `json:"imagesCounter"`
-		Layers          []scene.LayerEntry      `json:"layers"`
-		Parameters      []scene.WidgetParameter `json:"parameters"`
-		Metadata        map[string]any          `json:"metadata"`
+		Ripples            []scene.Ripple          `json:"ripples"`
+		RipplesCounter     int                     `json:"ripplesCounter"`
+		LiteEffects        []scene.LiteEffect      `json:"liteEffects"`
+		LiteEffectsCounter int                     `json:"liteEffectsCounter"`
+		Groups             []scene.Group           `json:"groups"`
+		GroupsCounter      int                     `json:"groupsCounter"`
+		Images             []scene.Image           `json:"images"`
+		ImagesCounter      int                     `json:"imagesCounter"`
+		Layers             []scene.LayerEntry      `json:"layers"`
+		Parameters         []scene.WidgetParameter `json:"parameters"`
+		Metadata           map[string]any          `json:"metadata"`
 	}
 
 	if err := json.Unmarshal(schemaJson, &raw); err != nil {
@@ -431,15 +433,17 @@ func BuildProjectFromStudioState(projectName string, projectDesc string, schemaJ
 			FlowsCounter:    raw.FlowsCounter,
 			Glows:           raw.Glows,
 			GlowsCounter:    raw.GlowsCounter,
-			Ripples:         raw.Ripples,
-			RipplesCounter:  raw.RipplesCounter,
-			Groups:          groups,
-			GroupsCounter:   groupsCounter,
-			Images:          raw.Images,
-			ImagesCounter:   raw.ImagesCounter,
-			Layers:          raw.Layers,
-			Parameters:      raw.Parameters,
-			Metadata:        raw.Metadata,
+			Ripples:            raw.Ripples,
+			RipplesCounter:     raw.RipplesCounter,
+			LiteEffects:        raw.LiteEffects,
+			LiteEffectsCounter: raw.LiteEffectsCounter,
+			Groups:             groups,
+			GroupsCounter:      groupsCounter,
+			Images:             raw.Images,
+			ImagesCounter:      raw.ImagesCounter,
+			Layers:             raw.Layers,
+			Parameters:         raw.Parameters,
+			Metadata:           raw.Metadata,
 		},
 		Assets: assets,
 	}

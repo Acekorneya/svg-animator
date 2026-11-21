@@ -832,6 +832,14 @@ window.FloatingPropertiesEditor = {
               icon = '🖼️';
               const img = window.ImageObjects ? window.ImageObjects.getImage(m.id) : null;
               if (img && (img.name || img.filename)) label = `Image: ${img.name || img.filename}`;
+            } else if (m.type === 'lite') {
+              icon = '⚡';
+              const le = window.LiteEffects ? window.LiteEffects.getLiteEffect(m.id) : null;
+              if (le) {
+                const kindMap = { 'perimeter-tracer': 'Tracer', 'pulse': 'Pulse', 'flash': 'Flash', 'flow-lite': 'Flow Lite', 'radar-lite': 'Radar Lite', 'gauge-lite': 'Gauge Lite', 'oscilloscope-lite': 'Osc Lite', 'text-lite': 'Text Lite' };
+                const kindLabel = kindMap[le.kind] || 'Lite Effect';
+                label = le.name ? `${kindLabel}: ${le.name}` : `${kindLabel} #${m.id}`;
+              }
             }
 
             const labelSpan = document.createElement('span');
@@ -2136,7 +2144,7 @@ window.FloatingPropertiesEditor = {
     const sec = document.getElementById("fctx-widgetSection");
     if (!sec) return;
 
-    if (!["node", "flow", "glow", "ripple", "lite", "image"].includes(this.activeType) || this.activeId === null) {
+    if (!["node", "flow", "glow", "ripple", "lite", "image", "group"].includes(this.activeType) || this.activeId === null) {
       sec.style.display = "none";
       return;
     }
@@ -2153,7 +2161,9 @@ window.FloatingPropertiesEditor = {
 
     if (countBadge && window.EngineBridge && typeof window.EngineBridge.getWidgetParameters === "function") {
       const allParams = window.EngineBridge.getWidgetParameters() || [];
-      const targetId = `${this.activeType}-${this.activeId}`;
+      const targetId = (this.activeType === "group" && String(this.activeId).startsWith("group-"))
+        ? String(this.activeId)
+        : `${this.activeType}-${this.activeId}`;
       const boundCount = allParams.filter(p => {
         const t = p.Target || p.target;
         return t === targetId || t === String(this.activeId);

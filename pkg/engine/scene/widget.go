@@ -466,6 +466,7 @@ var ObjectPropertyCatalog = map[string][]EligibleProperty{
 	"group": {
 		{Property: "opacity", Type: "number", Label: "Group Opacity", ParamSuffix: "opacity", Description: "Transparency of the group (0.0 to 1.0)", Min: floatPtr(0), Max: floatPtr(1), Default: 1.0, DefaultSource: "1.0", RuntimeSemantics: "sets group opacity"},
 		{Property: "visibility", Type: "boolean", Label: "Visibility", ParamSuffix: "visibility", Description: "Toggle visibility of the group", Default: true, DefaultSource: "true", RuntimeSemantics: "toggles group visibility"},
+		{Property: "speed", Type: "speed", Label: "Group Animation Speed", ParamSuffix: "speed", Description: "Animation playback speed multiplier for all animations inside the group (0.1 to 10.0)", Min: floatPtr(0.1), Max: floatPtr(10.0), Default: 1.0, DefaultSource: "1.0", RuntimeSemantics: "scales descendant animation speed within the group"},
 	},
 	"lite": {
 		{Property: "color", Type: "color", Label: "Effect Colour", ParamSuffix: "color", Description: "Primary stroke or fill colour of the low-load effect", Default: "#38bdf8", DefaultSource: "lite.color", RuntimeSemantics: "recolours lite effect payload and guide; hit-targets untouched"},
@@ -630,6 +631,22 @@ func (s *Scene) getObjectNameForTargetLocked(target string) (string, string) {
 			name = "lite-" + string(le.ID)
 		}
 		return name, "lite"
+	}
+
+	if grp, ok := s.groups[StringID(t)]; ok {
+		name := grp.Name
+		if name == "" {
+			name = string(grp.ID)
+		}
+		return name, "group"
+	}
+	cleanID = strings.TrimPrefix(t, "group-")
+	if grp, ok := s.groups[StringID("group-"+cleanID)]; ok {
+		name := grp.Name
+		if name == "" {
+			name = string(grp.ID)
+		}
+		return name, "group"
 	}
 
 	return t, InferTargetType(t)
@@ -872,10 +889,10 @@ func ValidateWidgetExport(manifest *WidgetManifest, isolatedSVG string, sc *Scen
 
 		// 3. Existence in Scene (if scene contains objects)
 		tType := InferTargetType(p.Target)
-		hasSceneObjects := sc != nil && (len(sc.nodes) > 0 || len(sc.flows) > 0 || len(sc.glows) > 0 || len(sc.ripples) > 0 || len(sc.images) > 0 || len(sc.liteEffects) > 0)
+		hasSceneObjects := sc != nil && (len(sc.nodes) > 0 || len(sc.flows) > 0 || len(sc.glows) > 0 || len(sc.ripples) > 0 || len(sc.images) > 0 || len(sc.liteEffects) > 0 || len(sc.groups) > 0)
 		if hasSceneObjects && tType != "" && tType != "root" {
 			cleanID := p.Target
-			for _, prefix := range []string{"node-", "flow-", "glow-", "ripple-", "image-", "lite-"} {
+			for _, prefix := range []string{"node-", "flow-", "glow-", "ripple-", "image-", "lite-", "group-"} {
 				cleanID = strings.TrimPrefix(cleanID, prefix)
 			}
 			existsInScene := false
@@ -896,6 +913,11 @@ func ValidateWidgetExport(manifest *WidgetManifest, isolatedSVG string, sc *Scen
 				_, ok1 := sc.GetLiteEffect(StringID(cleanID))
 				_, ok2 := sc.GetLiteEffect(StringID(p.Target))
 				existsInScene = ok1 || ok2
+			case "group":
+				_, ok1 := sc.GetGroup(StringID("group-" + cleanID))
+				_, ok2 := sc.GetGroup(StringID(p.Target))
+				_, ok3 := sc.GetGroup(StringID(cleanID))
+				existsInScene = ok1 || ok2 || ok3
 			default:
 				existsInScene = true
 			}
@@ -908,7 +930,7 @@ func ValidateWidgetExport(manifest *WidgetManifest, isolatedSVG string, sc *Scen
 		if isolatedSVG != "" && p.Target != "" && p.Target != "root" && p.Target != "global" && p.Target != "stage" && p.Target != "widget" {
 			targetResolved := false
 			cleanID := p.Target
-			for _, prefix := range []string{"node-", "flow-", "glow-", "ripple-", "image-"} {
+			for _, prefix := range []string{"node-", "flow-", "glow-", "ripple-", "image-", "lite-", "group-"} {
 				cleanID = strings.TrimPrefix(cleanID, prefix)
 			}
 
@@ -917,6 +939,9 @@ func ValidateWidgetExport(manifest *WidgetManifest, isolatedSVG string, sc *Scen
 				fmt.Sprintf(`data-semantic-target='%s'`, p.Target),
 				fmt.Sprintf(`data-semantic-name="%s"`, p.Target),
 				fmt.Sprintf(`data-semantic-name='%s'`, p.Target),
+				fmt.Sprintf(`data-group-id="%s"`, p.Target),
+				fmt.Sprintf(`data-group-id='%s'`, p.Target),
+				fmt.Sprintf(`data-group-id="group-%s"`, cleanID),
 				fmt.Sprintf(`id="%s"`, p.Target),
 				fmt.Sprintf(`id='%s'`, p.Target),
 				fmt.Sprintf(`__%s"`, p.Target),
@@ -928,11 +953,13 @@ func ValidateWidgetExport(manifest *WidgetManifest, isolatedSVG string, sc *Scen
 				fmt.Sprintf(`data-glow-id="%s"`, cleanID),
 				fmt.Sprintf(`data-ripple-id="%s"`, cleanID),
 				fmt.Sprintf(`data-image-id="%s"`, cleanID),
+				fmt.Sprintf(`data-lite-id="%s"`, cleanID),
 				fmt.Sprintf(`data-node-id="%s"`, p.Target),
 				fmt.Sprintf(`data-flow-id="%s"`, p.Target),
 				fmt.Sprintf(`data-glow-id="%s"`, p.Target),
 				fmt.Sprintf(`data-ripple-id="%s"`, p.Target),
 				fmt.Sprintf(`data-image-id="%s"`, p.Target),
+				fmt.Sprintf(`data-lite-id="%s"`, p.Target),
 			}
 			for _, pat := range patterns {
 				if strings.Contains(isolatedSVG, pat) {

@@ -67,15 +67,17 @@ type SceneData struct {
 	FlowsCounter    int                    `json:"flowsCounter,omitempty"`
 	Glows           []scene.Glow           `json:"glows"`
 	GlowsCounter    int                    `json:"glowsCounter,omitempty"`
-	Ripples         []scene.Ripple         `json:"ripples"`
-	RipplesCounter  int                    `json:"ripplesCounter,omitempty"`
-	Groups          []scene.Group          `json:"groups,omitempty"`
-	GroupsCounter   int                    `json:"groupsCounter,omitempty"`
-	Images          []scene.Image          `json:"images,omitempty"`
-	ImagesCounter   int                    `json:"imagesCounter,omitempty"`
-	Layers          []scene.LayerEntry     `json:"layers,omitempty"`
-	Parameters      []scene.WidgetParameter `json:"parameters,omitempty"`
-	Metadata        map[string]any         `json:"metadata,omitempty"`
+	Ripples            []scene.Ripple          `json:"ripples"`
+	RipplesCounter     int                     `json:"ripplesCounter,omitempty"`
+	LiteEffects        []scene.LiteEffect      `json:"liteEffects,omitempty"`
+	LiteEffectsCounter int                     `json:"liteEffectsCounter,omitempty"`
+	Groups             []scene.Group           `json:"groups,omitempty"`
+	GroupsCounter      int                     `json:"groupsCounter,omitempty"`
+	Images             []scene.Image           `json:"images,omitempty"`
+	ImagesCounter      int                     `json:"imagesCounter,omitempty"`
+	Layers             []scene.LayerEntry      `json:"layers,omitempty"`
+	Parameters         []scene.WidgetParameter `json:"parameters,omitempty"`
+	Metadata           map[string]any          `json:"metadata,omitempty"`
 }
 
 // Project represents an uncompressed in-memory SVA project ready for encoding or consumption.
@@ -102,21 +104,23 @@ func (s *SceneData) ToSnapshot() scene.Snapshot {
 	}
 
 	snap := scene.Snapshot{
-		Canvas:        s.Canvas,
-		Camera:        s.Camera,
-		Optical:       s.Optical,
-		Frame:         s.Frame,
-		Overlays:      s.Frame,
-		Nodes:         s.Nodes,
-		Flows:         s.Flows,
-		Glows:         s.Glows,
-		Ripples:       s.Ripples,
-		Groups:        s.Groups,
-		GroupsCounter: int64(groupsCounter),
-		Images:        s.Images,
-		ImagesCounter: int64(s.ImagesCounter),
-		Layers:        s.Layers,
-		Parameters:    s.Parameters,
+		Canvas:             s.Canvas,
+		Camera:             s.Camera,
+		Optical:            s.Optical,
+		Frame:              s.Frame,
+		Overlays:           s.Frame,
+		Nodes:              s.Nodes,
+		Flows:              s.Flows,
+		Glows:              s.Glows,
+		Ripples:            s.Ripples,
+		LiteEffects:        s.LiteEffects,
+		LiteEffectsCounter: int64(s.LiteEffectsCounter),
+		Groups:             s.Groups,
+		GroupsCounter:      int64(groupsCounter),
+		Images:             s.Images,
+		ImagesCounter:      int64(s.ImagesCounter),
+		Layers:             s.Layers,
+		Parameters:         s.Parameters,
 	}
 
 	if s.Background != nil {

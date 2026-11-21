@@ -5,6 +5,7 @@ import (
 	"fmt"
 	"math"
 	"strconv"
+	"strings"
 
 	"gitea.seaoffate.net/blackgrape/svg-animator/pkg/engine/geometry"
 )
@@ -188,6 +189,8 @@ func (s *Scene) Ungroup(groupID StringID) ([]GroupMember, error) {
 	}
 	s.groupIDs = newIDs
 	s.pruneSelectionLocked(SelectionGroup, groupID)
+	s.pruneParametersForTargetLocked(string(groupID))
+	s.pruneParametersForTargetLocked("group-" + string(groupID))
 	s.revision++
 
 	return grp.Members, nil
@@ -253,6 +256,8 @@ func (s *Scene) RemoveGroupMembers(groupID StringID, membersToRemove []GroupMemb
 		}
 		s.groupIDs = newIDs
 		s.pruneSelectionLocked(SelectionGroup, groupID)
+		s.pruneParametersForTargetLocked(string(groupID))
+		s.pruneParametersForTargetLocked("group-" + string(groupID))
 		s.revision++
 		return Group{}, true, nil
 	}
@@ -279,12 +284,26 @@ func (s *Scene) RenameGroup(groupID StringID, newName string) (Group, error) {
 		return Group{}, fmt.Errorf("cannot rename locked group: %s", groupID)
 	}
 
+	oldName := grp.Name
 	displayName := newName
 	if displayName == "" {
 		displayName = "Group " + string(groupID)
 	}
 	grp.Name = displayName
 	s.groups[groupID] = grp
+
+	targetID := string(groupID)
+	prefixedID := targetID
+	if !strings.HasPrefix(prefixedID, "group-") {
+		prefixedID = "group-" + prefixedID
+	}
+	for i := range s.parameters {
+		p := &s.parameters[i]
+		if p.Target == targetID || p.Target == prefixedID || (oldName != "" && p.Target == oldName) {
+			p.Name = GenerateParameterName(displayName, p.Property, "group")
+		}
+	}
+
 	s.revision++
 
 	return grp, nil
@@ -338,6 +357,8 @@ func (s *Scene) DeleteGroup(groupID StringID, deleteMembers bool) error {
 	}
 	s.groupIDs = newIDs
 	s.pruneSelectionLocked(SelectionGroup, groupID)
+	s.pruneParametersForTargetLocked(string(groupID))
+	s.pruneParametersForTargetLocked("group-" + string(groupID))
 	s.revision++
 
 	return nil
@@ -377,6 +398,8 @@ func (s *Scene) pruneGroupMembersLocked(deletedType SelectionType, deletedID Str
 		}
 		s.groupIDs = newIDs
 		s.pruneSelectionLocked(SelectionGroup, gID)
+		s.pruneParametersForTargetLocked(string(gID))
+		s.pruneParametersForTargetLocked("group-" + string(gID))
 	}
 }
 

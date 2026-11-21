@@ -1543,6 +1543,8 @@ func (s *Scene) removeLiteEffectLocked(id StringID) bool {
 	s.pruneSelectionLocked(SelectionLite, id)
 	s.pruneGroupMembersLocked(SelectionLite, id)
 	s.removeLayerEntryLocked(SelectionLite, id)
+	s.pruneParametersForTargetLocked("lite-" + string(id))
+	s.pruneParametersForTargetLocked(string(id))
 	return true
 }
 

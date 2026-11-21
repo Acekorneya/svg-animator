@@ -2287,8 +2287,8 @@
           property: String(property || ''),
           targetType: String(targetType || '')
         });
-        if (res && res.success && res.paramName) {
-          return res.paramName;
+        if (res && res.success && (res.name || res.paramName)) {
+          return res.name || res.paramName;
         }
       }
       let rawName = String(objectName || '').trim().toLowerCase();
@@ -2318,6 +2318,8 @@
         else if (cleanName.startsWith('glow-')) tType = 'glow';
         else if (cleanName.startsWith('ripple-')) tType = 'ripple';
         else if (cleanName.startsWith('image-')) tType = 'image';
+        else if (cleanName.startsWith('lite-')) tType = 'lite';
+        else if (cleanName.startsWith('group-')) tType = 'group';
       }
 
       if (!tType || tType === 'root') {
@@ -2391,7 +2393,8 @@
         ],
         group: [
           { property: 'opacity', type: 'number', label: 'Group Opacity', paramSuffix: 'opacity', description: 'Transparency of the group (0.0 to 1.0)', min: 0, max: 1, default: 1.0 },
-          { property: 'visibility', type: 'boolean', label: 'Visibility', paramSuffix: 'visibility', description: 'Toggle visibility of the group', default: true }
+          { property: 'visibility', type: 'boolean', label: 'Visibility', paramSuffix: 'visibility', description: 'Toggle visibility of the group', default: true },
+          { property: 'speed', type: 'speed', label: 'Group Animation Speed', paramSuffix: 'speed', description: 'Animation speed multiplier for all animations inside the group (0.1 to 10.0)', min: 0.1, max: 10.0, default: 1.0 }
         ],
         lite: [
           { property: 'color', type: 'color', label: 'Effect Colour', paramSuffix: 'color', description: 'Primary stroke or fill colour of the low-load effect', default: '#38bdf8' },
@@ -3569,6 +3572,27 @@
             img.y = Math.max(-50, Math.min(150, (img.y || 0) + deltaY));
             window.ImageObjects.updateImage(m.id, { x: img.x, y: img.y });
           }
+        } else if (m.type === 'lite' && window.LiteEffects) {
+          const le = window.LiteEffects.getLiteEffect(m.id);
+          if (le) {
+            const cEl = document.getElementById('canvasWidthInput');
+            const hEl = document.getElementById('canvasHeightInput');
+            const cw = (cEl && parseFloat(cEl.value)) || 1280;
+            const ch = (hEl && parseFloat(hEl.value)) || 720;
+            if (le.kind === 'flow-lite' && Array.isArray(le.points)) {
+              le.points = le.points.map((pt) => ({
+                x: Math.round((pt.x + deltaX) * 1000) / 1000,
+                y: Math.round((pt.y + deltaY) * 1000) / 1000,
+                smooth: !!pt.smooth,
+                curve: Number(pt.curve) || 0
+              }));
+              window.LiteEffects.updateLiteEffect(m.id, { points: le.points });
+            } else {
+              le.x = Math.round(((le.x || 0) + (deltaX / 100) * cw) * 100) / 100;
+              le.y = Math.round(((le.y || 0) + (deltaY / 100) * ch) * 100) / 100;
+              window.LiteEffects.updateLiteEffect(m.id, { x: le.x, y: le.y });
+            }
+          }
         }
       });
       return { success: true };
@@ -3633,6 +3657,29 @@
             maxY = Math.max(maxY, img.y + hhPct);
             count++;
           }
+        } else if (m.type === 'lite' && window.LiteEffects) {
+          const le = window.LiteEffects.getLiteEffect(m.id);
+          if (le) {
+            if (le.kind === 'flow-lite' && Array.isArray(le.points) && le.points.length > 0) {
+              le.points.forEach((pt) => {
+                minX = Math.min(minX, pt.x - 1);
+                maxX = Math.max(maxX, pt.x + 1);
+                minY = Math.min(minY, pt.y - 1);
+                maxY = Math.max(maxY, pt.y + 1);
+              });
+              count++;
+            } else {
+              const cxPct = ((le.x || 0) / canvasW) * 100;
+              const cyPct = ((le.y || 0) / canvasH) * 100;
+              const hwPct = ((le.width || 120) / 2 / canvasW) * 100;
+              const hhPct = ((le.height || 80) / 2 / canvasH) * 100;
+              minX = Math.min(minX, cxPct - hwPct);
+              maxX = Math.max(maxX, cxPct + hwPct);
+              minY = Math.min(minY, cyPct - hhPct);
+              maxY = Math.max(maxY, cyPct + hhPct);
+              count++;
+            }
+          }
         }
       });
       if (count === 0) return { success: false, error: 'No geometric members in group' };
@@ -3648,6 +3695,7 @@
         glows: [],
         ripples: [],
         images: [],
+        liteEffects: [],
         groups: []
       };
       if (groupId) {
@@ -3670,6 +3718,9 @@
             } else if (m.type === 'image' && window.ImageObjects) {
               const img = window.ImageObjects.getImage(m.id);
               if (img) payload.images.push(JSON.parse(JSON.stringify(img)));
+            } else if (m.type === 'lite' && window.LiteEffects) {
+              const le = window.LiteEffects.getLiteEffect(m.id);
+              if (le) payload.liteEffects.push(JSON.parse(JSON.stringify(le)));
             }
           });
           return payload;
@@ -3692,6 +3743,9 @@
           } else if (it.type === 'image' && window.ImageObjects) {
             const img = window.ImageObjects.getImage(it.id);
             if (img) payload.images.push(JSON.parse(JSON.stringify(img)));
+          } else if (it.type === 'lite' && window.LiteEffects) {
+            const le = window.LiteEffects.getLiteEffect(it.id);
+            if (le) payload.liteEffects.push(JSON.parse(JSON.stringify(le)));
           }
         });
       }
@@ -3708,6 +3762,7 @@
       const glowMap = {};
       const rippleMap = {};
       const imageMap = {};
+      const liteMap = {};
 
       (payload.nodes || []).forEach((n) => {
         if (window.DiagramNodes) {
@@ -3785,6 +3840,33 @@
         }
       });
 
+      (payload.liteEffects || []).forEach((le) => {
+        if (window.LiteEffects && typeof window.LiteEffects.createLiteEffect === 'function') {
+          const clone = JSON.parse(JSON.stringify(le));
+          const cEl = document.getElementById('canvasWidthInput');
+          const hEl = document.getElementById('canvasHeightInput');
+          const cw = (cEl && parseFloat(cEl.value)) || 1280;
+          const ch = (hEl && parseFloat(hEl.value)) || 720;
+          if (clone.kind === 'flow-lite' && Array.isArray(clone.points)) {
+            clone.points = clone.points.map((pt) => ({
+              x: Math.round((pt.x + offsetX) * 1000) / 1000,
+              y: Math.round((pt.y + offsetY) * 1000) / 1000,
+              smooth: !!pt.smooth,
+              curve: Number(pt.curve) || 0
+            }));
+          } else {
+            clone.x = Math.round(((clone.x || 0) + (offsetX / 100) * cw) * 100) / 100;
+            clone.y = Math.round(((clone.y || 0) + (offsetY / 100) * ch) * 100) / 100;
+          }
+          if (clone.name) clone.name = '';
+          const created = window.LiteEffects.createLiteEffect(clone);
+          if (created) {
+            liteMap[le.id] = created.id;
+            newItems.push({ type: 'lite', id: created.id });
+          }
+        }
+      });
+
       let newGroupId = null;
       (payload.groups || []).forEach((g) => {
         const remappedMembers = [];
@@ -3794,6 +3876,7 @@
           else if (m.type === 'glow' && glowMap[m.id]) remappedMembers.push({ type: 'glow', id: glowMap[m.id] });
           else if (m.type === 'ripple' && rippleMap[m.id]) remappedMembers.push({ type: 'ripple', id: rippleMap[m.id] });
           else if (m.type === 'image' && imageMap[m.id]) remappedMembers.push({ type: 'image', id: imageMap[m.id] });
+          else if (m.type === 'lite' && liteMap[m.id]) remappedMembers.push({ type: 'lite', id: liteMap[m.id] });
         });
         if (remappedMembers.length >= 2) {
           const res = this.createGroup((g.name || 'Group') + ' Copy', remappedMembers);

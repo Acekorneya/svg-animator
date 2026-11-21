@@ -169,6 +169,12 @@ window.ProjectManager = {
             imagesCounter: snap.imagesCounter !== undefined ? snap.imagesCounter : (snap.images.reduce((max, i) => Math.max(max, parseInt(String(i.id).replace(/\D/g, '') || '0', 10)), imageState.imagesCounter || 0))
           };
         }
+        if (Array.isArray(snap.liteEffects)) {
+          liteState = {
+            liteEffects: snap.liteEffects,
+            liteEffectsCounter: snap.liteEffectsCounter !== undefined ? snap.liteEffectsCounter : (snap.liteEffects.reduce((max, le) => Math.max(max, parseInt(String(le.id).replace(/\D/g, '') || '0', 10)), liteState.liteEffectsCounter || 0))
+          };
+        }
         if (Array.isArray(snap.groups)) {
           groupsList = snap.groups;
           groupsCounter = snap.groupsCounter !== undefined ? snap.groupsCounter : groupsCounter;

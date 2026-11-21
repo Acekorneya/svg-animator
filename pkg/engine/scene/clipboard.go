@@ -5,20 +5,23 @@ import (
 	"fmt"
 	"math"
 	"strconv"
+	"strings"
 
 	"gitea.seaoffate.net/blackgrape/svg-animator/pkg/engine/geometry"
 )
 
 // ClipboardPayload encapsulates a self-contained copy of scene objects and groups.
 type ClipboardPayload struct {
-	Format  string   `json:"format"`  // "svg-animator-clipboard"
-	Version string   `json:"version"` // "1.0.0"
-	Nodes   []Node   `json:"nodes,omitempty"`
-	Flows   []Flow   `json:"flows,omitempty"`
-	Glows   []Glow   `json:"glows,omitempty"`
-	Ripples []Ripple `json:"ripples,omitempty"`
-	Images  []Image  `json:"images,omitempty"`
-	Groups  []Group  `json:"groups,omitempty"`
+	Format      string            `json:"format"`  // "svg-animator-clipboard"
+	Version     string            `json:"version"` // "1.0.0"
+	Nodes       []Node            `json:"nodes,omitempty"`
+	Flows       []Flow            `json:"flows,omitempty"`
+	Glows       []Glow            `json:"glows,omitempty"`
+	Ripples     []Ripple          `json:"ripples,omitempty"`
+	Images      []Image           `json:"images,omitempty"`
+	LiteEffects []LiteEffect      `json:"liteEffects,omitempty"`
+	Groups      []Group           `json:"groups,omitempty"`
+	Parameters  []WidgetParameter `json:"parameters,omitempty"`
 }
 
 // CopySelection extracts selected items (and their parent group, if specified or full member set selected)
@@ -32,32 +35,58 @@ func (s *Scene) CopySelection(items []SelectionItem, groupID StringID) (Clipboar
 		Version: "1.0.0",
 	}
 
+	copiedTargets := make(map[string]bool)
+	recordTarget := func(selType SelectionType, id StringID) {
+		raw := string(id)
+		copiedTargets[raw] = true
+		pref := PrefixForType(selType)
+		if !strings.HasPrefix(raw, pref) {
+			copiedTargets[pref+raw] = true
+		}
+	}
+
 	// 1. If groupID is provided, copy the entire group and all its members
 	if groupID != "" {
 		if grp, exists := s.groups[groupID]; exists {
-			payload.Groups = append(payload.Groups, grp)
+			payload.Groups = append(payload.Groups, DeepCopyGroup(grp))
+			recordTarget(SelectionGroup, grp.ID)
 			for _, m := range grp.Members {
 				switch m.Type {
 				case SelectionNode:
 					if n, ok := s.nodes[m.ID]; ok {
-						payload.Nodes = append(payload.Nodes, n)
+						payload.Nodes = append(payload.Nodes, DeepCopyNode(n))
+						recordTarget(SelectionNode, m.ID)
 					}
 				case SelectionFlow:
 					if f, ok := s.flows[m.ID]; ok {
-						payload.Flows = append(payload.Flows, f)
+						payload.Flows = append(payload.Flows, DeepCopyFlow(f))
+						recordTarget(SelectionFlow, m.ID)
 					}
 				case SelectionGlow:
 					if g, ok := s.glows[m.ID]; ok {
-						payload.Glows = append(payload.Glows, g)
+						payload.Glows = append(payload.Glows, DeepCopyGlow(g))
+						recordTarget(SelectionGlow, m.ID)
 					}
 				case SelectionRipple:
 					if r, ok := s.ripples[m.ID]; ok {
-						payload.Ripples = append(payload.Ripples, r)
+						payload.Ripples = append(payload.Ripples, DeepCopyRipple(r))
+						recordTarget(SelectionRipple, m.ID)
 					}
 				case SelectionImage:
 					if img, ok := s.images[m.ID]; ok {
-						payload.Images = append(payload.Images, img)
+						payload.Images = append(payload.Images, DeepCopyImage(img))
+						recordTarget(SelectionImage, m.ID)
 					}
+				case SelectionLite:
+					if le, ok := s.liteEffects[m.ID]; ok {
+						payload.LiteEffects = append(payload.LiteEffects, DeepCopyLiteEffect(le))
+						recordTarget(SelectionLite, m.ID)
+					}
+				}
+			}
+			for _, p := range s.parameters {
+				if copiedTargets[p.Target] {
+					payload.Parameters = append(payload.Parameters, p)
 				}
 			}
 			return payload, nil
@@ -74,77 +103,121 @@ func (s *Scene) CopySelection(items []SelectionItem, groupID StringID) (Clipboar
 	glowIDs := make(map[StringID]bool)
 	rippleIDs := make(map[StringID]bool)
 	imageIDs := make(map[StringID]bool)
+	liteIDs := make(map[StringID]bool)
 
 	for _, it := range items {
 		switch it.Type {
 		case SelectionNode:
-			nodeIDs[it.ID] = true
-			if n, ok := s.nodes[it.ID]; ok {
-				payload.Nodes = append(payload.Nodes, n)
+			if !nodeIDs[it.ID] {
+				nodeIDs[it.ID] = true
+				if n, ok := s.nodes[it.ID]; ok {
+					payload.Nodes = append(payload.Nodes, DeepCopyNode(n))
+					recordTarget(SelectionNode, it.ID)
+				}
 			}
 		case SelectionFlow:
-			flowIDs[it.ID] = true
-			if f, ok := s.flows[it.ID]; ok {
-				payload.Flows = append(payload.Flows, f)
+			if !flowIDs[it.ID] {
+				flowIDs[it.ID] = true
+				if f, ok := s.flows[it.ID]; ok {
+					payload.Flows = append(payload.Flows, DeepCopyFlow(f))
+					recordTarget(SelectionFlow, it.ID)
+				}
 			}
 		case SelectionGlow:
-			glowIDs[it.ID] = true
-			if g, ok := s.glows[it.ID]; ok {
-				payload.Glows = append(payload.Glows, g)
+			if !glowIDs[it.ID] {
+				glowIDs[it.ID] = true
+				if g, ok := s.glows[it.ID]; ok {
+					payload.Glows = append(payload.Glows, DeepCopyGlow(g))
+					recordTarget(SelectionGlow, it.ID)
+				}
 			}
 		case SelectionRipple:
-			rippleIDs[it.ID] = true
-			if r, ok := s.ripples[it.ID]; ok {
-				payload.Ripples = append(payload.Ripples, r)
+			if !rippleIDs[it.ID] {
+				rippleIDs[it.ID] = true
+				if r, ok := s.ripples[it.ID]; ok {
+					payload.Ripples = append(payload.Ripples, DeepCopyRipple(r))
+					recordTarget(SelectionRipple, it.ID)
+				}
 			}
 		case SelectionImage:
-			imageIDs[it.ID] = true
-			if img, ok := s.images[it.ID]; ok {
-				payload.Images = append(payload.Images, img)
+			if !imageIDs[it.ID] {
+				imageIDs[it.ID] = true
+				if img, ok := s.images[it.ID]; ok {
+					payload.Images = append(payload.Images, DeepCopyImage(img))
+					recordTarget(SelectionImage, it.ID)
+				}
+			}
+		case SelectionLite:
+			if !liteIDs[it.ID] {
+				liteIDs[it.ID] = true
+				if le, ok := s.liteEffects[it.ID]; ok {
+					payload.LiteEffects = append(payload.LiteEffects, DeepCopyLiteEffect(le))
+					recordTarget(SelectionLite, it.ID)
+				}
 			}
 		case SelectionGroup:
 			if grp, exists := s.groups[it.ID]; exists {
-				payload.Groups = append(payload.Groups, grp)
+				payload.Groups = append(payload.Groups, DeepCopyGroup(grp))
+				recordTarget(SelectionGroup, grp.ID)
 				for _, m := range grp.Members {
 					switch m.Type {
 					case SelectionNode:
 						if !nodeIDs[m.ID] {
 							nodeIDs[m.ID] = true
 							if n, ok := s.nodes[m.ID]; ok {
-								payload.Nodes = append(payload.Nodes, n)
+								payload.Nodes = append(payload.Nodes, DeepCopyNode(n))
+								recordTarget(SelectionNode, m.ID)
 							}
 						}
 					case SelectionFlow:
 						if !flowIDs[m.ID] {
 							flowIDs[m.ID] = true
 							if f, ok := s.flows[m.ID]; ok {
-								payload.Flows = append(payload.Flows, f)
+								payload.Flows = append(payload.Flows, DeepCopyFlow(f))
+								recordTarget(SelectionFlow, m.ID)
 							}
 						}
 					case SelectionGlow:
 						if !glowIDs[m.ID] {
 							glowIDs[m.ID] = true
 							if g, ok := s.glows[m.ID]; ok {
-								payload.Glows = append(payload.Glows, g)
+								payload.Glows = append(payload.Glows, DeepCopyGlow(g))
+								recordTarget(SelectionGlow, m.ID)
 							}
 						}
 					case SelectionRipple:
 						if !rippleIDs[m.ID] {
 							rippleIDs[m.ID] = true
 							if r, ok := s.ripples[m.ID]; ok {
-								payload.Ripples = append(payload.Ripples, r)
+								payload.Ripples = append(payload.Ripples, DeepCopyRipple(r))
+								recordTarget(SelectionRipple, m.ID)
 							}
 						}
 					case SelectionImage:
 						if !imageIDs[m.ID] {
 							imageIDs[m.ID] = true
 							if img, ok := s.images[m.ID]; ok {
-								payload.Images = append(payload.Images, img)
+								payload.Images = append(payload.Images, DeepCopyImage(img))
+								recordTarget(SelectionImage, m.ID)
+							}
+						}
+					case SelectionLite:
+						if !liteIDs[m.ID] {
+							liteIDs[m.ID] = true
+							if le, ok := s.liteEffects[m.ID]; ok {
+								payload.LiteEffects = append(payload.LiteEffects, DeepCopyLiteEffect(le))
+								recordTarget(SelectionLite, m.ID)
 							}
 						}
 					}
 				}
 			}
+		}
+	}
+
+	for _, p := range s.parameters {
+		if copiedTargets[p.Target] {
+			payload.Parameters = append(payload.Parameters, p)
 		}
 	}
 
@@ -171,6 +244,8 @@ func (s *Scene) PastePayload(payload ClipboardPayload, offsetX float64, offsetY 
 	glowIDMap := make(map[StringID]StringID)
 	rippleIDMap := make(map[StringID]StringID)
 	imageIDMap := make(map[StringID]StringID)
+	liteIDMap := make(map[StringID]StringID)
+	groupIDMap := make(map[StringID]StringID)
 
 	// 1. Paste Nodes
 	for _, n := range payload.Nodes {
@@ -397,7 +472,55 @@ func (s *Scene) PastePayload(payload ClipboardPayload, offsetX float64, offsetY 
 		}
 	}
 
-	// 5. Paste Groups (with member remapping)
+	// 5b. Paste LiteEffects
+	cw := s.canvas.Width
+	if cw <= 0 {
+		cw = 1280.0
+	}
+	ch := s.canvas.Height
+	if ch <= 0 {
+		ch = 720.0
+	}
+	offsetXPx := (offsetX / 100.0) * cw
+	offsetYPx := (offsetY / 100.0) * ch
+	if s.liteEffects == nil {
+		s.liteEffects = make(map[StringID]LiteEffect)
+	}
+	for _, le := range payload.LiteEffects {
+		var newID StringID
+		for {
+			s.liteEffectsCounter++
+			newID = StringID(strconv.FormatInt(s.liteEffectsCounter, 10))
+			if _, exists := s.liteEffects[newID]; !exists {
+				break
+			}
+		}
+		liteIDMap[le.ID] = newID
+
+		cloned := DeepCopyLiteEffect(le)
+		cloned.ID = newID
+		if cloned.Kind == "flow-lite" && len(cloned.Points) > 0 {
+			for i := range cloned.Points {
+				cloned.Points[i].X = math.Round((cloned.Points[i].X+offsetX)*1000.0) / 1000.0
+				cloned.Points[i].Y = math.Round((cloned.Points[i].Y+offsetY)*1000.0) / 1000.0
+			}
+		} else {
+			cloned.X = math.Round((cloned.X+offsetXPx)*100.0) / 100.0
+			cloned.Y = math.Round((cloned.Y+offsetYPx)*100.0) / 1000.0
+		}
+		if cloned.Name != "" {
+			cloned.Name = s.EnsureUniqueObjectName(SelectionLite, cloned.Name+" Copy", newID)
+		}
+
+		s.liteEffects[newID] = cloned
+		s.liteEffectOrder = append(s.liteEffectOrder, newID)
+		if len(s.layers) > 0 {
+			s.layers = append(s.layers, LayerEntry{Type: SelectionLite, ID: newID})
+		}
+		newItems = append(newItems, SelectionItem{Type: SelectionLite, ID: newID})
+	}
+
+	// 6. Paste Groups (with member remapping)
 	for _, g := range payload.Groups {
 		var newGID StringID
 		for {
@@ -419,8 +542,8 @@ func (s *Scene) PastePayload(payload ClipboardPayload, offsetX float64, offsetY 
 					remappedMembers = append(remappedMembers, GroupMember{Type: SelectionFlow, ID: newFID})
 				}
 			case SelectionGlow:
-				if newGID, ok := glowIDMap[m.ID]; ok {
-					remappedMembers = append(remappedMembers, GroupMember{Type: SelectionGlow, ID: newGID})
+				if newGlID, ok := glowIDMap[m.ID]; ok {
+					remappedMembers = append(remappedMembers, GroupMember{Type: SelectionGlow, ID: newGlID})
 				}
 			case SelectionRipple:
 				if newRID, ok := rippleIDMap[m.ID]; ok {
@@ -430,14 +553,20 @@ func (s *Scene) PastePayload(payload ClipboardPayload, offsetX float64, offsetY 
 				if newImgID, ok := imageIDMap[m.ID]; ok {
 					remappedMembers = append(remappedMembers, GroupMember{Type: SelectionImage, ID: newImgID})
 				}
+			case SelectionLite:
+				if newLID, ok := liteIDMap[m.ID]; ok {
+					remappedMembers = append(remappedMembers, GroupMember{Type: SelectionLite, ID: newLID})
+				}
 			}
 		}
 
 		if len(remappedMembers) >= 2 {
+			groupIDMap[g.ID] = newGID
 			clonedGroup := Group{
-				ID:      newGID,
-				Name:    g.Name + " Copy",
-				Members: remappedMembers,
+				ID:       newGID,
+				Name:     g.Name + " Copy",
+				Members:  remappedMembers,
+				Metadata: deepCopyMetadata(g.Metadata),
 			}
 			s.groups[newGID] = clonedGroup
 			s.groupIDs = append(s.groupIDs, newGID)
@@ -447,7 +576,99 @@ func (s *Scene) PastePayload(payload ClipboardPayload, offsetX float64, offsetY 
 		}
 	}
 
+	// 7. Remap and clone WidgetParameters bound to copied objects/groups
+	remapTargetID := func(oldTarget string) (string, bool) {
+		tType := InferTargetType(oldTarget)
+		switch tType {
+		case "node":
+			clean := StringID(strings.TrimPrefix(oldTarget, "node-"))
+			if newID, ok := nodeIDMap[clean]; ok {
+				return "node-" + string(newID), true
+			}
+			if newID, ok := nodeIDMap[StringID(oldTarget)]; ok {
+				return "node-" + string(newID), true
+			}
+		case "flow":
+			clean := StringID(strings.TrimPrefix(oldTarget, "flow-"))
+			if newID, ok := flowIDMap[clean]; ok {
+				return "flow-" + string(newID), true
+			}
+			if newID, ok := flowIDMap[StringID(oldTarget)]; ok {
+				return "flow-" + string(newID), true
+			}
+		case "glow":
+			clean := StringID(strings.TrimPrefix(oldTarget, "glow-"))
+			if newID, ok := glowIDMap[clean]; ok {
+				return "glow-" + string(newID), true
+			}
+			if newID, ok := glowIDMap[StringID(oldTarget)]; ok {
+				return "glow-" + string(newID), true
+			}
+		case "ripple":
+			clean := StringID(strings.TrimPrefix(oldTarget, "ripple-"))
+			if newID, ok := rippleIDMap[clean]; ok {
+				return "ripple-" + string(newID), true
+			}
+			if newID, ok := rippleIDMap[StringID(oldTarget)]; ok {
+				return "ripple-" + string(newID), true
+			}
+		case "image":
+			clean := StringID(strings.TrimPrefix(oldTarget, "image-"))
+			if newID, ok := imageIDMap[StringID("image-"+string(clean))]; ok {
+				return string(newID), true
+			}
+			if newID, ok := imageIDMap[StringID(oldTarget)]; ok {
+				return string(newID), true
+			}
+		case "lite":
+			clean := StringID(strings.TrimPrefix(oldTarget, "lite-"))
+			if newID, ok := liteIDMap[clean]; ok {
+				return "lite-" + string(newID), true
+			}
+			if newID, ok := liteIDMap[StringID(oldTarget)]; ok {
+				return "lite-" + string(newID), true
+			}
+		case "group":
+			if newGID, ok := groupIDMap[StringID(oldTarget)]; ok {
+				return string(newGID), true
+			}
+			clean := StringID("group-" + strings.TrimPrefix(oldTarget, "group-"))
+			if newGID, ok := groupIDMap[clean]; ok {
+				return string(newGID), true
+			}
+		}
+		return "", false
+	}
+
+	for _, p := range payload.Parameters {
+		if newTarget, ok := remapTargetID(p.Target); ok {
+			clonedParam := p
+			clonedParam.Target = newTarget
+			objName, tType := s.getObjectNameForTargetLocked(newTarget)
+			baseParamName := GenerateParameterName(objName, clonedParam.Property, tType)
+			paramName := baseParamName
+			suffix := 2
+			for {
+				collision := false
+				for _, ep := range s.parameters {
+					if ep.Name == paramName {
+						collision = true
+						break
+					}
+				}
+				if !collision {
+					break
+				}
+				paramName = fmt.Sprintf("%s-%d", baseParamName, suffix)
+				suffix++
+			}
+			clonedParam.Name = paramName
+			s.parameters = append(s.parameters, clonedParam)
+		}
+	}
+
 	s.ensureLayersInitializedLocked()
+	s.fixupAllGroupContiguitiesLocked()
 	s.revision++
 	return newItems, newGroupID, nil
 }
