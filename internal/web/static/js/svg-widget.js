@@ -317,6 +317,33 @@
         return { valid: true, value: strVal };
       }
       case 'text': {
+        if (paramDef.property === 'samples') {
+          let tokens = [];
+          if (Array.isArray(value)) {
+            tokens = value.map(String);
+          } else {
+            let trimmed = String(value).trim();
+            if (trimmed.startsWith('[') && trimmed.endsWith(']')) {
+              trimmed = trimmed.slice(1, -1).trim();
+            }
+            if (!trimmed) {
+              return { valid: false, error: `Oscilloscope samples for parameter '${paramDef.name}' cannot be empty.` };
+            }
+            tokens = trimmed.split(/[\s,;]+/).filter(Boolean);
+          }
+          if (tokens.length < 2 || tokens.length > 64) {
+            return { valid: false, error: `Oscilloscope samples for parameter '${paramDef.name}' must contain between 2 and 64 numeric values (got ${tokens.length}).` };
+          }
+          const nums = [];
+          for (let i = 0; i < tokens.length; i++) {
+            const n = Number(tokens[i]);
+            if (!Number.isFinite(n)) {
+              return { valid: false, error: `Invalid oscilloscope sample '${tokens[i]}' at index ${i} for parameter '${paramDef.name}'.` };
+            }
+            nums.push(n);
+          }
+          return { valid: true, value: nums.join(', ') };
+        }
         return { valid: true, value: String(value) };
       }
       default:
@@ -472,6 +499,23 @@
     let activeColor = baseColor;
     if (hasOverride) {
       activeColor = overrideColor;
+    } else if (el.hasAttribute('data-gauge-t1-enabled')) {
+      const enabledBands = [];
+      for (let i = 1; i <= 4; i++) {
+        if (el.getAttribute(`data-gauge-t${i}-enabled`) === 'true') {
+          const tv = parseFloat(el.getAttribute(`data-gauge-t${i}-value`));
+          const tc = el.getAttribute(`data-gauge-t${i}-color`) || baseColor;
+          if (Number.isFinite(tv)) {
+            enabledBands.push({ idx: i, value: tv, color: tc });
+          }
+        }
+      }
+      enabledBands.sort((a, b) => (a.value !== b.value ? (a.value - b.value) : (a.idx - b.idx)));
+      for (const band of enabledBands) {
+        if (safeVal >= band.value) {
+          activeColor = band.color;
+        }
+      }
     } else if (useThresh) {
       if (Number.isFinite(critT) && safeVal >= critT) activeColor = critCol;
       else if (Number.isFinite(warnT) && safeVal >= warnT) activeColor = warnCol;
@@ -574,6 +618,138 @@
     const valTxtEl = el.querySelector('.lite-gauge-value-text');
     if (valTxtEl) {
       valTxtEl.textContent = ((variant === 'hbar' || variant === 'segmented') && labelStr) ? `${labelStr}: ${displayStr}` : displayStr;
+    }
+  }
+
+  function buildOscilloscopeLitePath(el) {
+    const variant = el.getAttribute('data-osc-variant') || 'ecg';
+    const mode = el.getAttribute('data-osc-mode') || 'animated';
+    const x = parseFloat(el.getAttribute('data-osc-x')) || 0;
+    const y = parseFloat(el.getAttribute('data-osc-y')) || 0;
+    const w = Math.max(24, parseFloat(el.getAttribute('data-osc-w')) || 180);
+    const h = Math.max(16, parseFloat(el.getAttribute('data-osc-h')) || 76);
+    const cycles = Math.max(1, Math.min(12, parseInt(el.getAttribute('data-osc-cycles') || '2', 10) || 2));
+    const ampFrac = Math.max(0.05, Math.min(1.0, parseFloat(el.getAttribute('data-osc-amplitude')) || 0.75));
+    const basePct = Math.max(10, Math.min(90, parseFloat(el.getAttribute('data-osc-baseline')) || 50));
+    const yBase = y + h * (basePct / 100);
+    const maxRoom = Math.max(2, Math.min(yBase - y - 4, (y + h) - yBase - 4));
+    const ampPx = maxRoom * ampFrac;
+
+    if (mode === 'sampled') {
+      const rawSamples = el.getAttribute('data-osc-samples') || '0, 0.4, 0.9, 0.3, -0.5, -0.9, -0.2, 0.6, 1.0, 0.2, -0.4, 0';
+      const tokens = String(rawSamples).replace(/^\[|\]$/g, '').trim().split(/[\s,;]+/).filter(Boolean);
+      const samples = tokens.map(Number).filter(Number.isFinite);
+      if (samples.length < 2) return `M ${x.toFixed(2)} ${yBase.toFixed(2)} L ${(x + w).toFixed(2)} ${yBase.toFixed(2)}`;
+      let maxAbs = 0;
+      for (let i = 0; i < samples.length; i++) {
+        const a = Math.abs(samples[i]);
+        if (a > maxAbs) maxAbs = a;
+      }
+      const normDiv = maxAbs > 1.0 ? maxAbs : 1.0;
+      const pts = samples.map((v, i) => {
+        const px = x + (i / (samples.length - 1)) * w;
+        const py = yBase - (v / normDiv) * ampPx;
+        return { x: Number(px.toFixed(2)), y: Number(py.toFixed(2)) };
+      });
+      if (variant === 'bezier' && pts.length >= 3) {
+        let d = `M ${pts[0].x} ${pts[0].y}`;
+        for (let i = 0; i < pts.length - 1; i++) {
+          const p0 = pts[i];
+          const p1 = pts[i + 1];
+          const cpx1 = Number((p0.x + (p1.x - p0.x) * 0.45).toFixed(2));
+          const cpx2 = Number((p0.x + (p1.x - p0.x) * 0.55).toFixed(2));
+          d += ` C ${cpx1} ${p0.y} ${cpx2} ${p1.y} ${p1.x} ${p1.y}`;
+        }
+        return d;
+      }
+      return pts.map((p, idx) => `${idx === 0 ? 'M' : 'L'} ${p.x} ${p.y}`).join(' ');
+    }
+
+    const tileCount = mode === 'animated' ? 2 : 1;
+    const totalCycles = cycles * tileCount;
+    const periodW = w / cycles;
+    let d = `M ${x.toFixed(2)} ${yBase.toFixed(2)}`;
+
+    for (let c = 0; c < totalCycles; c++) {
+      const x0 = x + c * periodW;
+      if (variant === 'sine') {
+        const steps = 16;
+        for (let s = 1; s <= steps; s++) {
+          const t = s / steps;
+          const px = x0 + t * periodW;
+          const py = yBase - Math.sin(t * Math.PI * 2) * ampPx;
+          d += ` L ${px.toFixed(2)} ${py.toFixed(2)}`;
+        }
+      } else if (variant === 'square') {
+        const xMid = x0 + periodW * 0.5;
+        const xEnd = x0 + periodW;
+        const yHigh = yBase - ampPx;
+        const yLow = yBase + ampPx;
+        d += ` L ${x0.toFixed(2)} ${yHigh.toFixed(2)} L ${xMid.toFixed(2)} ${yHigh.toFixed(2)} L ${xMid.toFixed(2)} ${yLow.toFixed(2)} L ${xEnd.toFixed(2)} ${yLow.toFixed(2)} L ${xEnd.toFixed(2)} ${yBase.toFixed(2)}`;
+      } else if (variant === 'triangle') {
+        const x1 = x0 + periodW * 0.25;
+        const x2 = x0 + periodW * 0.75;
+        const x3 = x0 + periodW;
+        d += ` L ${x1.toFixed(2)} ${(yBase - ampPx).toFixed(2)} L ${x2.toFixed(2)} ${(yBase + ampPx).toFixed(2)} L ${x3.toFixed(2)} ${yBase.toFixed(2)}`;
+      } else if (variant === 'sawtooth') {
+        const xPeak = x0 + periodW * 0.5;
+        const xEnd = x0 + periodW;
+        d += ` L ${xPeak.toFixed(2)} ${(yBase - ampPx).toFixed(2)} L ${xPeak.toFixed(2)} ${(yBase + ampPx).toFixed(2)} L ${xEnd.toFixed(2)} ${yBase.toFixed(2)}`;
+      } else if (variant === 'polyline') {
+        const anchors = [
+          [0.15, 0.45],
+          [0.32, -0.35],
+          [0.50, 0.95],
+          [0.68, -0.75],
+          [0.85, 0.30],
+          [1.00, 0.00]
+        ];
+        for (let i = 0; i < anchors.length; i++) {
+          const px = x0 + anchors[i][0] * periodW;
+          const py = yBase - anchors[i][1] * ampPx;
+          d += ` L ${px.toFixed(2)} ${py.toFixed(2)}`;
+        }
+      } else if (variant === 'bezier') {
+        const xMid = x0 + periodW * 0.5;
+        const xEnd = x0 + periodW;
+        const cp1x = x0 + periodW * 0.18;
+        const cp2x = x0 + periodW * 0.32;
+        const cp3x = x0 + periodW * 0.68;
+        const cp4x = x0 + periodW * 0.82;
+        const yHigh = yBase - ampPx;
+        const yLow = yBase + ampPx;
+        d += ` C ${cp1x.toFixed(2)} ${yHigh.toFixed(2)} ${cp2x.toFixed(2)} ${yHigh.toFixed(2)} ${xMid.toFixed(2)} ${yBase.toFixed(2)}`;
+        d += ` C ${cp3x.toFixed(2)} ${yLow.toFixed(2)} ${cp4x.toFixed(2)} ${yLow.toFixed(2)} ${xEnd.toFixed(2)} ${yBase.toFixed(2)}`;
+      } else {
+        const ecgPts = [
+          [0.18, 0.00],
+          [0.24, 0.18],
+          [0.30, 0.00],
+          [0.38, 0.00],
+          [0.42, -0.22],
+          [0.48, 1.00],
+          [0.54, -0.45],
+          [0.60, 0.00],
+          [0.70, 0.00],
+          [0.78, 0.32],
+          [0.86, 0.00],
+          [1.00, 0.00]
+        ];
+        for (let i = 0; i < ecgPts.length; i++) {
+          const px = x0 + ecgPts[i][0] * periodW;
+          const py = yBase - ecgPts[i][1] * ampPx;
+          d += ` L ${px.toFixed(2)} ${py.toFixed(2)}`;
+        }
+      }
+    }
+    return d;
+  }
+
+  function updateOscilloscopeLiteDOM(el) {
+    if (!el || el.getAttribute('data-lite-kind') !== 'oscilloscope-lite') return;
+    const waveEl = el.querySelector('.lite-osc-wave');
+    if (waveEl) {
+      waveEl.setAttribute('d', buildOscilloscopeLitePath(el));
     }
   }
 
@@ -711,6 +887,14 @@
               el.setAttribute('data-gauge-override-color', value);
             }
             updateGaugeLiteDOM(el);
+            break;
+          }
+          if (el.getAttribute('data-lite-kind') === 'oscilloscope-lite') {
+            el.setAttribute('data-osc-color', value);
+            el.querySelectorAll('.lite-osc-wave, .lite-osc-screen, .lite-osc-grid line').forEach((node) => {
+              node.setAttribute('stroke', value);
+              if (node.style) node.style.stroke = value;
+            });
             break;
           }
           // Lite effects: recolour visible .lite-payload & .lite-guide-track elements, preserving .lite-hit-target
@@ -936,6 +1120,13 @@
         if (el && el.getAttribute('data-lite-kind') === 'gauge-lite') {
           el.setAttribute('data-gauge-bg-color', value);
           updateGaugeLiteDOM(el);
+        } else if (el && el.getAttribute('data-lite-kind') === 'oscilloscope-lite') {
+          el.setAttribute('data-osc-bg-color', value);
+          const screen = el.querySelector('.lite-osc-screen');
+          if (screen) {
+            screen.setAttribute('fill', value);
+            if (screen.style) screen.style.fill = value;
+          }
         }
         break;
       }
@@ -1034,6 +1225,17 @@
                 } else {
                   node.style.animationDirection = nextDir === origDir ? 'normal' : 'reverse';
                 }
+              }
+            });
+            break;
+          }
+          if (el.getAttribute('data-lite-kind') === 'oscilloscope-lite') {
+            const rawDir = String(value).toLowerCase();
+            const nextDir = (rawDir === 'reverse' || rawDir === 'ccw') ? 'reverse' : 'forward';
+            el.setAttribute('data-osc-direction', nextDir);
+            el.querySelectorAll('.lite-osc-wave').forEach((node) => {
+              if (node.style) {
+                node.style.animationDirection = nextDir === 'reverse' ? 'reverse' : 'normal';
               }
             });
             break;
@@ -1146,7 +1348,12 @@
       }
       case 'intensity': {
         if (el) {
-          const amp = Math.max(0, Math.min(1, parseFloat(value) || 0.85));
+          const amp = Math.max(0.05, Math.min(1, parseFloat(value) || 0.75));
+          if (el.getAttribute('data-lite-kind') === 'oscilloscope-lite') {
+            el.setAttribute('data-osc-amplitude', String(amp));
+            updateOscilloscopeLiteDOM(el);
+            break;
+          }
           el.querySelectorAll('.lite-payload').forEach(node => {
             node.setAttribute('data-intensity', String(amp));
             if (node.style && typeof node.style.setProperty === 'function') {
@@ -1154,6 +1361,19 @@
               node.style.setProperty('--sva-flash-int', String(amp));
             }
           });
+        }
+        break;
+      }
+      case 'samples': {
+        if (el && el.getAttribute('data-lite-kind') === 'oscilloscope-lite') {
+          el.setAttribute('data-osc-samples', String(value));
+          el.setAttribute('data-osc-mode', 'sampled');
+          const waveEl = el.querySelector('.lite-osc-wave');
+          if (waveEl) {
+            if (waveEl.classList) waveEl.classList.remove('sva-lite-osc-anim');
+            if (waveEl.style) waveEl.style.animationName = 'none';
+          }
+          updateOscilloscopeLiteDOM(el);
         }
         break;
       }

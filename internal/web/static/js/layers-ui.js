@@ -179,8 +179,8 @@
         if (r) name = r.name || `Ripple #${layer.id}`;
       } else if (layer.type === 'lite') {
         const le = window.LiteEffects ? window.LiteEffects.getLiteEffect(layer.id) : null;
-        const kindMap = { 'perimeter-tracer': 'Tracer', 'pulse': 'Pulse', 'flash': 'Flash', 'flow-lite': 'Flow', 'radar-lite': 'Radar', 'gauge-lite': 'Gauge' };
-        const iconMap = { 'perimeter-tracer': '▭', 'pulse': '◎', 'flash': '✦', 'flow-lite': '↝', 'radar-lite': '◉', 'gauge-lite': '◕' };
+        const kindMap = { 'perimeter-tracer': 'Tracer', 'pulse': 'Pulse', 'flash': 'Flash', 'flow-lite': 'Flow', 'radar-lite': 'Radar', 'gauge-lite': 'Gauge', 'oscilloscope-lite': 'Osc' };
+        const iconMap = { 'perimeter-tracer': '▭', 'pulse': '◎', 'flash': '✦', 'flow-lite': '↝', 'radar-lite': '◉', 'gauge-lite': '◕', 'oscilloscope-lite': '∿' };
         icon = le ? (iconMap[le.kind] || '⚡') : '⚡';
         const kindLabel = le ? (kindMap[le.kind] || le.kind) : 'Lite';
         name = (le && le.name) ? `${le.name} (${kindLabel})` : `${kindLabel} #${layer.id}`;

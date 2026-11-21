@@ -464,7 +464,8 @@ window.FloatingPropertiesEditor = {
             'flash': ['diamond', 'circle', 'square', 'cross', 'star'],
             'flow-lite': ['dashed', 'dotted', 'single'],
             'radar-lite': ['multi', 'single', 'fading-ping'],
-            'gauge-lite': ['ring', 'hbar', 'vbar', 'segmented', 'level']
+            'gauge-lite': ['ring', 'hbar', 'vbar', 'segmented', 'level'],
+            'oscilloscope-lite': ['ecg', 'sine', 'square', 'triangle', 'sawtooth', 'polyline', 'bezier']
           };
           const labelsByOpt = {
             'multi': 'Multiple Pings (multi)',
@@ -474,10 +475,17 @@ window.FloatingPropertiesEditor = {
             'hbar': 'Horizontal Bar Gauge (hbar)',
             'vbar': 'Vertical Bar Gauge (vbar)',
             'segmented': 'Segmented Bar Gauge (segmented)',
-            'level': 'Filled-Level Indicator (level)'
+            'level': 'Filled-Level Indicator (level)',
+            'ecg': 'ECG / Heartbeat (ecg)',
+            'sine': 'Sine Wave (sine)',
+            'square': 'Square Wave (square)',
+            'triangle': 'Triangle Wave (triangle)',
+            'sawtooth': 'Sawtooth Wave (sawtooth)',
+            'polyline': 'Angular Polyline (polyline)',
+            'bezier': 'Bézier-Smoothed Curve (bezier)'
           };
           const opts = optsByKind[le.kind] || ['circle'];
-          variantSel.innerHTML = opts.map((o) => `<option value="${o}">${(le.kind === 'radar-lite' || le.kind === 'gauge-lite') && labelsByOpt[o] ? labelsByOpt[o] : o}</option>`).join('');
+          variantSel.innerHTML = opts.map((o) => `<option value="${o}">${(['radar-lite', 'gauge-lite', 'oscilloscope-lite'].includes(le.kind)) && labelsByOpt[o] ? labelsByOpt[o] : o}</option>`).join('');
         }
         const durMs = Math.round((Number(le.dur) || 0.10) * 1000);
         this._setVal('fctx-liteNameInput', le.name || '');
@@ -521,16 +529,18 @@ window.FloatingPropertiesEditor = {
         const flg = document.getElementById('fctx-liteFlowGroup');
         const rdg = document.getElementById('fctx-liteRadarGroup');
         const gg = document.getElementById('fctx-liteGaugeGroup');
+        const og = document.getElementById('fctx-liteOscGroup');
         const trigBtn = document.getElementById('fctx-btnTriggerLiteFlash');
         if (dimGrp) dimGrp.style.display = le.kind === 'flow-lite' ? 'none' : '';
         if (tg) tg.style.display = le.kind === 'perimeter-tracer' ? 'block' : 'none';
-        if (crRow) crRow.style.display = ((le.kind === 'perimeter-tracer' && le.variant === 'rounded') || (le.kind === 'gauge-lite' && ['hbar', 'vbar', 'level'].includes(le.variant))) ? '' : 'none';
+        if (crRow) crRow.style.display = ((le.kind === 'perimeter-tracer' && le.variant === 'rounded') || (le.kind === 'gauge-lite' && ['hbar', 'vbar', 'level'].includes(le.variant)) || le.kind === 'oscilloscope-lite') ? '' : 'none';
         if (armRow) armRow.style.display = ((le.kind === 'pulse' || le.kind === 'flash') && (le.variant === 'cross' || le.variant === 'star')) ? '' : 'none';
         if (pg) pg.style.display = le.kind === 'pulse' ? 'block' : 'none';
         if (fg) fg.style.display = le.kind === 'flash' ? 'block' : 'none';
         if (flg) flg.style.display = le.kind === 'flow-lite' ? 'block' : 'none';
         if (rdg) rdg.style.display = le.kind === 'radar-lite' ? 'block' : 'none';
         if (gg) gg.style.display = le.kind === 'gauge-lite' ? 'block' : 'none';
+        if (og) og.style.display = le.kind === 'oscilloscope-lite' ? 'block' : 'none';
         if (trigBtn) trigBtn.style.display = le.kind === 'flash' ? 'inline-block' : 'none';
 
         if (le.kind === 'gauge-lite') {
@@ -552,15 +562,51 @@ window.FloatingPropertiesEditor = {
           this._setChk('fctx-liteGaugeShowGuideChk', le.showGuide !== false);
           this._setVal('fctx-liteGaugeUnitInput', le.unit !== undefined ? le.unit : '%');
           this._setVal('fctx-liteGaugeLabelInput', le.labelText || '');
-          this._setChk('fctx-liteGaugeUseThresholdsChk', Boolean(le.useThresholds));
-          this._setVal('fctx-liteGaugeWarnThresholdNum', le.warnThreshold !== undefined ? le.warnThreshold : 70);
-          this._setVal('fctx-liteGaugeWarnColorPicker', le.warnColor || '#f59e0b');
-          this._setVal('fctx-liteGaugeCritThresholdNum', le.critThreshold !== undefined ? le.critThreshold : 90);
-          this._setVal('fctx-liteGaugeCritColorPicker', le.critColor || '#ef4444');
+          const bands = (Array.isArray(le.thresholds) && le.thresholds.length === 4)
+            ? le.thresholds
+            : [
+                { enabled: false, value: 40, color: '#22c55e' },
+                { enabled: false, value: 60, color: '#eab308' },
+                { enabled: Boolean(le.useThresholds), value: le.warnThreshold !== undefined ? le.warnThreshold : 70, color: le.warnColor || '#f59e0b' },
+                { enabled: Boolean(le.useThresholds), value: le.critThreshold !== undefined ? le.critThreshold : 90, color: le.critColor || '#ef4444' }
+              ];
+          this._setChk('fctx-liteGaugeUseThresholdsChk', bands.some((b) => b.enabled));
+          this._setChk('fctx-liteGaugeThresh1Chk', Boolean(bands[0].enabled));
+          this._setVal('fctx-liteGaugeThresh1Num', bands[0].value);
+          this._setVal('fctx-liteGaugeThresh1ColorPicker', bands[0].color || '#22c55e');
+          this._setChk('fctx-liteGaugeThresh2Chk', Boolean(bands[1].enabled));
+          this._setVal('fctx-liteGaugeThresh2Num', bands[1].value);
+          this._setVal('fctx-liteGaugeThresh2ColorPicker', bands[1].color || '#eab308');
+          this._setChk('fctx-liteGaugeThresh3Chk', Boolean(bands[2].enabled));
+          this._setVal('fctx-liteGaugeWarnThresholdNum', bands[2].value);
+          this._setVal('fctx-liteGaugeWarnColorPicker', bands[2].color || '#f59e0b');
+          this._setChk('fctx-liteGaugeThresh4Chk', Boolean(bands[3].enabled));
+          this._setVal('fctx-liteGaugeCritThresholdNum', bands[3].value);
+          this._setVal('fctx-liteGaugeCritColorPicker', bands[3].color || '#ef4444');
           const fctxSegRow = document.getElementById('fctx-liteGaugeSegmentsRow');
           if (fctxSegRow) fctxSegRow.style.display = le.variant === 'segmented' ? '' : 'none';
-          const fctxThreshPanel = document.getElementById('fctx-liteGaugeThresholdsPanel');
-          if (fctxThreshPanel) fctxThreshPanel.style.display = le.useThresholds ? 'block' : 'none';
+        }
+
+        if (le.kind === 'oscilloscope-lite') {
+          const mode = ['static', 'animated', 'sampled'].includes(le.playbackMode) ? le.playbackMode : 'animated';
+          this._setVal('fctx-liteOscModeSelect', mode);
+          this._setVal('fctx-liteOscBgColorPicker', le.bgColor || '#0b1322');
+          this._setChk('fctx-liteOscShowGuideChk', le.showGuide !== false);
+          this._setPair('fctx-liteOscAmplitude', le.intensity !== undefined ? le.intensity : 0.75);
+          this._setPair('fctx-liteOscCycles', le.segments || 2);
+          this._setPair('fctx-liteOscBaseline', le.startOffset !== undefined ? le.startOffset : 50);
+          this._setPair('fctx-liteOscStrokeWidth', le.strokeWidth || 2.2);
+          this._setPair('fctx-liteOscSpeed', le.speed || le.period || 2.4);
+          this._setVal('fctx-liteOscDirectionSelect', (le.direction === 'reverse' || le.direction === 'ccw') ? 'reverse' : 'forward');
+          this._setVal('fctx-liteOscSamplesInput', le.samples || '0, 0.4, 0.9, 0.3, -0.5, -0.9, -0.2, 0.6, 1.0, 0.2, -0.4, 0');
+          const cycRow = document.getElementById('fctx-liteOscCyclesRow');
+          const spdRow = document.getElementById('fctx-liteOscSpeedRow');
+          const dirRow = document.getElementById('fctx-liteOscDirectionRow');
+          const smpRow = document.getElementById('fctx-liteOscSamplesRow');
+          if (cycRow) cycRow.style.display = mode === 'sampled' ? 'none' : '';
+          if (spdRow) spdRow.style.display = mode === 'animated' ? '' : 'none';
+          if (dirRow) dirRow.style.display = mode === 'animated' ? '' : 'none';
+          if (smpRow) smpRow.style.display = mode === 'sampled' ? '' : 'none';
         }
 
         if (le.kind === 'radar-lite') {
@@ -1409,7 +1455,12 @@ window.FloatingPropertiesEditor = {
       ['fctx-liteRadarStrokeWidth', 'strokeWidth', false],
       ['fctx-liteGaugeValue', 'value', false],
       ['fctx-liteGaugeSegments', 'segments', true],
-      ['fctx-liteGaugeStrokeWidth', 'strokeWidth', false]
+      ['fctx-liteGaugeStrokeWidth', 'strokeWidth', false],
+      ['fctx-liteOscAmplitude', 'intensity', false],
+      ['fctx-liteOscCycles', 'segments', true],
+      ['fctx-liteOscBaseline', 'startOffset', false],
+      ['fctx-liteOscStrokeWidth', 'strokeWidth', false],
+      ['fctx-liteOscSpeed', 'speed', false]
     ];
     litePairs.forEach(([baseId, prop, isInt]) => {
       const slider = document.getElementById(baseId + 'Slider');
@@ -1487,10 +1538,23 @@ window.FloatingPropertiesEditor = {
     bindLiteSimple('fctx-liteGaugeUnitInput', 'unit', 'input');
     bindLiteSimple('fctx-liteGaugeLabelInput', 'labelText', 'input');
     bindLiteSimple('fctx-liteGaugeUseThresholdsChk', 'useThresholds', 'change', true);
-    bindLiteSimple('fctx-liteGaugeWarnThresholdNum', 'warnThreshold', 'input');
-    bindLiteSimple('fctx-liteGaugeWarnColorPicker', 'warnColor', 'input');
-    bindLiteSimple('fctx-liteGaugeCritThresholdNum', 'critThreshold', 'input');
-    bindLiteSimple('fctx-liteGaugeCritColorPicker', 'critColor', 'input');
+    bindLiteSimple('fctx-liteGaugeThresh1Chk', 'threshold1Enabled', 'change', true);
+    bindLiteSimple('fctx-liteGaugeThresh1Num', 'threshold1Value', 'input');
+    bindLiteSimple('fctx-liteGaugeThresh1ColorPicker', 'threshold1Color', 'input');
+    bindLiteSimple('fctx-liteGaugeThresh2Chk', 'threshold2Enabled', 'change', true);
+    bindLiteSimple('fctx-liteGaugeThresh2Num', 'threshold2Value', 'input');
+    bindLiteSimple('fctx-liteGaugeThresh2ColorPicker', 'threshold2Color', 'input');
+    bindLiteSimple('fctx-liteGaugeThresh3Chk', 'threshold3Enabled', 'change', true);
+    bindLiteSimple('fctx-liteGaugeWarnThresholdNum', 'threshold3Value', 'input');
+    bindLiteSimple('fctx-liteGaugeWarnColorPicker', 'threshold3Color', 'input');
+    bindLiteSimple('fctx-liteGaugeThresh4Chk', 'threshold4Enabled', 'change', true);
+    bindLiteSimple('fctx-liteGaugeCritThresholdNum', 'threshold4Value', 'input');
+    bindLiteSimple('fctx-liteGaugeCritColorPicker', 'threshold4Color', 'input');
+    bindLiteSimple('fctx-liteOscModeSelect', 'playbackMode', 'change');
+    bindLiteSimple('fctx-liteOscBgColorPicker', 'bgColor', 'input');
+    bindLiteSimple('fctx-liteOscShowGuideChk', 'showGuide', 'change', true);
+    bindLiteSimple('fctx-liteOscDirectionSelect', 'direction', 'change');
+    bindLiteSimple('fctx-liteOscSamplesInput', 'samples', 'input');
 
     document.getElementById('fctx-btnAddLiteFlowNode')?.addEventListener('click', () => {
       if (this.activeType === 'lite' && window.LiteEffects) {

@@ -290,29 +290,29 @@
       </div>
     </div>
 
-    <!-- Card 4: Live Interactive Two-Instance Stage 16C Widget Runtime Demo -->
+    <!-- Card 4: Live Interactive Two-Instance Stage 16C Widget Runtime Demo (Four Independently Enabled Thresholds) -->
     <div class="card" id="demo-card-interactive-widgets">
       <div class="card-header">
-        <span class="card-title">4. Live Independent Stage 16C Widget Instances &amp; Colour Precedence</span>
-        <span class="card-meta">SVGWidget.mount() · Instance A vs. Instance B</span>
+        <span class="card-title">4. Four Independently Enabled Thresholds &amp; Stage 16C Widget Isolation</span>
+        <span class="card-meta">T1(40,Green)=ON · T2(60,Yellow)=OFF · T3(80,Orange)=ON · T4(95,Red)=ON</span>
       </div>
-      <p class="card-desc">Two independent widget instances mounted from the same exported SVG template. Adjusting Instance A's value or applying an explicit application colour override updates only Instance A while Instance B remains completely isolated.</p>
+      <p class="card-desc">Two independent widget instances configured with four threshold bands where Band 2 (60%, Yellow) is disabled: values &lt;40 use Base Cyan (#38bdf8), 40..79 use Band 1 Green (#22c55e — ignoring disabled Band 2 at 60), 80..94 use Band 3 Orange (#f59e0b), and ≥95 use Band 4 Red (#ef4444).</p>
       <div class="stage-box" style="display: grid; grid-template-columns: 1fr 1fr; gap: 12px; padding: 12px;">
         <div id="widget-host-a" style="height: 170px;"></div>
         <div id="widget-host-b" style="height: 170px;"></div>
       </div>
       <div class="controls-bar">
         <label>Inst A Value:
-          <input type="range" id="ctrl-inst-a-val" min="0" max="100" value="42" />
-          <span id="lbl-inst-a-val">42%</span>
+          <input type="range" id="ctrl-inst-a-val" min="0" max="100" value="65" />
+          <span id="lbl-inst-a-val">65%</span>
         </label>
         <div style="display: flex; gap: 6px;">
           <button type="button" class="btn-sm" id="btn-inst-a-override">Override Inst A Purple (#a855f7)</button>
           <button type="button" class="btn-sm" id="btn-inst-a-reset">Reset Inst A (Auto Thresholds)</button>
         </div>
         <label>Inst B Value:
-          <input type="range" id="ctrl-inst-b-val" min="0" max="100" value="94" />
-          <span id="lbl-inst-b-val">94%</span>
+          <input type="range" id="ctrl-inst-b-val" min="0" max="100" value="96" />
+          <span id="lbl-inst-b-val">96%</span>
         </label>
       </div>
     </div>
@@ -322,17 +322,22 @@
     (function() {
       const templateSvg = `<svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 220 170">
         <g id="lite-1" class="diagram-lite-instance" data-lite-id="1" data-lite-kind="gauge-lite" data-semantic-target="lite-1" data-semantic-name="cpuLoad"
-           data-gauge-variant="ring" data-gauge-value="42" data-gauge-min="0" data-gauge-max="100" data-gauge-fraction="0.4200"
-           data-gauge-base-color="#22c55e" data-gauge-active-color="#22c55e" data-gauge-bg-color="#1e293b"
-           data-gauge-use-thresholds="true" data-gauge-warn-threshold="70" data-gauge-warn-color="#f59e0b"
-           data-gauge-crit-threshold="90" data-gauge-crit-color="#ef4444" data-gauge-segments="10"
+           data-gauge-variant="ring" data-gauge-value="65" data-gauge-min="0" data-gauge-max="100" data-gauge-fraction="0.6500"
+           data-gauge-base-color="#38bdf8" data-gauge-active-color="#22c55e" data-gauge-bg-color="#1e293b"
+           data-gauge-use-thresholds="true"
+           data-gauge-t1-enabled="true" data-gauge-t1-value="40" data-gauge-t1-color="#22c55e"
+           data-gauge-t2-enabled="false" data-gauge-t2-value="60" data-gauge-t2-color="#eab308"
+           data-gauge-t3-enabled="true" data-gauge-t3-value="80" data-gauge-t3-color="#f59e0b"
+           data-gauge-t4-enabled="true" data-gauge-t4-value="95" data-gauge-t4-color="#ef4444"
+           data-gauge-warn-threshold="80" data-gauge-warn-color="#f59e0b"
+           data-gauge-crit-threshold="95" data-gauge-crit-color="#ef4444" data-gauge-segments="10"
            data-gauge-direction="forward" data-gauge-unit="%" data-gauge-label="CPU Load"
            data-gauge-x="55" data-gauge-y="30" data-gauge-w="110" data-gauge-h="110" data-gauge-cx="110" data-gauge-cy="85" data-gauge-cr="6" data-gauge-sw="10">
           <rect class="lite-hit-target" x="55" y="30" width="110" height="110" fill="transparent" />
           <ellipse class="lite-guide-track lite-gauge-track" cx="110" cy="85" rx="50" ry="50" pathLength="100" fill="none" stroke="#1e293b" stroke-width="10" />
-          <ellipse class="lite-payload lite-gauge-fill lite-gauge-arc" cx="110" cy="85" rx="50" ry="50" pathLength="100" fill="none" stroke="#22c55e" stroke-width="10" stroke-dasharray="42 200" stroke-linecap="round" transform="rotate(-90, 110, 85)" />
+          <ellipse class="lite-payload lite-gauge-fill lite-gauge-arc" cx="110" cy="85" rx="50" ry="50" pathLength="100" fill="none" stroke="#22c55e" stroke-width="10" stroke-dasharray="65 200" stroke-linecap="round" transform="rotate(-90, 110, 85)" />
           <g class="lite-guide-track lite-gauge-readout">
-            <text class="lite-gauge-value-text" x="110" y="81" text-anchor="middle" fill="#f8fafc" font-family="system-ui, sans-serif" font-size="18" font-weight="700">42%</text>
+            <text class="lite-gauge-value-text" x="110" y="81" text-anchor="middle" fill="#f8fafc" font-family="system-ui, sans-serif" font-size="18" font-weight="700">65%</text>
             <text class="lite-gauge-label-text" x="110" y="100" text-anchor="middle" fill="#94a3b8" font-family="system-ui, sans-serif" font-size="11" font-weight="600">CPU Load</text>
           </g>
         </g>
@@ -340,8 +345,8 @@
           "schemaVersion": "1.0",
           "widgetName": "CPU Gauge Widget",
           "parameters": [
-            { "name": "cpuload-lite-value", "type": "number", "target": "lite-1", "property": "value", "default": 42 },
-            { "name": "cpuload-lite-color", "type": "color", "target": "lite-1", "property": "color", "default": "#22c55e" },
+            { "name": "cpuload-lite-value", "type": "number", "target": "lite-1", "property": "value", "default": 65 },
+            { "name": "cpuload-lite-color", "type": "color", "target": "lite-1", "property": "color", "default": "#38bdf8" },
             { "name": "cpuload-lite-bgcolor", "type": "color", "target": "lite-1", "property": "bgColor", "default": "#1e293b" }
           ]
         }<\/script>
@@ -354,7 +359,7 @@
         const instB = window.SVGWidget.mount(hostB, templateSvg, {
           instanceId: 'demo-gauge-b',
           scopeCss: true,
-          parameters: { 'cpuload-lite-value': 94 }
+          parameters: { 'cpuload-lite-value': 96 }
         });
         window._demoGaugeInstA = instA;
         window._demoGaugeInstB = instB;
@@ -378,8 +383,8 @@
         if (btnReset) {
           btnReset.addEventListener('click', () => {
             instA.resetParameters();
-            if (sliderA) sliderA.value = '42';
-            if (lblA) lblA.textContent = '42%';
+            if (sliderA) sliderA.value = '65';
+            if (lblA) lblA.textContent = '65%';
           });
         }
         const sliderB = document.getElementById('ctrl-inst-b-val');

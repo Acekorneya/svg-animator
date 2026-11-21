@@ -2681,7 +2681,8 @@ function getDrawerWidgetPropDefs(type) {
       { prop: 'showGuide', label: 'Guide Visibility', type: 'boolean', desc: 'Show or hide static perimeter boundary guide or radar centre dot' },
       { prop: 'scale', label: 'Max Scale', type: 'number', min: 0.2, max: 3.0, desc: 'Maximum pulse/radar expansion scale multiplier (0.2 to 3.0)' },
       { prop: 'period', label: 'Cycle Duration / Period (s)', type: 'number', min: 0.2, max: 30, desc: 'Pulse or Radar Ping cycle duration in seconds (0.2 to 30.0)' },
-      { prop: 'intensity', label: 'Intensity', type: 'number', min: 0, max: 1, desc: 'Peak pulse/flash amplitude (0.0 to 1.0)' },
+      { prop: 'intensity', label: 'Intensity / Amplitude', type: 'number', min: 0, max: 1, desc: 'Peak pulse/flash/oscilloscope amplitude (0.0 to 1.0)' },
+      { prop: 'samples', label: 'Waveform Samples', type: 'text', desc: 'Bounded numeric sample sequence (2 to 64 comma-separated values) for Oscilloscope Lite sampled mode' },
       { prop: 'trigger', label: 'Flash Trigger', type: 'number', min: 0, max: 1000000, desc: 'Incrementing or changing this value triggers a single-shot Flash Lite pulse' },
       { prop: 'duration', label: 'Flash Duration (ms)', type: 'number', min: 20, max: 1000, desc: 'Flash duration in milliseconds (20 to 1000 ms)' },
       { prop: 'repeat', label: 'Flash Repeat', type: 'boolean', desc: 'Repeat flash periodically instead of single-shot' }
@@ -2756,20 +2757,20 @@ function getObjectPropValue(type, id, prop) {
     if (le) {
       switch (prop) {
         case 'color': return le.color || '#38bdf8';
-        case 'bgColor': return le.bgColor || '#1e293b';
+        case 'bgColor': return le.bgColor || (le.kind === 'oscilloscope-lite' ? '#0b1322' : '#1e293b');
         case 'value': return le.value !== undefined ? le.value : 65;
         case 'minValue': return le.minValue !== undefined ? le.minValue : 0;
         case 'maxValue': return le.maxValue !== undefined ? le.maxValue : 100;
-        case 'opacity': return le.opacity !== undefined ? le.opacity : (le.kind === 'gauge-lite' ? 1.0 : 0.9);
+        case 'opacity': return le.opacity !== undefined ? le.opacity : ((le.kind === 'gauge-lite' || le.kind === 'oscilloscope-lite') ? 1.0 : 0.9);
         case 'visibility': return le.visible !== false;
         case 'speed': return 1.0;
-        case 'strokeWidth': return le.strokeWidth !== undefined ? le.strokeWidth : (le.kind === 'flow-lite' ? 3.0 : (le.kind === 'radar-lite' ? 2.0 : (le.kind === 'gauge-lite' ? (le.variant === 'ring' ? 8.0 : 2.0) : 2.5)));
+        case 'strokeWidth': return le.strokeWidth !== undefined ? le.strokeWidth : (le.kind === 'flow-lite' ? 3.0 : (le.kind === 'radar-lite' ? 2.0 : (le.kind === 'oscilloscope-lite' ? 2.2 : (le.kind === 'gauge-lite' ? (le.variant === 'ring' ? 8.0 : 2.0) : 2.5))));
         case 'dashLength': return le.dashLength !== undefined ? le.dashLength : (le.variant === 'single' ? 36 : 18);
         case 'gapLength': return le.gapLength !== undefined ? le.gapLength : 14;
         case 'dotSize': return le.dotSize !== undefined ? le.dotSize : 5;
         case 'segments': return le.segments !== undefined ? le.segments : 2;
         case 'lineGapRatio': return le.lineGapRatio || '1:3';
-        case 'direction': return le.direction || (le.kind === 'flow-lite' ? 'forward' : 'cw');
+        case 'direction': return le.direction || ((le.kind === 'flow-lite' || le.kind === 'oscilloscope-lite') ? 'forward' : 'cw');
         case 'playbackMode': return le.playbackMode || 'loop';
         case 'burstCycles': return le.burstCycles !== undefined ? le.burstCycles : 0;
         case 'pauseSeconds': return le.pauseSeconds !== undefined ? le.pauseSeconds : 0;
@@ -2777,7 +2778,8 @@ function getObjectPropValue(type, id, prop) {
         case 'showGuide': return le.showGuide !== false;
         case 'scale': return le.maxScale !== undefined ? le.maxScale : (le.kind === 'radar-lite' ? 1.0 : 1.15);
         case 'period': return le.period !== undefined ? le.period : (le.kind === 'radar-lite' ? 2.4 : 1.8);
-        case 'intensity': return le.intensity !== undefined ? le.intensity : (le.kind === 'flash' ? 0.75 : 0.85);
+        case 'intensity': return le.intensity !== undefined ? le.intensity : ((le.kind === 'flash' || le.kind === 'oscilloscope-lite') ? 0.75 : 0.85);
+        case 'samples': return le.samples || '0, 0.4, 0.9, 0.3, -0.5, -0.9, -0.2, 0.6, 1.0, 0.2, -0.4, 0';
         case 'armThickness': return le.armThickness !== undefined ? le.armThickness : 3.0;
         case 'trigger': return 0;
         case 'duration': return Math.round((Number(le.dur) || 0.10) * 1000);
@@ -2825,7 +2827,7 @@ window.renderWidgetPropertyCards = function(containerEl, sel, statusMsgEl) {
     if (le) {
       liteKind = le.kind || '';
       if (!objName) objName = le.name || '';
-      const kindMap = { 'perimeter-tracer': 'Tracer', 'pulse': 'Pulse', 'flash': 'Flash', 'flow-lite': 'Flow', 'radar-lite': 'Radar', 'gauge-lite': 'Gauge' };
+      const kindMap = { 'perimeter-tracer': 'Tracer', 'pulse': 'Pulse', 'flash': 'Flash', 'flow-lite': 'Flow', 'radar-lite': 'Radar', 'gauge-lite': 'Gauge', 'oscilloscope-lite': 'Osc' };
       const kindLabel = kindMap[le.kind] || 'Lite';
       objDisplayName = le.name ? `${le.name} (${kindLabel} #${sel.id})` : `${kindLabel} #${sel.id}`;
     }
@@ -2849,12 +2851,18 @@ window.renderWidgetPropertyCards = function(containerEl, sel, statusMsgEl) {
         return liteKind === 'perimeter-tracer';
       }
       if (['strokeWidth', 'showGuide'].includes(p.prop)) {
-        return liteKind === 'perimeter-tracer' || liteKind === 'flow-lite' || liteKind === 'radar-lite' || liteKind === 'gauge-lite';
+        return liteKind === 'perimeter-tracer' || liteKind === 'flow-lite' || liteKind === 'radar-lite' || liteKind === 'gauge-lite' || liteKind === 'oscilloscope-lite';
       }
-      if (['value', 'minValue', 'maxValue', 'bgColor'].includes(p.prop)) {
+      if (['value', 'minValue', 'maxValue'].includes(p.prop)) {
         return liteKind === 'gauge-lite';
       }
-      if (['direction', 'playbackMode'].includes(p.prop)) {
+      if (p.prop === 'bgColor') {
+        return liteKind === 'gauge-lite' || liteKind === 'oscilloscope-lite';
+      }
+      if (p.prop === 'direction') {
+        return liteKind === 'perimeter-tracer' || liteKind === 'flow-lite' || liteKind === 'oscilloscope-lite';
+      }
+      if (p.prop === 'playbackMode') {
         return liteKind === 'perimeter-tracer' || liteKind === 'flow-lite';
       }
       if (['dashLength', 'gapLength', 'dotSize'].includes(p.prop)) {
@@ -2862,14 +2870,15 @@ window.renderWidgetPropertyCards = function(containerEl, sel, statusMsgEl) {
       }
       if (['scale', 'period'].includes(p.prop)) return liteKind === 'pulse' || liteKind === 'radar-lite';
       if (['trigger', 'duration', 'repeat', 'repeatInterval'].includes(p.prop)) return liteKind === 'flash';
-      if (p.prop === 'intensity') return liteKind === 'pulse' || liteKind === 'flash';
+      if (p.prop === 'intensity') return liteKind === 'pulse' || liteKind === 'flash' || liteKind === 'oscilloscope-lite';
+      if (p.prop === 'samples') return liteKind === 'oscilloscope-lite';
       if (p.prop === 'armThickness') return (liteKind === 'pulse' || liteKind === 'flash');
-      if (p.prop === 'speed') return liteKind === 'perimeter-tracer' || liteKind === 'pulse' || liteKind === 'flow-lite' || liteKind === 'radar-lite';
+      if (p.prop === 'speed') return liteKind === 'perimeter-tracer' || liteKind === 'pulse' || liteKind === 'flow-lite' || liteKind === 'radar-lite' || liteKind === 'oscilloscope-lite';
       return true;
     }).map((p) => {
       if (p.prop === 'direction') {
         return Object.assign({}, p, {
-          options: liteKind === 'flow-lite' ? ['forward', 'reverse'] : ['cw', 'ccw']
+          options: (liteKind === 'flow-lite' || liteKind === 'oscilloscope-lite') ? ['forward', 'reverse'] : ['cw', 'ccw']
         });
       }
       return p;
@@ -3346,7 +3355,7 @@ window.renderWidgetParametersOverview = function(selectionPayload) {
         const le = window.LiteEffects.getLiteEffect(sel.id);
         if (le) {
           currentName = le.name || '';
-          const kindMap = { 'perimeter-tracer': 'Tracer', 'pulse': 'Pulse', 'flash': 'Flash', 'flow-lite': 'Flow', 'radar-lite': 'Radar', 'gauge-lite': 'Gauge' };
+          const kindMap = { 'perimeter-tracer': 'Tracer', 'pulse': 'Pulse', 'flash': 'Flash', 'flow-lite': 'Flow', 'radar-lite': 'Radar', 'gauge-lite': 'Gauge', 'oscilloscope-lite': 'Osc' };
           const kindLabel = kindMap[le.kind] || 'Lite';
           objDisplayName = le.name ? `${le.name} (${kindLabel} #${sel.id})` : `${kindLabel} #${sel.id}`;
         }

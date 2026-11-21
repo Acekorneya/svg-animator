@@ -437,14 +437,21 @@ type WidgetManifest struct {
 	Parameters     []WidgetParameter `json:"parameters"`
 }
 
+// GaugeThresholdBand represents one of the 4 independently configurable threshold bands on Gauge / Level Lite.
+type GaugeThresholdBand struct {
+	Enabled bool    `json:"enabled"`
+	Value   float64 `json:"value"`
+	Color   string  `json:"color"`
+}
+
 // LiteEffect represents a low-load declarative SVG visual effect (Stage 16D).
-// Kind values in 16D-A / 16D-B-M1..M3: "perimeter-tracer", "pulse", "flash", "flow-lite", "radar-lite", "gauge-lite".
+// Kind values in 16D-A / 16D-B-M1..M4: "perimeter-tracer", "pulse", "flash", "flow-lite", "radar-lite", "gauge-lite", "oscilloscope-lite".
 type LiteEffect struct {
-	ID                  StringID         `json:"id"`
-	Name                string           `json:"name,omitempty"`
-	Metadata            map[string]any   `json:"metadata,omitempty"`
-	Kind                string           `json:"kind"`              // "perimeter-tracer" | "pulse" | "flash" | "flow-lite" | "radar-lite" | "gauge-lite"
-	Variant             string           `json:"variant,omitempty"` // e.g. "rect", "rounded", "circle", "ellipse", "square", "diamond", "cross", "ring", "star", "dashed", "dotted", "single", "multi", "fading-ping", "hbar", "vbar", "segmented", "level"
+	ID                  StringID             `json:"id"`
+	Name                string               `json:"name,omitempty"`
+	Metadata            map[string]any       `json:"metadata,omitempty"`
+	Kind                string               `json:"kind"`              // "perimeter-tracer" | "pulse" | "flash" | "flow-lite" | "radar-lite" | "gauge-lite" | "oscilloscope-lite"
+	Variant             string               `json:"variant,omitempty"` // e.g. "rect", "rounded", "circle", "ellipse", "square", "diamond", "cross", "ring", "star", "dashed", "dotted", "single", "multi", "fading-ping", "hbar", "vbar", "segmented", "level", "ecg", "sine", "square-wave", "triangle", "sawtooth", "polyline", "bezier"
 	TargetID            string           `json:"targetId,omitempty"`
 	X                   float64          `json:"x"`
 	Y                   float64          `json:"y"`
@@ -496,12 +503,14 @@ type LiteEffect struct {
 	UseThresholds       bool             `json:"useThresholds,omitempty"`       // gauge-lite enable warning/critical threshold banding
 	WarnThreshold       *float64         `json:"warnThreshold,omitempty"`       // gauge-lite warning threshold in actual numeric domain
 	WarnColor           string           `json:"warnColor,omitempty"`           // gauge-lite warning band colour
-	CritThreshold       *float64         `json:"critThreshold,omitempty"`       // gauge-lite critical threshold in actual numeric domain
-	CritColor           string           `json:"critColor,omitempty"`           // gauge-lite critical band colour
-	Unit                string           `json:"unit,omitempty"`                // gauge-lite optional unit suffix (e.g. "%", "RPM", "°C")
-	LabelText           string           `json:"labelText,omitempty"`           // gauge-lite optional short title/caption
-	Visible             *bool            `json:"visible,omitempty"`
-	Locked              bool             `json:"locked"`
+	CritThreshold       *float64             `json:"critThreshold,omitempty"`       // gauge-lite critical threshold in actual numeric domain
+	CritColor           string               `json:"critColor,omitempty"`           // gauge-lite critical band colour
+	Thresholds          []GaugeThresholdBand `json:"thresholds,omitempty"`          // gauge-lite 4 independently enabled threshold bands
+	Unit                string               `json:"unit,omitempty"`                // gauge-lite optional unit suffix (e.g. "%", "RPM", "°C")
+	LabelText           string               `json:"labelText,omitempty"`           // gauge-lite optional short title/caption
+	Samples             string               `json:"samples,omitempty"`             // oscilloscope-lite bounded numeric sample sequence (2..64 samples)
+	Visible             *bool                `json:"visible,omitempty"`
+	Locked              bool                 `json:"locked"`
 }
 
 func (l LiteEffect) IsVisible() bool {

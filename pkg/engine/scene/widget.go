@@ -496,6 +496,7 @@ var ObjectPropertyCatalog = map[string][]EligibleProperty{
 		{Property: "duration", Type: "number", Label: "Flash Duration (ms)", ParamSuffix: "duration", Description: "Flash duration in milliseconds (20 to 1000 ms)", Min: floatPtr(20), Max: floatPtr(1000), Default: 100.0, DefaultSource: "lite.durationMs", RuntimeSemantics: "sets flash animation duration in milliseconds"},
 		{Property: "repeat", Type: "boolean", Label: "Flash Repeat", ParamSuffix: "repeat", Description: "Repeat flash periodically instead of single-shot", Default: false, DefaultSource: "lite.repeat", RuntimeSemantics: "toggles periodic flash scheduling"},
 		{Property: "repeatInterval", Type: "number", Label: "Repeat Interval (s)", ParamSuffix: "repeatInterval", Description: "Interval in seconds between repeated flashes (0.2 to 60)", Min: floatPtr(0.2), Max: floatPtr(60), Default: 2.0, DefaultSource: "lite.repeatInterval", RuntimeSemantics: "sets interval between repeated flashes"},
+		{Property: "samples", Type: "text", Label: "Waveform Samples", ParamSuffix: "samples", Description: "Bounded numeric sample sequence (2 to 64 comma-separated values) for Oscilloscope Lite sampled mode", Default: "0, 0.4, 0.9, 0.3, -0.5, -0.9, -0.2, 0.6, 1.0, 0.2, -0.4, 0", DefaultSource: "lite.samples", RuntimeSemantics: "rebuilds Oscilloscope Lite sampled waveform path"},
 	},
 	"root": {
 		{Property: "playbackRate", Type: "speed", Label: "Master Speed", ParamSuffix: "speed", Description: "Overall playback speed rate multiplier for the widget (0.1 to 5.0)", Min: floatPtr(0.1), Max: floatPtr(5.0), Default: 1.0, DefaultSource: "1.0", RuntimeSemantics: "widget-wide master playback rate"},
@@ -766,8 +767,8 @@ func ValidateWidgetParameter(p WidgetParameter) error {
 			return fmt.Errorf("boolean parameter does not support property %q (allowed: visibility, display, showGuide, repeat)", prop)
 		}
 	case "text":
-		if prop != "text" && prop != "textContent" && prop != "lineGapRatio" {
-			return fmt.Errorf("text parameter does not support property %q (allowed: text, textContent, lineGapRatio)", prop)
+		if prop != "text" && prop != "textContent" && prop != "lineGapRatio" && prop != "samples" {
+			return fmt.Errorf("text parameter does not support property %q (allowed: text, textContent, lineGapRatio, samples)", prop)
 		}
 	case "speed":
 		if prop != "playbackRate" && prop != "speed" {

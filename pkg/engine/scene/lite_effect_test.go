@@ -582,4 +582,128 @@ func TestGaugeLiteVariantsRangesThresholdsAndPersistence(t *testing.T) {
 			t.Fatalf("AddParameter(gauge-lite %s) failed: %v", prop, err)
 		}
 	}
+
+	// 6. Test 4 independently enabled thresholds (including non-contiguous enabled bands & out-of-order disabled band)
+	upd4, err := sc.UpdateLiteEffect(g.ID, map[string]any{
+		"threshold1Enabled": true,
+		"threshold1Value":   40.0,
+		"threshold1Color":   "#22c55e",
+		"threshold2Enabled": false,
+		"threshold2Value":   999.0, // disabled out-of-order threshold must not interfere
+		"threshold2Color":   "#eab308",
+		"threshold3Enabled": true,
+		"threshold3Value":   80.0,
+		"threshold3Color":   "#f97316",
+		"threshold4Enabled": true,
+		"threshold4Value":   95.0,
+		"threshold4Color":   "#ef4444",
+	})
+	if err != nil {
+		t.Fatalf("UpdateLiteEffect(4 thresholds) failed: %v", err)
+	}
+	if len(upd4.Thresholds) != 4 {
+		t.Fatalf("expected 4 threshold bands, got %d", len(upd4.Thresholds))
+	}
+	if !upd4.Thresholds[0].Enabled || upd4.Thresholds[1].Enabled || !upd4.Thresholds[2].Enabled || !upd4.Thresholds[3].Enabled {
+		t.Fatalf("unexpected enabled state across 4 thresholds: %+v", upd4.Thresholds)
+	}
+}
+
+func TestOscilloscopeLitePresetsModesSamplesAndPersistence(t *testing.T) {
+	sc := NewScene()
+
+	// 1. Create default oscilloscope-lite (ecg, animated, 180x76)
+	osc := sc.CreateLiteEffect(LiteEffect{
+		Name: "cardiacMonitor",
+		Kind: "oscilloscope-lite",
+	})
+	if osc.Variant != "ecg" {
+		t.Fatalf("expected default oscilloscope-lite variant 'ecg', got %q", osc.Variant)
+	}
+	if osc.PlaybackMode != "animated" {
+		t.Fatalf("expected default playbackMode 'animated', got %q", osc.PlaybackMode)
+	}
+	if osc.Segments != 2 || osc.Intensity != 0.75 || osc.StartOffset != 50 {
+		t.Fatalf("unexpected default oscilloscope params: segments=%d intensity=%v startOffset=%v", osc.Segments, osc.Intensity, osc.StartOffset)
+	}
+
+	// 2. Test all 7 waveform presets across static, animated, and sampled modes
+	presets := []string{"ecg", "sine", "square", "triangle", "sawtooth", "polyline", "bezier"}
+	modes := []string{"static", "animated", "sampled"}
+	for _, preset := range presets {
+		for _, mode := range modes {
+			upd, err := sc.UpdateLiteEffect(osc.ID, map[string]any{
+				"variant":      preset,
+				"playbackMode": mode,
+				"intensity":    0.85,
+				"segments":     3,
+				"startOffset":  45.0,
+				"speed":        1.8,
+				"direction":    "reverse",
+				"samples":      "0, 0.5, 1.0, 0.2, -0.6, -1.0, -0.3, 0",
+			})
+			if err != nil {
+				t.Fatalf("UpdateLiteEffect(variant=%s, mode=%s) failed: %v", preset, mode, err)
+			}
+			if upd.Variant != preset || upd.PlaybackMode != mode {
+				t.Fatalf("expected (%s, %s), got (%s, %s)", preset, mode, upd.Variant, upd.PlaybackMode)
+			}
+		}
+	}
+
+	// 3. Reject invalid samples (fewer than 2, more than 64, or non-numeric)
+	if _, err := sc.UpdateLiteEffect(osc.ID, map[string]any{"playbackMode": "sampled", "samples": "0.5"}); err == nil {
+		t.Fatalf("expected single sample to be rejected")
+	}
+	if _, err := sc.UpdateLiteEffect(osc.ID, map[string]any{"playbackMode": "sampled", "samples": "0.1, bad, 0.5"}); err == nil {
+		t.Fatalf("expected non-numeric sample to be rejected")
+	}
+	many := make([]string, 65)
+	for i := range many {
+		many[i] = "0.2"
+	}
+	if _, err := sc.UpdateLiteEffect(osc.ID, map[string]any{"playbackMode": "sampled", "samples": strings.Join(many, ",")}); err == nil {
+		t.Fatalf("expected >64 samples to be rejected")
+	}
+
+	// 4. Undo/Redo round-trip
+	sc.RecordHistory()
+	_, _ = sc.UpdateLiteEffect(osc.ID, map[string]any{"variant": "sine", "samples": "0, 1, 0, -1"})
+	sc.RecordHistory()
+	if _, err := sc.UndoHistory(); err != nil {
+		t.Fatalf("UndoHistory failed: %v", err)
+	}
+	afterUndo, _ := sc.GetLiteEffect(osc.ID)
+	if afterUndo.Variant != "bezier" {
+		t.Fatalf("expected undo to restore variant 'bezier', got %q", afterUndo.Variant)
+	}
+
+	// 5. Widget parameter bindings for oscilloscope-lite properties
+	oscProps := map[string]string{
+		"color":       "color",
+		"bgColor":     "color",
+		"opacity":     "number",
+		"visibility":  "boolean",
+		"speed":       "speed",
+		"strokeWidth": "number",
+		"direction":   "enum",
+		"showGuide":   "boolean",
+		"intensity":   "number",
+		"samples":     "text",
+	}
+	for prop, pType := range oscProps {
+		pName := GenerateParameterName("cardiacMonitor", prop, "lite")
+		param := WidgetParameter{
+			Name:     pName,
+			Type:     pType,
+			Target:   "lite-" + string(osc.ID),
+			Property: prop,
+		}
+		if pType == "enum" {
+			param.Options = []string{"forward", "reverse"}
+		}
+		if err := sc.AddParameter(param); err != nil {
+			t.Fatalf("AddParameter(oscilloscope-lite %s) failed: %v", prop, err)
+		}
+	}
 }

@@ -146,6 +146,10 @@ func DeepCopyLiteEffect(l LiteEffect) LiteEffect {
 	cp.MaxValue = deepCopyFloatPtr(l.MaxValue)
 	cp.WarnThreshold = deepCopyFloatPtr(l.WarnThreshold)
 	cp.CritThreshold = deepCopyFloatPtr(l.CritThreshold)
+	if l.Thresholds != nil {
+		cp.Thresholds = make([]GaugeThresholdBand, len(l.Thresholds))
+		copy(cp.Thresholds, l.Thresholds)
+	}
 	if l.Points != nil {
 		cp.Points = make([]geometry.Point, len(l.Points))
 		copy(cp.Points, l.Points)

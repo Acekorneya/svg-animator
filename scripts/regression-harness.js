@@ -11769,6 +11769,118 @@ async function runHarness() {
   }
   console.log('[HARNESS] Scenario 91 PASS: Stage 16D-B-M3 Gauge / Level Lite (5 Variants, Domains, Thresholds & Persistence) verified.');
 
+  // =========================================================================
+  // SCENARIO 92: Stage 16D-B-M4 Oscilloscope Lite & Part A 4-Threshold Gauge Lite
+  // =========================================================================
+  console.log('\n[HARNESS] Testing Scenario 92: Stage 16D-B-M4 Oscilloscope Lite & 4-Threshold Gauge Lite...');
+  {
+    // Part A: 4-threshold Gauge Lite with non-contiguous enabled bands (Band 2 disabled at 60)
+    const g4 = window.LiteEffects.createLiteEffect({
+      name: 'fourBandGauge',
+      kind: 'gauge-lite',
+      variant: 'ring',
+      minValue: 0,
+      maxValue: 100,
+      value: 25,
+      color: '#38bdf8',
+      thresholds: [
+        { enabled: true,  value: 40, color: '#22c55e' },
+        { enabled: false, value: 60, color: '#eab308' },
+        { enabled: true,  value: 80, color: '#f59e0b' },
+        { enabled: true,  value: 95, color: '#ef4444' }
+      ]
+    });
+    assert(Array.isArray(g4.thresholds) && g4.thresholds.length === 4, 'W16DBM4-01: 4 thresholds created');
+    assert(window.LiteEffects.renderLiteElement(g4).includes('data-gauge-active-color="#38bdf8"'), 'W16DBM4-02: Value 25 below T1(40) uses base #38bdf8');
+
+    // Value 65 is >= T2(60), but T2 is disabled, so T1(40, #22c55e) must remain active!
+    window.LiteEffects.updateLiteEffect(g4.id, { value: 65 });
+    const r65 = window.LiteEffects.renderLiteElement(window.LiteEffects.getLiteEffect(g4.id));
+    assert(r65.includes('data-gauge-active-color="#22c55e"'), 'W16DBM4-03: Value 65 ignores disabled T2(60) and uses T1(#22c55e)');
+
+    // Enable T2(60, #eab308) -> Value 65 must now select #eab308
+    window.LiteEffects.updateLiteEffect(g4.id, { threshold2Enabled: true });
+    const r65T2 = window.LiteEffects.renderLiteElement(window.LiteEffects.getLiteEffect(g4.id));
+    assert(r65T2.includes('data-gauge-active-color="#eab308"'), 'W16DBM4-04: Enabling T2(60) causes value 65 to select #eab308');
+
+    // Value 80 (exact boundary) selects T3(#f59e0b), Value 95 (exact boundary) selects T4(#ef4444)
+    window.LiteEffects.updateLiteEffect(g4.id, { value: 80 });
+    assert(window.LiteEffects.renderLiteElement(window.LiteEffects.getLiteEffect(g4.id)).includes('data-gauge-active-color="#f59e0b"'), 'W16DBM4-05: Value 80 selects T3(#f59e0b)');
+    window.LiteEffects.updateLiteEffect(g4.id, { value: 95 });
+    assert(window.LiteEffects.renderLiteElement(window.LiteEffects.getLiteEffect(g4.id)).includes('data-gauge-active-color="#ef4444"'), 'W16DBM4-06: Value 95 selects T4(#ef4444)');
+
+    // Disable all 4 thresholds -> Value 95 uses base colour #38bdf8
+    window.LiteEffects.updateLiteEffect(g4.id, {
+      threshold1Enabled: false,
+      threshold2Enabled: false,
+      threshold3Enabled: false,
+      threshold4Enabled: false
+    });
+    assert(window.LiteEffects.renderLiteElement(window.LiteEffects.getLiteEffect(g4.id)).includes('data-gauge-active-color="#38bdf8"'), 'W16DBM4-07: All thresholds disabled uses base #38bdf8');
+
+    // Part B: Oscilloscope Lite — all 7 presets, static / animated / sampled modes, amplitude / cycles / baseline
+    const osc = window.LiteEffects.createLiteEffect({
+      name: 'heartMonitor',
+      kind: 'oscilloscope-lite',
+      variant: 'ecg',
+      playbackMode: 'animated',
+      color: '#22c55e',
+      bgColor: '#0b1322',
+      intensity: 0.80,
+      segments: 3,
+      startOffset: 50,
+      speed: 2.0,
+      direction: 'forward',
+      strokeWidth: 2.2,
+      showGuide: true
+    });
+    assert.strictEqual(osc.kind, 'oscilloscope-lite', 'W16DBM4-08: Oscilloscope Lite created');
+    assert.strictEqual(osc.variant, 'ecg', 'W16DBM4-09: Default/authored variant ecg');
+
+    for (const preset of ['ecg', 'sine', 'square', 'triangle', 'sawtooth', 'polyline', 'bezier']) {
+      window.LiteEffects.updateLiteEffect(osc.id, { variant: preset, playbackMode: 'animated' });
+      const cur = window.LiteEffects.getLiteEffect(osc.id);
+      assert.strictEqual(cur.variant, preset, `W16DBM4-10 (${preset}): Variant updated`);
+      const markup = window.LiteEffects.renderLiteElement(cur);
+      assert(markup.includes(`data-osc-variant="${preset}"`), `W16DBM4-11 (${preset}): Rendered markup has data-osc-variant="${preset}"`);
+      assert(markup.includes('sva-lite-osc-anim'), `W16DBM4-12 (${preset}): Animated mode includes sva-lite-osc-anim class`);
+    }
+
+    // Static mode omits animation class
+    window.LiteEffects.updateLiteEffect(osc.id, { variant: 'sine', playbackMode: 'static' });
+    const staticMarkup = window.LiteEffects.renderLiteElement(window.LiteEffects.getLiteEffect(osc.id));
+    assert(staticMarkup.includes('data-osc-mode="static"'), 'W16DBM4-13: Static mode attribute present');
+    assert(!staticMarkup.includes('sva-lite-osc-anim'), 'W16DBM4-14: Static mode has no running scroll animation class');
+
+    // Sampled mode renders from bounded sample sequence
+    window.LiteEffects.updateLiteEffect(osc.id, {
+      variant: 'polyline',
+      playbackMode: 'sampled',
+      samples: '0, 0.5, 1.0, -0.5, -1.0, 0'
+    });
+    const sampledMarkup = window.LiteEffects.renderLiteElement(window.LiteEffects.getLiteEffect(osc.id));
+    assert(sampledMarkup.includes('data-osc-mode="sampled"'), 'W16DBM4-15: Sampled mode attribute present');
+    assert(!sampledMarkup.includes('sva-lite-osc-anim'), 'W16DBM4-16: Sampled mode has no continuous scroll animation class');
+
+    // Project serialization round-trip preserves 4-threshold Gauge Lite & Oscilloscope Lite
+    window.LiteEffects.updateLiteEffect(g4.id, { threshold1Enabled: true, threshold3Enabled: true, threshold4Enabled: true });
+    const serialized92 = window.ProjectManager.serializeStudioState();
+    window.ProjectManager.resetToNewProject();
+    window.ProjectManager.applyStudioState(serialized92);
+    const restoredG4 = window.LiteEffects.getLiteEffect(g4.id);
+    const restoredOsc = window.LiteEffects.getLiteEffect(osc.id);
+    assert(restoredG4 && Array.isArray(restoredG4.thresholds) && restoredG4.thresholds.length === 4, 'W16DBM4-17: 4 thresholds restored after round-trip');
+    assert.strictEqual(restoredG4.thresholds[0].enabled, true, 'W16DBM4-18: T1 enabled restored');
+    assert.strictEqual(restoredG4.thresholds[1].enabled, false, 'W16DBM4-19: T2 disabled restored');
+    assert(restoredOsc && restoredOsc.kind === 'oscilloscope-lite', 'W16DBM4-20: Oscilloscope Lite restored after round-trip');
+    assert.strictEqual(restoredOsc.playbackMode, 'sampled', 'W16DBM4-21: Oscilloscope playbackMode restored');
+    assert.strictEqual(restoredOsc.samples, '0, 0.5, 1.0, -0.5, -1.0, 0', 'W16DBM4-22: Oscilloscope samples restored');
+
+    window.ProjectManager.resetToNewProject();
+    window.EngineBridge.setWidgetParameters([]);
+  }
+  console.log('[HARNESS] Scenario 92 PASS: Stage 16D-B-M4 Oscilloscope Lite & 4-Threshold Gauge Lite verified.');
+
   console.log('[HARNESS] REG-03 PASS: Stage 3, 4, 5, 6, 7, 8, 9, 11, 12, 13, 14, 15 & 16 non-destructive cropping, background extraction, image baking, dedicated crop clip & snip workspace, object-local clipping, unified layer management, independent image objects, persistent groups, duplication, copy/paste with flow remapping, multi-selection, alignment, distribution, colour tools, selection retention, notifications, naming sync, history(50), schema 1.2.0, .sva packaging, background photo restoration, SVG compilation, export payload builders, collision-free widgets, external runtime parameters, and Go WASM engines verified.');
 }
 

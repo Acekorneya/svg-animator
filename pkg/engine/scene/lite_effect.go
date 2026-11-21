@@ -48,6 +48,32 @@ func ParseLineGapRatio(ratio string) (float64, float64) {
 	return l, g
 }
 
+// ParseOscilloscopeSamples parses a comma- or whitespace-separated numeric string or JSON array string
+// into a slice of 2 to 64 finite float64 samples.
+func ParseOscilloscopeSamples(raw string) ([]float64, error) {
+	trimmed := strings.TrimSpace(raw)
+	if trimmed == "" {
+		return nil, errors.New("oscilloscope-lite samples cannot be empty")
+	}
+	trimmed = strings.TrimPrefix(trimmed, "[")
+	trimmed = strings.TrimSuffix(trimmed, "]")
+	fields := strings.FieldsFunc(trimmed, func(r rune) bool {
+		return r == ',' || r == ';' || r == ' ' || r == '\t' || r == '\n' || r == '\r'
+	})
+	if len(fields) < 2 || len(fields) > 64 {
+		return nil, fmt.Errorf("oscilloscope-lite samples must contain between 2 and 64 numeric values (got %d)", len(fields))
+	}
+	out := make([]float64, 0, len(fields))
+	for _, f := range fields {
+		v, err := strconv.ParseFloat(strings.TrimSpace(f), 64)
+		if err != nil || math.IsNaN(v) || math.IsInf(v, 0) {
+			return nil, fmt.Errorf("invalid oscilloscope sample %q: must be a finite number", f)
+		}
+		out = append(out, v)
+	}
+	return out, nil
+}
+
 // ComputePerimeterDash calculates stroke-dasharray (dashLen, gapLen) in pathLength=1000 units
 // so N segments are evenly distributed around the perimeter with the given line:gap ratio
 // within each repeating segment pattern.
@@ -72,7 +98,7 @@ func ValidateLiteEffect(l *LiteEffect) error {
 		return errors.New("nil lite effect")
 	}
 	switch l.Kind {
-	case "perimeter-tracer", "pulse", "flash", "flow-lite", "radar-lite", "gauge-lite":
+	case "perimeter-tracer", "pulse", "flash", "flow-lite", "radar-lite", "gauge-lite", "oscilloscope-lite":
 	default:
 		return fmt.Errorf("unsupported lite effect kind %q", l.Kind)
 	}
@@ -206,7 +232,19 @@ func ValidateLiteEffect(l *LiteEffect) error {
 		if l.Variant == "segmented" && (l.Segments < 2 || l.Segments > 32) {
 			return errors.New("gauge-lite segmented variant requires segments between 2 and 32")
 		}
-		if l.UseThresholds && l.WarnThreshold != nil && l.CritThreshold != nil {
+		if len(l.Thresholds) > 0 {
+			if len(l.Thresholds) != 4 {
+				return errors.New("gauge-lite thresholds must contain exactly 4 threshold bands")
+			}
+			for i, b := range l.Thresholds {
+				if math.IsNaN(b.Value) || math.IsInf(b.Value, 0) {
+					return fmt.Errorf("gauge-lite threshold band %d requires a finite numeric value", i+1)
+				}
+				if strings.TrimSpace(b.Color) == "" {
+					return fmt.Errorf("gauge-lite threshold band %d requires a non-empty colour", i+1)
+				}
+			}
+		} else if l.UseThresholds && l.WarnThreshold != nil && l.CritThreshold != nil {
 			if *l.CritThreshold < *l.WarnThreshold {
 				return errors.New("gauge-lite critThreshold cannot be less than warnThreshold")
 			}
@@ -216,6 +254,41 @@ func ValidateLiteEffect(l *LiteEffect) error {
 		}
 		if l.Direction != "" && l.Direction != "cw" && l.Direction != "ccw" && l.Direction != "forward" && l.Direction != "reverse" {
 			return fmt.Errorf("unsupported gauge-lite direction %q", l.Direction)
+		}
+	}
+	if l.Kind == "oscilloscope-lite" {
+		switch l.Variant {
+		case "", "ecg", "sine", "square", "triangle", "sawtooth", "polyline", "bezier":
+		default:
+			return fmt.Errorf("unsupported oscilloscope-lite variant %q", l.Variant)
+		}
+		switch l.PlaybackMode {
+		case "", "static", "animated", "sampled":
+		default:
+			return fmt.Errorf("unsupported oscilloscope-lite playbackMode %q (must be static, animated, or sampled)", l.PlaybackMode)
+		}
+		if l.Intensity < 0.05 || l.Intensity > 1.0 {
+			return errors.New("oscilloscope-lite amplitude (intensity) must be between 0.05 and 1.0")
+		}
+		if l.Segments < 1 || l.Segments > 12 {
+			return errors.New("oscilloscope-lite cycles (segments) must be between 1 and 12")
+		}
+		if l.StartOffset < 10 || l.StartOffset > 90 {
+			return errors.New("oscilloscope-lite vertical baseline (startOffset) must be between 10 and 90 percent")
+		}
+		if l.Speed < 0.2 || l.Speed > 30.0 {
+			return errors.New("oscilloscope-lite sweep cycle duration (speed) must be between 0.2 and 30.0 seconds")
+		}
+		if l.StrokeWidth < 0.5 || l.StrokeWidth > 16.0 {
+			return errors.New("oscilloscope-lite strokeWidth must be between 0.5 and 16.0")
+		}
+		if l.Direction != "" && l.Direction != "forward" && l.Direction != "reverse" && l.Direction != "cw" && l.Direction != "ccw" {
+			return fmt.Errorf("unsupported oscilloscope-lite direction %q", l.Direction)
+		}
+		if l.PlaybackMode == "sampled" || strings.TrimSpace(l.Samples) != "" {
+			if _, err := ParseOscilloscopeSamples(l.Samples); err != nil {
+				return err
+			}
 		}
 	}
 	return nil
@@ -528,6 +601,37 @@ func applyLiteEffectDefaults(l *LiteEffect) {
 			ct := *l.WarnThreshold
 			l.CritThreshold = &ct
 		}
+		if len(l.Thresholds) != 4 {
+			span := *l.MaxValue - *l.MinValue
+			t1Val := math.Round((*l.MinValue+span*0.40)*100) / 100
+			t2Val := math.Round((*l.MinValue+span*0.60)*100) / 100
+			t3Val := *l.WarnThreshold
+			t4Val := *l.CritThreshold
+			l.Thresholds = []GaugeThresholdBand{
+				{Enabled: false, Value: t1Val, Color: "#22c55e"},
+				{Enabled: false, Value: t2Val, Color: "#eab308"},
+				{Enabled: l.UseThresholds, Value: t3Val, Color: l.WarnColor},
+				{Enabled: l.UseThresholds, Value: t4Val, Color: l.CritColor},
+			}
+		} else {
+			defCols := []string{"#22c55e", "#eab308", l.WarnColor, l.CritColor}
+			anyEnabled := false
+			for i := 0; i < 4; i++ {
+				if strings.TrimSpace(l.Thresholds[i].Color) == "" {
+					l.Thresholds[i].Color = defCols[i]
+				}
+				if l.Thresholds[i].Enabled {
+					anyEnabled = true
+				}
+			}
+			l.UseThresholds = anyEnabled
+			wt := l.Thresholds[2].Value
+			ct := l.Thresholds[3].Value
+			l.WarnThreshold = &wt
+			l.WarnColor = l.Thresholds[2].Color
+			l.CritThreshold = &ct
+			l.CritColor = l.Thresholds[3].Color
+		}
 		if l.Segments <= 0 {
 			l.Segments = 10
 		} else if l.Segments < 2 {
@@ -564,6 +668,68 @@ func applyLiteEffectDefaults(l *LiteEffect) {
 				l.Width = 84
 				l.Height = 120
 			}
+		}
+	case "oscilloscope-lite":
+		if l.Variant == "" {
+			l.Variant = "ecg"
+		}
+		if l.PlaybackMode == "" || l.PlaybackMode == "loop" || l.PlaybackMode == "pingpong" || l.PlaybackMode == "once" {
+			l.PlaybackMode = "animated"
+		}
+		if l.BgColor == "" {
+			l.BgColor = "#0b1322"
+		}
+		if l.Intensity <= 0 {
+			l.Intensity = 0.75
+		} else if l.Intensity < 0.05 {
+			l.Intensity = 0.05
+		} else if l.Intensity > 1.0 {
+			l.Intensity = 1.0
+		}
+		if l.Segments <= 0 {
+			l.Segments = 2
+		} else if l.Segments > 12 {
+			l.Segments = 12
+		}
+		if l.StartOffset <= 0 {
+			l.StartOffset = 50
+		} else if l.StartOffset < 10 {
+			l.StartOffset = 10
+		} else if l.StartOffset > 90 {
+			l.StartOffset = 90
+		}
+		if l.Speed <= 0 {
+			l.Speed = 2.4
+		} else if l.Speed < 0.2 {
+			l.Speed = 0.2
+		} else if l.Speed > 30.0 {
+			l.Speed = 30.0
+		}
+		if l.Period <= 0 {
+			l.Period = l.Speed
+		}
+		if l.Direction == "" || l.Direction == "cw" {
+			l.Direction = "forward"
+		} else if l.Direction == "ccw" {
+			l.Direction = "reverse"
+		}
+		if l.StrokeWidth <= 0 || l.StrokeWidth == 2.5 {
+			l.StrokeWidth = 2.2
+		}
+		if l.ShowGuide == nil {
+			sg := true
+			l.ShowGuide = &sg
+		}
+		if l.MaintainAspectRatio == nil {
+			mar := false
+			l.MaintainAspectRatio = &mar
+		}
+		if strings.TrimSpace(l.Samples) == "" {
+			l.Samples = "0, 0.4, 0.9, 0.3, -0.5, -0.9, -0.2, 0.6, 1.0, 0.2, -0.4, 0"
+		}
+		if l.Width == 140 && l.Height == 80 {
+			l.Width = 180
+			l.Height = 76
 		}
 	}
 }
@@ -671,7 +837,7 @@ func (s *Scene) UpdateLiteEffect(id StringID, patch map[string]any) (LiteEffect,
 	if v, ok := patch["direction"].(string); ok && (v == "cw" || v == "ccw" || v == "forward" || v == "reverse") {
 		existing.Direction = v
 	}
-	if v, ok := patch["playbackMode"].(string); ok && (v == "loop" || v == "pingpong" || v == "once") {
+	if v, ok := patch["playbackMode"].(string); ok && (v == "loop" || v == "pingpong" || v == "once" || v == "static" || v == "animated" || v == "sampled") {
 		existing.PlaybackMode = v
 	}
 	if v, ok := patch["entryExit"].(string); ok && (v == "none" || v == "fade" || v == "grow" || v == "fade-grow") {
@@ -693,8 +859,11 @@ func (s *Scene) UpdateLiteEffect(id StringID, patch map[string]any) (LiteEffect,
 		existing.RepeatInterval = math.Max(0.2, math.Min(60, v))
 	}
 	if v, ok := toFloat(patch["speed"]); ok && v > 0 {
-		if existing.Kind == "flow-lite" {
+		if existing.Kind == "flow-lite" || existing.Kind == "oscilloscope-lite" {
 			existing.Speed = math.Max(0.2, math.Min(30.0, v))
+			if existing.Kind == "oscilloscope-lite" {
+				existing.Period = existing.Speed
+			}
 		} else {
 			existing.Speed = v
 		}
@@ -854,30 +1023,111 @@ func (s *Scene) UpdateLiteEffect(id StringID, patch map[string]any) (LiteEffect,
 	if v, ok := patch["bgColor"].(string); ok && v != "" {
 		existing.BgColor = v
 	}
+	if existing.Kind == "gauge-lite" && len(existing.Thresholds) != 4 {
+		applyLiteEffectDefaults(&existing)
+	}
 	if v, ok := patch["useThresholds"].(bool); ok {
 		existing.UseThresholds = v
+		if existing.Kind == "gauge-lite" && len(existing.Thresholds) == 4 && patch["thresholds"] == nil {
+			if !v {
+				for i := range existing.Thresholds {
+					existing.Thresholds[i].Enabled = false
+				}
+			} else {
+				anyEn := false
+				for _, b := range existing.Thresholds {
+					if b.Enabled {
+						anyEn = true
+						break
+					}
+				}
+				if !anyEn {
+					existing.Thresholds[2].Enabled = true
+					existing.Thresholds[3].Enabled = true
+				}
+			}
+		}
 	}
 	if v, ok := toFloat(patch["warnThreshold"]); ok {
 		wt := v
 		existing.WarnThreshold = &wt
+		if existing.Kind == "gauge-lite" && len(existing.Thresholds) == 4 {
+			existing.Thresholds[2].Value = wt
+		}
 	}
 	if v, ok := patch["warnColor"].(string); ok && v != "" {
 		existing.WarnColor = v
+		if existing.Kind == "gauge-lite" && len(existing.Thresholds) == 4 {
+			existing.Thresholds[2].Color = v
+		}
 	}
 	if v, ok := toFloat(patch["critThreshold"]); ok {
 		ct := v
 		existing.CritThreshold = &ct
+		if existing.Kind == "gauge-lite" && len(existing.Thresholds) == 4 {
+			existing.Thresholds[3].Value = ct
+		}
 	}
 	if v, ok := patch["critColor"].(string); ok && v != "" {
 		existing.CritColor = v
+		if existing.Kind == "gauge-lite" && len(existing.Thresholds) == 4 {
+			existing.Thresholds[3].Color = v
+		}
+	}
+	if rawThresh, ok := patch["thresholds"]; ok && existing.Kind == "gauge-lite" {
+		var parsedBands []GaugeThresholdBand
+		switch tb := rawThresh.(type) {
+		case []GaugeThresholdBand:
+			parsedBands = append(parsedBands, tb...)
+		case []any:
+			for _, item := range tb {
+				if m, ok := item.(map[string]any); ok {
+					en, _ := m["enabled"].(bool)
+					val, okVal := toFloat(m["value"])
+					if !okVal {
+						val = 0
+					}
+					col, _ := m["color"].(string)
+					if strings.TrimSpace(col) == "" {
+						col = "#f59e0b"
+					}
+					parsedBands = append(parsedBands, GaugeThresholdBand{
+						Enabled: en,
+						Value:   val,
+						Color:   col,
+					})
+				}
+			}
+		}
+		if len(parsedBands) == 4 {
+			existing.Thresholds = parsedBands
+		}
+	}
+	for idx := 0; idx < 4; idx++ {
+		nStr := strconv.Itoa(idx + 1)
+		if en, ok := patch["threshold"+nStr+"Enabled"].(bool); ok && len(existing.Thresholds) == 4 {
+			existing.Thresholds[idx].Enabled = en
+		}
+		if val, ok := toFloat(patch["threshold"+nStr+"Value"]); ok && len(existing.Thresholds) == 4 {
+			existing.Thresholds[idx].Value = val
+		}
+		if col, ok := patch["threshold"+nStr+"Color"].(string); ok && strings.TrimSpace(col) != "" && len(existing.Thresholds) == 4 {
+			existing.Thresholds[idx].Color = strings.TrimSpace(col)
+		}
 	}
 	if existing.Kind == "gauge-lite" && existing.WarnThreshold != nil && existing.CritThreshold != nil && *existing.CritThreshold < *existing.WarnThreshold {
 		if _, hasWarn := patch["warnThreshold"]; hasWarn && patch["critThreshold"] == nil {
 			ct := *existing.WarnThreshold
 			existing.CritThreshold = &ct
+			if len(existing.Thresholds) == 4 {
+				existing.Thresholds[3].Value = ct
+			}
 		} else if _, hasCrit := patch["critThreshold"]; hasCrit && patch["warnThreshold"] == nil {
 			wt := *existing.CritThreshold
 			existing.WarnThreshold = &wt
+			if len(existing.Thresholds) == 4 {
+				existing.Thresholds[2].Value = wt
+			}
 		}
 	}
 	if v, ok := patch["unit"].(string); ok {
@@ -886,7 +1136,10 @@ func (s *Scene) UpdateLiteEffect(id StringID, patch map[string]any) (LiteEffect,
 	if v, ok := patch["labelText"].(string); ok {
 		existing.LabelText = strings.TrimSpace(v)
 	}
-	if existing.Kind == "gauge-lite" {
+	if v, ok := patch["samples"].(string); ok {
+		existing.Samples = strings.TrimSpace(v)
+	}
+	if existing.Kind == "gauge-lite" || existing.Kind == "oscilloscope-lite" {
 		applyLiteEffectDefaults(&existing)
 	}
 

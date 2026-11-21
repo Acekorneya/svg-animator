@@ -1,9 +1,9 @@
 # Stage 16D-B — Proposed Implementation Plan
 
-**Status:** **M1 ACCEPTED (`a3a7d24`); M2 ACCEPTED (`ad814bb`); Stage 16D-B-M3 — IMPLEMENTED, AWAITING USER ACCEPTANCE (M4 NOT YET AUTHORISED)**
+**Status:** **M1 ACCEPTED (`a3a7d24`); M2 ACCEPTED (`ad814bb`); M3 ACCEPTED (`a086170`, 4-threshold enhancement completed in M4); Stage 16D-B-M4 — IMPLEMENTED, AWAITING USER ACCEPTANCE**
 **Project:** SVG Animator Studio
 **Stage:** Stage 16D-B (Flows, Data Indicators and Waveforms)
-**Implementation Authorisation:** **M1 (`16D-B-M1`: Flow Lite) ACCEPTED (`a3a7d24`); M2 (`16D-B-M2`: Radar Ping Lite) ACCEPTED (`ad814bb`); Stage 16D-B-M3 (`16D-B-M3`: Gauge / Level Lite) IMPLEMENTED — AWAITING USER ACCEPTANCE** (M4 remains unauthorised until M3 is reviewed and accepted)
+**Implementation Authorisation:** **M1 (`16D-B-M1`: Flow Lite) ACCEPTED (`a3a7d24`); M2 (`16D-B-M2`: Radar Ping Lite) ACCEPTED (`ad814bb`); M3 (`16D-B-M3`: Gauge / Level Lite) ACCEPTED (`a086170`, with 4 independently enabled thresholds completed in M4); Stage 16D-B-M4 (`16D-B-M4`: Oscilloscope Lite) IMPLEMENTED — AWAITING USER ACCEPTANCE**
 **Baseline Commits:** `bf7ee3e` (Test Lab M6 closeout) and `7e8d4f6` (Stage 16D-A standalone SVG export audit)  
 **Engineering Guidance Reference:** [`docs/architecture/svg-animation-engineering-guidance.md`](architecture/svg-animation-engineering-guidance.md)  
 **Test Lab Comparative Evidence:** [`testlab/m6-evidence/M6_FINAL_COMPARATIVE_REPORT.md`](../testlab/m6-evidence/M6_FINAL_COMPARATIVE_REPORT.md) (BookStack Book 468, Page 470, revision 13; live viewer at `http://192.168.100.40:8093/`)
@@ -416,7 +416,7 @@ Before integrating Flow Lite into Studio, an automated Chromium CDP feasibility 
 
 ## K. Milestone 3 (`16D-B-M3`: Gauge / Level Lite) Implementation Evidence & Status
 
-**Milestone Status:** **Stage 16D-B-M3 — IMPLEMENTED, AWAITING USER ACCEPTANCE**
+**Milestone Status:** **ACCEPTED (`a086170`), WITH FOUR-THRESHOLD ENHANCEMENT COMPLETED IN M4**
 **Live Studio URL:** `http://192.168.100.40:8088/`
 **Live Gauge / Level Lite Visual Showcase URL:** `http://192.168.100.40:8088/gauge-lite-demo.html`
 **Live Radar Ping Lite Visual Showcase URL:** `http://192.168.100.40:8088/radar-lite-demo.html`
@@ -431,18 +431,65 @@ All five planned indicator styles from Section D.4.2 are implemented under `kind
 4. **Segmented Bar Gauge (`variant: "segmented"`):** Discrete cell array (`segments`, `2..32`, default `10`), lighting `round(frac * segments)` cells in the active fill colour and remaining cells in `bgColor`.
 5. **Filled-Level Indicator (`variant: "level"`):** Framed vessel container `<rect>` stroked in the active status colour with a translucent interior background and a rising (or top-down) interior fill `<rect>`.
 
-### 2. Range, Valid Zero, Threshold Banding & Colour Precedence Contract
+### 2. Range, Valid Zero, Four Independently Enabled Thresholds & Colour Precedence Contract
 - **Actual Numeric Domain & Valid Zero:**
   - `Value`, `MinValue`, `MaxValue`, `WarnThreshold`, and `CritThreshold` are stored as `*float64` in Go (`pkg/engine/scene/model.go`) so `0.0` is preserved as an explicit valid number and never confused with missing data.
   - Visual fill fraction `frac = clamp((value - minValue) / (maxValue - minValue), 0.0, 1.0)` clamps only the graphical indicator to `[0.0, 1.0]` while preserving the exact incoming semantic value in `data-gauge-value` and the optional value readout text.
+- **Four Independently Enabled Thresholds (`Thresholds []GaugeThresholdBand`):**
+  - Each Gauge Lite instance carries four threshold bands (`Band 1` through `Band 4`), each having its own `Enabled bool`, `Value float64`, and `Color string`.
+  - Any combination of 0, 1, 2, 3, or 4 thresholds can be enabled simultaneously, including non-contiguous combinations (e.g., Threshold 1 enabled at `40` Green, Threshold 2 disabled at `60` Yellow, Threshold 3 enabled at `80` Orange, Threshold 4 enabled at `95` Red).
+  - Disabled thresholds are completely ignored during evaluation and do not constrain the numeric ordering of enabled thresholds.
+  - Enabled thresholds are sorted in ascending numeric order and evaluated with inclusive `>=` boundary semantics (`value >= threshold.value`), applying the colour of the highest active threshold reached and falling back to the gauge's base `color` when `value` is below all enabled thresholds (or when all thresholds are disabled).
+  - Existing two-threshold configurations (`warnThreshold` / `critThreshold`) migrate deterministically into Bands 3 and 4 (with Bands 1 and 2 disabled by default).
 - **Colour Precedence Rule:**
   1. **Explicit Application Colour Override (`setParameter('<name>-lite-color', '#...')`):** Sets `data-gauge-color-override="true"` and `data-gauge-override-color` on the gauge instance, taking precedence over automatic threshold banding. Calling `resetParameters()` clears the override and restores automatic threshold evaluation.
-  2. **Optional Threshold Banding (`useThresholds: true`):** Evaluates in the gauge's actual `[minValue, maxValue]` numeric domain (`value >= critThreshold` → `critColor`; `value >= warnThreshold` → `warnColor`; otherwise base `color`).
-  3. **Base Authored Colour (`color`):** Used when neither an application override nor threshold banding is active.
+  2. **Four-Band Threshold Evaluation:** Evaluates only enabled threshold bands in the gauge's actual `[minValue, maxValue]` numeric domain.
+  3. **Base Authored Colour (`color`):** Used when neither an application override nor any enabled threshold is reached.
 
 ### 3. Verification Results Summary
 - **Go Unit & Package Tests (`go vet ./... && go test ./...`):** **PASS (100%)** (including `TestGaugeLiteVariantsRangesThresholdsAndPersistence` in `pkg/engine/scene/lite_effect_test.go`).
-- **Node Regression Harness (`node scripts/regression-harness.js`):** **91 / 91 Scenarios PASS** (including Scenario 91 verifying all 5 Gauge Lite variants, actual-domain RPM thresholds, valid zero, and project serialization round-trip).
+- **Node Regression Harness (`node scripts/regression-harness.js`):** **92 / 92 Scenarios PASS** (including Scenarios 91 and 92 verifying all 5 Gauge Lite variants, 4 independently enabled thresholds, non-contiguous bands, actual-domain RPM thresholds, valid zero, and project serialization round-trip).
 - **Stage 16D-B-M1 Real-Browser Acceptance Suite (`go run ./scripts/cmd/verify-stage16d-b-m1/main.go`):** **16 / 16 Gates PASS**.
 - **Stage 16D-B-M2 Real-Browser Acceptance Suite (`go run ./scripts/cmd/verify-stage16d-b-m2/main.go`):** **16 / 16 Gates PASS**.
 - **Stage 16D-B-M3 Real-Browser Acceptance Suite (`go run ./scripts/cmd/verify-stage16d-b-m3/main.go`):** **16 / 16 Gates PASS (`AT-M3-01` through `AT-M3-16`)**.
+
+---
+
+## L. Milestone 4 (`16D-B-M4`: Oscilloscope Lite & Part A Four-Threshold Gauge Enhancement) Implementation Evidence & Status
+
+**Milestone Status:** **Stage 16D-B-M4 — IMPLEMENTED, AWAITING USER ACCEPTANCE**
+**Live Studio URL:** `http://192.168.100.40:8088/`
+**Live Oscilloscope Lite Visual Showcase URL:** `http://192.168.100.40:8088/oscilloscope-lite-demo.html`
+**Live Updated 4-Threshold Gauge Lite Visual Showcase URL:** `http://192.168.100.40:8088/gauge-lite-demo.html`
+**Live Radar Ping Lite Visual Showcase URL:** `http://192.168.100.40:8088/radar-lite-demo.html`
+**Live Flow Lite Visual Showcase URL:** `http://192.168.100.40:8088/flow-lite-demo.html`
+**Live Stage 16C Widget Consumer URL:** `http://192.168.100.40:8091/index.html`
+
+### 1. Seven Approved Oscilloscope Waveform Presets (`kind: "oscilloscope-lite"`)
+All seven planned waveform styles from Section D.5 are implemented with exact periodic boundary continuity (`y(0) = y(1) = yBase`):
+1. **ECG / Pulse (`variant: "ecg"`):** Clinical P-QRS-T heartbeat complex returning cleanly to the baseline at both period boundaries.
+2. **Sine Wave (`variant: "sine"`):** Smooth 16-segment harmonic sinusoid per period.
+3. **Square Wave (`variant: "square"`):** Crisp digital high/low pulse train with exact baseline transitions at period boundaries.
+4. **Triangle Wave (`variant: "triangle"`):** Linear constant-slope peak-and-trough triangular waveform.
+5. **Sawtooth Wave (`variant: "sawtooth"`):** Linear ramp waveform with vertical mid-cycle reset and exact baseline continuity at period boundaries.
+6. **Segmented Line / Polyline (`variant: "polyline"`):** Multi-vertex angular telemetry trace.
+7. **Smooth Curve / Bézier (`variant: "bezier"`):** Cubic Bézier (`C`) smoothed waveform path.
+
+### 2. Three Operating Modes & Seamless Periodic Scrolling
+- **Animated Pattern Mode (`playbackMode: "animated"`):**
+  - Renders `2 * cycles` identical waveform periods spanning `[x, x + 2*w]` inside an instance-scoped `<clipPath id="lite-osc-clip-{id}">` viewport of width `w`.
+  - Scrolls horizontally via compositor-friendly CSS `@keyframes sva-lite-osc-scroll` (`transform: translateX(0px)` to `translateX(var(--sva-osc-shift, -w))`), supporting both `forward` and `reverse` scroll directions and Cycle Duration (`speed`) from `0.2 s` to `30.0 s`.
+  - Because Tile 2 (`[x + w, x + 2*w]`) is mathematically identical to Tile 1 (`[x, x + w]`) and every preset satisfies `y(0) = y(1) = yBase`, the loop wrap at `100% -> 0%` has zero visual jump or seam.
+- **Static Pattern Mode (`playbackMode: "static"`):**
+  - Renders `1 * cycles` waveform periods inside the viewport with zero running CSS, SMIL, or JavaScript animations (`getAnimations().length === 0`).
+- **Sampled / Data-Driven Waveform Mode (`playbackMode: "sampled"`):**
+  - Renders a bounded numeric sample sequence (`samples`, 2 to 64 finite numbers parsed via `ParseOscilloscopeSamples` in Go and validated in `svg-widget.js`) across `[x, x + w]` as either a polyline or cubic Bézier trace, with zero continuous animation loop while samples remain unchanged.
+  - Invalid sample sequences (`< 2` samples, `> 64` samples, or non-finite tokens) are rejected atomically by both the Go engine (`ValidateLiteEffect` / `UpdateLiteEffect`) and `SVGWidget.setParameter()`, preserving the last valid waveform state.
+
+### 3. Verification Results Summary
+- **Go Unit & Package Tests (`go vet ./... && go test ./...`):** **PASS (100%)** (including `TestOscilloscopeLitePresetsModesSamplesAndPersistence` and 4-threshold assertions in `pkg/engine/scene/lite_effect_test.go`).
+- **Node Regression Harness (`node scripts/regression-harness.js`):** **92 / 92 Scenarios PASS** (including Scenario 92 testing 4-threshold Gauge Lite and Oscilloscope Lite presets, modes, sample validation, and project serialization round-trip).
+- **Stage 16D-B-M1 Real-Browser Acceptance Suite (`go run ./scripts/cmd/verify-stage16d-b-m1/main.go`):** **16 / 16 Gates PASS**.
+- **Stage 16D-B-M2 Real-Browser Acceptance Suite (`go run ./scripts/cmd/verify-stage16d-b-m2/main.go`):** **16 / 16 Gates PASS**.
+- **Stage 16D-B-M3 Real-Browser Acceptance Suite (`go run ./scripts/cmd/verify-stage16d-b-m3/main.go`):** **16 / 16 Gates PASS**.
+- **Stage 16D-B-M4 Real-Browser Acceptance Suite (`go run ./scripts/cmd/verify-stage16d-b-m4/main.go`):** **15 / 15 Gates PASS (`AT-M4-01` through `AT-M4-15`)**.

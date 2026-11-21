@@ -1134,13 +1134,14 @@
         <div class="accordion-body" style="padding: 0.55rem 0.65rem;">
           <div style="background: rgba(56, 189, 248, 0.06); border: 1px solid rgba(56, 189, 248, 0.25); border-radius: 6px; padding: 0.5rem 0.6rem; margin-bottom: 0.6rem;">
             <div style="font-size: 0.70rem; font-weight: 700; letter-spacing: 0.04em; color: #38bdf8; margin-bottom: 0.4rem;">CREATE LOW-LOAD EFFECT</div>
-            <div style="display: grid; grid-template-columns: repeat(3, 1fr); gap: 5px;">
+            <div style="display: grid; grid-template-columns: repeat(4, 1fr); gap: 5px;">
               <button type="button" class="tool-btn-compact" id="btnAddLiteTracer" title="Add Perimeter Tracer Lite" style="padding: 0.35rem 0.25rem; text-align: center;">▭ Tracer</button>
               <button type="button" class="tool-btn-compact" id="btnAddLitePulse" title="Add Pulse Lite" style="padding: 0.35rem 0.25rem; text-align: center;">◎ Pulse</button>
               <button type="button" class="tool-btn-compact" id="btnAddLiteFlash" title="Add Flash Lite" style="padding: 0.35rem 0.25rem; text-align: center;">✦ Flash</button>
               <button type="button" class="tool-btn-compact" id="btnAddLiteFlow" title="Add Flow Lite" style="padding: 0.35rem 0.25rem; text-align: center;">↝ Flow</button>
               <button type="button" class="tool-btn-compact" id="btnAddLiteRadar" title="Add Radar Ping Lite" style="padding: 0.35rem 0.25rem; text-align: center;">◉ Radar</button>
               <button type="button" class="tool-btn-compact" id="btnAddLiteGauge" title="Add Gauge / Level Lite" style="padding: 0.35rem 0.25rem; text-align: center;">◕ Gauge</button>
+              <button type="button" class="tool-btn-compact" id="btnAddLiteOsc" title="Add Oscilloscope Lite" style="padding: 0.35rem 0.25rem; text-align: center; grid-column: span 2;">∿ Oscilloscope</button>
             </div>
           </div>
 
@@ -1611,24 +1612,107 @@
                     </div>
                   </div>
                   <div class="inspector-prop-row">
-                    <label for="liteGaugeUseThresholdsChk">Thresholds</label>
-                    <input type="checkbox" id="liteGaugeUseThresholdsChk" title="Enable warning and critical colour bands in actual value domain">
+                    <label for="liteGaugeUseThresholdsChk">Thresholds (4)</label>
+                    <input type="checkbox" id="liteGaugeUseThresholdsChk" title="Toggle all 4 threshold bands or enable individual rows below">
                   </div>
-                  <div id="liteGaugeThresholdsPanel" style="display: none; padding-left: 6px; border-left: 2px solid rgba(245, 158, 11, 0.4);">
-                    <div class="inspector-prop-row">
-                      <label for="liteGaugeWarnThresholdNum">Warn ≥</label>
-                      <div class="slider-row" style="gap: 6px;">
+                  <div id="liteGaugeThresholdsPanel" style="padding-left: 6px; border-left: 2px solid rgba(245, 158, 11, 0.4);">
+                    <div class="inspector-prop-row" title="Threshold 1: Inclusive lower bound (Value ≥ T1)">
+                      <label for="liteGaugeThresh1Chk">Band 1 ≥</label>
+                      <div class="slider-row" style="gap: 5px;">
+                        <input type="checkbox" id="liteGaugeThresh1Chk" title="Enable Threshold 1">
+                        <input type="number" class="num-input" id="liteGaugeThresh1Num" step="1" value="40" style="flex: 1;">
+                        <input type="color" id="liteGaugeThresh1ColorPicker" value="#22c55e" title="Threshold 1 Colour">
+                      </div>
+                    </div>
+                    <div class="inspector-prop-row" title="Threshold 2: Inclusive lower bound (Value ≥ T2)">
+                      <label for="liteGaugeThresh2Chk">Band 2 ≥</label>
+                      <div class="slider-row" style="gap: 5px;">
+                        <input type="checkbox" id="liteGaugeThresh2Chk" title="Enable Threshold 2">
+                        <input type="number" class="num-input" id="liteGaugeThresh2Num" step="1" value="60" style="flex: 1;">
+                        <input type="color" id="liteGaugeThresh2ColorPicker" value="#eab308" title="Threshold 2 Colour">
+                      </div>
+                    </div>
+                    <div class="inspector-prop-row" title="Threshold 3 (Warning): Inclusive lower bound (Value ≥ T3)">
+                      <label for="liteGaugeThresh3Chk">Band 3 ≥</label>
+                      <div class="slider-row" style="gap: 5px;">
+                        <input type="checkbox" id="liteGaugeThresh3Chk" title="Enable Threshold 3 (Warning)">
                         <input type="number" class="num-input" id="liteGaugeWarnThresholdNum" step="1" value="70" style="flex: 1;">
-                        <input type="color" id="liteGaugeWarnColorPicker" value="#f59e0b" title="Warning Band Colour">
+                        <input type="color" id="liteGaugeWarnColorPicker" value="#f59e0b" title="Threshold 3 (Warning) Colour">
                       </div>
                     </div>
-                    <div class="inspector-prop-row">
-                      <label for="liteGaugeCritThresholdNum">Crit ≥</label>
-                      <div class="slider-row" style="gap: 6px;">
+                    <div class="inspector-prop-row" title="Threshold 4 (Critical): Inclusive lower bound (Value ≥ T4)">
+                      <label for="liteGaugeThresh4Chk">Band 4 ≥</label>
+                      <div class="slider-row" style="gap: 5px;">
+                        <input type="checkbox" id="liteGaugeThresh4Chk" title="Enable Threshold 4 (Critical)">
                         <input type="number" class="num-input" id="liteGaugeCritThresholdNum" step="1" value="90" style="flex: 1;">
-                        <input type="color" id="liteGaugeCritColorPicker" value="#ef4444" title="Critical Band Colour">
+                        <input type="color" id="liteGaugeCritColorPicker" value="#ef4444" title="Threshold 4 (Critical) Colour">
                       </div>
                     </div>
+                  </div>
+                </div>
+
+                <div id="liteOscGroup" style="display: none;">
+                  <div class="inspector-prop-row">
+                    <label for="liteOscModeSelect" title="Operating mode: Static pattern, Animated scrolling wave, or Sampled data">Mode</label>
+                    <select id="liteOscModeSelect">
+                      <option value="animated">Animated (Scrolling)</option>
+                      <option value="static">Static Pattern</option>
+                      <option value="sampled">Sampled / Data-Driven</option>
+                    </select>
+                  </div>
+                  <div class="inspector-prop-row">
+                    <label for="liteOscBgColorPicker">Screen Colour</label>
+                    <input type="color" id="liteOscBgColorPicker" value="#0b1322">
+                  </div>
+                  <div class="inspector-prop-row">
+                    <label for="liteOscShowGuideChk">Graticule Grid</label>
+                    <input type="checkbox" id="liteOscShowGuideChk" checked title="Show oscilloscope graticule grid and centre line">
+                  </div>
+                  <div class="inspector-prop-row">
+                    <label for="liteOscAmplitudeSlider" title="Vertical wave amplitude fraction (0.05 to 1.0)">Amplitude</label>
+                    <div class="slider-row">
+                      <input type="range" id="liteOscAmplitudeSlider" min="0.05" max="1.0" step="0.05" value="0.75">
+                      <input type="number" class="num-input" id="liteOscAmplitudeNum" min="0.05" max="1.0" step="0.05" value="0.75">
+                    </div>
+                  </div>
+                  <div class="inspector-prop-row" id="liteOscCyclesRow">
+                    <label for="liteOscCyclesSlider" title="Number of full waveform periods across viewport width (1 to 12)">Cycles (Freq)</label>
+                    <div class="slider-row">
+                      <input type="range" id="liteOscCyclesSlider" min="1" max="12" step="1" value="2">
+                      <input type="number" class="num-input" id="liteOscCyclesNum" min="1" max="12" step="1" value="2">
+                    </div>
+                  </div>
+                  <div class="inspector-prop-row">
+                    <label for="liteOscBaselineSlider" title="Vertical baseline position (10% top to 90% bottom, 50% centred)">Baseline (%)</label>
+                    <div class="slider-row">
+                      <input type="range" id="liteOscBaselineSlider" min="10" max="90" step="1" value="50">
+                      <input type="number" class="num-input" id="liteOscBaselineNum" min="10" max="90" step="1" value="50">
+                    </div>
+                  </div>
+                  <div class="inspector-prop-row">
+                    <label for="liteOscStrokeWidthSlider">Stroke Width</label>
+                    <div class="slider-row">
+                      <input type="range" id="liteOscStrokeWidthSlider" min="0.5" max="16" step="0.5" value="2.2">
+                      <input type="number" class="num-input" id="liteOscStrokeWidthNum" min="0.5" max="16" step="0.5" value="2.2">
+                    </div>
+                  </div>
+                  <div class="inspector-prop-row" id="liteOscSpeedRow">
+                    <label for="liteOscSpeedSlider" title="Duration in seconds for one full tile sweep cycle (0.2 to 30.0 s)">Cycle Duration</label>
+                    <div class="slider-row">
+                      <input type="range" id="liteOscSpeedSlider" min="0.2" max="30" step="0.1" value="2.4">
+                      <input type="number" class="num-input" id="liteOscSpeedNum" min="0.2" max="30" step="0.1" value="2.4">
+                    </div>
+                  </div>
+                  <div class="inspector-prop-row" id="liteOscDirectionRow">
+                    <label for="liteOscDirectionSelect">Scroll Dir</label>
+                    <select id="liteOscDirectionSelect">
+                      <option value="forward">Forward (Left ← Right)</option>
+                      <option value="reverse">Reverse (Left → Right)</option>
+                    </select>
+                  </div>
+                  <div class="inspector-prop-row" id="liteOscSamplesRow" style="display: none;">
+                    <label for="liteOscSamplesInput" title="2 to 64 comma-separated numeric samples">Samples (CSV)</label>
+                    <input type="text" id="liteOscSamplesInput" value="0, 0.4, 0.9, 0.3, -0.5, -0.9, -0.2, 0.6, 1.0, 0.2, -0.4, 0" style="width: 100%; padding: 0.22rem 0.35rem; font-size: 0.76rem; font-family: monospace;">
                   </div>
                 </div>
 
@@ -3035,24 +3119,106 @@
               </div>
             </div>
             <div class="floating-prop-row">
-              <label for="fctx-liteGaugeUseThresholdsChk">Thresholds</label>
+              <label for="fctx-liteGaugeUseThresholdsChk">Thresholds (4)</label>
               <input type="checkbox" id="fctx-liteGaugeUseThresholdsChk">
             </div>
-            <div id="fctx-liteGaugeThresholdsPanel" style="display: none; padding-left: 6px; border-left: 2px solid rgba(245, 158, 11, 0.4);">
+            <div id="fctx-liteGaugeThresholdsPanel" style="padding-left: 6px; border-left: 2px solid rgba(245, 158, 11, 0.4);">
               <div class="floating-prop-row">
-                <label for="fctx-liteGaugeWarnThresholdNum">Warn ≥</label>
-                <div class="slider-row" style="gap: 6px;">
+                <label for="fctx-liteGaugeThresh1Chk">Band 1 ≥</label>
+                <div class="slider-row" style="gap: 5px;">
+                  <input type="checkbox" id="fctx-liteGaugeThresh1Chk">
+                  <input type="number" class="num-input" id="fctx-liteGaugeThresh1Num" step="1" value="40" style="flex: 1;">
+                  <input type="color" id="fctx-liteGaugeThresh1ColorPicker" value="#22c55e">
+                </div>
+              </div>
+              <div class="floating-prop-row">
+                <label for="fctx-liteGaugeThresh2Chk">Band 2 ≥</label>
+                <div class="slider-row" style="gap: 5px;">
+                  <input type="checkbox" id="fctx-liteGaugeThresh2Chk">
+                  <input type="number" class="num-input" id="fctx-liteGaugeThresh2Num" step="1" value="60" style="flex: 1;">
+                  <input type="color" id="fctx-liteGaugeThresh2ColorPicker" value="#eab308">
+                </div>
+              </div>
+              <div class="floating-prop-row">
+                <label for="fctx-liteGaugeThresh3Chk">Band 3 ≥</label>
+                <div class="slider-row" style="gap: 5px;">
+                  <input type="checkbox" id="fctx-liteGaugeThresh3Chk">
                   <input type="number" class="num-input" id="fctx-liteGaugeWarnThresholdNum" step="1" value="70" style="flex: 1;">
                   <input type="color" id="fctx-liteGaugeWarnColorPicker" value="#f59e0b">
                 </div>
               </div>
               <div class="floating-prop-row">
-                <label for="fctx-liteGaugeCritThresholdNum">Crit ≥</label>
-                <div class="slider-row" style="gap: 6px;">
+                <label for="fctx-liteGaugeThresh4Chk">Band 4 ≥</label>
+                <div class="slider-row" style="gap: 5px;">
+                  <input type="checkbox" id="fctx-liteGaugeThresh4Chk">
                   <input type="number" class="num-input" id="fctx-liteGaugeCritThresholdNum" step="1" value="90" style="flex: 1;">
                   <input type="color" id="fctx-liteGaugeCritColorPicker" value="#ef4444">
                 </div>
               </div>
+            </div>
+          </div>
+          <div id="fctx-liteOscGroup" style="display: none;">
+            <div class="floating-prop-row">
+              <label for="fctx-liteOscModeSelect">Mode</label>
+              <select id="fctx-liteOscModeSelect">
+                <option value="animated">Animated (Scrolling)</option>
+                <option value="static">Static Pattern</option>
+                <option value="sampled">Sampled / Data-Driven</option>
+              </select>
+            </div>
+            <div class="floating-prop-row">
+              <label for="fctx-liteOscBgColorPicker">Screen Colour</label>
+              <input type="color" id="fctx-liteOscBgColorPicker" value="#0b1322">
+            </div>
+            <div class="floating-prop-row">
+              <label for="fctx-liteOscShowGuideChk">Graticule</label>
+              <input type="checkbox" id="fctx-liteOscShowGuideChk" checked>
+            </div>
+            <div class="floating-prop-row">
+              <label for="fctx-liteOscAmplitudeSlider">Amplitude</label>
+              <div class="slider-row">
+                <input type="range" id="fctx-liteOscAmplitudeSlider" min="0.05" max="1.0" step="0.05" value="0.75">
+                <input type="number" class="num-input" id="fctx-liteOscAmplitudeNum" min="0.05" max="1.0" step="0.05" value="0.75">
+              </div>
+            </div>
+            <div class="floating-prop-row" id="fctx-liteOscCyclesRow">
+              <label for="fctx-liteOscCyclesSlider">Cycles (Freq)</label>
+              <div class="slider-row">
+                <input type="range" id="fctx-liteOscCyclesSlider" min="1" max="12" step="1" value="2">
+                <input type="number" class="num-input" id="fctx-liteOscCyclesNum" min="1" max="12" step="1" value="2">
+              </div>
+            </div>
+            <div class="floating-prop-row">
+              <label for="fctx-liteOscBaselineSlider">Baseline (%)</label>
+              <div class="slider-row">
+                <input type="range" id="fctx-liteOscBaselineSlider" min="10" max="90" step="1" value="50">
+                <input type="number" class="num-input" id="fctx-liteOscBaselineNum" min="10" max="90" step="1" value="50">
+              </div>
+            </div>
+            <div class="floating-prop-row">
+              <label for="fctx-liteOscStrokeWidthSlider">Stroke (px)</label>
+              <div class="slider-row">
+                <input type="range" id="fctx-liteOscStrokeWidthSlider" min="0.5" max="16" step="0.5" value="2.2">
+                <input type="number" class="num-input" id="fctx-liteOscStrokeWidthNum" min="0.5" max="16" step="0.5" value="2.2">
+              </div>
+            </div>
+            <div class="floating-prop-row" id="fctx-liteOscSpeedRow">
+              <label for="fctx-liteOscSpeedSlider">Cycle Duration</label>
+              <div class="slider-row">
+                <input type="range" id="fctx-liteOscSpeedSlider" min="0.2" max="30" step="0.1" value="2.4">
+                <input type="number" class="num-input" id="fctx-liteOscSpeedNum" min="0.2" max="30" step="0.1" value="2.4">
+              </div>
+            </div>
+            <div class="floating-prop-row" id="fctx-liteOscDirectionRow">
+              <label for="fctx-liteOscDirectionSelect">Scroll Dir</label>
+              <select id="fctx-liteOscDirectionSelect">
+                <option value="forward">Forward (Left ← Right)</option>
+                <option value="reverse">Reverse (Left → Right)</option>
+              </select>
+            </div>
+            <div class="floating-prop-row" id="fctx-liteOscSamplesRow" style="display: none;">
+              <label for="fctx-liteOscSamplesInput">Samples</label>
+              <input type="text" id="fctx-liteOscSamplesInput" value="0, 0.4, 0.9, 0.3, -0.5, -0.9, -0.2, 0.6, 1.0, 0.2, -0.4, 0" style="width: 100%; padding: 0.18rem 0.3rem; font-size: 0.74rem; font-family: monospace;">
             </div>
           </div>
         </div>

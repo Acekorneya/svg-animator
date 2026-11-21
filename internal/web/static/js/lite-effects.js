@@ -150,6 +150,27 @@ window.LiteEffects = {
       }
       if (le.critThreshold < le.warnThreshold) le.critThreshold = le.warnThreshold;
       le.useThresholds = Boolean(le.useThresholds);
+      if (!Array.isArray(le.thresholds) || le.thresholds.length !== 4) {
+        const span = maxV - minV;
+        le.thresholds = [
+          { enabled: false, value: Math.round((minV + span * 0.40) * 100) / 100, color: '#22c55e' },
+          { enabled: false, value: Math.round((minV + span * 0.60) * 100) / 100, color: '#eab308' },
+          { enabled: le.useThresholds, value: le.warnThreshold, color: le.warnColor },
+          { enabled: le.useThresholds, value: le.critThreshold, color: le.critColor }
+        ];
+      } else {
+        const defCols = ['#22c55e', '#eab308', le.warnColor || '#f59e0b', le.critColor || '#ef4444'];
+        le.thresholds = le.thresholds.map((b, i) => ({
+          enabled: Boolean(b && b.enabled),
+          value: (b && Number.isFinite(Number(b.value))) ? Number(b.value) : Math.round((minV + (maxV - minV) * (0.4 + i * 0.17)) * 100) / 100,
+          color: this.sanitizeColor(b && b.color, defCols[i])
+        }));
+        le.useThresholds = le.thresholds.some((b) => b.enabled);
+        le.warnThreshold = le.thresholds[2].value;
+        le.warnColor = le.thresholds[2].color;
+        le.critThreshold = le.thresholds[3].value;
+        le.critColor = le.thresholds[3].color;
+      }
       if (!le.segments || le.segments < 2) le.segments = 10;
       else if (le.segments > 32) le.segments = 32;
       if (!le.direction || le.direction === 'cw') le.direction = 'forward';
@@ -167,6 +188,32 @@ window.LiteEffects = {
       }
       le.unit = le.unit !== undefined && le.unit !== null ? String(le.unit) : '%';
       le.labelText = le.labelText !== undefined && le.labelText !== null ? String(le.labelText) : '';
+    } else if (le.kind === 'oscilloscope-lite') {
+      const validPresets = ['ecg', 'sine', 'square', 'triangle', 'sawtooth', 'polyline', 'bezier'];
+      if (!le.variant || !validPresets.includes(le.variant)) le.variant = 'ecg';
+      if (!le.playbackMode || !['static', 'animated', 'sampled'].includes(le.playbackMode)) {
+        le.playbackMode = 'animated';
+      }
+      if (!le.bgColor) le.bgColor = '#0b1322';
+      if (!le.intensity || le.intensity <= 0) le.intensity = 0.75;
+      else le.intensity = Math.max(0.05, Math.min(1.0, Number(le.intensity)));
+      if (!le.segments || le.segments < 1) le.segments = 2;
+      else le.segments = Math.min(12, Math.round(Number(le.segments)));
+      if (le.startOffset === undefined || le.startOffset === null || Number(le.startOffset) <= 0) le.startOffset = 50;
+      else le.startOffset = Math.max(10, Math.min(90, Number(le.startOffset)));
+      if (!le.speed || le.speed <= 0) le.speed = 2.4;
+      else le.speed = Math.max(0.2, Math.min(30, Number(le.speed)));
+      le.period = le.speed;
+      if (!le.direction || le.direction === 'cw') le.direction = 'forward';
+      else if (le.direction === 'ccw') le.direction = 'reverse';
+      if (!le.strokeWidth || le.strokeWidth <= 0) le.strokeWidth = 2.2;
+      if (!le.width || le.width <= 0) le.width = 180;
+      if (!le.height || le.height <= 0) le.height = 76;
+      if (le.showGuide === undefined || le.showGuide === null) le.showGuide = true;
+      if (le.maintainAspectRatio === undefined || le.maintainAspectRatio === null) le.maintainAspectRatio = false;
+      if (!le.samples || typeof le.samples !== 'string' || !le.samples.trim()) {
+        le.samples = '0, 0.4, 0.9, 0.3, -0.5, -0.9, -0.2, 0.6, 1.0, 0.2, -0.4, 0';
+      }
     }
     return le;
   },
@@ -186,16 +233,17 @@ window.LiteEffects = {
     const isFlowLite = kind === 'flow-lite';
     const isRadar = kind === 'radar-lite';
     const isGauge = kind === 'gauge-lite';
+    const isOsc = kind === 'oscilloscope-lite';
     const reqVariant = initialProps.variant || '';
     const defaultVariant = isFlowLite
       ? 'dashed'
-      : (isRadar ? 'multi' : (isGauge ? (reqVariant || 'ring') : (isTracer ? 'rounded' : (kind === 'flash' ? 'diamond' : 'circle'))));
+      : (isRadar ? 'multi' : (isGauge ? (reqVariant || 'ring') : (isOsc ? (reqVariant || 'ecg') : (isTracer ? 'rounded' : (kind === 'flash' ? 'diamond' : 'circle')))));
     const defaultW = isTracer
       ? 140
-      : (isRadar ? 80 : (isGauge ? (defaultVariant === 'ring' ? 96 : (defaultVariant === 'vbar' ? 36 : (defaultVariant === 'level' ? 84 : 160))) : 56));
+      : (isRadar ? 80 : (isGauge ? (defaultVariant === 'ring' ? 96 : (defaultVariant === 'vbar' ? 36 : (defaultVariant === 'level' ? 84 : 160))) : (isOsc ? 180 : 56)));
     const defaultH = isTracer
       ? 80
-      : (isRadar ? 80 : (isGauge ? (defaultVariant === 'ring' ? 96 : (defaultVariant === 'vbar' ? 140 : (defaultVariant === 'level' ? 120 : 32))) : 56));
+      : (isRadar ? 80 : (isGauge ? (defaultVariant === 'ring' ? 96 : (defaultVariant === 'vbar' ? 140 : (defaultVariant === 'level' ? 120 : 32))) : (isOsc ? 76 : 56)));
     const payload = Object.assign({
       kind,
       originMode: 'center',
@@ -205,24 +253,24 @@ window.LiteEffects = {
       width: defaultW,
       height: defaultH,
       radius: isRadar ? 40 : (isGauge ? 48 : 28),
-      cornerRadius: isGauge ? 6 : 10,
-      color: kind === 'flash' ? '#f59e0b' : ((kind === 'pulse' || isRadar) ? '#22c55e' : '#38bdf8'),
-      opacity: isGauge ? 1.0 : 0.9,
-      strokeWidth: isFlowLite ? 3.0 : (isRadar ? 2.0 : (isGauge ? (defaultVariant === 'ring' ? 8.0 : 2.0) : 2.5)),
+      cornerRadius: (isGauge || isOsc) ? 6 : 10,
+      color: kind === 'flash' ? '#f59e0b' : ((kind === 'pulse' || isRadar || isOsc) ? '#22c55e' : '#38bdf8'),
+      opacity: (isGauge || isOsc) ? 1.0 : 0.9,
+      strokeWidth: isFlowLite ? 3.0 : (isRadar ? 2.0 : (isGauge ? (defaultVariant === 'ring' ? 8.0 : 2.0) : (isOsc ? 2.2 : 2.5))),
       segments: isGauge ? 10 : 2,
       rings: isRadar ? 3 : undefined,
       lineGapRatio: '1:3',
       segmentStyle: 'rounded',
-      startOffset: 0,
-      direction: (isFlowLite || isGauge) ? 'forward' : 'cw',
-      playbackMode: 'loop',
-      speed: isFlowLite ? 2.0 : (isRadar ? 2.4 : 3.0),
-      period: kind === 'flash' ? 3.0 : (isRadar ? 2.4 : 1.8),
+      startOffset: isOsc ? 50 : 0,
+      direction: (isFlowLite || isGauge || isOsc) ? 'forward' : 'cw',
+      playbackMode: isOsc ? 'animated' : 'loop',
+      speed: isFlowLite ? 2.0 : ((isRadar || isOsc) ? 2.4 : 3.0),
+      period: kind === 'flash' ? 3.0 : ((isRadar || isOsc) ? 2.4 : 1.8),
       dur: 0.10,
-      intensity: kind === 'flash' ? 0.75 : 0.85,
+      intensity: (kind === 'flash' || isOsc) ? 0.75 : 0.85,
       minScale: isRadar ? 0.15 : 0.85,
       maxScale: isRadar ? 1.0 : 1.15,
-      maintainAspectRatio: isGauge ? (defaultVariant === 'ring') : (!isTracer && !isFlowLite),
+      maintainAspectRatio: isGauge ? (defaultVariant === 'ring') : (!isTracer && !isFlowLite && !isOsc),
       showGuide: true,
       repeat: false,
       triggerNonce: 0,
@@ -239,7 +287,7 @@ window.LiteEffects = {
       value: isGauge ? 65 : undefined,
       minValue: isGauge ? 0 : undefined,
       maxValue: isGauge ? 100 : undefined,
-      bgColor: isGauge ? '#1e293b' : undefined,
+      bgColor: isGauge ? '#1e293b' : (isOsc ? '#0b1322' : undefined),
       useThresholds: isGauge ? false : undefined,
       warnThreshold: isGauge ? 70 : undefined,
       warnColor: isGauge ? '#f59e0b' : undefined,
@@ -247,6 +295,7 @@ window.LiteEffects = {
       critColor: isGauge ? '#ef4444' : undefined,
       unit: isGauge ? '%' : undefined,
       labelText: isGauge ? '' : undefined,
+      samples: isOsc ? '0, 0.4, 0.9, 0.3, -0.5, -0.9, -0.2, 0.6, 1.0, 0.2, -0.4, 0' : undefined,
       visible: true
     }, initialProps);
 
@@ -365,6 +414,16 @@ window.LiteEffects = {
   0% { transform: scale(var(--sva-radar-min, 0.15)); opacity: 1; }
   85% { opacity: 0.35; }
   100% { transform: scale(var(--sva-radar-max, 1.0)); opacity: 0; }
+}
+@keyframes sva-lite-osc-scroll {
+  0% { transform: translateX(0px); }
+  100% { transform: translateX(var(--sva-osc-shift, -180px)); }
+}
+.sva-lite-osc-anim {
+  animation-name: sva-lite-osc-scroll;
+  animation-timing-function: linear;
+  animation-iteration-count: infinite;
+  will-change: transform;
 }
 .sva-lite-tracer-anim {
   animation-timing-function: linear;
@@ -923,13 +982,31 @@ window.LiteEffects = {
       const critCol = this.sanitizeColor(le.critColor, '#ef4444');
       const warnT = (le.warnThreshold !== undefined && le.warnThreshold !== null && Number.isFinite(Number(le.warnThreshold))) ? Number(le.warnThreshold) : (minV + span * 0.70);
       const critT = (le.critThreshold !== undefined && le.critThreshold !== null && Number.isFinite(Number(le.critThreshold))) ? Number(le.critThreshold) : (minV + span * 0.90);
-      const useThresh = Boolean(le.useThresholds);
+      const bands = (Array.isArray(le.thresholds) && le.thresholds.length === 4)
+        ? le.thresholds
+        : [
+            { enabled: false, value: minV + span * 0.40, color: '#22c55e' },
+            { enabled: false, value: minV + span * 0.60, color: '#eab308' },
+            { enabled: Boolean(le.useThresholds), value: warnT, color: warnCol },
+            { enabled: Boolean(le.useThresholds), value: critT, color: critCol }
+          ];
+      const enabledBands = bands
+        .map((b, idx) => ({
+          idx,
+          enabled: Boolean(b && b.enabled),
+          value: Number(b && b.value),
+          color: this.sanitizeColor(b && b.color, '#f59e0b')
+        }))
+        .filter((b) => b.enabled && Number.isFinite(b.value))
+        .sort((a, b) => (a.value !== b.value ? a.value - b.value : a.idx - b.idx));
+      const useThresh = enabledBands.length > 0;
       const dir = (le.direction === 'reverse' || le.direction === 'ccw') ? 'reverse' : 'forward';
 
       let activeColor = color;
-      if (useThresh) {
-        if (val >= critT) activeColor = critCol;
-        else if (val >= warnT) activeColor = warnCol;
+      for (const eb of enabledBands) {
+        if (val >= eb.value) {
+          activeColor = eb.color;
+        }
       }
 
       const showReadout = le.showGuide !== false;
@@ -1026,11 +1103,233 @@ window.LiteEffects = {
           `</g>`;
       }
 
-      const gaugeDataAttrs = `data-gauge-variant="${this.escapeXML(variant)}" data-gauge-value="${val}" data-gauge-min="${minV}" data-gauge-max="${maxV}" data-gauge-fraction="${frac.toFixed(4)}" data-gauge-base-color="${color}" data-gauge-active-color="${activeColor}" data-gauge-bg-color="${bgCol}" data-gauge-use-thresholds="${useThresh ? 'true' : 'false'}" data-gauge-warn-threshold="${warnT}" data-gauge-warn-color="${warnCol}" data-gauge-crit-threshold="${critT}" data-gauge-crit-color="${critCol}" data-gauge-segments="${le.segments || 10}" data-gauge-direction="${dir}" data-gauge-unit="${this.escapeXML(unitStr)}" data-gauge-label="${this.escapeXML(labelStr)}" data-gauge-x="${x.toFixed(2)}" data-gauge-y="${y.toFixed(2)}" data-gauge-w="${w.toFixed(2)}" data-gauge-h="${h.toFixed(2)}" data-gauge-cx="${cx.toFixed(2)}" data-gauge-cy="${cy.toFixed(2)}" data-gauge-cr="${cr.toFixed(2)}" data-gauge-sw="${sw.toFixed(2)}"`;
+      const threshAttrs = bands.map((b, i) => {
+        const idx = i + 1;
+        const bVal = Number.isFinite(Number(b && b.value)) ? Number(b.value) : 0;
+        const bCol = this.sanitizeColor(b && b.color, '#f59e0b');
+        return `data-gauge-t${idx}-enabled="${b && b.enabled ? 'true' : 'false'}" data-gauge-t${idx}-value="${bVal}" data-gauge-t${idx}-color="${bCol}"`;
+      }).join(' ');
+      const gaugeDataAttrs = `data-gauge-variant="${this.escapeXML(variant)}" data-gauge-value="${val}" data-gauge-min="${minV}" data-gauge-max="${maxV}" data-gauge-fraction="${frac.toFixed(4)}" data-gauge-base-color="${color}" data-gauge-active-color="${activeColor}" data-gauge-bg-color="${bgCol}" data-gauge-use-thresholds="${useThresh ? 'true' : 'false'}" data-gauge-warn-threshold="${warnT}" data-gauge-warn-color="${warnCol}" data-gauge-crit-threshold="${critT}" data-gauge-crit-color="${critCol}" ${threshAttrs} data-gauge-segments="${le.segments || 10}" data-gauge-direction="${dir}" data-gauge-unit="${this.escapeXML(unitStr)}" data-gauge-label="${this.escapeXML(labelStr)}" data-gauge-x="${x.toFixed(2)}" data-gauge-y="${y.toFixed(2)}" data-gauge-w="${w.toFixed(2)}" data-gauge-h="${h.toFixed(2)}" data-gauge-cx="${cx.toFixed(2)}" data-gauge-cy="${cy.toFixed(2)}" data-gauge-cr="${cr.toFixed(2)}" data-gauge-sw="${sw.toFixed(2)}"`;
       return `<g ${baseAttrs} ${gaugeDataAttrs} style="opacity:${opacity};">${hitMarkup}${gaugeBody}${textMarkup}</g>`;
     }
 
+    if (le.kind === 'oscilloscope-lite') {
+      return this.renderOscilloscopeLiteElement(le, baseAttrs, color, opacity, sw, x, y, w, h, cx, cy, cr);
+    }
+
     return '';
+  },
+
+  parseOscilloscopeSamples(rawStr) {
+    if (typeof rawStr !== 'string' || !rawStr.trim()) return null;
+    const cleaned = rawStr.trim().replace(/^\[|\]$/g, '');
+    const tokens = cleaned.split(/[,;\s]+/).filter(Boolean);
+    if (tokens.length < 2 || tokens.length > 64) return null;
+    const nums = [];
+    for (let i = 0; i < tokens.length; i++) {
+      const v = Number(tokens[i]);
+      if (!Number.isFinite(v)) return null;
+      nums.push(Math.max(-1, Math.min(1, v)));
+    }
+    return nums;
+  },
+
+  buildOscilloscopePath(variant, mode, x, y, w, h, cycles, ampFrac, basePct, samplesStr) {
+    const safeCycles = Math.max(1, Math.min(12, Math.round(Number(cycles) || 2)));
+    const safeAmp = Math.max(0.05, Math.min(1.0, Number(ampFrac) || 0.75));
+    const safeBase = Math.max(10, Math.min(90, Number(basePct) || 50));
+    const yBase = y + h * (safeBase / 100);
+    const ampPx = (h * 0.42) * safeAmp;
+    const yFor = (val) => {
+      const yy = yBase - Math.max(-1, Math.min(1, val)) * ampPx;
+      return Math.max(y + 1.5, Math.min(y + h - 1.5, yy));
+    };
+
+    if (mode === 'sampled') {
+      const samples = this.parseOscilloscopeSamples(samplesStr) || [0, 0.4, 0.9, 0.3, -0.5, -0.9, -0.2, 0.6, 1.0, 0.2, -0.4, 0];
+      const N = samples.length;
+      const pts = samples.map((v, i) => ({
+        x: x + (i / (N - 1)) * w,
+        y: yFor(v)
+      }));
+      if (variant === 'bezier' && pts.length >= 3) {
+        let d = `M ${pts[0].x.toFixed(2)} ${pts[0].y.toFixed(2)}`;
+        for (let i = 0; i < pts.length - 1; i++) {
+          const p0 = pts[Math.max(0, i - 1)];
+          const p1 = pts[i];
+          const p2 = pts[i + 1];
+          const p3 = pts[Math.min(pts.length - 1, i + 2)];
+          const c1x = p1.x + (p2.x - p0.x) / 6;
+          const c1y = p1.y + (p2.y - p0.y) / 6;
+          const c2x = p2.x - (p3.x - p1.x) / 6;
+          const c2y = p2.y - (p3.y - p1.y) / 6;
+          d += ` C ${c1x.toFixed(2)} ${c1y.toFixed(2)}, ${c2x.toFixed(2)} ${c2y.toFixed(2)}, ${p2.x.toFixed(2)} ${p2.y.toFixed(2)}`;
+        }
+        return d;
+      }
+      return pts.map((p, i) => `${i === 0 ? 'M' : 'L'} ${p.x.toFixed(2)} ${p.y.toFixed(2)}`).join(' ');
+    }
+
+    const tileCount = mode === 'animated' ? 2 : 1;
+    const totalPeriods = safeCycles * tileCount;
+    const periodW = w / safeCycles;
+    const cmds = [];
+
+    for (let p = 0; p < totalPeriods; p++) {
+      const x0 = x + p * periodW;
+      const isFirst = p === 0;
+      if (variant === 'ecg') {
+        const kfs = [
+          [0.00, 0.00],
+          [0.14, 0.00],
+          [0.20, 0.22],
+          [0.26, 0.00],
+          [0.34, 0.00],
+          [0.38, -0.24],
+          [0.44, 1.00],
+          [0.50, -0.45],
+          [0.56, 0.00],
+          [0.68, 0.00],
+          [0.76, 0.34],
+          [0.86, 0.00],
+          [1.00, 0.00]
+        ];
+        kfs.forEach(([t, v], idx) => {
+          if (idx === 0 && !isFirst) return;
+          const px = x0 + t * periodW;
+          const py = yFor(v);
+          cmds.push(`${idx === 0 && isFirst ? 'M' : 'L'} ${px.toFixed(2)} ${py.toFixed(2)}`);
+        });
+      } else if (variant === 'sine') {
+        const steps = 24;
+        for (let s = 0; s <= steps; s++) {
+          if (s === 0 && !isFirst) continue;
+          const t = s / steps;
+          const px = x0 + t * periodW;
+          const py = yFor(Math.sin(2 * Math.PI * t));
+          cmds.push(`${s === 0 && isFirst ? 'M' : 'L'} ${px.toFixed(2)} ${py.toFixed(2)}`);
+        }
+      } else if (variant === 'square') {
+        const kfs = [
+          [0.00, 0.00],
+          [0.00, 0.85],
+          [0.50, 0.85],
+          [0.50, -0.85],
+          [1.00, -0.85],
+          [1.00, 0.00]
+        ];
+        kfs.forEach(([t, v], idx) => {
+          if (idx === 0 && !isFirst) return;
+          const px = x0 + t * periodW;
+          const py = yFor(v);
+          cmds.push(`${idx === 0 && isFirst ? 'M' : 'L'} ${px.toFixed(2)} ${py.toFixed(2)}`);
+        });
+      } else if (variant === 'triangle') {
+        const kfs = [
+          [0.00, 0.00],
+          [0.25, 0.92],
+          [0.75, -0.92],
+          [1.00, 0.00]
+        ];
+        kfs.forEach(([t, v], idx) => {
+          if (idx === 0 && !isFirst) return;
+          const px = x0 + t * periodW;
+          const py = yFor(v);
+          cmds.push(`${idx === 0 && isFirst ? 'M' : 'L'} ${px.toFixed(2)} ${py.toFixed(2)}`);
+        });
+      } else if (variant === 'sawtooth') {
+        const kfs = [
+          [0.00, 0.00],
+          [0.48, 0.92],
+          [0.52, -0.92],
+          [1.00, 0.00]
+        ];
+        kfs.forEach(([t, v], idx) => {
+          if (idx === 0 && !isFirst) return;
+          const px = x0 + t * periodW;
+          const py = yFor(v);
+          cmds.push(`${idx === 0 && isFirst ? 'M' : 'L'} ${px.toFixed(2)} ${py.toFixed(2)}`);
+        });
+      } else if (variant === 'polyline') {
+        const kfs = [
+          [0.00, 0.00],
+          [0.15, 0.65],
+          [0.32, -0.40],
+          [0.50, 0.95],
+          [0.68, -0.85],
+          [0.84, 0.45],
+          [1.00, 0.00]
+        ];
+        kfs.forEach(([t, v], idx) => {
+          if (idx === 0 && !isFirst) return;
+          const px = x0 + t * periodW;
+          const py = yFor(v);
+          cmds.push(`${idx === 0 && isFirst ? 'M' : 'L'} ${px.toFixed(2)} ${py.toFixed(2)}`);
+        });
+      } else if (variant === 'bezier') {
+        const y0 = yFor(0);
+        const yPeak1 = yFor(1.05);
+        const yTrough1 = yFor(-0.95);
+        const yPeak2 = yFor(0.75);
+        const yTrough2 = yFor(-0.75);
+        if (isFirst) {
+          cmds.push(`M ${x0.toFixed(2)} ${y0.toFixed(2)}`);
+        }
+        const xMid = x0 + periodW * 0.5;
+        const xEnd = x0 + periodW;
+        cmds.push(`C ${(x0 + periodW * 0.16).toFixed(2)} ${yPeak1.toFixed(2)}, ${(x0 + periodW * 0.34).toFixed(2)} ${yTrough1.toFixed(2)}, ${xMid.toFixed(2)} ${y0.toFixed(2)}`);
+        cmds.push(`C ${(x0 + periodW * 0.66).toFixed(2)} ${yPeak2.toFixed(2)}, ${(x0 + periodW * 0.84).toFixed(2)} ${yTrough2.toFixed(2)}, ${xEnd.toFixed(2)} ${y0.toFixed(2)}`);
+      }
+    }
+    return cmds.join(' ');
+  },
+
+  renderOscilloscopeLiteElement(le, baseAttrs, color, opacity, sw, x, y, w, h, cx, cy, cr) {
+    const validPresets = ['ecg', 'sine', 'square', 'triangle', 'sawtooth', 'polyline', 'bezier'];
+    const variant = validPresets.includes(le.variant) ? le.variant : 'ecg';
+    const mode = ['static', 'animated', 'sampled'].includes(le.playbackMode) ? le.playbackMode : 'animated';
+    const bgCol = this.sanitizeColor(le.bgColor, '#0b1322');
+    const cycles = Math.max(1, Math.min(12, Math.round(Number(le.segments) || 2)));
+    const ampFrac = Math.max(0.05, Math.min(1.0, Number(le.intensity) || 0.75));
+    const basePct = Math.max(10, Math.min(90, Number(le.startOffset) || 50));
+    const dur = Math.max(0.2, Math.min(30, Number(le.speed) || Number(le.period) || 2.4));
+    const dir = (le.direction === 'reverse' || le.direction === 'ccw') ? 'reverse' : 'forward';
+    const showGrid = le.showGuide !== false;
+    const gridVis = showGrid ? 'visible' : 'hidden';
+    const samplesStr = (typeof le.samples === 'string' && le.samples.trim())
+      ? le.samples.trim()
+      : '0, 0.4, 0.9, 0.3, -0.5, -0.9, -0.2, 0.6, 1.0, 0.2, -0.4, 0';
+    const cornerR = Math.min(cr, w / 2, h / 2);
+    const clipId = `lite-osc-clip-${le.id}`;
+
+    const hitMarkup = `<rect class="lite-hit-target" data-semantic-role="hit-target" x="${x.toFixed(2)}" y="${y.toFixed(2)}" width="${w.toFixed(2)}" height="${h.toFixed(2)}" rx="${cornerR.toFixed(2)}" fill="transparent" pointer-events="all" style="cursor:pointer;" />`;
+    const screenBg = `<rect class="lite-osc-screen" x="${x.toFixed(2)}" y="${y.toFixed(2)}" width="${w.toFixed(2)}" height="${h.toFixed(2)}" rx="${cornerR.toFixed(2)}" fill="${bgCol}" stroke="${color}" stroke-opacity="0.35" stroke-width="1.2" shape-rendering="geometricPrecision" pointer-events="none" />`;
+
+    const yBase = y + h * (basePct / 100);
+    const gridLines = [];
+    for (let i = 1; i <= 3; i++) {
+      const gx = x + (w * i) / 4;
+      const gy = y + (h * i) / 4;
+      gridLines.push(`<line x1="${gx.toFixed(2)}" y1="${y.toFixed(2)}" x2="${gx.toFixed(2)}" y2="${(y + h).toFixed(2)}" stroke="${color}" stroke-opacity="0.16" stroke-width="0.8" stroke-dasharray="2 3" />`);
+      gridLines.push(`<line x1="${x.toFixed(2)}" y1="${gy.toFixed(2)}" x2="${(x + w).toFixed(2)}" y2="${gy.toFixed(2)}" stroke="${color}" stroke-opacity="0.16" stroke-width="0.8" stroke-dasharray="2 3" />`);
+    }
+    gridLines.push(`<line class="lite-osc-baseline" x1="${x.toFixed(2)}" y1="${yBase.toFixed(2)}" x2="${(x + w).toFixed(2)}" y2="${yBase.toFixed(2)}" stroke="${color}" stroke-opacity="0.32" stroke-width="1" />`);
+    const gridMarkup = `<g class="lite-guide-track lite-osc-grid" visibility="${gridVis}" style="visibility:${gridVis};" pointer-events="none">${gridLines.join('')}</g>`;
+
+    const pathD = this.buildOscilloscopePath(variant, mode, x, y, w, h, cycles, ampFrac, basePct, samplesStr);
+    const isAnim = mode === 'animated';
+    const animClass = isAnim ? ' sva-lite-osc-anim' : '';
+    const animDir = dir === 'reverse' ? 'reverse' : 'normal';
+    const styleStr = isAnim
+      ? `animation-duration:${dur.toFixed(4)}s;animation-direction:${animDir};--sva-base-dur:${dur.toFixed(4)}s;--sva-osc-shift:-${w.toFixed(2)}px;`
+      : `--sva-osc-shift:-${w.toFixed(2)}px;`;
+
+    const wavePath = `<path class="lite-payload lite-osc-wave${animClass}" data-semantic-role="payload" d="${pathD}" fill="none" stroke="${color}" stroke-width="${sw.toFixed(2)}" stroke-linecap="round" stroke-linejoin="round" shape-rendering="geometricPrecision" style="${styleStr}" pointer-events="none" />`;
+    const clipDefs = `<defs><clipPath id="${clipId}"><rect x="${x.toFixed(2)}" y="${y.toFixed(2)}" width="${w.toFixed(2)}" height="${h.toFixed(2)}" rx="${cornerR.toFixed(2)}" /></clipPath></defs>`;
+    const clippedWave = `<g class="lite-osc-viewport" clip-path="url(#${clipId})">${wavePath}</g>`;
+
+    const oscDataAttrs = `data-osc-variant="${this.escapeXML(variant)}" data-osc-mode="${mode}" data-osc-cycles="${cycles}" data-osc-amplitude="${ampFrac}" data-osc-baseline="${basePct}" data-osc-speed="${dur}" data-osc-direction="${dir}" data-osc-bg-color="${bgCol}" data-osc-samples="${this.escapeXML(samplesStr)}" data-osc-x="${x.toFixed(2)}" data-osc-y="${y.toFixed(2)}" data-osc-w="${w.toFixed(2)}" data-osc-h="${h.toFixed(2)}" data-osc-sw="${sw.toFixed(2)}"`;
+    return `<g ${baseAttrs} ${oscDataAttrs} style="opacity:${opacity};">${clipDefs}${hitMarkup}${screenBg}${gridMarkup}${clippedWave}</g>`;
   },
 
   getLiteBurstScript() {
@@ -1151,6 +1450,7 @@ window.LiteEffects = {
     bindBtn('btnAddLiteFlow', () => this.addByKind('flow-lite'));
     bindBtn('btnAddLiteRadar', () => this.addByKind('radar-lite'));
     bindBtn('btnAddLiteGauge', () => this.addByKind('gauge-lite'));
+    bindBtn('btnAddLiteOsc', () => this.addByKind('oscilloscope-lite'));
     bindBtn('btnTriggerLiteFlash', () => {
       if (this.activeId) this.triggerFlash(this.activeId);
     });
@@ -1330,10 +1630,30 @@ window.LiteEffects = {
     bindField('liteGaugeUnitInput', 'unit');
     bindField('liteGaugeLabelInput', 'labelText');
     bindField('liteGaugeUseThresholdsChk', 'useThresholds', false, true);
-    bindField('liteGaugeWarnThresholdNum', 'warnThreshold', true);
-    bindField('liteGaugeWarnColorPicker', 'warnColor');
-    bindField('liteGaugeCritThresholdNum', 'critThreshold', true);
-    bindField('liteGaugeCritColorPicker', 'critColor');
+    bindField('liteGaugeThresh1Chk', 'threshold1Enabled', false, true);
+    bindField('liteGaugeThresh1Num', 'threshold1Value', true);
+    bindField('liteGaugeThresh1ColorPicker', 'threshold1Color');
+    bindField('liteGaugeThresh2Chk', 'threshold2Enabled', false, true);
+    bindField('liteGaugeThresh2Num', 'threshold2Value', true);
+    bindField('liteGaugeThresh2ColorPicker', 'threshold2Color');
+    bindField('liteGaugeThresh3Chk', 'threshold3Enabled', false, true);
+    bindField('liteGaugeWarnThresholdNum', 'threshold3Value', true);
+    bindField('liteGaugeWarnColorPicker', 'threshold3Color');
+    bindField('liteGaugeThresh4Chk', 'threshold4Enabled', false, true);
+    bindField('liteGaugeCritThresholdNum', 'threshold4Value', true);
+    bindField('liteGaugeCritColorPicker', 'threshold4Color');
+
+    // Oscilloscope Lite inspector bindings
+    bindField('liteOscModeSelect', 'playbackMode');
+    bindField('liteOscBgColorPicker', 'bgColor');
+    bindField('liteOscShowGuideChk', 'showGuide', false, true);
+    bindPair('liteOscAmplitude', 'intensity');
+    bindPair('liteOscCycles', 'segments', true);
+    bindPair('liteOscBaseline', 'startOffset');
+    bindPair('liteOscStrokeWidth', 'strokeWidth');
+    bindPair('liteOscSpeed', 'speed');
+    bindField('liteOscDirectionSelect', 'direction');
+    bindField('liteOscSamplesInput', 'samples');
   },
 
   addWaypointToActive() {
@@ -1668,6 +1988,46 @@ window.LiteEffects = {
         patch.critThreshold = Number(value);
       } else if (key === 'critThreshold' && Number(value) < Number(existing.warnThreshold)) {
         patch.warnThreshold = Number(value);
+      } else if (/^threshold([1-4])(Enabled|Value|Color)$/.test(key)) {
+        const m = /^threshold([1-4])(Enabled|Value|Color)$/.exec(key);
+        const idx = parseInt(m[1], 10) - 1;
+        const field = m[2];
+        const bands = Array.isArray(existing.thresholds) && existing.thresholds.length === 4
+          ? existing.thresholds.map((b) => Object.assign({}, b))
+          : [
+              { enabled: false, value: 40, color: '#22c55e' },
+              { enabled: false, value: 60, color: '#eab308' },
+              { enabled: Boolean(existing.useThresholds), value: Number(existing.warnThreshold) || 70, color: existing.warnColor || '#f59e0b' },
+              { enabled: Boolean(existing.useThresholds), value: Number(existing.critThreshold) || 90, color: existing.critColor || '#ef4444' }
+            ];
+        if (field === 'Enabled') bands[idx].enabled = Boolean(value);
+        else if (field === 'Value' && Number.isFinite(Number(value))) bands[idx].value = Number(value);
+        else if (field === 'Color' && value) bands[idx].color = String(value);
+        patch.thresholds = bands;
+        patch.useThresholds = bands.some((b) => b.enabled);
+        if (idx === 2) {
+          patch.warnThreshold = bands[2].value;
+          patch.warnColor = bands[2].color;
+        } else if (idx === 3) {
+          patch.critThreshold = bands[3].value;
+          patch.critColor = bands[3].color;
+        }
+      } else if (key === 'useThresholds') {
+        const bands = Array.isArray(existing.thresholds) && existing.thresholds.length === 4
+          ? existing.thresholds.map((b) => Object.assign({}, b))
+          : [
+              { enabled: false, value: 40, color: '#22c55e' },
+              { enabled: false, value: 60, color: '#eab308' },
+              { enabled: false, value: Number(existing.warnThreshold) || 70, color: existing.warnColor || '#f59e0b' },
+              { enabled: false, value: Number(existing.critThreshold) || 90, color: existing.critColor || '#ef4444' }
+            ];
+        if (!value) {
+          bands.forEach((b) => { b.enabled = false; });
+        } else if (!bands.some((b) => b.enabled)) {
+          bands[2].enabled = true;
+          bands[3].enabled = true;
+        }
+        patch.thresholds = bands;
       }
     }
 
@@ -1726,7 +2086,8 @@ window.LiteEffects = {
         'flash': ['diamond', 'circle', 'square', 'cross', 'star'],
         'flow-lite': ['dashed', 'dotted', 'single'],
         'radar-lite': ['multi', 'single', 'fading-ping'],
-        'gauge-lite': ['ring', 'hbar', 'vbar', 'segmented', 'level']
+        'gauge-lite': ['ring', 'hbar', 'vbar', 'segmented', 'level'],
+        'oscilloscope-lite': ['ecg', 'sine', 'square', 'triangle', 'sawtooth', 'polyline', 'bezier']
       };
       const labelsByOpt = {
         'multi': 'Multiple Pings (multi)',
@@ -1736,10 +2097,17 @@ window.LiteEffects = {
         'hbar': 'Horizontal Bar Gauge (hbar)',
         'vbar': 'Vertical Bar Gauge (vbar)',
         'segmented': 'Segmented Bar Gauge (segmented)',
-        'level': 'Filled-Level Indicator (level)'
+        'level': 'Filled-Level Indicator (level)',
+        'ecg': 'ECG / Heartbeat (ecg)',
+        'sine': 'Sine Wave (sine)',
+        'square': 'Square Wave (square)',
+        'triangle': 'Triangle Wave (triangle)',
+        'sawtooth': 'Sawtooth Wave (sawtooth)',
+        'polyline': 'Angular Polyline (polyline)',
+        'bezier': 'Bézier-Smoothed Curve (bezier)'
       };
       const opts = optsByKind[le.kind] || ['circle'];
-      variantSel.innerHTML = opts.map((o) => `<option value="${o}">${(le.kind === 'radar-lite' || le.kind === 'gauge-lite') && labelsByOpt[o] ? labelsByOpt[o] : o}</option>`).join('');
+      variantSel.innerHTML = opts.map((o) => `<option value="${o}">${(['radar-lite', 'gauge-lite', 'oscilloscope-lite'].includes(le.kind)) && labelsByOpt[o] ? labelsByOpt[o] : o}</option>`).join('');
     }
 
     const durMs = Math.round((Number(le.dur) || 0.10) * 1000);
@@ -1790,17 +2158,19 @@ window.LiteEffects = {
     const flowGroup = document.getElementById('liteFlowGroup');
     const radarGroup = document.getElementById('liteRadarGroup');
     const gaugeGroup = document.getElementById('liteGaugeGroup');
+    const oscGroup = document.getElementById('liteOscGroup');
     const intensityRow = document.getElementById('liteIntensityRow');
     if (dimGroup) dimGroup.style.display = le.kind === 'flow-lite' ? 'none' : '';
     if (posRow) posRow.style.display = le.kind === 'flow-lite' ? 'none' : '';
     if (tracerGroup) tracerGroup.style.display = le.kind === 'perimeter-tracer' ? 'block' : 'none';
-    if (cornerRow) cornerRow.style.display = ((le.kind === 'perimeter-tracer' && le.variant === 'rounded') || (le.kind === 'gauge-lite' && ['hbar', 'vbar', 'level'].includes(le.variant))) ? '' : 'none';
+    if (cornerRow) cornerRow.style.display = ((le.kind === 'perimeter-tracer' && le.variant === 'rounded') || (le.kind === 'gauge-lite' && ['hbar', 'vbar', 'level'].includes(le.variant)) || le.kind === 'oscilloscope-lite') ? '' : 'none';
     if (armRow) armRow.style.display = ((le.kind === 'pulse' || le.kind === 'flash') && (le.variant === 'cross' || le.variant === 'star')) ? '' : 'none';
     if (pulseGroup) pulseGroup.style.display = le.kind === 'pulse' ? 'block' : 'none';
     if (flashGroup) flashGroup.style.display = le.kind === 'flash' ? 'block' : 'none';
     if (flowGroup) flowGroup.style.display = le.kind === 'flow-lite' ? 'block' : 'none';
     if (radarGroup) radarGroup.style.display = le.kind === 'radar-lite' ? 'block' : 'none';
     if (gaugeGroup) gaugeGroup.style.display = le.kind === 'gauge-lite' ? 'block' : 'none';
+    if (oscGroup) oscGroup.style.display = le.kind === 'oscilloscope-lite' ? 'block' : 'none';
     if (intensityRow) intensityRow.style.display = (le.kind === 'pulse' || le.kind === 'flash') ? '' : 'none';
 
     if (le.kind === 'gauge-lite') {
@@ -1822,15 +2192,51 @@ window.LiteEffects = {
       setChk('liteGaugeShowGuideChk', le.showGuide !== false);
       setVal('liteGaugeUnitInput', le.unit !== undefined ? le.unit : '%');
       setVal('liteGaugeLabelInput', le.labelText || '');
-      setChk('liteGaugeUseThresholdsChk', Boolean(le.useThresholds));
-      setVal('liteGaugeWarnThresholdNum', le.warnThreshold !== undefined ? le.warnThreshold : 70);
-      setVal('liteGaugeWarnColorPicker', le.warnColor || '#f59e0b');
-      setVal('liteGaugeCritThresholdNum', le.critThreshold !== undefined ? le.critThreshold : 90);
-      setVal('liteGaugeCritColorPicker', le.critColor || '#ef4444');
+      const bands = (Array.isArray(le.thresholds) && le.thresholds.length === 4)
+        ? le.thresholds
+        : [
+            { enabled: false, value: 40, color: '#22c55e' },
+            { enabled: false, value: 60, color: '#eab308' },
+            { enabled: Boolean(le.useThresholds), value: le.warnThreshold !== undefined ? le.warnThreshold : 70, color: le.warnColor || '#f59e0b' },
+            { enabled: Boolean(le.useThresholds), value: le.critThreshold !== undefined ? le.critThreshold : 90, color: le.critColor || '#ef4444' }
+          ];
+      setChk('liteGaugeUseThresholdsChk', bands.some((b) => b.enabled));
+      setChk('liteGaugeThresh1Chk', Boolean(bands[0].enabled));
+      setVal('liteGaugeThresh1Num', bands[0].value);
+      setVal('liteGaugeThresh1ColorPicker', bands[0].color || '#22c55e');
+      setChk('liteGaugeThresh2Chk', Boolean(bands[1].enabled));
+      setVal('liteGaugeThresh2Num', bands[1].value);
+      setVal('liteGaugeThresh2ColorPicker', bands[1].color || '#eab308');
+      setChk('liteGaugeThresh3Chk', Boolean(bands[2].enabled));
+      setVal('liteGaugeWarnThresholdNum', bands[2].value);
+      setVal('liteGaugeWarnColorPicker', bands[2].color || '#f59e0b');
+      setChk('liteGaugeThresh4Chk', Boolean(bands[3].enabled));
+      setVal('liteGaugeCritThresholdNum', bands[3].value);
+      setVal('liteGaugeCritColorPicker', bands[3].color || '#ef4444');
       const segRow = document.getElementById('liteGaugeSegmentsRow');
       if (segRow) segRow.style.display = le.variant === 'segmented' ? '' : 'none';
-      const threshPanel = document.getElementById('liteGaugeThresholdsPanel');
-      if (threshPanel) threshPanel.style.display = le.useThresholds ? 'block' : 'none';
+    }
+
+    if (le.kind === 'oscilloscope-lite') {
+      const mode = ['static', 'animated', 'sampled'].includes(le.playbackMode) ? le.playbackMode : 'animated';
+      setVal('liteOscModeSelect', mode);
+      setVal('liteOscBgColorPicker', le.bgColor || '#0b1322');
+      setChk('liteOscShowGuideChk', le.showGuide !== false);
+      setPair('liteOscAmplitude', le.intensity !== undefined ? le.intensity : 0.75);
+      setPair('liteOscCycles', le.segments || 2);
+      setPair('liteOscBaseline', le.startOffset !== undefined ? le.startOffset : 50);
+      setPair('liteOscStrokeWidth', le.strokeWidth || 2.2);
+      setPair('liteOscSpeed', le.speed || le.period || 2.4);
+      setVal('liteOscDirectionSelect', (le.direction === 'reverse' || le.direction === 'ccw') ? 'reverse' : 'forward');
+      setVal('liteOscSamplesInput', le.samples || '0, 0.4, 0.9, 0.3, -0.5, -0.9, -0.2, 0.6, 1.0, 0.2, -0.4, 0');
+      const cycRow = document.getElementById('liteOscCyclesRow');
+      const spdRow = document.getElementById('liteOscSpeedRow');
+      const dirRow = document.getElementById('liteOscDirectionRow');
+      const smpRow = document.getElementById('liteOscSamplesRow');
+      if (cycRow) cycRow.style.display = mode === 'sampled' ? 'none' : '';
+      if (spdRow) spdRow.style.display = mode === 'animated' ? '' : 'none';
+      if (dirRow) dirRow.style.display = mode === 'animated' ? '' : 'none';
+      if (smpRow) smpRow.style.display = mode === 'sampled' ? '' : 'none';
     }
 
     if (le.kind === 'radar-lite') {
@@ -1908,8 +2314,8 @@ window.LiteEffects = {
       listEl.innerHTML = '<div class="stage-hint" id="emptyLiteListHint">No low-load effects active.</div>';
       return;
     }
-    const iconByKind = { 'perimeter-tracer': '▭', 'pulse': '◎', 'flash': '✦', 'flow-lite': '↝', 'radar-lite': '◉', 'gauge-lite': '◕' };
-    const kindShort = { 'perimeter-tracer': 'Tracer', 'pulse': 'Pulse', 'flash': 'Flash', 'flow-lite': 'Flow', 'radar-lite': 'Radar', 'gauge-lite': 'Gauge' };
+    const iconByKind = { 'perimeter-tracer': '▭', 'pulse': '◎', 'flash': '✦', 'flow-lite': '↝', 'radar-lite': '◉', 'gauge-lite': '◕', 'oscilloscope-lite': '∿' };
+    const kindShort = { 'perimeter-tracer': 'Tracer', 'pulse': 'Pulse', 'flash': 'Flash', 'flow-lite': 'Flow', 'radar-lite': 'Radar', 'gauge-lite': 'Gauge', 'oscilloscope-lite': 'Osc' };
     this.list.forEach((le) => {
       const row = document.createElement('div');
       const isActive = String(this.activeId) === String(le.id);
