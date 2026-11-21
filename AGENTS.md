@@ -85,8 +85,16 @@ The major foundational phases of SVG Animator Studio are complete:
 - **Phase 4 — Contextual property inspectors:** Context-sensitive floating property editor (`#floatingContextEditor`), optical hit testing, and Select None behaviour implemented.
 - **Go/WASM Migration (Stages 1–9):** Go engine established as authoritative owner of geometry, timeline, shapes, flows, glows, ripples, camera, optics, frame, scene state, history, selection, object naming, and native `.sva` packaging.
 - **Stable Release & Consolidation (v1.2.0):** Codebase cleanup, self-contained background asset packaging repair, version reporting, and documentation alignment.
+- **Stages 12–15 & Post-Carbon Batches 8A–8F:** Multi-selection, alignment, distribution, persistent object groups, duplication, copy/paste with flow remapping, unified layer management, independent image objects, non-destructive cropping, background extraction, image baking, and full Go/WASM authority enforcement.
+- **Stages 16A–16C — Reusable Externally Controllable Widgets:** Self-contained widget export (`widget-manifest.json`, isolated SVG, `js/svg-widget.js`), three-tier visual property exposure (`<object-name>-<type>-<property>`), multi-instance DOM/CSS/ID isolation, and external consumer integration (`SVGWidget.mount()`, `setParameter()`, `setParameters()`).
+- **Stage 16D-A & Permanent SVG Animation Test Lab (M1–M6):** `IntersectionObserver` visibility-aware animation suspension, initial Low-Load Effects (`perimeter-tracer`, `pulse`, `flash`, accepted at `7e8d4f6`), and the permanent SVG Animation Test Lab (`cmd/anim-test-lab/`, `pkg/animlab/`, `docs/architecture/svg-animation-engineering-guidance.md`, accepted at `bf7ee3e`).
+- **Stage 16D-B — Flows, Data Indicators & Waveforms (Complete & Accepted):**
+  - **M1 Flow Lite (`flow-lite`, commit `a3a7d24`):** Multi-point user-authored open path with straight and quadratic-Bézier curved sections, dashed/dotted/single patterns, tunnel and abrupt start/end behaviours, start/end delays, and Cycle Duration (`0.2..30.0 s`).
+  - **M2 Radar Ping Lite (`radar-lite`, commit `ad814bb`):** Filter-free expanding circular/elliptical outline pings (`single`, `multi` `1..6` staggered rings, `fading-ping`) with non-scaling stroke thickness and optional centre dot.
+  - **M3 Gauge / Level Lite (`gauge-lite`, commit `a086170`, 4-threshold enhancement `698e6cf`):** Data-driven zero-idle-animation numeric indicators across 5 styles (`ring`, `hbar`, `vbar`, `segmented`, `level`), arbitrary negative/positive domains, valid zero (`0.0`), 4 independently enabled threshold bands, and application colour override precedence.
+  - **M4 Oscilloscope Lite (`oscilloscope-lite`, commit `698e6cf`):** 7 waveform presets (`ecg`, `sine`, `square`, `triangle`, `sawtooth`, `polyline`, `bezier`) across `static`, `animated` (seamless periodic tile scroll), and `sampled` (`2..64` numeric samples) operating modes.
 
-Future roadmap items (e.g. Digital Twin presenter, external telemetry bindings, or standalone HTML widgets) are planned extensions and must not be implemented until their specific phases are approved.
+Future roadmap items (e.g. Stage 16D-C Text and Typography / Text Box Lite, Stage 16E group-level data inputs and custom composite objects, or Digital Twin presenter workflows) are planned extensions and must not be implemented until their specific phases are approved.
 
 ### Strict phase boundaries
 

@@ -53,7 +53,7 @@ To maintain architectural clarity as the application evolves towards Digital Twi
 
 ## 3. Script Load Order (`internal/web/static/index.html`)
 
-Because the frontend uses browser globals embedded via `//go:embed`, script load order in `index.html` is significant (25 scripts total, updated in Batch 8D & Batch 8E):
+Because the frontend uses browser globals embedded via `//go:embed`, script load order in `index.html` is significant (27 scripts total, updated through Stage 16D-A and Stage 16D-B):
 
 1. `js/wasm_exec.js` — Standard Go WebAssembly runtime bootstrap.
 2. `js/engine-bridge.js` (`window.EngineBridge`, `window.ImageObjects`, `window.ObjectGroups`, `window.LayerManager`) — Go/WASM engine loader, command dispatcher, and readiness manager.
@@ -67,19 +67,21 @@ Because the frontend uses browser globals embedded via `//go:embed`, script load
 10. `js/flows.js` (`window.DataFlows`) — Data flow connector state, CRUD/waypoint API, path math, SVG generation, and flow UI.
 11. `js/glows.js` (`window.Glows`) — Hotspot/radar ping state, CRUD API, SVG generation, and glow UI.
 12. `js/ripples.js` (`window.Ripples`) — Refractive water ripple state, CRUD API, displacement filter/ring SVG generation, and ripple UI.
-13. `js/history.js` (`window.HistoryManager`) — Undo/redo snapshot stacks (`undoStack`, `redoStack`, `maxDepth: 50`) and `trackedControlIds` (95 DOM controls).
-14. `js/projects.js` (`window.ProjectManager`) — Schema `1.2.0` project serialization/deserialization, `/api/export/projects*` (and `/api/projects*`) REST client, and library modal UI.
-15. `js/shape-dropdown.js` (`window.ensureShapeInDropdown`, `window.populateShapeDropdowns`) — Shape selector population & preset synchronization.
-16. `js/export-adapter.js` (`window.SVGExportAdapter`, `window.serializeSVGForExport`) — XML validation, xlink injection & export serialization.
-17. `js/workspace.js` (`window.WorkspaceController`, `window.openAccordionById`, `window.toggleAllAccordions`) — Sliding drawers, icon rails, accordions & stage maximization.
-18. `js/notifications.js` (`window.StudioNotification`) — Studio toast notifications & status messaging.
-19. `js/color-picker.js` (`window.CustomColorPicker`) — Popover palette, swatches, and HSV/RGB color mathematics.
-20. `js/timeline.js` (`window.TimelinePlayer`) — Playback transport, timeline scrubber & timecode display.
-21. `js/layers-ui.js` (`window.renderLayersList`, `window.updateLayersToolbarState`, `window.syncInspectorLayerSections`, `window.syncImageEditorUI`) — Layer list DOM rendering, reorder buttons, lock/visibility toggles, and image inspector UI.
-22. `js/context-editor.js` (`window.FloatingPropertiesEditor`) — Floating contextual property inspector and form controls.
-23. `js/app.js` (`window.ImageToolsController`, `window.executeBakeImage`, `window.triggerRender`) — Studio bootstrapping, canvas image baking pipeline, crop-clip coordination, and master preview compilation.
-24. `js/still-export-modal.js` (`window.StillExportStudio`) — Still render configuration (`buildStillRenderConfig`), time-scrubbed SMIL frame evaluation (`bakeStaticSVGAtTime`, `evaluateSMILAnimate`), and still/print export modal.
-25. `js/export-modal.js` (`window.AnimatedExportStudio`) — Animated export payload builder (`constructExportJobPayload`) and multi-frame export modal (`POST /api/render`, progress polling, media downloads).
+13. `js/lite-effects.js` (`window.LiteEffects`) — Low-Load Effects (`perimeter-tracer`, `pulse`, `flash`, `flow-lite`, `radar-lite`, `gauge-lite`, `oscilloscope-lite`) state, multi-point Flow Lite waypoint CRUD, 4-threshold Gauge Lite evaluation, 7-preset Oscilloscope Lite path generation, and declarative SVG builders.
+14. `js/history.js` (`window.HistoryManager`) — Undo/redo snapshot stacks (`undoStack`, `redoStack`, `maxDepth: 50`) and `trackedControlIds` (95 DOM controls).
+15. `js/projects.js` (`window.ProjectManager`) — Schema `1.2.0` project serialization/deserialization, `/api/export/projects*` (and `/api/projects*`) REST client, and library modal UI.
+16. `js/shape-dropdown.js` (`window.ensureShapeInDropdown`, `window.populateShapeDropdowns`) — Shape selector population & preset synchronization.
+17. `js/export-adapter.js` (`window.SVGExportAdapter`, `window.serializeSVGForExport`) — XML validation, xlink injection & export serialization.
+18. `js/workspace.js` (`window.WorkspaceController`, `window.openAccordionById`, `window.toggleAllAccordions`) — Sliding drawers, icon rails, accordions & stage maximization.
+19. `js/notifications.js` (`window.StudioNotification`) — Studio toast notifications & status messaging.
+20. `js/color-picker.js` (`window.CustomColorPicker`) — Popover palette, swatches, and HSV/RGB color mathematics.
+21. `js/timeline.js` (`window.TimelinePlayer`) — Playback transport, timeline scrubber & timecode display.
+22. `js/layers-ui.js` (`window.renderLayersList`, `window.updateLayersToolbarState`, `window.syncInspectorLayerSections`, `window.syncImageEditorUI`) — Layer list DOM rendering, reorder buttons, lock/visibility toggles, and image inspector UI.
+23. `js/context-editor.js` (`window.FloatingPropertiesEditor`) — Floating contextual property inspector and form controls.
+24. `js/app.js` (`window.ImageToolsController`, `window.executeBakeImage`, `window.triggerRender`) — Studio bootstrapping, canvas image baking pipeline, crop-clip coordination, three-tier widget property cards, and master preview compilation.
+25. `js/still-export-modal.js` (`window.StillExportStudio`) — Still render configuration (`buildStillRenderConfig`), time-scrubbed SMIL frame evaluation (`bakeStaticSVGAtTime`, `evaluateSMILAnimate`), and still/print export modal.
+26. `js/export-modal.js` (`window.AnimatedExportStudio`) — Animated export payload builder (`constructExportJobPayload`) and multi-frame export modal (`POST /api/render`, progress polling, media downloads).
+27. `js/svg-widget.js` (`window.SVGWidget`) — Stage 16A–16D standalone reusable widget runtime with instance isolation, atomic `setParameter()` / `setParameters()` API, `IntersectionObserver` visibility-aware animation suspension, 4-threshold Gauge Lite evaluation, and live Oscilloscope Lite sample/amplitude updates.
 
 ---
 
@@ -104,6 +106,11 @@ Because the frontend uses browser globals embedded via `//go:embed`, script load
 | Multi-Selection, Alignment, Distribution & Colour Tool | **Implemented (Stage 12)** | `pkg/engine/scene/transform.go`, `selection.go`, `protocol/`, `coordinator.js`, `app.js` |
 | Persistent Object Groups, Integrated Duplication & Copy/Paste | **Implemented (Stage 13 & Repair)** | `pkg/engine/scene/group.go`, `clipboard.go`, `sva/`, `protocol/`, `coordinator.js`, `engine-bridge.js`, `stage.js`, `nodes.js`, `flows.js`, `glows.js`, `ripples.js`, `app.js` |
 | Unified Layer Management & Independent Image Objects | **Implemented (Stage 14)** | `pkg/engine/scene/layer.go`, `image.go`, `protocol/`, `sva/`, `engine-bridge.js`, `coordinator.js`, `app.js`, `stage.js` |
+| Non-Destructive Cropping, Background Extraction, Image Baking & Crop/Clip Workspace | **Implemented (Stage 15 & Batch 8A–8F)** | `pkg/engine/scene/crop.go`, `image.go`, `protocol/`, `app.js`, `stage.js`, `nodes.js` |
+| Reusable Collision-Free SVG Widgets, Three-Tier Property Exposure & External Consumer Runtime | **Implemented (Stages 16A, 16B & 16C)** | `pkg/engine/scene/widget.go`, `js/svg-widget.js`, `app.js`, `context-editor.js` |
+| Visibility-Aware Animation & Initial Low-Load Effects (`perimeter-tracer`, `pulse`, `flash`) | **Implemented & Accepted (Stage 16D-A)** | `pkg/engine/scene/lite_effect.go`, `js/lite-effects.js`, `js/svg-widget.js` (commit `7e8d4f6`) |
+| Permanent SVG Animation Test Lab & Engineering Guidance (M1–M6) | **Complete & Accepted** | `cmd/anim-test-lab/`, `pkg/animlab/`, `testlab/`, `docs/architecture/svg-animation-engineering-guidance.md` (commit `bf7ee3e`) |
+| Stage 16D-B Flows, Data Indicators & Waveforms (`flow-lite`, `radar-lite`, 4-threshold `gauge-lite`, `oscilloscope-lite`) | **Complete & Accepted (Stage 16D-B M1–M4)** | `pkg/engine/geometry/flow_geom.go`, `pkg/engine/scene/lite_effect.go`, `pkg/engine/scene/widget.go`, `js/lite-effects.js`, `js/svg-widget.js` (M1 `a3a7d24`, M2 `ad814bb`, M3 `a086170`, M4 `698e6cf`) |
 | Three-layer frontend separation (`SceneState`, `ControlStateAdaptor`, `AppCoordinator`) | **Implemented (Phase 1)** | `internal/web/static/js/scene-state.js`, `coordinator.js` |
 | Operational APIs & UI separation across `presets`, `nodes`, `flows`, `glows`, `ripples`, `stage`, `history`, `projects`, `app`, export modals | **Implemented (Phase 1)** | `internal/web/static/js/*.js` |
 | Immutable SVG Shape Registry (`window.ShapeRegistry`) | **Implemented (Stage 2.1)** | `internal/web/static/js/shape-registry.js` (commit `f229c89`) |
@@ -147,6 +154,10 @@ Because the frontend uses browser globals embedded via `//go:embed`, script load
   - [`phase2-progress.md`](docs/architecture/phase2-progress.md) — Phase 2 milestone logs, test reports, and roadmap.
   - [`phase3-progress.md`](docs/architecture/phase3-progress.md) — Phase 3 workspace redesign progress, drawer architecture, and verification.
   - [`sva-format-specification.md`](docs/architecture/sva-format-specification.md) — Native `.sva` project package layout, manifest schema, security limits, and Go serialization.
+  - [`stage16c-external-widget-integration.md`](docs/architecture/stage16c-external-widget-integration.md) — Stage 16C external data-driven widget package contract and `SVGWidget` runtime API.
+  - [`stage16d-a-foundation-and-lite-effects.md`](docs/architecture/stage16d-a-foundation-and-lite-effects.md) — Stage 16D-A visibility-aware animation suspension and initial Low-Load Effects (`perimeter-tracer`, `pulse`, `flash`).
+  - [`svg-animation-test-lab.md`](docs/architecture/svg-animation-test-lab.md) & [`svg-animation-engineering-guidance.md`](docs/architecture/svg-animation-engineering-guidance.md) — Permanent SVG Animation Test Lab architecture and M1–M6 comparative engineering guidance.
+  - [`../stage16d-b-proposed-implementation-plan.md`](docs/stage16d-b-proposed-implementation-plan.md) — Stage 16D-B complete implementation plan and M1–M4 acceptance record (`flow-lite`, `radar-lite`, 4-threshold `gauge-lite`, `oscilloscope-lite`).
 - **Modules (`docs/modules/`):**
   - [`app.md`](docs/modules/app.md) | [`stage.md`](docs/modules/stage.md) | [`presets.md`](docs/modules/presets.md) | [`nodes.md`](docs/modules/nodes.md) | [`shape-registry.md`](docs/modules/shape-registry.md) | [`flows.md`](docs/modules/flows.md) | [`glows.md`](docs/modules/glows.md) | [`ripples.md`](docs/modules/ripples.md) | [`effects.md`](docs/modules/effects.md) | [`history.md`](docs/modules/history.md) | [`projects.md`](docs/modules/projects.md)
 - **Development Guides (`docs/development/`):**

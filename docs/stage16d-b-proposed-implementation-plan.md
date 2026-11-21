@@ -1,9 +1,9 @@
 # Stage 16D-B — Proposed Implementation Plan
 
-**Status:** **M1 ACCEPTED (`a3a7d24`); M2 ACCEPTED (`ad814bb`); M3 ACCEPTED (`a086170`, 4-threshold enhancement completed in M4); Stage 16D-B-M4 — IMPLEMENTED, AWAITING USER ACCEPTANCE**
+**Status:** **STAGE 16D-B COMPLETE AND ACCEPTED (M1 ACCEPTED `a3a7d24`; M2 ACCEPTED `ad814bb`; M3 ACCEPTED `a086170`; M4 & 4-Threshold Gauge Enhancement ACCEPTED `698e6cf`)**
 **Project:** SVG Animator Studio
 **Stage:** Stage 16D-B (Flows, Data Indicators and Waveforms)
-**Implementation Authorisation:** **M1 (`16D-B-M1`: Flow Lite) ACCEPTED (`a3a7d24`); M2 (`16D-B-M2`: Radar Ping Lite) ACCEPTED (`ad814bb`); M3 (`16D-B-M3`: Gauge / Level Lite) ACCEPTED (`a086170`, with 4 independently enabled thresholds completed in M4); Stage 16D-B-M4 (`16D-B-M4`: Oscilloscope Lite) IMPLEMENTED — AWAITING USER ACCEPTANCE**
+**Implementation Authorisation:** **STAGE 16D-B COMPLETE AND ACCEPTED** (`16D-B-M1`: Flow Lite ACCEPTED `a3a7d24`; `16D-B-M2`: Radar Ping Lite ACCEPTED `ad814bb`; `16D-B-M3`: Gauge / Level Lite ACCEPTED `a086170`; `16D-B-M4`: Oscilloscope Lite & 4-Threshold Gauge Enhancement ACCEPTED `698e6cf`)
 **Baseline Commits:** `bf7ee3e` (Test Lab M6 closeout) and `7e8d4f6` (Stage 16D-A standalone SVG export audit)  
 **Engineering Guidance Reference:** [`docs/architecture/svg-animation-engineering-guidance.md`](architecture/svg-animation-engineering-guidance.md)  
 **Test Lab Comparative Evidence:** [`testlab/m6-evidence/M6_FINAL_COMPARATIVE_REPORT.md`](../testlab/m6-evidence/M6_FINAL_COMPARATIVE_REPORT.md) (BookStack Book 468, Page 470, revision 13; live viewer at `http://192.168.100.40:8093/`)
@@ -457,7 +457,7 @@ All five planned indicator styles from Section D.4.2 are implemented under `kind
 
 ## L. Milestone 4 (`16D-B-M4`: Oscilloscope Lite & Part A Four-Threshold Gauge Enhancement) Implementation Evidence & Status
 
-**Milestone Status:** **Stage 16D-B-M4 — IMPLEMENTED, AWAITING USER ACCEPTANCE**
+**Milestone Status:** **ACCEPTED (`698e6cf`)**
 **Live Studio URL:** `http://192.168.100.40:8088/`
 **Live Oscilloscope Lite Visual Showcase URL:** `http://192.168.100.40:8088/oscilloscope-lite-demo.html`
 **Live Updated 4-Threshold Gauge Lite Visual Showcase URL:** `http://192.168.100.40:8088/gauge-lite-demo.html`
@@ -493,3 +493,21 @@ All seven planned waveform styles from Section D.5 are implemented with exact pe
 - **Stage 16D-B-M2 Real-Browser Acceptance Suite (`go run ./scripts/cmd/verify-stage16d-b-m2/main.go`):** **16 / 16 Gates PASS**.
 - **Stage 16D-B-M3 Real-Browser Acceptance Suite (`go run ./scripts/cmd/verify-stage16d-b-m3/main.go`):** **16 / 16 Gates PASS**.
 - **Stage 16D-B-M4 Real-Browser Acceptance Suite (`go run ./scripts/cmd/verify-stage16d-b-m4/main.go`):** **15 / 15 Gates PASS (`AT-M4-01` through `AT-M4-15`)**.
+
+---
+
+## M. Stage 16D-B Programme Closeout Summary
+
+**Programme Status:** **STAGE 16D-B COMPLETE AND ACCEPTED**
+
+| Milestone | Capability | Implementation Commit | Browser Acceptance Gates | Status |
+|---|---|---|---|---|
+| **Stage 16D-B-M1** | **Flow Lite (`flow-lite`)** — Multi-point path authoring, straight & quadratic-Bézier curved sections, dashed/dotted/single patterns, tunnel & abrupt start/end behaviours, start/end delays, Cycle Duration (`0.2..30.0 s`) | `a3a7d24` (label & `30.0 s` range refined in `ad814bb`) | `16 / 16 PASS` (`verify-stage16d-b-m1`) | **ACCEPTED** |
+| **Stage 16D-B-M2** | **Radar Ping Lite (`radar-lite`)** — Filter-free single, multi-ring (`1..6` staggered rings), and fading circular/elliptical pings with non-scaling stroke thickness and optional centre dot | `ad814bb` | `16 / 16 PASS` (`verify-stage16d-b-m2`) | **ACCEPTED** |
+| **Stage 16D-B-M3** | **Gauge / Level Lite (`gauge-lite`)** — Zero-idle-animation data-driven numeric indicators across 5 variants (`ring`, `hbar`, `vbar`, `segmented`, `level`), arbitrary negative/positive domains, valid zero (`0.0`), and application colour override precedence | `a086170` (extended to 4 independently enabled thresholds in `698e6cf`) | `16 / 16 PASS` (`verify-stage16d-b-m3`) | **ACCEPTED** |
+| **Stage 16D-B-M4** | **Oscilloscope Lite (`oscilloscope-lite`) & Four-Threshold Gauge Lite Enhancement** — 7 waveform presets (`ecg`, `sine`, `square`, `triangle`, `sawtooth`, `polyline`, `bezier`), `static`/`animated`/`sampled` (`2..64` samples) modes, seamless periodic tile scrolling, and 4 independently enabled Gauge Lite threshold bands | `698e6cf` | `15 / 15 PASS` (`verify-stage16d-b-m4`) | **ACCEPTED** |
+
+### Known Limitations & Deferred Boundaries Preserved at Closeout
+- **Scope Boundaries Respected:** Stage 16D-C (Text and Typography / Text Box Lite), Stage 16E (group-level data inputs and custom composite objects), and Digital Twin workflows remain deferred until their dedicated phases are authorised.
+- **Standalone SVG vs. `<img>` Context:** Consistent with Stage 16D-A, continuous CSS `@keyframes` animations (`flow-lite` zero-delay loops, `radar-lite`, `oscilloscope-lite` animated scroll) and static `gauge-lite` / `oscilloscope-lite` renderings work inside both standalone `<svg>` documents and HTML `<img>` tags, whereas JavaScript-assisted cycle-boundary delays (`flow-lite` non-zero `delay`/`endDelay` in standalone SVG) require an execution context that runs inline `<script>` (`<svg>` tab, `<object>`, or `SVGWidget.mount()`).
+- **Permanent SVG Animation Test Lab Preserved:** All Test Lab findings, `docs/architecture/svg-animation-engineering-guidance.md`, `testlab/m6-evidence/M6_FINAL_COMPARATIVE_REPORT.md` (BookStack Book `468`, Page `470`), and the live Test Lab viewer at `http://192.168.100.40:8093/` remain intact and authoritative.
