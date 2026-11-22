@@ -103,5 +103,3 @@ GOOS=windows GOARCH=amd64 go build -o bin/svg-animator-windows.exe .\cmd\svg-ani
 
 ---
 
-## License & Contributing
-Licensed under the MIT License. Contributions, bug reports, and feature requests are welcome via Gitea or GitHub issues.
