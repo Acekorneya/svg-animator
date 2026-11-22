@@ -1075,13 +1075,21 @@ func (s *Scene) syncGroupMappingsToWidgetParamsLocked(groupID StringID) {
 		"opacity":    true,
 		"visibility": true,
 		"speed":      true,
+		"play":       true,
 	}
 
-	// Keep all non-group parameters and built-in group parameters
+	customAliases := make(map[string]bool)
+	if exists {
+		for _, m := range grp.Mappings {
+			customAliases[strings.ToLower(strings.TrimSpace(m.Alias))] = true
+		}
+	}
+
+	// Keep all non-group parameters and built-in group parameters (unless overridden by a custom mapping with the same alias)
 	kept := make([]WidgetParameter, 0, len(s.parameters))
 	for _, p := range s.parameters {
 		if p.Target == targetID || p.Target == prefixedID {
-			if builtInProps[p.Property] && len(p.Targets) == 0 {
+			if builtInProps[p.Property] && len(p.Targets) == 0 && !customAliases[strings.ToLower(p.Property)] {
 				kept = append(kept, p)
 			}
 			continue

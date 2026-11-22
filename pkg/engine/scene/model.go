@@ -540,8 +540,16 @@ type LiteEffect struct {
 	LockOnOff           *bool                `json:"lockOnOff,omitempty"`           // text-lite flash/blink lock On Hold Duration == Off Duration
 	TypeMode            string               `json:"typeMode,omitempty"`            // text-lite typewriter sequence ("once", "hold", "delete", "delete-forward")
 	TypeRepeat          *bool                `json:"typeRepeat,omitempty"`          // text-lite repeat complete typewriter sequence
+	Play                *bool                `json:"play,omitempty"`                // start or stop animation playback independent of playbackMode (default true)
 	Visible             *bool                `json:"visible,omitempty"`
 	Locked              bool                 `json:"locked"`
+}
+
+func (l LiteEffect) IsPlaying() bool {
+	if l.Play == nil {
+		return true
+	}
+	return *l.Play
 }
 
 func (l LiteEffect) IsVisible() bool {

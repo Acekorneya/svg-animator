@@ -577,6 +577,164 @@ func run() int {
 		var r5a map[string]any
 		_ = json.Unmarshal([]byte(g5aJSON), &r5a)
 		record("16E-GATE-05A", "Studio Min-Canvas (20x20, 200x50, 50x200, Zoom, Persistence & Export)", r5a["ok"] == true, g5aJSON)
+
+		// Gate 6: Play Animation ("play") boolean property across Low-Load Effects, Shapes, Flows, Glows, Ripples & Groups
+		_, _ = chromedp.Run(taskCtx, chromedp.Evaluate[bool](`(() => {
+			if (!window.SVGWidget && !document.getElementById('gate6-svg-widget-script')) {
+				const s = document.createElement('script');
+				s.id = 'gate6-svg-widget-script';
+				s.src = '/js/svg-widget.js';
+				document.head.appendChild(s);
+			}
+			return true;
+		})()`))
+		for i := 0; i < 25; i++ {
+			hasWidget, _ := chromedp.Run(taskCtx, chromedp.Evaluate[bool](`Boolean(window.SVGWidget && typeof window.SVGWidget.mount === 'function')`))
+			if hasWidget {
+				break
+			}
+			_ = runVoid(taskCtx, chromedp.Sleep(100*time.Millisecond))
+		}
+		g6JSON, _ := chromedp.Run(taskCtx, chromedp.Evaluate[string](`(() => {
+			try {
+				window.ProjectManager.resetToNewProject();
+				window.EngineBridge.setWidgetParameters([]);
+
+				const menuNode = window.DiagramNodes.addNode({
+					shape: 'pill',
+					name: 'menu-card',
+					text: 'ITEM 1',
+					animation: 'pulse-border'
+				});
+				const menuFlow = window.DataFlows.addFlow();
+				window.DataFlows.updateFlow(menuFlow.id, { name: 'menu-flow', type: 'orb', lineStyle: 'marching' });
+				const menuGlow = window.Glows.addGlow();
+				window.Glows.updateGlow(menuGlow.id, { name: 'menu-glow' });
+				const menuRipple = window.Ripples.addRipple();
+				window.Ripples.updateRipple(menuRipple.id, { name: 'menu-ripple' });
+
+				const menuTracer = window.LiteEffects.createLiteEffect({
+					kind: 'perimeter-tracer',
+					name: 'menu-border',
+					variant: 'rounded',
+					playbackMode: 'loop',
+					play: false
+				});
+				const menuText = window.LiteEffects.createLiteEffect({
+					kind: 'text-lite',
+					name: 'menu-label',
+					labelText: 'START',
+					textAnim: 'typewriter',
+					typeMode: 'once',
+					typeRepeat: false,
+					typeSpeed: 60,
+					play: false
+				});
+
+				const menuGrpRes = window.EngineBridge.createGroup('menu-item', [
+					{ type: 'lite', id: String(menuTracer.id) },
+					{ type: 'lite', id: String(menuText.id) }
+				]);
+				const menuGrp = menuGrpRes && menuGrpRes.group ? menuGrpRes.group : menuGrpRes;
+
+				const paramsToAdd = [
+					{ name: 'menu-card-node-play', type: 'boolean', default: true, target: 'node-' + menuNode.id, property: 'play' },
+					{ name: 'menu-flow-flow-play', type: 'boolean', default: true, target: 'flow-' + menuFlow.id, property: 'play' },
+					{ name: 'menu-glow-glow-play', type: 'boolean', default: true, target: 'glow-' + menuGlow.id, property: 'play' },
+					{ name: 'menu-ripple-ripple-play', type: 'boolean', default: true, target: 'ripple-' + menuRipple.id, property: 'play' },
+					{ name: 'menu-border-tracer-play', type: 'boolean', default: false, target: 'lite-' + menuTracer.id, property: 'play' },
+					{ name: 'menu-label-text-play', type: 'boolean', default: false, target: 'lite-' + menuText.id, property: 'play' },
+					{ name: 'menu-item-group-play', type: 'boolean', default: false, target: menuGrp.id, property: 'play' }
+				];
+				for (const p of paramsToAdd) {
+					window.EngineBridge.addWidgetParameter(p);
+				}
+
+				window.EngineBridge.setGroupMapping(menuGrp.id, {
+					alias: 'selected',
+					label: 'Menu Item Selected',
+					type: 'boolean',
+					default: false,
+					targets: [
+						{ memberType: 'lite', memberId: String(menuTracer.id), property: 'play' },
+						{ memberType: 'lite', memberId: String(menuText.id), property: 'play' }
+					]
+				});
+
+				const fullSvgPlay = window.buildFullSVG(window.SceneState.buildRenderState());
+				let host = document.getElementById('gate6-widget-host');
+				if (!host) {
+					host = document.createElement('div');
+					host.id = 'gate6-widget-host';
+					document.body.appendChild(host);
+				}
+				const inst = window.SVGWidget.mount(host, fullSvgPlay, {
+					instanceId: 'gate6_menu',
+					manifest: {
+						schemaVersion: 1,
+						parameters: window.EngineBridge.getWidgetParameters()
+					},
+					visibilityAware: false
+				});
+
+				const tracerEl = inst.svgElement.querySelector('[data-semantic-target="lite-' + menuTracer.id + '"]');
+				const textEl = inst.svgElement.querySelector('[data-semantic-target="lite-' + menuText.id + '"]');
+				const nodeEl = inst.svgElement.querySelector('[data-semantic-target="node-' + menuNode.id + '"]');
+				const flowEl = inst.svgElement.querySelector('[data-semantic-target="flow-' + menuFlow.id + '"]');
+				const glowEl = inst.svgElement.querySelector('[data-semantic-target="glow-' + menuGlow.id + '"]');
+				const rippleEl = inst.svgElement.querySelector('[data-semantic-target="ripple-' + menuRipple.id + '"]');
+				const tracerPayload = tracerEl.querySelector('.lite-payload');
+
+				const initStoppedOk = tracerEl.getAttribute('data-lite-play') === 'false' &&
+					textEl.getAttribute('data-lite-play') === 'false' &&
+					tracerPayload.style.animationName === 'none';
+
+				inst.setParameter('menu-item-group-selected', true);
+				const groupPlayStartedOk = tracerEl.getAttribute('data-lite-play') === 'true' &&
+					textEl.getAttribute('data-lite-play') === 'true' &&
+					tracerPayload.style.animationPlayState === 'running' &&
+					tracerPayload.style.animationIterationCount === 'infinite';
+
+				inst.setParameter('menu-item-group-selected', false);
+				const groupPlayStoppedOk = tracerEl.getAttribute('data-lite-play') === 'false' &&
+					textEl.getAttribute('data-lite-play') === 'false' &&
+					tracerPayload.style.animationName === 'none' &&
+					textEl.querySelector('text').textContent === 'START';
+
+				inst.setParameters({
+					'menu-card-node-play': false,
+					'menu-flow-flow-play': false,
+					'menu-glow-glow-play': false,
+					'menu-ripple-ripple-play': false
+				});
+				const smilStoppedOk = nodeEl.getAttribute('data-play-animation') === 'false' &&
+					flowEl.getAttribute('data-play-animation') === 'false' &&
+					glowEl.getAttribute('data-play-animation') === 'false' &&
+					rippleEl.getAttribute('data-play-animation') === 'false';
+
+				inst.setParameters({
+					'menu-card-node-play': true,
+					'menu-flow-flow-play': true,
+					'menu-glow-glow-play': true,
+					'menu-ripple-ripple-play': true
+				});
+				const smilStartedOk = nodeEl.getAttribute('data-play-animation') === 'true' &&
+					flowEl.getAttribute('data-play-animation') === 'true' &&
+					glowEl.getAttribute('data-play-animation') === 'true' &&
+					rippleEl.getAttribute('data-play-animation') === 'true';
+
+				inst.destroy();
+				host.remove();
+
+				const ok = initStoppedOk && groupPlayStartedOk && groupPlayStoppedOk && smilStoppedOk && smilStartedOk;
+				return JSON.stringify({ ok, initStoppedOk, groupPlayStartedOk, groupPlayStoppedOk, smilStoppedOk, smilStartedOk });
+			} catch (e) {
+				return JSON.stringify({ ok: false, error: e.message });
+			}
+		})()`))
+		var r6 map[string]any
+		_ = json.Unmarshal([]byte(g6JSON), &r6)
+		record("16E-GATE-06", "Play Animation ('play') across Lite Effects, Shapes, Flows, Glows, Ripples & Groups", r6["ok"] == true, g6JSON)
 	}
 
 	smallDemoURL := strings.TrimRight(studioURL, "/") + "/small-widgets-demo.html"

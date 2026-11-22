@@ -1013,8 +1013,9 @@ window.LiteEffects = {
     const sw = Number(le.strokeWidth) || 2.5;
     const { cx, cy, x, y, w, h, rx, ry, cr, rot } = this._resolveGeometry(le);
     const nameAttr = le.name ? ` data-semantic-name="${this.escapeXML(le.name)}"` : '';
+    const playAttr = le.play === false ? ' data-lite-play="false" data-play-animation="false"' : '';
     const rotAttr = (rot && Math.abs(rot) > 0.001) ? ` transform="rotate(${Number(rot.toFixed(2))}, ${cx.toFixed(2)}, ${cy.toFixed(2)})"` : '';
-    const baseAttrs = `id="lite-${le.id}" class="diagram-lite-instance" data-lite-id="${le.id}" data-lite-kind="${this.escapeXML(le.kind)}" data-semantic-target="lite-${le.id}"${nameAttr}${rotAttr}`;
+    const baseAttrs = `id="lite-${le.id}" class="diagram-lite-instance" data-lite-id="${le.id}" data-lite-kind="${this.escapeXML(le.kind)}" data-semantic-target="lite-${le.id}"${nameAttr}${playAttr}${rotAttr}`;
 
     if (le.kind === 'perimeter-tracer') {
       const segs = Math.max(1, Math.min(16, Number(le.segments) || 2));
@@ -2481,6 +2482,7 @@ window.LiteEffects = {
     bindPair('liteTextHoldDelay', 'holdDelay');
     bindField('liteTextLockOnOffChk', 'lockOnOff', false, true);
     bindPair('liteTextClearDuration', 'clearDuration');
+    bindField('litePlayChk', 'play', false, true);
   },
 
   addWaypointToActive() {
@@ -3017,6 +3019,7 @@ window.LiteEffects = {
     setChk('liteRepeatChk', le.repeat);
     setPair('liteFlashRepeatInterval', le.repeatInterval || 2.0);
     setChk('liteVisibleChk', le.visible !== false);
+    setChk('litePlayChk', le.play !== false);
 
     const dimGroup = document.getElementById('liteDimensionsGroup');
     const posRow = document.getElementById('liteXNum') ? document.getElementById('liteXNum').closest('.inspector-prop-row') : null;

@@ -441,6 +441,7 @@ var ObjectPropertyCatalog = map[string][]EligibleProperty{
 		{Property: "stroke", Type: "color", Label: "Border Stroke", ParamSuffix: "stroke", Description: "Outline and border stroke color", Default: "#1d4ed8", DefaultSource: "node.strokeColor", RuntimeSemantics: "recolours node border stroke"},
 		{Property: "opacity", Type: "number", Label: "Opacity", ParamSuffix: "opacity", Description: "Transparency of the node (0.0 to 1.0)", Min: floatPtr(0), Max: floatPtr(1), Step: floatPtr(0.05), Default: 1.0, DefaultSource: "node.fillOpacity", RuntimeSemantics: "sets node overall opacity"},
 		{Property: "visibility", Type: "boolean", Label: "Visibility", ParamSuffix: "visibility", Description: "Toggle visibility of the node", Default: true, DefaultSource: "true", RuntimeSemantics: "toggles node visibility"},
+		{Property: "play", Type: "boolean", Label: "Play Animation", ParamSuffix: "play", Description: "Start or stop the node shape animation (pulse-border, float, fade-in)", Default: true, DefaultSource: "true", RuntimeSemantics: "starts or stops node SMIL animation"},
 		{Property: "text", Type: "text", Label: "Label Text", ParamSuffix: "text", Description: "Primary text label displayed inside the node", Default: "Node", DefaultSource: "node.text", RuntimeSemantics: "updates node text label"},
 	},
 	"flow": {
@@ -449,16 +450,19 @@ var ObjectPropertyCatalog = map[string][]EligibleProperty{
 		{Property: "speed", Type: "speed", Label: "Flow Speed", ParamSuffix: "speed", Description: "Animation speed multiplier for this flow connector (0.1 to 10.0)", Min: floatPtr(0.1), Max: floatPtr(10.0), Step: floatPtr(0.1), Default: 1.0, DefaultSource: "flow.animSpeed", RuntimeSemantics: "multiplies with master playback rate"},
 		{Property: "opacity", Type: "number", Label: "Opacity", ParamSuffix: "opacity", Description: "Transparency of the connector (0.0 to 1.0)", Min: floatPtr(0), Max: floatPtr(1), Step: floatPtr(0.05), Default: 1.0, DefaultSource: "1.0", RuntimeSemantics: "sets flow overall opacity"},
 		{Property: "visibility", Type: "boolean", Label: "Visibility", ParamSuffix: "visibility", Description: "Toggle visibility of this flow connector", Default: true, DefaultSource: "true", RuntimeSemantics: "toggles flow visibility"},
+		{Property: "play", Type: "boolean", Label: "Play Animation", ParamSuffix: "play", Description: "Start or stop flow connector line and traveling payload animation", Default: true, DefaultSource: "true", RuntimeSemantics: "starts or stops flow SMIL animations"},
 	},
 	"glow": {
 		{Property: "color", Type: "color", Label: "Glow Colour", ParamSuffix: "color", Description: "Accent color of the illuminated glow effect", Default: "#f59e0b", DefaultSource: "glow.color", RuntimeSemantics: "recolours radial gradient / core; hit-target remains transparent"},
 		{Property: "opacity", Type: "number", Label: "Glow Intensity", ParamSuffix: "opacity", Description: "Transparency / intensity of the glow element (0.0 to 1.0)", Min: floatPtr(0), Max: floatPtr(1), Step: floatPtr(0.05), Default: 1.0, DefaultSource: "1.0", RuntimeSemantics: "modifies illuminated glow opacity"},
 		{Property: "visibility", Type: "boolean", Label: "Visibility", ParamSuffix: "visibility", Description: "Toggle visibility of this glow hotspot", Default: true, DefaultSource: "true", RuntimeSemantics: "toggles glow visibility"},
+		{Property: "play", Type: "boolean", Label: "Play Animation", ParamSuffix: "play", Description: "Start or stop hotspot glow pulse or radar ping animation", Default: true, DefaultSource: "true", RuntimeSemantics: "starts or stops glow SMIL animations"},
 	},
 	"ripple": {
 		{Property: "color", Type: "color", Label: "Wave Colour", ParamSuffix: "color", Description: "Stroke color of the propagating ripple rings", Default: "#06b6d4", DefaultSource: "ripple.color", RuntimeSemantics: "recolours visible ripple waves only; hit-target and shadows unchanged"},
 		{Property: "opacity", Type: "number", Label: "Wave Opacity", ParamSuffix: "opacity", Description: "Transparency of the ripple effect (0.0 to 1.0)", Min: floatPtr(0), Max: floatPtr(1), Step: floatPtr(0.05), Default: 1.0, DefaultSource: "1.0", RuntimeSemantics: "sets wave crest opacity"},
 		{Property: "visibility", Type: "boolean", Label: "Visibility", ParamSuffix: "visibility", Description: "Toggle visibility of this ripple effect", Default: true, DefaultSource: "true", RuntimeSemantics: "toggles ripple visibility"},
+		{Property: "play", Type: "boolean", Label: "Play Animation", ParamSuffix: "play", Description: "Start or stop expanding liquid ripple wave animation", Default: true, DefaultSource: "true", RuntimeSemantics: "starts or stops ripple SMIL animations"},
 	},
 	"image": {
 		{Property: "opacity", Type: "number", Label: "Image Opacity", ParamSuffix: "opacity", Description: "Transparency of the image layer (0.0 to 1.0)", Min: floatPtr(0), Max: floatPtr(1), Step: floatPtr(0.05), Default: 1.0, DefaultSource: "image.opacity", RuntimeSemantics: "sets image opacity"},
@@ -467,9 +471,11 @@ var ObjectPropertyCatalog = map[string][]EligibleProperty{
 	"group": {
 		{Property: "opacity", Type: "number", Label: "Group Opacity", ParamSuffix: "opacity", Description: "Transparency of the group (0.0 to 1.0)", Min: floatPtr(0), Max: floatPtr(1), Step: floatPtr(0.05), Default: 1.0, DefaultSource: "1.0", RuntimeSemantics: "sets group opacity"},
 		{Property: "visibility", Type: "boolean", Label: "Visibility", ParamSuffix: "visibility", Description: "Toggle visibility of the group", Default: true, DefaultSource: "true", RuntimeSemantics: "toggles group visibility"},
+		{Property: "play", Type: "boolean", Label: "Play Animation", ParamSuffix: "play", Description: "Start or stop all animations inside the group", Default: true, DefaultSource: "true", RuntimeSemantics: "starts or stops all descendant member animations within the group"},
 		{Property: "speed", Type: "speed", Label: "Group Animation Speed", ParamSuffix: "speed", Description: "Animation playback speed multiplier for all animations inside the group (0.1 to 10.0)", Min: floatPtr(0.1), Max: floatPtr(10.0), Step: floatPtr(0.1), Default: 1.0, DefaultSource: "1.0", RuntimeSemantics: "scales descendant animation speed within the group"},
 	},
 	"lite": {
+		{Property: "play", Type: "boolean", Label: "Play Animation", ParamSuffix: "play", Description: "Start or stop the low-load effect animation (independent of playbackMode: once plays once when true, loop plays continuously while true)", Default: true, DefaultSource: "lite.play", RuntimeSemantics: "starts or stops low-load effect animation honouring playbackMode"},
 		{Property: "color", Type: "color", Label: "Effect Colour", ParamSuffix: "color", Description: "Primary stroke or fill colour of the low-load effect", Default: "#38bdf8", DefaultSource: "lite.color", RuntimeSemantics: "recolours lite effect payload and guide; hit-targets untouched"},
 		{Property: "bgColor", Type: "color", Label: "Track / Background Colour", ParamSuffix: "bgColor", Description: "Background track or unlit segment colour for Gauge Lite", Default: "#1e293b", DefaultSource: "lite.bgColor", RuntimeSemantics: "recolours gauge background track and unlit segments"},
 		{Property: "value", Type: "number", Label: "Gauge Value", ParamSuffix: "value", Description: "Current numeric value for Gauge / Level Lite indicators", Step: floatPtr(0.5), Default: 65.0, DefaultSource: "lite.value", RuntimeSemantics: "updates static gauge fill geometry and threshold colour"},
@@ -903,6 +909,11 @@ func ResolveLiteEligibleProperty(kind string, le *LiteEffect, ep EligiblePropert
 	case "playbackMode":
 		out.Options = []string{"loop", "pingpong", "once"}
 		out.Default = "loop"
+	case "play":
+		out.Default = true
+		if le != nil && le.Play != nil {
+			out.Default = *le.Play
+		}
 	case "value":
 		out.Step = floatPtr(0.5)
 		minV := 0.0
@@ -1129,8 +1140,8 @@ func ValidateWidgetParameter(p WidgetParameter) error {
 				return fmt.Errorf("color parameter does not support property %q (allowed: fill, stroke, color, bgColor, borderColor)", prop)
 			}
 		case "boolean":
-			if prop != "visibility" && prop != "display" && prop != "showGuide" && prop != "repeat" {
-				return fmt.Errorf("boolean parameter does not support property %q (allowed: visibility, display, showGuide, repeat)", prop)
+			if prop != "visibility" && prop != "display" && prop != "showGuide" && prop != "repeat" && prop != "play" {
+				return fmt.Errorf("boolean parameter does not support property %q (allowed: visibility, display, showGuide, repeat, play)", prop)
 			}
 		case "text":
 			if prop != "text" && prop != "textContent" && prop != "lineGapRatio" && prop != "samples" {

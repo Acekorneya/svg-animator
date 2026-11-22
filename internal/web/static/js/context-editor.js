@@ -502,6 +502,7 @@ window.FloatingPropertiesEditor = {
         this._setVal('fctx-liteVariantSelect', le.variant || '');
         this._setVal('fctx-liteColorPicker', le.color || '#38bdf8');
         this._setPair('fctx-liteOpacity', le.opacity !== undefined ? le.opacity : 0.9);
+        this._setChk('fctx-litePlayChk', le.play !== false);
         this._setPair('fctx-liteWidth', Math.round(Number(le.width) || (le.kind === 'perimeter-tracer' ? 140 : (le.kind === 'text-lite' ? 220 : 56))));
         this._setPair('fctx-liteHeight', Math.round(Number(le.height) || (le.kind === 'perimeter-tracer' ? 80 : 56)));
         this._setPair('fctx-liteRotation', Math.round(Number(le.rotation) || 0));
@@ -1629,6 +1630,7 @@ window.FloatingPropertiesEditor = {
     };
     bindLiteSimple('fctx-liteVariantSelect', 'variant', 'change');
     bindLiteSimple('fctx-liteColorPicker', 'color', 'input');
+    bindLiteSimple('fctx-litePlayChk', 'play', 'change', true);
     bindLiteSimple('fctx-liteLockAspectChk', 'maintainAspectRatio', 'change', true);
     bindLiteSimple('fctx-liteShowGuideChk', 'showGuide', 'change', true);
     const fctxRatioPreset = document.getElementById('fctx-liteRatioPresetSelect');

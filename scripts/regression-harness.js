@@ -12754,6 +12754,192 @@ async function runHarness() {
   }
   console.log('[HARNESS] Scenario 95 PASS: Minimum Canvas Size (20x20) & Compact Non-Square Widgets verified.');
 
+  // =========================================================================
+  // SCENARIO 96: Play Animation Property ('play') Across Low-Load Effects, Shapes, Flows, Glows, Ripples & Groups
+  // =========================================================================
+  console.log('\n[HARNESS] Testing Scenario 96: Play Animation Property (play) Across All Object Categories...');
+  {
+    window.ProjectManager.resetToNewProject();
+    window.EngineBridge.setWidgetParameters([]);
+
+    // 1. Verify 'play' is eligible across node, flow, glow, ripple, group, and all lite kinds
+    for (const cat of ['node', 'flow', 'glow', 'ripple', 'group', 'lite']) {
+      const catProps = window.EngineBridge.getEligibleWidgetProperties(cat);
+      assert(Array.isArray(catProps) && catProps.some(p => p.property === 'play' && p.type === 'boolean'), `PLAY-01: Category "${cat}" exposes boolean "play" property`);
+    }
+    for (const kind of ['perimeter-tracer', 'pulse', 'flash', 'flow-lite', 'radar-lite', 'gauge-lite', 'oscilloscope-lite', 'text-lite']) {
+      const kindProps = window.EngineBridge.getEligibleWidgetProperties('lite', '', kind);
+      assert(Array.isArray(kindProps) && kindProps.some(p => p.property === 'play' && p.type === 'boolean'), `PLAY-02: Lite kind "${kind}" exposes boolean "play" property`);
+    }
+
+    // 2. Author a Menu Widget scene with:
+    //    - A Text Box Lite typewriter set to play=false, typeMode='once', typeRepeat=false
+    //    - A Perimeter Tracer border set to play=false, playbackMode='loop'
+    //    - A Shape (node) with pulse-border animation
+    //    - A Data Flow (flow) with traveling orb
+    //    - A Hotspot Glow (glow)
+    //    - A Liquid Ripple (ripple)
+    //    - A Group combining the Tracer + Text Box Lite with a group 'play' parameter
+    const menuNode = window.DiagramNodes.addNode({
+      shape: 'pill',
+      name: 'menu-card',
+      text: 'ITEM 1',
+      animation: 'pulse-border'
+    });
+    const menuFlow = window.DataFlows.addFlow();
+    window.DataFlows.updateFlow(menuFlow.id, { name: 'menu-flow', type: 'orb', lineStyle: 'marching' });
+    const menuGlow = window.Glows.addGlow();
+    window.Glows.updateGlow(menuGlow.id, { name: 'menu-glow' });
+    const menuRipple = window.Ripples.addRipple();
+    window.Ripples.updateRipple(menuRipple.id, { name: 'menu-ripple' });
+
+    const menuTracer = window.LiteEffects.createLiteEffect({
+      kind: 'perimeter-tracer',
+      name: 'menu-border',
+      variant: 'rounded',
+      playbackMode: 'loop',
+      play: false
+    });
+    const menuText = window.LiteEffects.createLiteEffect({
+      kind: 'text-lite',
+      name: 'menu-label',
+      labelText: 'START',
+      textAnim: 'typewriter',
+      typeMode: 'once',
+      typeRepeat: false,
+      typeSpeed: 60,
+      play: false
+    });
+
+    const menuGrpRes = window.EngineBridge.createGroup('menu-item', [
+      { type: 'lite', id: String(menuTracer.id) },
+      { type: 'lite', id: String(menuText.id) }
+    ]);
+    const menuGrp = menuGrpRes && menuGrpRes.group ? menuGrpRes.group : menuGrpRes;
+    assert(menuGrp && menuGrp.id, 'PLAY-03: Created menu-item group');
+
+    // Expose 'play' parameters on each category
+    const paramsToAdd = [
+      { name: 'menu-card-node-play', type: 'boolean', default: true, target: `node-${menuNode.id}`, property: 'play' },
+      { name: 'menu-flow-flow-play', type: 'boolean', default: true, target: `flow-${menuFlow.id}`, property: 'play' },
+      { name: 'menu-glow-glow-play', type: 'boolean', default: true, target: `glow-${menuGlow.id}`, property: 'play' },
+      { name: 'menu-ripple-ripple-play', type: 'boolean', default: true, target: `ripple-${menuRipple.id}`, property: 'play' },
+      { name: 'menu-border-tracer-play', type: 'boolean', default: false, target: `lite-${menuTracer.id}`, property: 'play' },
+      { name: 'menu-label-text-play', type: 'boolean', default: false, target: `lite-${menuText.id}`, property: 'play' },
+      { name: 'menu-item-group-play', type: 'boolean', default: false, target: menuGrp.id, property: 'play' }
+    ];
+    for (const p of paramsToAdd) {
+      const res = window.EngineBridge.addWidgetParameter(p);
+      assert(res && res.success !== false, `PLAY-04: Added widget parameter ${p.name}`);
+    }
+
+    // Also verify Group Semantic Mapping can bind to member 'play'
+    const mapRes = window.EngineBridge.setGroupMapping(menuGrp.id, {
+      alias: 'selected',
+      label: 'Menu Item Selected',
+      type: 'boolean',
+      default: false,
+      targets: [
+        { memberType: 'lite', memberId: String(menuTracer.id), property: 'play' },
+        { memberType: 'lite', memberId: String(menuText.id), property: 'play' }
+      ]
+    });
+    assert(mapRes && mapRes.success, 'PLAY-05: Group semantic mapping "selected" bound to member "play" properties');
+
+    // 3. Build SVG and mount with SVGWidget.mount()
+    const fullSvgPlay = window.buildFullSVG(window.SceneState.buildRenderState());
+    assert(fullSvgPlay.includes('data-lite-play="false"'), 'PLAY-06: buildFullSVG emits data-lite-play="false" when le.play === false');
+
+    const origDocPlay = global.document;
+    try {
+      const mockDocPlay = {
+        createElement(tag) {
+          const el = new MockStage16BElement(tag);
+          el.ownerDocument = mockDocPlay;
+          return el;
+        },
+        createElementNS(ns, tag) {
+          const el = new MockStage16BElement(tag);
+          el.ownerDocument = mockDocPlay;
+          return el;
+        },
+        getElementById() { return null; },
+        querySelector() { return null; },
+        head: new MockStage16BElement('head'),
+        body: new MockStage16BElement('body')
+      };
+      global.document = mockDocPlay;
+      const SVGWidgetModPlay = require('../internal/web/static/js/svg-widget.js');
+      const hostPlay = mockDocPlay.createElement('div');
+      const instPlay = SVGWidgetModPlay.mount(hostPlay, fullSvgPlay, {
+        instanceId: 'menu_play',
+        manifest: {
+          schemaVersion: 1,
+          parameters: window.EngineBridge.getWidgetParameters()
+        },
+        visibilityAware: false
+      });
+
+      const tracerEl = instPlay.svgElement.querySelector(`[data-semantic-target="lite-${menuTracer.id}"]`);
+      const textEl = instPlay.svgElement.querySelector(`[data-semantic-target="lite-${menuText.id}"]`);
+      const nodeEl = instPlay.svgElement.querySelector(`[data-semantic-target="node-${menuNode.id}"]`);
+      const flowEl = instPlay.svgElement.querySelector(`[data-semantic-target="flow-${menuFlow.id}"]`);
+      const glowEl = instPlay.svgElement.querySelector(`[data-semantic-target="glow-${menuGlow.id}"]`);
+      const rippleEl = instPlay.svgElement.querySelector(`[data-semantic-target="ripple-${menuRipple.id}"]`);
+
+      // Initially menuTracer and menuText have play=false
+      assert.strictEqual(tracerEl.getAttribute('data-lite-play'), 'false', 'PLAY-07: Tracer starts with data-lite-play="false"');
+      const tracerPayload = tracerEl.querySelector('.lite-payload');
+      assert.strictEqual(tracerPayload.style.animationName, 'none', 'PLAY-08: Tracer payload CSS animation stopped when play=false');
+      assert.strictEqual(textEl.getAttribute('data-lite-play'), 'false', 'PLAY-09: Text Lite starts with data-lite-play="false"');
+
+      // Select menu item via group mapping 'menu-item-group-selected' -> true
+      instPlay.setParameter('menu-item-group-selected', true);
+      assert.strictEqual(tracerEl.getAttribute('data-lite-play'), 'true', 'PLAY-10: Group mapping sets tracer data-lite-play="true"');
+      assert.strictEqual(tracerPayload.style.animationPlayState, 'running', 'PLAY-11: Tracer payload CSS animation running when play=true');
+      assert.strictEqual(tracerPayload.style.animationIterationCount, 'infinite', 'PLAY-12: Tracer in loop playbackMode runs infinite iterations when play=true');
+      assert.strictEqual(textEl.getAttribute('data-lite-play'), 'true', 'PLAY-13: Group mapping sets text data-lite-play="true"');
+
+      // Deselect menu item -> play=false stops both and restores static text
+      instPlay.setParameter('menu-item-group-selected', false);
+      assert.strictEqual(tracerEl.getAttribute('data-lite-play'), 'false', 'PLAY-14: Group mapping sets tracer data-lite-play="false"');
+      assert.strictEqual(tracerPayload.style.animationName, 'none', 'PLAY-15: Tracer payload stopped again when play=false');
+      const txtDomNode = textEl.querySelector('text');
+      assert.strictEqual(txtDomNode.textContent, 'START', 'PLAY-16: Text Lite displays full static text when play=false');
+
+      // Stop & start non-Low-Load objects (node, flow, glow, ripple)
+      instPlay.setParameters({
+        'menu-card-node-play': false,
+        'menu-flow-flow-play': false,
+        'menu-glow-glow-play': false,
+        'menu-ripple-ripple-play': false
+      });
+      assert.strictEqual(nodeEl.getAttribute('data-play-animation'), 'false', 'PLAY-17: Node data-play-animation="false"');
+      assert.strictEqual(flowEl.getAttribute('data-play-animation'), 'false', 'PLAY-18: Flow data-play-animation="false"');
+      assert.strictEqual(glowEl.getAttribute('data-play-animation'), 'false', 'PLAY-19: Glow data-play-animation="false"');
+      assert.strictEqual(rippleEl.getAttribute('data-play-animation'), 'false', 'PLAY-20: Ripple data-play-animation="false"');
+
+      instPlay.setParameters({
+        'menu-card-node-play': true,
+        'menu-flow-flow-play': true,
+        'menu-glow-glow-play': true,
+        'menu-ripple-ripple-play': true
+      });
+      assert.strictEqual(nodeEl.getAttribute('data-play-animation'), 'true', 'PLAY-21: Node data-play-animation="true"');
+      assert.strictEqual(flowEl.getAttribute('data-play-animation'), 'true', 'PLAY-22: Flow data-play-animation="true"');
+      assert.strictEqual(glowEl.getAttribute('data-play-animation'), 'true', 'PLAY-23: Glow data-play-animation="true"');
+      assert.strictEqual(rippleEl.getAttribute('data-play-animation'), 'true', 'PLAY-24: Ripple data-play-animation="true"');
+
+      instPlay.destroy();
+    } finally {
+      global.document = origDocPlay;
+    }
+
+    window.ProjectManager.resetToNewProject();
+    window.EngineBridge.setWidgetParameters([]);
+  }
+  console.log('[HARNESS] Scenario 96 PASS: Play Animation Property (play) Across All Object Categories verified.');
+
   console.log('[HARNESS] REG-03 PASS: Stage 3, 4, 5, 6, 7, 8, 9, 11, 12, 13, 14, 15 & 16 non-destructive cropping, background extraction, image baking, dedicated crop clip & snip workspace, object-local clipping, unified layer management, independent image objects, persistent groups, duplication, copy/paste with flow remapping, multi-selection, alignment, distribution, colour tools, selection retention, notifications, naming sync, history(50), schema 1.2.0, .sva packaging, background photo restoration, SVG compilation, export payload builders, collision-free widgets, external runtime parameters, and Go WASM engines verified.');
 }
 

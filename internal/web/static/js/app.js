@@ -2635,23 +2635,27 @@ function getDrawerWidgetPropDefs(type, targetId = '', liteKind = '') {
       { prop: 'stroke', label: 'Border Stroke', type: 'color', desc: 'Outline and border stroke color' },
       { prop: 'opacity', label: 'Opacity (0..1)', type: 'number', min: 0, max: 1, step: 0.05, desc: 'Transparency level from 0.0 to 1.0' },
       { prop: 'visibility', label: 'Visibility (Toggle)', type: 'boolean', desc: 'Toggle visibility of this node' },
+      { prop: 'play', label: 'Play Animation', type: 'boolean', desc: 'Start or stop the node shape animation (pulse-border, float, fade-in)' },
       { prop: 'text', label: 'Label Text', type: 'text', desc: 'Primary text label rendered inside the node' }
     ],
     flow: [
       { prop: 'stroke', label: 'Line Colour', type: 'color', desc: 'Connector line and particle stroke color' },
       { prop: 'speed', label: 'Flow Speed', type: 'speed', min: 0.1, max: 10, step: 0.1, desc: 'Movement speed of particles along this specific flow line (0.1 to 10.0)' },
       { prop: 'opacity', label: 'Opacity (0..1)', type: 'number', min: 0, max: 1, step: 0.05, desc: 'Opacity of the flow connector track' },
-      { prop: 'visibility', label: 'Visibility (Toggle)', type: 'boolean', desc: 'Shows or hides this flow connector' }
+      { prop: 'visibility', label: 'Visibility (Toggle)', type: 'boolean', desc: 'Shows or hides this flow connector' },
+      { prop: 'play', label: 'Play Animation', type: 'boolean', desc: 'Start or stop flow connector line and traveling payload animation' }
     ],
     glow: [
       { prop: 'color', label: 'Glow Colour', type: 'color', desc: 'Accent color of the glow and beacon pulse' },
       { prop: 'opacity', label: 'Glow Intensity (0..1)', type: 'number', min: 0, max: 1, step: 0.05, desc: 'Brilliance and intensity of the optical glow pulse' },
-      { prop: 'visibility', label: 'Visibility (Toggle)', type: 'boolean', desc: 'Switches the optical hotspot glow on or off' }
+      { prop: 'visibility', label: 'Visibility (Toggle)', type: 'boolean', desc: 'Switches the optical hotspot glow on or off' },
+      { prop: 'play', label: 'Play Animation', type: 'boolean', desc: 'Start or stop hotspot glow pulse or radar ping animation' }
     ],
     ripple: [
       { prop: 'color', label: 'Wave Crest Colour', type: 'color', desc: 'Stroke color of the propagating ripple rings' },
       { prop: 'opacity', label: 'Wave Opacity (0..1)', type: 'number', min: 0, max: 1, step: 0.05, desc: 'Wave crest opacity from 0.0 to 1.0' },
-      { prop: 'visibility', label: 'Visibility (Toggle)', type: 'boolean', desc: 'Switches the animated expanding ripple wave on or off' }
+      { prop: 'visibility', label: 'Visibility (Toggle)', type: 'boolean', desc: 'Switches the animated expanding ripple wave on or off' },
+      { prop: 'play', label: 'Play Animation', type: 'boolean', desc: 'Start or stop expanding liquid ripple wave animation' }
     ],
     image: [
       { prop: 'opacity', label: 'Image Opacity (0..1)', type: 'number', min: 0, max: 1, step: 0.05, desc: 'Opacity of the image layer' },
@@ -2660,9 +2664,11 @@ function getDrawerWidgetPropDefs(type, targetId = '', liteKind = '') {
     group: [
       { prop: 'opacity', label: 'Group Opacity (0..1)', type: 'number', min: 0, max: 1, step: 0.05, default: 1.0, desc: 'Opacity of the group (0.0 to 1.0)' },
       { prop: 'visibility', label: 'Visibility (Toggle)', type: 'boolean', default: true, desc: 'Shows or hides this group' },
+      { prop: 'play', label: 'Play Animation', type: 'boolean', default: true, desc: 'Start or stop all animations inside this group' },
       { prop: 'speed', label: 'Group Animation Speed (0.1..10x)', type: 'speed', min: 0.1, max: 10, step: 0.1, default: 1.0, desc: 'Playback speed multiplier for all animations inside this group (0.1 to 10.0)' }
     ],
     lite: [
+      { prop: 'play', label: 'Play Animation', type: 'boolean', desc: 'Start or stop the low-load effect animation (independent of playbackMode: once plays once when true, loop plays continuously while true)' },
       { prop: 'text', label: 'Text Content', type: 'text', desc: 'Displayed text content for Text Box Lite (immediate update on static text, cycle-boundary handover on animated text)' },
       { prop: 'color', label: 'Effect Colour', type: 'color', desc: 'Primary stroke, fill, or text colour of the low-load effect' },
       { prop: 'bgColor', label: 'Track / Background Colour', type: 'color', desc: 'Background track, screen, or text box fill colour' },
@@ -2721,6 +2727,7 @@ function getObjectPropValue(type, id, prop) {
         case 'stroke': return node.strokeColor || '#58a6ff';
         case 'opacity': return node.fillOpacity !== undefined ? node.fillOpacity : 0.92;
         case 'visibility': return true;
+        case 'play': return node.play !== false;
         case 'text': return node.text || 'Node';
       }
     }
@@ -2732,6 +2739,7 @@ function getObjectPropValue(type, id, prop) {
         case 'color': return flow.color || '#00ffcc';
         case 'opacity': return flow.opacity !== undefined ? flow.opacity : 1.0;
         case 'visibility': return true;
+        case 'play': return flow.play !== false;
         case 'speed': return flow.speed !== undefined ? flow.speed : 2.0;
       }
     }
@@ -2743,6 +2751,7 @@ function getObjectPropValue(type, id, prop) {
         case 'fill': return glow.color || '#ff0044';
         case 'opacity': return glow.opacity !== undefined ? glow.opacity : 1.0;
         case 'visibility': return true;
+        case 'play': return glow.play !== false;
       }
     }
   } else if (type === 'ripple' && window.Ripples) {
@@ -2753,6 +2762,7 @@ function getObjectPropValue(type, id, prop) {
         case 'stroke': return ripple.color || '#ffffff';
         case 'opacity': return ripple.opacity !== undefined ? ripple.opacity : 0.4;
         case 'visibility': return true;
+        case 'play': return ripple.play !== false;
       }
     }
   } else if (type === 'image' && window.ImageObjects) {
@@ -2767,12 +2777,14 @@ function getObjectPropValue(type, id, prop) {
     switch (prop) {
       case 'opacity': return 1.0;
       case 'visibility': return true;
+      case 'play': return true;
       case 'speed': return 1.0;
     }
   } else if (type === 'lite' && window.LiteEffects) {
     const le = window.LiteEffects.getLiteEffect(id);
     if (le) {
       switch (prop) {
+        case 'play': return le.play !== false;
         case 'text': return le.labelText !== undefined ? le.labelText : 'System Ready';
         case 'color': return le.color || (le.kind === 'text-lite' ? '#f8fafc' : '#38bdf8');
         case 'bgColor': return le.bgColor || (le.kind === 'oscilloscope-lite' ? '#0b1322' : (le.kind === 'text-lite' ? '#0f172a' : '#1e293b'));

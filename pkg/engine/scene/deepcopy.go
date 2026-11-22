@@ -173,6 +173,7 @@ func DeepCopyLiteEffect(l LiteEffect) LiteEffect {
 	cp.WordWrap = deepCopyBoolPtr(l.WordWrap)
 	cp.LockOnOff = deepCopyBoolPtr(l.LockOnOff)
 	cp.TypeRepeat = deepCopyBoolPtr(l.TypeRepeat)
+	cp.Play = deepCopyBoolPtr(l.Play)
 	if l.Thresholds != nil {
 		cp.Thresholds = make([]GaugeThresholdBand, len(l.Thresholds))
 		copy(cp.Thresholds, l.Thresholds)

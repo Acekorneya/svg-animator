@@ -1051,6 +1051,144 @@
     }
   }
 
+  function applyPlayAnimationState(el, svgEl, shouldPlay, isInitialMount, instance) {
+    if (!el || typeof el.getAttribute !== 'function') return;
+    const prevAttr = el.getAttribute('data-play-animation');
+    const wasStopped = (prevAttr === 'false' || el.getAttribute('data-lite-play') === 'false');
+    el.setAttribute('data-play-animation', shouldPlay ? 'true' : 'false');
+
+    const isGroup = Boolean(el.classList?.contains('scene-group')) ||
+                    Boolean(typeof el.hasAttribute === 'function' && el.hasAttribute('data-group-id'));
+    if (isGroup && typeof el.querySelectorAll === 'function') {
+      const members = el.querySelectorAll('[data-lite-kind], [data-lite-id], [data-node-id], [data-flow-id], [data-glow-id], [data-ripple-id], .diagram-node-instance, .diagram-flow-instance, .diagram-glow-instance, .diagram-ripple-instance, .diagram-lite-instance');
+      members.forEach((m) => {
+        if (m.tagName && m.tagName.toLowerCase() === 'g') {
+          applyPlayAnimationState(m, svgEl, shouldPlay, isInitialMount, instance);
+        }
+      });
+      return;
+    }
+
+    const isLite = Boolean(el.classList?.contains('diagram-lite-instance')) ||
+                   Boolean(typeof el.hasAttribute === 'function' && (el.hasAttribute('data-lite-id') || el.hasAttribute('data-lite-kind'))) ||
+                   Boolean(el.querySelector?.('.lite-payload'));
+    if (isLite) {
+      el.setAttribute('data-lite-play', shouldPlay ? 'true' : 'false');
+      const liteKind = el.getAttribute('data-lite-kind') || '';
+      if (liteKind === 'text-lite') {
+        if (instance && typeof instance._setTextLitePlayState === 'function') {
+          instance._setTextLitePlayState(el, shouldPlay, isInitialMount, wasStopped);
+        }
+        return;
+      }
+
+      if (typeof el.querySelectorAll === 'function') {
+        const animNodes = el.querySelectorAll('.lite-payload, .lite-osc-wave');
+        const flowMode = el.getAttribute('data-flow-playback-mode') || '';
+        animNodes.forEach((node) => {
+          if (!node.hasAttribute('data-orig-inline-anim')) {
+            const curInline = (node.style && node.style.animationName && node.style.animationName !== 'none')
+              ? node.style.animationName
+              : '';
+            node.setAttribute('data-orig-inline-anim', curInline);
+          }
+          if (!shouldPlay) {
+            node.removeAttribute('data-burst-paused');
+            if (node.style) {
+              node.style.animationPlayState = 'paused';
+              node.style.animationName = 'none';
+            }
+          } else {
+            const nodeStopped = node.style && (node.style.animationName === 'none' || node.style.animationPlayState === 'paused');
+            if (!isInitialMount || wasStopped || nodeStopped) {
+              const origInline = node.getAttribute('data-orig-inline-anim') || '';
+              const mode = node.getAttribute('data-playback-mode') || flowMode || 'loop';
+              const cyc = parseInt(node.getAttribute('data-burst-cycles') || '0', 10) || 0;
+              const pSec = parseFloat(node.getAttribute('data-pause-seconds') || '0') || 0;
+              const hasBurst = mode !== 'once' && cyc > 0 && pSec > 0;
+              if (node.style) {
+                node.style.animationIterationCount = mode === 'once' ? '1' : (hasBurst ? String(cyc) : 'infinite');
+                if (mode === 'once' || hasBurst) {
+                  node.style.animationFillMode = 'forwards';
+                }
+                node.style.animationName = 'none';
+                try { void node.getBoundingClientRect(); } catch (e) {}
+                node.style.visibility = '';
+                node.style.animationPlayState = 'running';
+                node.style.animationName = origInline;
+              }
+            }
+          }
+        });
+      }
+      return;
+    }
+
+    // Conventional SVG Objects (Node / Flow / Glow / Ripple) using SMIL
+    const isFlow = Boolean(el.classList?.contains('diagram-flow-instance')) ||
+                   Boolean(typeof el.hasAttribute === 'function' && el.hasAttribute('data-flow-id')) ||
+                   Boolean(el.querySelector?.('.flow-track-path'));
+    const isRipple = Boolean(el.classList?.contains('diagram-ripple-instance')) ||
+                     Boolean(typeof el.hasAttribute === 'function' && el.hasAttribute('data-ripple-id')) ||
+                     Boolean(el.querySelector?.('.ripple-hit-target'));
+    const smilNodes = (typeof el.querySelectorAll === 'function')
+      ? Array.from(el.querySelectorAll('animate, animateTransform, animateMotion, set'))
+      : [];
+
+    if (isRipple && svgEl && typeof svgEl.querySelectorAll === 'function') {
+      const elId = el.getAttribute('id') || String(el.id || '');
+      const rippleId = el.getAttribute('data-ripple-id') || elId.replace(/^.*__ripple-/, '').replace(/^.*ripple-/, '');
+      if (rippleId) {
+        svgEl.querySelectorAll(`mask[id*="rippleMask-${rippleId}"] animate`).forEach((mAnim) => {
+          if (!smilNodes.includes(mAnim)) smilNodes.push(mAnim);
+        });
+      }
+    }
+
+    if (!shouldPlay) {
+      smilNodes.forEach((smil) => {
+        if (!smil.hasAttribute('data-orig-begin')) {
+          smil.setAttribute('data-orig-begin', smil.getAttribute('begin') || '');
+        }
+        smil.setAttribute('begin', 'indefinite');
+        if (typeof smil.endElement === 'function') {
+          try { smil.endElement(); } catch (e) {}
+        }
+      });
+      if (isFlow && typeof el.querySelectorAll === 'function') {
+        el.querySelectorAll('.flow-payload-instance').forEach((p) => {
+          p.setAttribute('data-play-hidden', '1');
+          p.setAttribute('visibility', 'hidden');
+          if (p.style) p.style.visibility = 'hidden';
+        });
+      }
+    } else {
+      if (isFlow && typeof el.querySelectorAll === 'function') {
+        el.querySelectorAll('.flow-payload-instance').forEach((p) => {
+          if (p.getAttribute('data-play-hidden') === '1') {
+            p.removeAttribute('data-play-hidden');
+            p.removeAttribute('visibility');
+            if (p.style) p.style.visibility = '';
+          }
+        });
+      }
+      if (!isInitialMount || wasStopped) {
+        smilNodes.forEach((smil) => {
+          if (smil.hasAttribute('data-orig-begin')) {
+            const ob = smil.getAttribute('data-orig-begin');
+            if (ob) smil.setAttribute('begin', ob);
+            else smil.removeAttribute('begin');
+          } else if (smil.getAttribute('begin') === 'indefinite') {
+            smil.removeAttribute('begin');
+          }
+          if (typeof smil.beginElement === 'function') {
+            try { smil.beginElement(); } catch (e) {}
+          }
+        });
+      }
+    }
+  }
+
   /**
    * Applies validated property to the resolved DOM element.
    */
@@ -1267,6 +1405,13 @@
         if (el) {
           el.style.visibility = visStr;
           el.setAttribute('visibility', visStr);
+        }
+        break;
+      }
+      case 'play': {
+        const shouldPlay = value !== false && value !== 'false' && value !== 0 && value !== '0';
+        if (el) {
+          applyPlayAnimationState(el, svgEl, shouldPlay, isInitialMount, instance);
         }
         break;
       }
@@ -2252,6 +2397,10 @@
       function startTextLiteStepCycle(el, ctrl) {
         if (!el || !ctrl || handle.isDestroyed) return;
         clearTextLiteTimer(ctrl);
+        if (ctrl.isPlaying === false || el.getAttribute('data-lite-play') === 'false') {
+          applyTextLiteDOMText(el, ctrl.currentText);
+          return;
+        }
         let anim = el.getAttribute('data-text-anim') || 'none';
         if (anim === 'overtype') anim = 'typewriter';
         if (anim !== 'typewriter' && anim !== 'scramble') return;
@@ -2269,12 +2418,13 @@
         }
 
         function scheduleNext(delayMs) {
-          if (isSuspended || handle.isDestroyed) return;
+          if (isSuspended || handle.isDestroyed || ctrl.isPlaying === false) return;
           ctrl.timerId = setTimeout(tickStep, Math.max(8, delayMs));
         }
 
         function onCycleBoundaryReached() {
           ctrl.timerId = null;
+          if (ctrl.isPlaying === false || el.getAttribute('data-lite-play') === 'false') return;
           let typeMode = el.getAttribute('data-text-type-mode') || 'hold';
           if (typeMode === 'loop') typeMode = 'delete';
           const typeRepeat = el.getAttribute('data-text-type-repeat') === 'true';
@@ -2300,7 +2450,7 @@
 
         function tickStep() {
           ctrl.timerId = null;
-          if (isSuspended || handle.isDestroyed) return;
+          if (isSuspended || handle.isDestroyed || ctrl.isPlaying === false || el.getAttribute('data-lite-play') === 'false') return;
           const baseRate = Math.max(1, Math.min(120, parseFloat(el.getAttribute('data-text-type-speed')) || 14));
           const localSpdFactor = getEffectiveLocalSpeedFactor(el, el);
           const masterSpd = (typeof currentSpeed === 'number' && currentSpeed > 0) ? currentSpeed : 1.0;
@@ -2403,6 +2553,7 @@
             anim = 'typewriter';
             el.setAttribute('data-text-anim', 'typewriter');
           }
+          const initialPlay = el.getAttribute('data-lite-play') !== 'false' && el.getAttribute('data-play-animation') !== 'false';
           const ctrl = {
             el,
             currentText: initialText,
@@ -2414,14 +2565,21 @@
             deleteCount: 0,
             iterCount: 0,
             cycleCompleted: false,
-            handoverCount: 0
+            handoverCount: 0,
+            isPlaying: initialPlay
           };
           textLiteControllers.set(el, ctrl);
 
           const txtEl = el.querySelector('.lite-text-element') || el.querySelector('text');
+          if (txtEl && !txtEl.hasAttribute('data-orig-inline-anim')) {
+            const curInline = (txtEl.style && txtEl.style.animationName && txtEl.style.animationName !== 'none')
+              ? txtEl.style.animationName
+              : '';
+            txtEl.setAttribute('data-orig-inline-anim', curInline);
+          }
           if (txtEl && typeof txtEl.addEventListener === 'function') {
             txtEl.addEventListener('animationiteration', () => {
-              if (handle.isDestroyed) return;
+              if (handle.isDestroyed || ctrl.isPlaying === false) return;
               let curAnim = el.getAttribute('data-text-anim') || 'none';
               if (curAnim === 'overtype') curAnim = 'typewriter';
               if (curAnim === 'none' || curAnim === 'typewriter' || curAnim === 'scramble') return;
@@ -2441,7 +2599,7 @@
               }
             });
             txtEl.addEventListener('animationend', () => {
-              if (handle.isDestroyed) return;
+              if (handle.isDestroyed || ctrl.isPlaying === false) return;
               let curAnim = el.getAttribute('data-text-anim') || 'none';
               if (curAnim === 'overtype') curAnim = 'typewriter';
               if (curAnim === 'none' || curAnim === 'typewriter' || curAnim === 'scramble') return;
@@ -2458,13 +2616,19 @@
             });
           }
 
-          if (anim === 'none') {
+          if (!initialPlay) {
+            applyTextLiteDOMText(el, ctrl.currentText);
+            if (txtEl && txtEl.style) {
+              txtEl.style.animationPlayState = 'paused';
+              txtEl.style.animationName = 'none';
+            }
+          } else if (anim === 'none') {
             applyTextLiteDOMText(el, ctrl.currentText);
           } else if (anim === 'ticker-h' || anim === 'ticker-v' || anim === 'stacked-v') {
             configureTextLiteTicker(el, ctrl);
             if (typeof document !== 'undefined' && document.fonts && document.fonts.ready) {
               document.fonts.ready.then(() => {
-                if (!handle.isDestroyed) configureTextLiteTicker(el, ctrl);
+                if (!handle.isDestroyed && ctrl.isPlaying !== false) configureTextLiteTicker(el, ctrl);
               }).catch(() => {});
             }
           } else if (anim === 'typewriter' || anim === 'scramble') {
@@ -2473,6 +2637,90 @@
             applyTextLiteDOMText(el, ctrl.currentText);
           }
         });
+      }
+
+      function setTextLitePlayState(el, shouldPlay, isInit, wasStopped) {
+        if (!el) return;
+        initTextLiteControllers();
+        let ctrl = textLiteControllers.get(el);
+        const txtEl = el.querySelector('.lite-text-element') || el.querySelector('text');
+        if (txtEl && !txtEl.hasAttribute('data-orig-inline-anim')) {
+          const curInline = (txtEl.style && txtEl.style.animationName && txtEl.style.animationName !== 'none')
+            ? txtEl.style.animationName
+            : '';
+          txtEl.setAttribute('data-orig-inline-anim', curInline);
+        }
+        if (!ctrl) {
+          const initialText = el.getAttribute('data-text-content') !== null
+            ? el.getAttribute('data-text-content')
+            : ((getTextLiteTargetNode(el) && getTextLiteTargetNode(el).textContent) || '');
+          ctrl = {
+            el,
+            currentText: initialText,
+            previousText: initialText,
+            pendingText: null,
+            timerId: null,
+            phase: 'forward',
+            stepIndex: 0,
+            deleteCount: 0,
+            iterCount: 0,
+            cycleCompleted: false,
+            handoverCount: 0,
+            isPlaying: shouldPlay
+          };
+          textLiteControllers.set(el, ctrl);
+        }
+
+        const prevPlaying = ctrl.isPlaying !== false;
+        ctrl.isPlaying = shouldPlay;
+        el.setAttribute('data-lite-play', shouldPlay ? 'true' : 'false');
+        el.setAttribute('data-play-animation', shouldPlay ? 'true' : 'false');
+
+        let anim = el.getAttribute('data-text-anim') || 'none';
+        if (anim === 'overtype') anim = 'typewriter';
+
+        if (!shouldPlay) {
+          clearTextLiteTimer(ctrl);
+          applyTextLiteDOMText(el, ctrl.currentText);
+          if (txtEl && txtEl.style) {
+            txtEl.style.animationPlayState = 'paused';
+            txtEl.style.animationName = 'none';
+          }
+          return;
+        }
+
+        // shouldPlay === true
+        if (isInit && prevPlaying && !wasStopped) {
+          return;
+        }
+
+        adoptPendingTextIfAny(el, ctrl);
+        ctrl.cycleCompleted = false;
+        ctrl.iterCount = 0;
+        el.removeAttribute('data-text-cycle-completed');
+
+        if (anim === 'typewriter' || anim === 'scramble') {
+          startTextLiteStepCycle(el, ctrl);
+        } else if (anim === 'ticker-h' || anim === 'ticker-v' || anim === 'stacked-v') {
+          if (txtEl && txtEl.style) {
+            txtEl.style.animationPlayState = 'running';
+            txtEl.style.animationName = txtEl.getAttribute('data-orig-inline-anim') || '';
+          }
+          configureTextLiteTicker(el, ctrl);
+          restartTextLiteCSSElement(txtEl);
+        } else if (anim !== 'none') {
+          applyTextLiteDOMText(el, ctrl.currentText);
+          if (txtEl && txtEl.style) {
+            const pMode = el.getAttribute('data-text-playback-mode') || 'loop';
+            txtEl.style.animationIterationCount = pMode === 'once' ? '1' : 'infinite';
+            if (pMode === 'once') txtEl.style.animationFillMode = 'forwards';
+            txtEl.style.animationPlayState = 'running';
+            txtEl.style.animationName = txtEl.getAttribute('data-orig-inline-anim') || '';
+          }
+          restartTextLiteCSSElement(txtEl);
+        } else {
+          applyTextLiteDOMText(el, ctrl.currentText);
+        }
       }
 
       function updateTextLiteContent(el, newStr, isInit) {
@@ -2499,14 +2747,17 @@
         if (anim === 'overtype') anim = 'typewriter';
         const strVal = String(newStr === undefined || newStr === null ? '' : newStr);
 
-        // Static mode or initial mount or suspended/paused: adopt immediately!
-        if (isInit || anim === 'none' || isSuspended || isPaused) {
+        // Static mode or initial mount or suspended/paused or play=false: adopt immediately!
+        if (isInit || anim === 'none' || isSuspended || isPaused || ctrl.isPlaying === false || el.getAttribute('data-lite-play') === 'false') {
           ctrl.previousText = ctrl.currentText;
           ctrl.currentText = strVal;
           ctrl.pendingText = null;
           el.setAttribute('data-text-content', strVal);
           el.removeAttribute('data-text-pending');
           applyTextLiteDOMText(el, strVal);
+          if (ctrl.isPlaying === false || el.getAttribute('data-lite-play') === 'false') {
+            return;
+          }
           if (anim === 'ticker-h' || anim === 'ticker-v' || anim === 'stacked-v') {
             configureTextLiteTicker(el, ctrl);
             if (!isInit && (isSuspended || isPaused)) {
@@ -2602,6 +2853,7 @@
             });
           }
           textLiteControllers.forEach((ctrl, el) => {
+            if (ctrl.isPlaying === false || el.getAttribute('data-lite-play') === 'false') return;
             adoptPendingTextIfAny(el, ctrl);
             let anim = el.getAttribute('data-text-anim') || 'none';
             if (anim === 'overtype') anim = 'typewriter';
@@ -2954,6 +3206,10 @@
           updateTextLiteContent(el, strVal, isInit);
         },
 
+        _setTextLitePlayState(el, shouldPlay, isInit, wasStopped) {
+          setTextLitePlayState(el, shouldPlay, isInit, wasStopped);
+        },
+
         _reconfigureTextLiteTicker(el) {
           const ctrl = textLiteControllers.get(el) || null;
           configureTextLiteTicker(el, ctrl);
@@ -2962,6 +3218,11 @@
 
       // 8. Initialize Text Box Lite controllers & apply initial parameters if provided in options or manifest defaults
       initTextLiteControllers();
+      if (svgEl && typeof svgEl.querySelectorAll === 'function') {
+        svgEl.querySelectorAll('[data-lite-play="false"], [data-play-animation="false"]').forEach((el) => {
+          applyPlayAnimationState(el, svgEl, false, true, handle);
+        });
+      }
       const hasExplicitInit = Boolean((options.parameters && Object.keys(options.parameters).length > 0) ||
         (options.initialParameters && Object.keys(options.initialParameters).length > 0));
       if (Object.keys(currentValues).length > 0) {

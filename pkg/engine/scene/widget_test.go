@@ -584,3 +584,45 @@ func TestWidgetPropertyEligibilityAndUniquenessContract(t *testing.T) {
 		}
 	}
 }
+
+func TestPlayAnimationPropertyAcrossAllObjectCategories(t *testing.T) {
+	categories := []string{"node", "flow", "glow", "ripple", "group", "lite"}
+	for _, cat := range categories {
+		props := GetEligibleProperties(cat)
+		foundPlay := false
+		for _, ep := range props {
+			if ep.Property == "play" && ep.Type == "boolean" {
+				foundPlay = true
+				break
+			}
+		}
+		if !foundPlay {
+			t.Fatalf("expected object category %q to expose boolean 'play' property", cat)
+		}
+	}
+
+	sc := NewScene()
+	liteKinds := []string{"perimeter-tracer", "pulse", "flash", "flow-lite", "radar-lite", "gauge-lite", "oscilloscope-lite", "text-lite"}
+	for _, kind := range liteKinds {
+		fVal := false
+		le := sc.CreateLiteEffect(LiteEffect{
+			Kind: kind,
+			Name: "menu-" + kind,
+			Play: &fVal,
+		})
+		props := sc.GetEligiblePropertiesForTarget("lite", string(le.ID), kind)
+		var playProp *EligibleProperty
+		for i := range props {
+			if props[i].Property == "play" {
+				playProp = &props[i]
+				break
+			}
+		}
+		if playProp == nil {
+			t.Fatalf("expected LiteEffect kind %q to expose 'play' property", kind)
+		}
+		if playProp.Default != false {
+			t.Fatalf("expected LiteEffect kind %q with Play=false to resolve Default=false, got %v", kind, playProp.Default)
+		}
+	}
+}

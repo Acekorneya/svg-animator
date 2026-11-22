@@ -1503,6 +1503,9 @@ func (s *Scene) UpdateLiteEffect(id StringID, patch map[string]any) (LiteEffect,
 	if v, ok := patch["typeRepeat"].(bool); ok {
 		existing.TypeRepeat = &v
 	}
+	if v, ok := patch["play"].(bool); ok {
+		existing.Play = &v
+	}
 	if existing.Kind == "gauge-lite" || existing.Kind == "oscilloscope-lite" || existing.Kind == "text-lite" {
 		applyLiteEffectDefaults(&existing)
 	}
