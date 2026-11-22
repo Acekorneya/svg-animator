@@ -1360,6 +1360,8 @@ type WidgetBuildPackageResponse struct {
 // WidgetGetEligiblePropertiesRequest is the payload for "Widget.GetEligibleProperties".
 type WidgetGetEligiblePropertiesRequest struct {
 	TargetType string `json:"targetType,omitempty"`
+	TargetID   string `json:"targetId,omitempty"`
+	LiteKind   string `json:"liteKind,omitempty"`
 }
 
 // WidgetGenerateParamNameRequest is the payload for "Widget.GenerateParamName".
@@ -3733,7 +3735,11 @@ func Dispatch(command string, payloadJSON []byte) ([]byte, error) {
 		}
 		var props []scene.EligibleProperty
 		if req.TargetType != "" {
-			props = scene.GetEligibleProperties(req.TargetType)
+			if req.TargetID != "" || req.LiteKind != "" {
+				props = activeScene.GetEligiblePropertiesForTarget(req.TargetType, req.TargetID, req.LiteKind)
+			} else {
+				props = scene.GetEligibleProperties(req.TargetType)
+			}
 		}
 		return json.Marshal(WidgetEligiblePropertiesResponse{
 			Success:    true,

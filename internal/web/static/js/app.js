@@ -2612,9 +2612,9 @@ window.syncImageToolsFromSnip = function() {
 // =========================================================================
 // Accordion Overview: Widget Parameters (External Controls)
 // =========================================================================
-function getDrawerWidgetPropDefs(type) {
+function getDrawerWidgetPropDefs(type, targetId = '', liteKind = '') {
   if (window.EngineBridge && typeof window.EngineBridge.getEligibleWidgetProperties === 'function') {
-    const list = window.EngineBridge.getEligibleWidgetProperties(type);
+    const list = window.EngineBridge.getEligibleWidgetProperties(type, targetId, liteKind);
     if (Array.isArray(list) && list.length > 0) {
       return list.map(item => ({
         prop: item.property || item.Property,
@@ -2623,6 +2623,7 @@ function getDrawerWidgetPropDefs(type) {
         desc: item.description || item.Description,
         min: item.min !== undefined ? item.min : item.Min,
         max: item.max !== undefined ? item.max : item.Max,
+        step: item.step !== undefined ? item.step : item.Step,
         default: item.default !== undefined ? item.default : item.Default,
         options: item.options || item.Options
       }));
@@ -2632,68 +2633,73 @@ function getDrawerWidgetPropDefs(type) {
     node: [
       { prop: 'fill', label: 'Fill Colour', type: 'color', desc: 'Primary interior fill color of node shape' },
       { prop: 'stroke', label: 'Border Stroke', type: 'color', desc: 'Outline and border stroke color' },
-      { prop: 'opacity', label: 'Opacity (0..1)', type: 'number', min: 0, max: 1, desc: 'Transparency level from 0.0 to 1.0' },
+      { prop: 'opacity', label: 'Opacity (0..1)', type: 'number', min: 0, max: 1, step: 0.05, desc: 'Transparency level from 0.0 to 1.0' },
       { prop: 'visibility', label: 'Visibility (Toggle)', type: 'boolean', desc: 'Toggle visibility of this node' },
       { prop: 'text', label: 'Label Text', type: 'text', desc: 'Primary text label rendered inside the node' }
     ],
     flow: [
       { prop: 'stroke', label: 'Line Colour', type: 'color', desc: 'Connector line and particle stroke color' },
-      { prop: 'speed', label: 'Flow Speed', type: 'speed', min: 0.1, max: 10, desc: 'Movement speed of particles along this specific flow line (0.1 to 10.0)' },
-      { prop: 'opacity', label: 'Opacity (0..1)', type: 'number', min: 0, max: 1, desc: 'Opacity of the flow connector track' },
+      { prop: 'speed', label: 'Flow Speed', type: 'speed', min: 0.1, max: 10, step: 0.1, desc: 'Movement speed of particles along this specific flow line (0.1 to 10.0)' },
+      { prop: 'opacity', label: 'Opacity (0..1)', type: 'number', min: 0, max: 1, step: 0.05, desc: 'Opacity of the flow connector track' },
       { prop: 'visibility', label: 'Visibility (Toggle)', type: 'boolean', desc: 'Shows or hides this flow connector' }
     ],
     glow: [
       { prop: 'color', label: 'Glow Colour', type: 'color', desc: 'Accent color of the glow and beacon pulse' },
-      { prop: 'opacity', label: 'Glow Intensity (0..1)', type: 'number', min: 0, max: 1, desc: 'Brilliance and intensity of the optical glow pulse' },
+      { prop: 'opacity', label: 'Glow Intensity (0..1)', type: 'number', min: 0, max: 1, step: 0.05, desc: 'Brilliance and intensity of the optical glow pulse' },
       { prop: 'visibility', label: 'Visibility (Toggle)', type: 'boolean', desc: 'Switches the optical hotspot glow on or off' }
     ],
     ripple: [
       { prop: 'color', label: 'Wave Crest Colour', type: 'color', desc: 'Stroke color of the propagating ripple rings' },
-      { prop: 'opacity', label: 'Wave Opacity (0..1)', type: 'number', min: 0, max: 1, desc: 'Wave crest opacity from 0.0 to 1.0' },
+      { prop: 'opacity', label: 'Wave Opacity (0..1)', type: 'number', min: 0, max: 1, step: 0.05, desc: 'Wave crest opacity from 0.0 to 1.0' },
       { prop: 'visibility', label: 'Visibility (Toggle)', type: 'boolean', desc: 'Switches the animated expanding ripple wave on or off' }
     ],
     image: [
-      { prop: 'opacity', label: 'Image Opacity (0..1)', type: 'number', min: 0, max: 1, desc: 'Opacity of the image layer' },
+      { prop: 'opacity', label: 'Image Opacity (0..1)', type: 'number', min: 0, max: 1, step: 0.05, desc: 'Opacity of the image layer' },
       { prop: 'visibility', label: 'Visibility (Toggle)', type: 'boolean', desc: 'Shows or hides this image object' }
     ],
     group: [
-      { prop: 'opacity', label: 'Group Opacity (0..1)', type: 'number', min: 0, max: 1, default: 1.0, desc: 'Opacity of the group (0.0 to 1.0)' },
+      { prop: 'opacity', label: 'Group Opacity (0..1)', type: 'number', min: 0, max: 1, step: 0.05, default: 1.0, desc: 'Opacity of the group (0.0 to 1.0)' },
       { prop: 'visibility', label: 'Visibility (Toggle)', type: 'boolean', default: true, desc: 'Shows or hides this group' },
-      { prop: 'speed', label: 'Group Animation Speed (0.1..10x)', type: 'speed', min: 0.1, max: 10, default: 1.0, desc: 'Playback speed multiplier for all animations inside this group (0.1 to 10.0)' }
+      { prop: 'speed', label: 'Group Animation Speed (0.1..10x)', type: 'speed', min: 0.1, max: 10, step: 0.1, default: 1.0, desc: 'Playback speed multiplier for all animations inside this group (0.1 to 10.0)' }
     ],
     lite: [
       { prop: 'text', label: 'Text Content', type: 'text', desc: 'Displayed text content for Text Box Lite (immediate update on static text, cycle-boundary handover on animated text)' },
       { prop: 'color', label: 'Effect Colour', type: 'color', desc: 'Primary stroke, fill, or text colour of the low-load effect' },
       { prop: 'bgColor', label: 'Track / Background Colour', type: 'color', desc: 'Background track, screen, or text box fill colour' },
       { prop: 'borderColor', label: 'Border Colour', type: 'color', desc: 'Container border or arc guide colour for Text Box Lite' },
-      { prop: 'value', label: 'Gauge Value', type: 'number', desc: 'Current numeric value for Gauge / Level Lite indicators' },
-      { prop: 'minValue', label: 'Gauge Min Value', type: 'number', desc: 'Minimum numeric domain bound for Gauge / Level Lite' },
-      { prop: 'maxValue', label: 'Gauge Max Value', type: 'number', desc: 'Maximum numeric domain bound for Gauge / Level Lite' },
-      { prop: 'opacity', label: 'Opacity (0..1)', type: 'number', min: 0, max: 1, desc: 'Transparency of the low-load effect (0.0 to 1.0)' },
+      { prop: 'value', label: 'Gauge Value', type: 'number', step: 0.5, desc: 'Current numeric value for Gauge / Level Lite indicators' },
+      { prop: 'minValue', label: 'Gauge Min Value', type: 'number', step: 1, desc: 'Minimum numeric domain bound for Gauge / Level Lite' },
+      { prop: 'maxValue', label: 'Gauge Max Value', type: 'number', step: 1, desc: 'Maximum numeric domain bound for Gauge / Level Lite' },
+      { prop: 'opacity', label: 'Opacity (0..1)', type: 'number', min: 0, max: 1, step: 0.05, desc: 'Transparency of the low-load effect (0.0 to 1.0)' },
       { prop: 'visibility', label: 'Visibility (Toggle)', type: 'boolean', desc: 'Toggle visibility of the low-load effect' },
-      { prop: 'speed', label: 'Speed / Rate', type: 'speed', min: 0.1, max: 10, desc: 'Playback speed multiplier for the effect (0.1 to 10.0)' },
-      { prop: 'scrollSpeed', label: 'Ticker Scroll Speed (px/s)', type: 'number', min: 10, max: 600, desc: 'Linear scroll speed in SVG px/s for Text Box Lite tickers (10 to 600)' },
-      { prop: 'typeSpeed', label: 'Typing Rate (chars/s)', type: 'number', min: 1, max: 120, desc: 'Character reveal rate in graphemes/s for Text Box Lite typewriter, scramble, and overtype (1 to 120)' },
-      { prop: 'strokeWidth', label: 'Stroke Width', type: 'number', min: 0, max: 24, desc: 'Stroke or border thickness in px (0 to 24)' },
-      { prop: 'dashLength', label: 'Dash / Segment Length', type: 'number', min: 2, max: 400, desc: 'Flow Lite dash or single segment length in px (2 to 400)' },
-      { prop: 'gapLength', label: 'Gap Spacing', type: 'number', min: 2, max: 300, desc: 'Flow Lite clear gap between segments in px (2 to 300)' },
-      { prop: 'dotSize', label: 'Dot Diameter', type: 'number', min: 1, max: 32, desc: 'Flow Lite dot diameter in px for dotted pattern (1 to 32)' },
-      { prop: 'segments', label: 'Segments', type: 'number', min: 1, max: 16, desc: 'Number of tracer segments around perimeter (1 to 16)' },
+      { prop: 'speed', label: 'Cycle Duration / Speed', type: 'speed', min: 0.1, max: 30, step: 0.1, desc: 'Cycle duration in seconds (0.2 to 30.0 s) or playback speed multiplier (0.1 to 10.0)' },
+      { prop: 'scrollSpeed', label: 'Ticker Scroll Speed (px/s)', type: 'number', min: 10, max: 600, step: 5, desc: 'Linear scroll speed in SVG px/s for Text Box Lite tickers (10 to 600)' },
+      { prop: 'typeSpeed', label: 'Typing Rate (chars/s)', type: 'number', min: 1, max: 120, step: 1, desc: 'Character reveal rate in graphemes/s for Text Box Lite typewriter, scramble, and overtype (1 to 120)' },
+      { prop: 'strokeWidth', label: 'Stroke Width', type: 'number', min: 0, max: 32, step: 0.5, desc: 'Stroke or border thickness in px' },
+      { prop: 'dashLength', label: 'Dash / Segment Length', type: 'number', min: 2, max: 400, step: 1, desc: 'Flow Lite dash or single segment length in px (2 to 400)' },
+      { prop: 'gapLength', label: 'Gap Spacing', type: 'number', min: 2, max: 300, step: 1, desc: 'Flow Lite clear gap between segments in px (2 to 300)' },
+      { prop: 'dotSize', label: 'Dot Diameter', type: 'number', min: 1, max: 32, step: 0.5, desc: 'Flow Lite dot diameter in px for dotted pattern (1 to 32)' },
+      { prop: 'segments', label: 'Segments', type: 'number', min: 1, max: 32, step: 1, desc: 'Number of segments or waveform cycles' },
       { prop: 'lineGapRatio', label: 'Line:Gap Ratio', type: 'text', desc: 'Repeating segment pattern ratio (e.g. 1:3)' },
       { prop: 'direction', label: 'Direction', type: 'enum', options: ['cw', 'ccw', 'forward', 'reverse'], desc: 'Travel direction' },
-      { prop: 'startOffset', label: 'Start Offset (%)', type: 'number', min: 0, max: 100, desc: 'Perimeter starting phase offset (0 to 100%)' },
-      { prop: 'playbackMode', label: 'Motion Mode', type: 'enum', options: ['loop', 'pingpong', 'once'], desc: 'Tracer playback mode (loop, pingpong, once)' },
+      { prop: 'startOffset', label: 'Start Offset (%)', type: 'number', min: 0, max: 100, step: 1, desc: 'Perimeter starting phase offset, arc offset, or oscilloscope baseline' },
+      { prop: 'playbackMode', label: 'Motion Mode', type: 'enum', options: ['loop', 'pingpong', 'once'], desc: 'Playback mode (loop, pingpong, once)' },
+      { prop: 'burstCycles', label: 'Cycles Per Burst', type: 'number', min: 0, max: 100, step: 1, desc: 'Circuits per burst before pausing (0 = continuous)' },
+      { prop: 'pauseSeconds', label: 'Pause Duration (s)', type: 'number', min: 0, max: 300, step: 0.5, desc: 'Pause duration in seconds between bursts (0 to 300)' },
+      { prop: 'pauseVisibility', label: 'Pause Behaviour', type: 'enum', options: ['hide', 'hold'], desc: 'Visibility during burst pause (hide or hold)' },
       { prop: 'showGuide', label: 'Guide Visibility', type: 'boolean', desc: 'Show or hide static perimeter boundary guide or radar centre dot' },
-      { prop: 'scale', label: 'Max Scale', type: 'number', min: 0.2, max: 3.0, desc: 'Maximum pulse/radar expansion scale multiplier (0.2 to 3.0)' },
-      { prop: 'period', label: 'Cycle Duration / Period (s)', type: 'number', min: 0.2, max: 30, desc: 'Pulse or Radar Ping cycle duration in seconds (0.2 to 30.0)' },
-      { prop: 'intensity', label: 'Intensity / Amplitude', type: 'number', min: 0, max: 1, desc: 'Peak pulse/flash/oscilloscope amplitude (0.0 to 1.0)' },
+      { prop: 'scale', label: 'Max Scale', type: 'number', min: 0.2, max: 3.0, step: 0.05, desc: 'Maximum pulse/radar expansion scale multiplier (0.2 to 3.0)' },
+      { prop: 'period', label: 'Cycle Duration / Period (s)', type: 'number', min: 0.2, max: 30, step: 0.1, desc: 'Cycle duration in seconds (0.2 to 30.0)' },
+      { prop: 'intensity', label: 'Intensity / Amplitude', type: 'number', min: 0, max: 1, step: 0.05, desc: 'Peak pulse/flash/oscilloscope amplitude' },
+      { prop: 'armThickness', label: 'Arm Thickness', type: 'number', min: 1, max: 20, step: 0.5, desc: 'Independent cross/star arm thickness in SVG units (1 to 20)' },
       { prop: 'samples', label: 'Waveform Samples', type: 'text', desc: 'Bounded numeric sample sequence (2 to 64 comma-separated values) for Oscilloscope Lite sampled mode' },
-      { prop: 'trigger', label: 'Flash Trigger', type: 'number', min: 0, max: 1000000, desc: 'Incrementing or changing this value triggers a single-shot Flash Lite pulse' },
-      { prop: 'duration', label: 'Flash Duration (ms)', type: 'number', min: 20, max: 1000, desc: 'Flash duration in milliseconds (20 to 1000 ms)' },
-      { prop: 'repeat', label: 'Flash Repeat', type: 'boolean', desc: 'Repeat flash periodically instead of single-shot' }
+      { prop: 'trigger', label: 'Flash Trigger', type: 'number', min: 0, max: 1000000, step: 1, desc: 'Incrementing or changing this value triggers a single-shot Flash Lite pulse' },
+      { prop: 'duration', label: 'Flash Duration (ms)', type: 'number', min: 20, max: 1000, step: 10, desc: 'Flash duration in milliseconds (20 to 1000 ms)' },
+      { prop: 'repeat', label: 'Flash Repeat', type: 'boolean', desc: 'Repeat flash periodically instead of single-shot' },
+      { prop: 'repeatInterval', label: 'Repeat Interval (s)', type: 'number', min: 0.2, max: 60, step: 0.1, desc: 'Interval in seconds between repeated flashes (0.2 to 60)' }
     ],
     root: [
-      { prop: 'playbackRate', label: 'Master Speed', type: 'speed', min: 0.1, max: 5.0, desc: 'Master playback rate multiplier for the entire widget' },
+      { prop: 'playbackRate', label: 'Master Speed', type: 'speed', min: 0.1, max: 5.0, step: 0.1, desc: 'Master playback rate multiplier for the entire widget' },
       { prop: 'visibility', label: 'Widget Visibility', type: 'boolean', desc: 'Master visibility toggle for the entire widget' },
       { prop: 'operatingState', label: 'Operating State', type: 'enum', options: ['running', 'paused', 'stopped'], desc: 'Lifecycle operating state of the widget' }
     ]
@@ -2776,23 +2782,33 @@ function getObjectPropValue(type, id, prop) {
         case 'maxValue': return le.maxValue !== undefined ? le.maxValue : 100;
         case 'opacity': return le.opacity !== undefined ? le.opacity : ((le.kind === 'gauge-lite' || le.kind === 'oscilloscope-lite' || le.kind === 'text-lite') ? 1.0 : 0.9);
         case 'visibility': return le.visible !== false;
-        case 'speed': return 1.0;
+        case 'speed':
+          if (le.kind === 'flow-lite') return le.speed !== undefined ? le.speed : 2.0;
+          if (le.kind === 'oscilloscope-lite') return le.speed !== undefined ? le.speed : 2.4;
+          if (le.kind === 'perimeter-tracer') return le.speed !== undefined ? le.speed : 3.0;
+          if (le.kind === 'text-lite') return le.speed !== undefined ? le.speed : 0.8;
+          return 1.0;
         case 'scrollSpeed': return le.scrollSpeed !== undefined ? le.scrollSpeed : 90;
         case 'typeSpeed': return le.typeSpeed !== undefined ? le.typeSpeed : 14;
         case 'strokeWidth': return le.strokeWidth !== undefined ? le.strokeWidth : (le.kind === 'flow-lite' ? 3.0 : (le.kind === 'radar-lite' ? 2.0 : (le.kind === 'oscilloscope-lite' ? 2.2 : (le.kind === 'text-lite' ? 1.5 : (le.kind === 'gauge-lite' ? (le.variant === 'ring' ? 8.0 : 2.0) : 2.5)))));
         case 'dashLength': return le.dashLength !== undefined ? le.dashLength : (le.variant === 'single' ? 36 : 18);
         case 'gapLength': return le.gapLength !== undefined ? le.gapLength : 14;
         case 'dotSize': return le.dotSize !== undefined ? le.dotSize : 5;
-        case 'segments': return le.segments !== undefined ? le.segments : 2;
+        case 'segments': return le.segments !== undefined ? le.segments : (le.kind === 'gauge-lite' ? 10 : 2);
         case 'lineGapRatio': return le.lineGapRatio || '1:3';
-        case 'direction': return le.direction || ((le.kind === 'flow-lite' || le.kind === 'oscilloscope-lite' || le.kind === 'text-lite') ? 'forward' : 'cw');
+        case 'direction': return le.direction || ((le.kind === 'flow-lite' || le.kind === 'gauge-lite' || le.kind === 'oscilloscope-lite' || le.kind === 'text-lite') ? 'forward' : 'cw');
+        case 'startOffset': return le.startOffset !== undefined ? le.startOffset : ((le.kind === 'oscilloscope-lite' || le.kind === 'text-lite') ? 50 : 0);
         case 'playbackMode': return le.playbackMode || 'loop';
         case 'burstCycles': return le.burstCycles !== undefined ? le.burstCycles : 0;
         case 'pauseSeconds': return le.pauseSeconds !== undefined ? le.pauseSeconds : 0;
         case 'pauseVisibility': return le.pauseVisibility || 'hide';
         case 'showGuide': return le.showGuide !== false;
         case 'scale': return le.maxScale !== undefined ? le.maxScale : (le.kind === 'radar-lite' ? 1.0 : 1.15);
-        case 'period': return le.period !== undefined ? le.period : (le.kind === 'radar-lite' ? 2.4 : 1.8);
+        case 'period':
+          if (le.kind === 'flow-lite' || le.kind === 'oscilloscope-lite' || le.kind === 'perimeter-tracer') {
+            return le.speed !== undefined ? le.speed : (le.kind === 'flow-lite' ? 2.0 : (le.kind === 'oscilloscope-lite' ? 2.4 : 3.0));
+          }
+          return le.period !== undefined ? le.period : (le.kind === 'radar-lite' ? 2.4 : 1.8);
         case 'intensity': return le.intensity !== undefined ? le.intensity : ((le.kind === 'flash' || le.kind === 'oscilloscope-lite') ? 0.75 : 0.85);
         case 'samples': return le.samples || '0, 0.4, 0.9, 0.3, -0.5, -0.9, -0.2, 0.6, 1.0, 0.2, -0.4, 0';
         case 'armThickness': return le.armThickness !== undefined ? le.armThickness : 3.0;
@@ -2869,52 +2885,7 @@ window.renderWidgetPropertyCards = function(containerEl, sel, statusMsgEl) {
   const targetId = (sel.type === 'group' && String(sel.id).startsWith('group-'))
     ? String(sel.id)
     : `${sel.type}-${sel.id}`;
-  let propDefs = getDrawerWidgetPropDefs(sel.type);
-  if (sel.type === 'lite' && liteKind) {
-    propDefs = propDefs.filter((p) => {
-      if (['text', 'borderColor', 'scrollSpeed', 'typeSpeed'].includes(p.prop)) {
-        return liteKind === 'text-lite';
-      }
-      if (['segments', 'lineGapRatio', 'burstCycles', 'pauseSeconds', 'pauseVisibility'].includes(p.prop)) {
-        return liteKind === 'perimeter-tracer';
-      }
-      if (['strokeWidth', 'showGuide'].includes(p.prop)) {
-        return liteKind === 'perimeter-tracer' || liteKind === 'flow-lite' || liteKind === 'radar-lite' || liteKind === 'gauge-lite' || liteKind === 'oscilloscope-lite' || liteKind === 'text-lite';
-      }
-      if (p.prop === 'startOffset') {
-        return liteKind === 'perimeter-tracer' || liteKind === 'text-lite';
-      }
-      if (['value', 'minValue', 'maxValue'].includes(p.prop)) {
-        return liteKind === 'gauge-lite';
-      }
-      if (p.prop === 'bgColor') {
-        return liteKind === 'gauge-lite' || liteKind === 'oscilloscope-lite' || liteKind === 'text-lite';
-      }
-      if (p.prop === 'direction') {
-        return liteKind === 'perimeter-tracer' || liteKind === 'flow-lite' || liteKind === 'oscilloscope-lite' || liteKind === 'text-lite';
-      }
-      if (p.prop === 'playbackMode') {
-        return liteKind === 'perimeter-tracer' || liteKind === 'flow-lite';
-      }
-      if (['dashLength', 'gapLength', 'dotSize'].includes(p.prop)) {
-        return liteKind === 'flow-lite';
-      }
-      if (['scale', 'period'].includes(p.prop)) return liteKind === 'pulse' || liteKind === 'radar-lite';
-      if (['trigger', 'duration', 'repeat', 'repeatInterval'].includes(p.prop)) return liteKind === 'flash';
-      if (p.prop === 'intensity') return liteKind === 'pulse' || liteKind === 'flash' || liteKind === 'oscilloscope-lite';
-      if (p.prop === 'samples') return liteKind === 'oscilloscope-lite';
-      if (p.prop === 'armThickness') return (liteKind === 'pulse' || liteKind === 'flash');
-      if (p.prop === 'speed') return liteKind === 'perimeter-tracer' || liteKind === 'pulse' || liteKind === 'flow-lite' || liteKind === 'radar-lite' || liteKind === 'oscilloscope-lite' || liteKind === 'text-lite';
-      return true;
-    }).map((p) => {
-      if (p.prop === 'direction') {
-        return Object.assign({}, p, {
-          options: (liteKind === 'flow-lite' || liteKind === 'oscilloscope-lite' || liteKind === 'text-lite') ? ['forward', 'reverse'] : ['cw', 'ccw']
-        });
-      }
-      return p;
-    });
-  }
+  const propDefs = getSupportedPropertiesForMember(sel.type, sel.id);
 
   propDefs.forEach((p) => {
     const bound = allParams.find((item) => {
@@ -3124,39 +3095,130 @@ window.renderWidgetPropertyCards = function(containerEl, sel, statusMsgEl) {
 };
 
 function getSupportedPropertiesForMember(mType, mId) {
-  let propDefs = getDrawerWidgetPropDefs(mType) || [];
+  let le = null;
+  let liteKind = '';
   if (mType === 'lite' && window.LiteEffects) {
-    const le = window.LiteEffects.getLiteEffect(mId);
-    const liteKind = (le && le.kind) ? le.kind : '';
-    if (liteKind) {
-      propDefs = propDefs.filter((p) => {
-        if (['text', 'borderColor', 'scrollSpeed', 'typeSpeed'].includes(p.prop)) return liteKind === 'text-lite';
-        if (['segments', 'lineGapRatio', 'burstCycles', 'pauseSeconds', 'pauseVisibility'].includes(p.prop)) return liteKind === 'perimeter-tracer';
-        if (['strokeWidth', 'showGuide'].includes(p.prop)) {
-          return liteKind === 'perimeter-tracer' || liteKind === 'flow-lite' || liteKind === 'radar-lite' || liteKind === 'gauge-lite' || liteKind === 'oscilloscope-lite' || liteKind === 'text-lite';
+    le = window.LiteEffects.getLiteEffect(mId);
+    liteKind = (le && le.kind) ? le.kind : '';
+  }
+  let propDefs = getDrawerWidgetPropDefs(mType, mId, liteKind) || [];
+  if (mType === 'lite' && liteKind) {
+    propDefs = propDefs.filter((p) => {
+      if (['text', 'borderColor', 'scrollSpeed', 'typeSpeed'].includes(p.prop)) return liteKind === 'text-lite';
+      if (['lineGapRatio', 'burstCycles', 'pauseSeconds', 'pauseVisibility'].includes(p.prop)) return liteKind === 'perimeter-tracer';
+      if (p.prop === 'segments') return liteKind === 'perimeter-tracer' || liteKind === 'gauge-lite' || liteKind === 'oscilloscope-lite';
+      if (['strokeWidth', 'showGuide'].includes(p.prop)) {
+        return liteKind === 'perimeter-tracer' || liteKind === 'flow-lite' || liteKind === 'radar-lite' || liteKind === 'gauge-lite' || liteKind === 'oscilloscope-lite' || liteKind === 'text-lite';
+      }
+      if (p.prop === 'startOffset') return liteKind === 'perimeter-tracer' || liteKind === 'oscilloscope-lite' || liteKind === 'text-lite';
+      if (['value', 'minValue', 'maxValue'].includes(p.prop)) return liteKind === 'gauge-lite';
+      if (p.prop === 'bgColor') return liteKind === 'gauge-lite' || liteKind === 'oscilloscope-lite' || liteKind === 'text-lite';
+      if (p.prop === 'direction') return liteKind === 'perimeter-tracer' || liteKind === 'flow-lite' || liteKind === 'gauge-lite' || liteKind === 'oscilloscope-lite' || liteKind === 'text-lite';
+      if (p.prop === 'playbackMode') return liteKind === 'perimeter-tracer' || liteKind === 'flow-lite' || liteKind === 'text-lite';
+      if (['dashLength', 'gapLength', 'dotSize'].includes(p.prop)) return liteKind === 'flow-lite';
+      if (p.prop === 'scale') return liteKind === 'pulse' || liteKind === 'radar-lite';
+      if (p.prop === 'period') return liteKind === 'pulse' || liteKind === 'radar-lite' || liteKind === 'flow-lite' || liteKind === 'perimeter-tracer' || liteKind === 'oscilloscope-lite';
+      if (['trigger', 'duration', 'repeat', 'repeatInterval'].includes(p.prop)) return liteKind === 'flash';
+      if (p.prop === 'intensity') return liteKind === 'pulse' || liteKind === 'flash' || liteKind === 'oscilloscope-lite';
+      if (p.prop === 'samples') return liteKind === 'oscilloscope-lite';
+      if (p.prop === 'armThickness') return liteKind === 'pulse' || liteKind === 'flash';
+      if (p.prop === 'speed') return liteKind === 'perimeter-tracer' || liteKind === 'pulse' || liteKind === 'flow-lite' || liteKind === 'radar-lite' || liteKind === 'oscilloscope-lite' || liteKind === 'text-lite';
+      return true;
+    }).map((p) => {
+      const copy = Object.assign({}, p);
+      if (p.prop === 'speed') {
+        if (liteKind === 'flow-lite' || liteKind === 'oscilloscope-lite' || liteKind === 'perimeter-tracer') {
+          copy.label = liteKind === 'perimeter-tracer' ? 'Cycle Duration / Speed (s)' : 'Cycle Duration (s)';
+          copy.min = 0.2;
+          copy.max = 30.0;
+          copy.step = 0.1;
+          copy.desc = 'Cycle duration in seconds (0.2 to 30.0 s)';
+        } else if (liteKind === 'text-lite') {
+          copy.label = 'Transition / Fade Duration (s)';
+          copy.min = 0.0;
+          copy.max = 30.0;
+          copy.step = 0.05;
+          copy.desc = 'Transition or fade duration in seconds (0.0 to 30.0 s)';
+        } else {
+          copy.label = 'Speed / Rate';
+          copy.min = 0.1;
+          copy.max = 10.0;
+          copy.step = 0.1;
         }
-        if (p.prop === 'startOffset') return liteKind === 'perimeter-tracer' || liteKind === 'text-lite';
-        if (['value', 'minValue', 'maxValue'].includes(p.prop)) return liteKind === 'gauge-lite';
-        if (p.prop === 'bgColor') return liteKind === 'gauge-lite' || liteKind === 'oscilloscope-lite' || liteKind === 'text-lite';
-        if (p.prop === 'direction') return liteKind === 'perimeter-tracer' || liteKind === 'flow-lite' || liteKind === 'oscilloscope-lite' || liteKind === 'text-lite';
-        if (p.prop === 'playbackMode') return liteKind === 'perimeter-tracer' || liteKind === 'flow-lite';
-        if (['dashLength', 'gapLength', 'dotSize'].includes(p.prop)) return liteKind === 'flow-lite';
-        if (['scale', 'period'].includes(p.prop)) return liteKind === 'pulse' || liteKind === 'radar-lite';
-        if (['trigger', 'duration', 'repeat', 'repeatInterval'].includes(p.prop)) return liteKind === 'flash';
-        if (p.prop === 'intensity') return liteKind === 'pulse' || liteKind === 'flash' || liteKind === 'oscilloscope-lite';
-        if (p.prop === 'samples') return liteKind === 'oscilloscope-lite';
-        if (p.prop === 'armThickness') return liteKind === 'pulse' || liteKind === 'flash';
-        if (p.prop === 'speed') return liteKind === 'perimeter-tracer' || liteKind === 'pulse' || liteKind === 'flow-lite' || liteKind === 'radar-lite' || liteKind === 'oscilloscope-lite' || liteKind === 'text-lite';
-        return true;
-      }).map((p) => {
-        if (p.prop === 'direction') {
-          return Object.assign({}, p, {
-            options: (liteKind === 'flow-lite' || liteKind === 'oscilloscope-lite' || liteKind === 'text-lite') ? ['forward', 'reverse'] : ['cw', 'ccw']
-          });
+      } else if (p.prop === 'period') {
+        copy.label = 'Cycle Duration / Period (s)';
+        copy.min = 0.2;
+        copy.max = 30.0;
+        copy.step = 0.1;
+      } else if (p.prop === 'strokeWidth') {
+        copy.step = 0.5;
+        if (liteKind === 'perimeter-tracer' || liteKind === 'radar-lite') {
+          copy.min = 0.5;
+          copy.max = 20.0;
+        } else if (liteKind === 'flow-lite') {
+          copy.min = 0.5;
+          copy.max = 24.0;
+        } else if (liteKind === 'gauge-lite') {
+          copy.min = 0.5;
+          copy.max = 32.0;
+        } else if (liteKind === 'oscilloscope-lite') {
+          copy.min = 0.5;
+          copy.max = 16.0;
+        } else if (liteKind === 'text-lite') {
+          copy.label = 'Border Thickness (px)';
+          copy.min = 0.0;
+          copy.max = 24.0;
         }
-        return p;
-      });
-    }
+      } else if (p.prop === 'segments') {
+        copy.step = 1;
+        if (liteKind === 'perimeter-tracer') {
+          copy.min = 1;
+          copy.max = 16;
+        } else if (liteKind === 'gauge-lite') {
+          copy.min = 2;
+          copy.max = 32;
+        } else if (liteKind === 'oscilloscope-lite') {
+          copy.label = 'Cycles (Freq)';
+          copy.min = 1;
+          copy.max = 12;
+        }
+      } else if (p.prop === 'startOffset') {
+        copy.step = 1;
+        if (liteKind === 'oscilloscope-lite') {
+          copy.label = 'Baseline (%)';
+          copy.min = 10;
+          copy.max = 90;
+        } else if (liteKind === 'text-lite') {
+          copy.label = 'Arc Offset (%)';
+          copy.min = 0;
+          copy.max = 100;
+        } else {
+          copy.min = 0;
+          copy.max = 100;
+        }
+      } else if (p.prop === 'intensity') {
+        copy.step = 0.05;
+        if (liteKind === 'oscilloscope-lite') {
+          copy.label = 'Amplitude';
+          copy.min = 0.05;
+          copy.max = 1.0;
+        } else {
+          copy.min = 0.0;
+          copy.max = 1.0;
+        }
+      } else if (p.prop === 'direction') {
+        copy.options = (liteKind === 'flow-lite' || liteKind === 'gauge-lite' || liteKind === 'oscilloscope-lite' || liteKind === 'text-lite')
+          ? ['forward', 'reverse']
+          : ['cw', 'ccw'];
+      } else if (p.prop === 'playbackMode') {
+        copy.options = ['loop', 'pingpong', 'once'];
+      } else if (p.prop === 'value' && liteKind === 'gauge-lite') {
+        copy.step = 0.5;
+        copy.min = (le && le.minValue !== undefined && Number.isFinite(Number(le.minValue))) ? Number(le.minValue) : 0;
+        copy.max = (le && le.maxValue !== undefined && Number.isFinite(Number(le.maxValue)) && Number(le.maxValue) > copy.min) ? Number(le.maxValue) : (copy.min + 100);
+      }
+      return copy;
+    });
   }
   return propDefs;
 }
@@ -3196,6 +3258,9 @@ window.GroupMappingDialog = {
   statusMsgEl: null,
   targetRows: [],
   _explicitNumberToText: false,
+  _userEditedMin: false,
+  _userEditedMax: false,
+  _userEditedOptions: false,
   _bound: false,
 
   _ensureBound() {
@@ -3233,6 +3298,7 @@ window.GroupMappingDialog = {
       addTargetBtn.addEventListener('click', () => {
         if (addTargetBtn.disabled || !this.isPersisted) return;
         this.addTargetRow();
+        this._recalculateSharedConstraints({ resetDefault: false });
         this.validateForm();
       });
     }
@@ -3241,7 +3307,13 @@ window.GroupMappingDialog = {
     [aliasIn, labelIn, descIn, defIn, minIn, maxIn, optIn].forEach((el) => {
       if (el) {
         el.addEventListener('input', () => {
-          if (el === defIn) {
+          if (el === minIn) {
+            this._userEditedMin = (minIn.value.trim() !== '');
+          } else if (el === maxIn) {
+            this._userEditedMax = (maxIn.value.trim() !== '');
+          } else if (el === optIn) {
+            this._userEditedOptions = (optIn.value.trim() !== '');
+          } else if (el === defIn) {
             const curType = (typeSel && typeSel.value) || 'number';
             if (curType === 'color' && defCol && /^#[0-9a-fA-F]{6}$/.test(defIn.value.trim())) {
               defCol.value = defIn.value.trim();
@@ -3367,6 +3439,184 @@ window.GroupMappingDialog = {
     return supported.find((p) => p.prop === propName) || null;
   },
 
+  computeSharedDomain() {
+    const targets = [];
+    let hasMin = false;
+    let sharedMin = -Infinity;
+    let minSource = '';
+    let hasMax = false;
+    let sharedMax = Infinity;
+    let maxSource = '';
+    let hasStep = false;
+    let sharedStep = 0;
+    let hasEnum = false;
+    let sharedOptions = [];
+    const enumSources = [];
+
+    (this.targetRows || []).forEach((ref) => {
+      if (!ref || !ref.memSel || !ref.propSel) return;
+      const [mType, mId] = (ref.memSel.value || '').split(':');
+      const propName = ref.propSel.value || '';
+      if (!mType || !mId || !propName) return;
+      const supported = getSupportedPropertiesForMember(mType, mId);
+      const propDef = supported.find((p) => p.prop === propName);
+      if (!propDef) return;
+      const targetStr = mId.startsWith(mType + '-') ? mId : `${mType}-${mId}`;
+      const desc = `${targetStr}.${propName}`;
+      targets.push({ memberType: mType, memberId: mId, target: targetStr, property: propName, propDef });
+
+      if (propDef.type === 'number' || propDef.type === 'speed') {
+        if (propDef.min !== undefined && Number.isFinite(Number(propDef.min))) {
+          const v = Number(propDef.min);
+          if (!hasMin || v > sharedMin) {
+            sharedMin = v;
+            minSource = `${desc} (min ${v})`;
+          }
+          hasMin = true;
+        }
+        if (propDef.max !== undefined && Number.isFinite(Number(propDef.max))) {
+          const v = Number(propDef.max);
+          if (!hasMax || v < sharedMax) {
+            sharedMax = v;
+            maxSource = `${desc} (max ${v})`;
+          }
+          hasMax = true;
+        }
+        if (propDef.step !== undefined && Number.isFinite(Number(propDef.step)) && Number(propDef.step) > 0) {
+          const s = Number(propDef.step);
+          if (!hasStep || s > sharedStep) {
+            sharedStep = s;
+          }
+          hasStep = true;
+        }
+      } else if (propDef.type === 'enum' && Array.isArray(propDef.options)) {
+        enumSources.push(`${desc} [${propDef.options.join(', ')}]`);
+        if (!hasEnum) {
+          sharedOptions = [...propDef.options];
+          hasEnum = true;
+        } else {
+          sharedOptions = sharedOptions.filter((o) => propDef.options.includes(o));
+        }
+      }
+    });
+
+    const disjointNumeric = (hasMin && hasMax && sharedMin > sharedMax);
+    const disjointEnum = (hasEnum && sharedOptions.length === 0);
+    let disjointReason = '';
+    if (disjointNumeric) {
+      disjointReason = `Target numeric domains do not overlap: ${minSource} exceeds ${maxSource}.`;
+    } else if (disjointEnum) {
+      disjointReason = `Target enum domains have no shared options across: ${enumSources.join(' vs ')}.`;
+    }
+
+    return {
+      targets,
+      hasMin,
+      min: hasMin ? sharedMin : undefined,
+      minSource,
+      hasMax,
+      max: hasMax ? sharedMax : undefined,
+      maxSource,
+      hasStep,
+      step: hasStep ? sharedStep : undefined,
+      hasEnum,
+      options: hasEnum ? sharedOptions : undefined,
+      disjointNumeric,
+      disjointEnum,
+      disjointReason
+    };
+  },
+
+  _recalculateSharedConstraints({ resetDefault = false, preserveExistingOnOpen = false } = {}) {
+    const typeSel = document.getElementById('gmModalTypeSelect');
+    const defIn = document.getElementById('gmModalDefaultInput');
+    const minIn = document.getElementById('gmModalMinInput');
+    const maxIn = document.getElementById('gmModalMaxInput');
+    const optIn = document.getElementById('gmModalOptionsInput');
+    const constraintHint = document.getElementById('gmModalConstraintHint');
+    if (!typeSel) return;
+
+    const t = typeSel.value || 'number';
+    const isNum = (t === 'number' || t === 'speed');
+    const shared = this.computeSharedDomain();
+
+    if (isNum) {
+      if (shared.hasStep) {
+        const stepStr = String(shared.step);
+        if (minIn) minIn.step = stepStr;
+        if (maxIn) maxIn.step = stepStr;
+        if (defIn) defIn.step = stepStr;
+      }
+      if (!preserveExistingOnOpen && !shared.disjointNumeric) {
+        if (minIn && shared.hasMin) {
+          const curMin = minIn.value.trim() !== '' ? Number(minIn.value) : NaN;
+          const keepUserMin = this._userEditedMin && Number.isFinite(curMin) && curMin >= shared.min && (!shared.hasMax || curMin <= shared.max);
+          if (!keepUserMin) {
+            minIn.value = String(shared.min);
+          }
+        }
+        if (maxIn && shared.hasMax) {
+          const curMax = maxIn.value.trim() !== '' ? Number(maxIn.value) : NaN;
+          const keepUserMax = this._userEditedMax && Number.isFinite(curMax) && curMax <= shared.max && (!shared.hasMin || curMax >= shared.min);
+          if (!keepUserMax) {
+            maxIn.value = String(shared.max);
+          }
+        }
+        if (defIn) {
+          const effMin = (minIn && minIn.value.trim() !== '' && Number.isFinite(Number(minIn.value))) ? Number(minIn.value) : (shared.hasMin ? shared.min : 0);
+          const effMax = (maxIn && maxIn.value.trim() !== '' && Number.isFinite(Number(maxIn.value))) ? Number(maxIn.value) : (shared.hasMax ? shared.max : 100);
+          const curDef = defIn.value.trim() !== '' ? Number(defIn.value) : NaN;
+          if (resetDefault || !Number.isFinite(curDef)) {
+            const firstTarget = shared.targets[0];
+            const liveVal = firstTarget ? Number(getObjectPropValue(firstTarget.memberType, firstTarget.memberId, firstTarget.property)) : NaN;
+            if (Number.isFinite(liveVal) && liveVal >= effMin && liveVal <= effMax) {
+              defIn.value = String(liveVal);
+            } else {
+              defIn.value = String(t === 'speed' && 1.0 >= effMin && 1.0 <= effMax ? 1.0 : (effMax <= 1 ? effMax : Math.round((effMin + effMax) / 2)));
+            }
+          }
+        }
+      }
+    } else if (t === 'enum') {
+      if (!preserveExistingOnOpen && shared.hasEnum && !shared.disjointEnum) {
+        if (optIn) {
+          const curOpts = optIn.value.split(',').map((s) => s.trim()).filter(Boolean);
+          const keepUserOpts = this._userEditedOptions && curOpts.length > 0 && curOpts.every((o) => shared.options.includes(o));
+          if (!keepUserOpts) {
+            optIn.value = shared.options.join(', ');
+          }
+        }
+        if (defIn) {
+          const activeOpts = (optIn && optIn.value) ? optIn.value.split(',').map((s) => s.trim()).filter(Boolean) : shared.options;
+          if ((resetDefault || !activeOpts.includes(defIn.value.trim())) && activeOpts.length > 0) {
+            defIn.value = activeOpts[0];
+          }
+        }
+      }
+    }
+
+    if (constraintHint) {
+      if (shared.disjointNumeric || shared.disjointEnum) {
+        constraintHint.style.color = '#f85149';
+        constraintHint.textContent = `⚠️ ${shared.disjointReason}`;
+      } else if (isNum && (shared.hasMin || shared.hasMax)) {
+        constraintHint.style.color = '#8b949e';
+        const stepSuffix = shared.hasStep ? ` (step ${shared.step})` : '';
+        if (shared.targets.length > 1) {
+          constraintHint.textContent = `Shared domain across ${shared.targets.length} targets: ${shared.min ?? '−∞'} to ${shared.max ?? '+∞'}${stepSuffix}`;
+        } else {
+          constraintHint.textContent = `Target domain bounds: ${shared.min ?? '−∞'} to ${shared.max ?? '+∞'}${stepSuffix}`;
+        }
+      } else if (t === 'enum' && shared.hasEnum) {
+        constraintHint.style.color = '#8b949e';
+        constraintHint.textContent = `Allowed target options: ${shared.options.join(', ')}`;
+      } else {
+        constraintHint.style.color = '#8b949e';
+        constraintHint.textContent = '';
+      }
+    }
+  },
+
   _syncTypeControls(resetDefaults, propDef = null) {
     const typeSel = document.getElementById('gmModalTypeSelect');
     const derivedTypeEl = document.getElementById('groupMappingModalDerivedType');
@@ -3378,7 +3628,6 @@ window.GroupMappingDialog = {
     const maxWrap = document.getElementById('gmModalMaxWrap');
     const enumWrap = document.getElementById('gmModalEnumWrap');
     const noConstraintsNote = document.getElementById('gmModalNoConstraintsNote');
-    const constraintHint = document.getElementById('gmModalConstraintHint');
     const minIn = document.getElementById('gmModalMinInput');
     const maxIn = document.getElementById('gmModalMaxInput');
     const optIn = document.getElementById('gmModalOptionsInput');
@@ -3413,16 +3662,6 @@ window.GroupMappingDialog = {
       }
     }
 
-    if (constraintHint) {
-      if (propDef && (propDef.min !== undefined || propDef.max !== undefined) && isNum) {
-        constraintHint.textContent = `Target domain bounds: ${propDef.min ?? '−∞'} to ${propDef.max ?? '+∞'}`;
-      } else if (propDef && Array.isArray(propDef.options) && propDef.options.length > 0 && t === 'enum') {
-        constraintHint.textContent = `Allowed target options: ${propDef.options.join(', ')}`;
-      } else {
-        constraintHint.textContent = '';
-      }
-    }
-
     if (resetDefaults && defIn) {
       if (t === 'color') {
         const cVal = (propDef && propDef.defaultColor) || '#38bdf8';
@@ -3451,6 +3690,7 @@ window.GroupMappingDialog = {
         defIn.value = String(dMax <= 1 ? 1 : Math.round((dMin + dMax) / 2));
       }
     }
+    this._recalculateSharedConstraints({ resetDefault: false, preserveExistingOnOpen: !resetDefaults });
   },
 
   _applyPropertyDomainFromMember(mType, mId, propDef) {
@@ -3476,6 +3716,9 @@ window.GroupMappingDialog = {
       typeSel.value = derivedType;
     }
 
+    this._userEditedMin = false;
+    this._userEditedMax = false;
+    this._userEditedOptions = false;
     this._syncTypeControls(false, propDef);
 
     const liveVal = getObjectPropValue(mType, mId, propDef.prop);
@@ -3501,11 +3744,12 @@ window.GroupMappingDialog = {
       if (Number.isFinite(numLive) && numLive >= minBound && numLive <= maxBound) {
         if (defIn) defIn.value = String(numLive);
       } else {
-        if (defIn) defIn.value = String(derivedType === 'speed' ? 1.0 : (maxBound <= 1 ? maxBound : Math.round((minBound + maxBound) / 2)));
+        if (defIn) defIn.value = String(derivedType === 'speed' && 1.0 >= minBound && 1.0 <= maxBound ? 1.0 : (maxBound <= 1 ? maxBound : Math.round((minBound + maxBound) / 2)));
       }
     } else if (derivedType === 'text') {
       if (defIn) defIn.value = (liveVal !== undefined && liveVal !== null && String(liveVal) !== '') ? String(liveVal) : 'System Ready';
     }
+    this._recalculateSharedConstraints({ resetDefault: false });
   },
 
   open(groupId, existingMapping = null, statusMsgEl = null) {
@@ -3517,6 +3761,9 @@ window.GroupMappingDialog = {
     this.statusMsgEl = statusMsgEl || null;
     this.targetRows = [];
     this._explicitNumberToText = false;
+    this._userEditedMin = false;
+    this._userEditedMax = false;
+    this._userEditedOptions = false;
 
     const grp = this._getGroup();
     if (!grp) return;
@@ -3565,6 +3812,7 @@ window.GroupMappingDialog = {
         typeWrap.style.display = (primaryDef && primaryDef.type === 'text') ? 'flex' : 'none';
       }
       this._syncTypeControls(false, primaryDef);
+      const shared = this.computeSharedDomain();
       const defStr = existingMapping.default !== undefined && existingMapping.default !== null ? String(existingMapping.default) : '';
       if (defIn) defIn.value = defStr;
       if (defCol && existingMapping.type === 'color' && typeof existingMapping.default === 'string' && existingMapping.default.startsWith('#')) {
@@ -3573,9 +3821,23 @@ window.GroupMappingDialog = {
       if (defBool && existingMapping.type === 'boolean') {
         defBool.value = (defStr.toLowerCase() === 'false' || defStr === '0') ? 'false' : 'true';
       }
-      if (minIn) minIn.value = (existingMapping.min !== undefined && existingMapping.min !== null) ? String(existingMapping.min) : '';
-      if (maxIn) maxIn.value = (existingMapping.max !== undefined && existingMapping.max !== null) ? String(existingMapping.max) : '';
-      if (optIn) optIn.value = Array.isArray(existingMapping.options) ? existingMapping.options.join(', ') : '';
+      const hasExplicitMin = (existingMapping.min !== undefined && existingMapping.min !== null);
+      const hasExplicitMax = (existingMapping.max !== undefined && existingMapping.max !== null);
+      if (minIn) {
+        minIn.value = hasExplicitMin ? String(existingMapping.min) : (shared.hasMin ? String(shared.min) : '');
+      }
+      if (maxIn) {
+        maxIn.value = hasExplicitMax ? String(existingMapping.max) : (shared.hasMax ? String(shared.max) : '');
+      }
+      if (optIn) {
+        optIn.value = Array.isArray(existingMapping.options) && existingMapping.options.length > 0
+          ? existingMapping.options.join(', ')
+          : (shared.hasEnum ? shared.options.join(', ') : '');
+      }
+      this._userEditedMin = Boolean(hasExplicitMin && (!shared.hasMin || Number(existingMapping.min) !== shared.min));
+      this._userEditedMax = Boolean(hasExplicitMax && (!shared.hasMax || Number(existingMapping.max) !== shared.max));
+      this._userEditedOptions = Boolean(Array.isArray(existingMapping.options) && existingMapping.options.length > 0 && (!shared.hasEnum || existingMapping.options.join(',') !== shared.options.join(',')));
+      this._recalculateSharedConstraints({ resetDefault: false, preserveExistingOnOpen: true });
     } else {
       if (aliasIn) aliasIn.value = '';
       if (labelIn) labelIn.value = '';
@@ -3583,6 +3845,7 @@ window.GroupMappingDialog = {
       if (typeSel) typeSel.value = 'number';
       if (optIn) optIn.value = '';
       this.addTargetRow('', '', false);
+      this._recalculateSharedConstraints({ resetDefault: false });
     }
 
     this._syncAddBindingButton();
@@ -3677,6 +3940,8 @@ window.GroupMappingDialog = {
     const rowRef = { row, memSel, propSel, propHint, populateProps: null };
     this.targetRows.push(rowRef);
 
+    const isNumOrSpeed = (tp) => tp === 'number' || tp === 'speed';
+
     const populateProps = (preserveCurrent, updateDomainFromPrimary = false) => {
       const [mType, mId] = (memSel.value || '').split(':');
       const rowIndex = this.targetRows.indexOf(rowRef);
@@ -3687,18 +3952,42 @@ window.GroupMappingDialog = {
       propSel.innerHTML = '';
 
       let firstCompatibleVal = '';
+      let firstOverlappingVal = '';
       let compatibleCount = 0;
 
+      const primaryDef = (rowIndex > 0) ? this._getPrimarySelectedPropDef() : null;
+
       supportedProps.forEach((p) => {
-        const compatible = isPrimaryTypeDriver || (p.type === mKindType) || (mKindType === 'number' && p.type === 'text');
+        const compatible = isPrimaryTypeDriver
+          || (p.type === mKindType)
+          || (isNumOrSpeed(mKindType) && isNumOrSpeed(p.type))
+          || (isNumOrSpeed(mKindType) && p.type === 'text');
         const opt = document.createElement('option');
         opt.value = p.prop;
         if (compatible) {
           compatibleCount++;
           if (!firstCompatibleVal) firstCompatibleVal = p.prop;
-          const convNote = (!isPrimaryTypeDriver && mKindType === 'number' && p.type === 'text') ? ' [number→text readout]' : '';
+          let domainConflictNote = '';
+          if (!isPrimaryTypeDriver && primaryDef) {
+            if (isNumOrSpeed(mKindType) && isNumOrSpeed(p.type) && primaryDef.min !== undefined && primaryDef.max !== undefined && p.min !== undefined && p.max !== undefined) {
+              const sMin = Math.max(Number(primaryDef.min), Number(p.min));
+              const sMax = Math.min(Number(primaryDef.max), Number(p.max));
+              if (sMin > sMax) {
+                domainConflictNote = ' [⚠️ non-overlapping range]';
+              }
+            } else if (mKindType === 'enum' && p.type === 'enum' && Array.isArray(primaryDef.options) && Array.isArray(p.options)) {
+              const overlap = primaryDef.options.filter((o) => p.options.includes(o));
+              if (overlap.length === 0) {
+                domainConflictNote = ' [⚠️ no shared enum options]';
+              }
+            }
+          }
+          if (!domainConflictNote && !firstOverlappingVal) {
+            firstOverlappingVal = p.prop;
+          }
+          const convNote = (!isPrimaryTypeDriver && isNumOrSpeed(mKindType) && p.type === 'text') ? ' [number→text readout]' : '';
           const rangeNote = (p.min !== undefined || p.max !== undefined) ? ` [${p.min ?? '−∞'}..${p.max ?? '+∞'}]` : '';
-          opt.textContent = `✓ ${p.prop} — ${p.label} (${p.type}${rangeNote}${convNote})`;
+          opt.textContent = `${domainConflictNote ? '⚠️' : '✓'} ${p.prop} — ${p.label} (${p.type}${rangeNote}${convNote}${domainConflictNote})`;
         } else {
           opt.disabled = true;
           opt.textContent = `✕ ${p.prop} (${p.type} — requires ${p.type}, incompatible with ${mKindType})`;
@@ -3717,7 +4006,7 @@ window.GroupMappingDialog = {
       } else {
         const optList = Array.from(propSel.options || propSel.children || []);
         const canSelectPrev = prevVal && optList.some((o) => o.value === prevVal && !o.disabled);
-        propSel.value = canSelectPrev ? prevVal : firstCompatibleVal;
+        propSel.value = canSelectPrev ? prevVal : (firstOverlappingVal || firstCompatibleVal);
         const selectedDef = supportedProps.find((p) => p.prop === propSel.value);
         if (selectedDef) {
           if (rowIndex === 0 && updateDomainFromPrimary) {
@@ -3725,10 +4014,11 @@ window.GroupMappingDialog = {
           }
           const activeType = (typeSel && typeSel.value) ? typeSel.value : selectedDef.type;
           propHint.style.color = '#8b949e';
-          if (activeType === 'number' && selectedDef.type === 'text') {
+          if (isNumOrSpeed(activeType) && selectedDef.type === 'text') {
             propHint.textContent = `ℹ️ Numeric value converts automatically to text readout on ${mType}-${mId}.${selectedDef.prop}.`;
           } else if (selectedDef.min !== undefined || selectedDef.max !== undefined) {
-            propHint.textContent = `ℹ️ Target domain constraint: ${selectedDef.min ?? '−∞'} to ${selectedDef.max ?? '+∞'}.`;
+            const stepText = selectedDef.step !== undefined ? ` (step ${selectedDef.step})` : '';
+            propHint.textContent = `ℹ️ Target domain constraint: ${selectedDef.min ?? '−∞'} to ${selectedDef.max ?? '+∞'}${stepText}.`;
           } else if (Array.isArray(selectedDef.options)) {
             propHint.textContent = `ℹ️ Allowed target options: ${selectedDef.options.join(', ')}.`;
           } else {
@@ -3742,6 +4032,7 @@ window.GroupMappingDialog = {
     memSel.addEventListener('change', () => {
       const isPrimary = (this.targetRows.indexOf(rowRef) === 0 && this.targetRows.length <= 1 && !this.isPersisted);
       populateProps(false, isPrimary);
+      this._recalculateSharedConstraints({ resetDefault: false });
       this.validateForm();
     });
     propSel.addEventListener('change', () => {
@@ -3750,6 +4041,7 @@ window.GroupMappingDialog = {
       if (this.targetRows.indexOf(rowRef) === 0 && this.targetRows.length > 1) {
         this.targetRows.slice(1).forEach((r) => r.populateProps(true, false));
       }
+      this._recalculateSharedConstraints({ resetDefault: false });
       this.validateForm();
     });
 
@@ -3772,6 +4064,7 @@ window.GroupMappingDialog = {
       if (typeof row.remove === 'function') row.remove();
       else if (row.parentNode) row.parentNode.removeChild(row);
       this.targetRows.forEach((r) => r.populateProps(true, false));
+      this._recalculateSharedConstraints({ resetDefault: false });
       this.validateForm();
     });
 
@@ -3914,6 +4207,8 @@ window.GroupMappingDialog = {
       const maxStr = (maxIn && maxIn.value !== undefined) ? String(maxIn.value).trim() : '';
       if (minStr !== '') payload.min = Number(minStr);
       if (maxStr !== '') payload.max = Number(maxStr);
+      const shared = this.computeSharedDomain();
+      if (shared.hasStep) payload.step = shared.step;
     } else if (mType === 'enum') {
       const rawOpts = (optIn && optIn.value) ? optIn.value : '';
       payload.options = rawOpts.split(',').map((s) => s.trim()).filter(Boolean);
@@ -3944,6 +4239,7 @@ window.GroupMappingDialog = {
     const alias = payload.alias;
     const reAlias = /^[a-zA-Z][a-zA-Z0-9_-]{0,47}$/;
     const reserved = ['opacity', 'visibility', 'speed', 'playbackrate', 'state', 'operatingstate'];
+    const isNumOrSpeed = (tp) => tp === 'number' || tp === 'speed';
 
     // 1. Unique & valid semantic alias
     if (!alias) {
@@ -3967,7 +4263,7 @@ window.GroupMappingDialog = {
     }
 
     // 3 & 4. Default value and numeric/enum constraints
-    if (payload.type === 'number' || payload.type === 'speed') {
+    if (isNumOrSpeed(payload.type)) {
       if (typeof payload.default !== 'number' || !Number.isFinite(payload.default)) {
         errors.push('Default value must be a valid finite number.');
       }
@@ -4001,12 +4297,22 @@ window.GroupMappingDialog = {
       }
     }
 
-    // 5..10. Target object membership, property existence, type conversion, compatible constraints, no duplicate bindings
+    // 5..10. Target object membership, property existence, type conversion, compatible constraints, shared domain overlap, no duplicate bindings
     if (!Array.isArray(payload.targets) || payload.targets.length === 0) {
       errors.push('At least one member target binding is required.');
     } else {
       const members = Array.isArray(grp.members) ? grp.members : [];
       const seenBindings = new Set();
+      let hasSharedMin = false;
+      let sharedMin = -Infinity;
+      let sharedMinSource = '';
+      let hasSharedMax = false;
+      let sharedMax = Infinity;
+      let sharedMaxSource = '';
+      let hasSharedEnum = false;
+      let sharedEnumOptions = [];
+      const enumSources = [];
+
       payload.targets.forEach((t, idx) => {
         const rowNum = idx + 1;
         const inGroup = members.some((gm) => gm.type === t.memberType && String(gm.id) === String(t.memberId));
@@ -4030,37 +4336,67 @@ window.GroupMappingDialog = {
           errors.push(`Property "${t.property}" is not supported on member ${t.target}.`);
           return;
         }
-        const compatible = (propDef.type === payload.type) || (payload.type === 'number' && propDef.type === 'text');
+        const compatible = (propDef.type === payload.type)
+          || (isNumOrSpeed(payload.type) && isNumOrSpeed(propDef.type))
+          || (isNumOrSpeed(payload.type) && propDef.type === 'text');
         if (!compatible) {
           errors.push(`Type "${payload.type}" is incompatible with "${t.target}.${t.property}" (requires "${propDef.type}").`);
           return;
         }
-        if ((payload.type === 'number' || payload.type === 'speed') && propDef.type === payload.type) {
-          if (propDef.min !== undefined) {
-            if (Number.isFinite(payload.min) && payload.min < propDef.min) {
-              errors.push(`Min bound (${payload.min}) is below "${t.target}.${t.property}" minimum (${propDef.min}).`);
+        if (isNumOrSpeed(payload.type) && isNumOrSpeed(propDef.type)) {
+          if (propDef.min !== undefined && Number.isFinite(Number(propDef.min))) {
+            const pMin = Number(propDef.min);
+            if (!hasSharedMin || pMin > sharedMin) {
+              sharedMin = pMin;
+              sharedMinSource = `${t.target}.${t.property} (min ${pMin})`;
             }
-            if (Number.isFinite(payload.default) && payload.default < propDef.min) {
-              errors.push(`Default (${payload.default}) is below "${t.target}.${t.property}" minimum (${propDef.min}).`);
+            hasSharedMin = true;
+            if (Number.isFinite(payload.min) && payload.min < pMin) {
+              errors.push(`Min bound (${payload.min}) is below "${t.target}.${t.property}" minimum (${pMin}).`);
+            }
+            if (Number.isFinite(payload.default) && payload.default < pMin) {
+              errors.push(`Default (${payload.default}) is below "${t.target}.${t.property}" minimum (${pMin}).`);
             }
           }
-          if (propDef.max !== undefined) {
-            if (Number.isFinite(payload.max) && payload.max > propDef.max) {
-              errors.push(`Max bound (${payload.max}) exceeds "${t.target}.${t.property}" maximum (${propDef.max}).`);
+          if (propDef.max !== undefined && Number.isFinite(Number(propDef.max))) {
+            const pMax = Number(propDef.max);
+            if (!hasSharedMax || pMax < sharedMax) {
+              sharedMax = pMax;
+              sharedMaxSource = `${t.target}.${t.property} (max ${pMax})`;
             }
-            if (Number.isFinite(payload.default) && payload.default > propDef.max) {
-              errors.push(`Default (${payload.default}) exceeds "${t.target}.${t.property}" maximum (${propDef.max}).`);
+            hasSharedMax = true;
+            if (Number.isFinite(payload.max) && payload.max > pMax) {
+              errors.push(`Max bound (${payload.max}) exceeds "${t.target}.${t.property}" maximum (${pMax}).`);
+            }
+            if (Number.isFinite(payload.default) && payload.default > pMax) {
+              errors.push(`Default (${payload.default}) exceeds "${t.target}.${t.property}" maximum (${pMax}).`);
             }
           }
         }
-        if (payload.type === 'enum' && Array.isArray(propDef.options) && propDef.options.length > 0 && Array.isArray(payload.options)) {
-          payload.options.forEach((opt) => {
-            if (!propDef.options.includes(opt)) {
-              errors.push(`Enum option "${opt}" is not supported by "${t.target}.${t.property}" (allowed: ${propDef.options.join(', ')}).`);
-            }
-          });
+        if (payload.type === 'enum' && Array.isArray(propDef.options) && propDef.options.length > 0) {
+          enumSources.push(`${t.target}.${t.property} [${propDef.options.join(', ')}]`);
+          if (!hasSharedEnum) {
+            sharedEnumOptions = [...propDef.options];
+            hasSharedEnum = true;
+          } else {
+            sharedEnumOptions = sharedEnumOptions.filter((o) => propDef.options.includes(o));
+          }
+          if (Array.isArray(payload.options)) {
+            payload.options.forEach((opt) => {
+              if (!propDef.options.includes(opt)) {
+                errors.push(`Enum option "${opt}" is not supported by "${t.target}.${t.property}" (allowed: ${propDef.options.join(', ')}).`);
+              }
+            });
+          }
         }
       });
+
+      if (hasSharedMin && hasSharedMax && sharedMin > sharedMax) {
+        errors.push(`Incompatible target domains: no valid overlap between ${sharedMinSource} and ${sharedMaxSource}.`);
+      }
+      if (hasSharedEnum && sharedEnumOptions.length === 0) {
+        errors.push(`Incompatible enum target domains: no shared options across ${enumSources.join(' vs ')}.`);
+      }
     }
 
     return { valid: errors.length === 0, errors };

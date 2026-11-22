@@ -9743,8 +9743,12 @@ async function runHarness() {
     get id() { return this.attributes['id'] || ''; }
     set id(val) { this.attributes['id'] = String(val); }
 
-    setAttribute(k, v) { this.attributes[k] = String(v); }
+    setAttribute(k, v) {
+      this.attributes[k] = String(v);
+      if (k === 'class') this.className = String(v);
+    }
     getAttribute(k) { return this.attributes[k] || null; }
+    hasAttribute(k) { return Object.prototype.hasOwnProperty.call(this.attributes, k); }
     removeAttribute(k) { delete this.attributes[k]; }
 
     appendChild(child) {
@@ -9850,6 +9854,22 @@ async function runHarness() {
           if (found) return found;
         }
       }
+      if (sel.startsWith('.')) {
+        const cls = sel.slice(1);
+        if (this.classList.contains(cls)) return this;
+        for (const c of this.children) {
+          const found = c.querySelector(sel);
+          if (found) return found;
+        }
+      }
+      const attrMatch = /^\[([a-zA-Z0-9_-]+)=["']([^"']+)["']\]$/.exec(sel);
+      if (attrMatch) {
+        if (this.getAttribute(attrMatch[1]) === attrMatch[2]) return this;
+        for (const c of this.children) {
+          const found = c.querySelector(sel);
+          if (found) return found;
+        }
+      }
       if (/^[a-zA-Z0-9]+$/.test(sel)) {
         if (this.tagName === sel.toUpperCase()) return this;
         for (const c of this.children) {
@@ -9862,11 +9882,11 @@ async function runHarness() {
 
     querySelectorAll(sel) {
       const res = [];
-      const tags = sel.split(',').map(s => s.trim().toUpperCase());
+      const tokens = sel.split(',').map(s => s.trim());
       const checkNode = (node) => {
         if (sel === '*[id]') {
           if (node.id) res.push(node);
-        } else if (tags.includes(node.tagName)) {
+        } else if (tokens.some(t => t.startsWith('.') ? node.classList.contains(t.slice(1)) : t.toUpperCase() === node.tagName)) {
           res.push(node);
         }
         for (const c of node.children) {
@@ -12341,6 +12361,172 @@ async function runHarness() {
     assert.strictEqual(window.GroupMappingDialog.validateForm().valid, false, 'W16E-37: Duplicate second binding fails validation');
     window.GroupMappingDialog.cancel();
     assert.strictEqual(window.AppCoordinator.getGroup(pureLiteGrp.id).mappings[0].targets.length, 1, 'W16E-38: Cancel after invalid second binding preserves saved 1-target mapping');
+
+    // 7. Semantic Mapping Constraint Consistency (All 14 Required Items)
+    const flowLiteMember = window.LiteEffects.createLiteEffect({
+      kind: 'flow-lite',
+      name: 'ConstraintFlowLite',
+      speed: 2.0,
+      points: [{ x: 20, y: 50 }, { x: 80, y: 50 }]
+    });
+    const tracerLiteMember = window.LiteEffects.createLiteEffect({
+      kind: 'perimeter-tracer',
+      name: 'ConstraintTracer',
+      speed: 3.0,
+      segments: 4
+    });
+    const oscLiteMember = window.LiteEffects.createLiteEffect({
+      kind: 'oscilloscope-lite',
+      name: 'ConstraintOsc',
+      speed: 2.4,
+      segments: 3,
+      startOffset: 50
+    });
+    const textLiteMember = window.LiteEffects.createLiteEffect({
+      kind: 'text-lite',
+      name: 'ConstraintText',
+      labelText: 'READY',
+      scrollSpeed: 100
+    });
+    const gaugeLiteMember = window.LiteEffects.createLiteEffect({
+      kind: 'gauge-lite',
+      variant: 'ring',
+      name: 'ConstraintGauge',
+      value: 50
+    });
+    const convFlowMember = window.DataFlows.createFlow({ name: 'ConstraintConvFlow', speed: 1.0 });
+    window.AppCoordinator.setMultiSelection([
+      { type: 'lite', id: String(flowLiteMember.id) },
+      { type: 'lite', id: String(tracerLiteMember.id) },
+      { type: 'lite', id: String(oscLiteMember.id) },
+      { type: 'lite', id: String(textLiteMember.id) },
+      { type: 'lite', id: String(gaugeLiteMember.id) },
+      { type: 'flow', id: String(convFlowMember.id) }
+    ]);
+    const consGrp = window.AppCoordinator.createGroupFromSelection('constraint-group');
+    assert(consGrp && consGrp.members.length === 6, 'W16E-39: Constraint consistency test group created');
+
+    // Item 4 & 5: Flow Lite speed property in GroupMappingDialog matches native inspector (0.2..30.0s, step 0.1)
+    window.GroupMappingDialog.open(consGrp.id, null);
+    window.GroupMappingDialog.targetRows[0].memSel.value = `lite:${flowLiteMember.id}`;
+    window.GroupMappingDialog.targetRows[0].populateProps(false, true);
+    window.GroupMappingDialog.targetRows[0].propSel.value = 'speed';
+    window.GroupMappingDialog.targetRows[0].populateProps(true, true);
+    assert.strictEqual(Number(document.getElementById('gmModalMinInput').value), 0.2, 'W16E-40: Flow Lite speed dialog Min defaults to 0.2s');
+    assert.strictEqual(Number(document.getElementById('gmModalMaxInput').value), 30, 'W16E-41: Flow Lite speed dialog Max defaults to 30s');
+    assert.strictEqual(Number(document.getElementById('gmModalDefaultInput').value), 2.0, 'W16E-42: Flow Lite speed dialog Default reads live 2.0s');
+
+    // Item 1 & 2: Flow Lite minimum (0.2s) and maximum (30.0s) accepted and saved
+    document.getElementById('gmModalAliasInput').value = 'flow-dur';
+    document.getElementById('gmModalDefaultInput').value = '0.2';
+    assert.strictEqual(window.GroupMappingDialog.validateForm().valid, true, 'W16E-43: Flow Lite duration 0.2s valid in dialog');
+    document.getElementById('gmModalDefaultInput').value = '30';
+    assert.strictEqual(window.GroupMappingDialog.validateForm().valid, true, 'W16E-44: Flow Lite duration 30.0s valid in dialog');
+    assert.strictEqual(window.GroupMappingDialog.save(), true, 'W16E-45: Flow Lite duration 0.2..30.0s (default 30s) saved via Go/WASM');
+
+    // Item 3 & 10: Rejection outside 0.2..30.0s (0.1s and 35.0s) and Default Value validation
+    document.getElementById('gmModalDefaultInput').value = '0.1';
+    assert.strictEqual(window.GroupMappingDialog.validateForm().valid, false, 'W16E-46: Flow Lite duration default 0.1s rejected (< 0.2s)');
+    document.getElementById('gmModalDefaultInput').value = '35';
+    assert.strictEqual(window.GroupMappingDialog.validateForm().valid, false, 'W16E-47: Flow Lite duration default 35s rejected (> 30s)');
+    document.getElementById('gmModalDefaultInput').value = '15';
+    assert.strictEqual(window.GroupMappingDialog.validateForm().valid, true, 'W16E-48: Validation error clears immediately when default corrected to 15s');
+
+    // Item 6, 7 & 11: Multi-target shared domain intersection & recalculation on add/remove binding
+    // Add second binding: convFlowMember.speed (0.1..10.0) -> shared intersection with flowLiteMember.speed (0.2..30.0) is [0.2..10.0]
+    const row2 = window.GroupMappingDialog.addTargetRow(`flow:${convFlowMember.id}`, 'speed');
+    window.GroupMappingDialog._recalculateSharedConstraints({ resetDefault: false });
+    assert.strictEqual(Number(document.getElementById('gmModalMinInput').value), 0.2, 'W16E-49: Shared domain Min(0.2..30 ∩ 0.1..10) = 0.2');
+    assert.strictEqual(Number(document.getElementById('gmModalMaxInput').value), 10, 'W16E-50: Shared domain Max(0.2..30 ∩ 0.1..10) = 10');
+    // Default 15 is now outside [0.2..10] -> validation flags it!
+    assert.strictEqual(window.GroupMappingDialog.validateForm().valid, false, 'W16E-51: Default 15 flagged when shared domain narrows to [0.2..10]');
+    // Remove row2 -> shared domain widens back to [0.2..30] and default 15 is valid again!
+    const r2Idx = window.GroupMappingDialog.targetRows.indexOf(row2);
+    if (r2Idx >= 0) window.GroupMappingDialog.targetRows.splice(r2Idx, 1);
+    window.GroupMappingDialog._recalculateSharedConstraints({ resetDefault: false });
+    assert.strictEqual(Number(document.getElementById('gmModalMaxInput').value), 30, 'W16E-52: Removing second binding restores Max to 30');
+    assert.strictEqual(window.GroupMappingDialog.validateForm().valid, true, 'W16E-53: Default 15 valid again after removing narrower binding');
+    assert.strictEqual(window.GroupMappingDialog.save(), true, 'W16E-54: Updated Flow Lite 15s mapping saved');
+
+    // Item 8 & 9: Disjoint numeric ranges (opacity [0..1] vs scrollSpeed [10..600]) and disjoint enum domains (["cw","ccw"] vs ["forward","reverse"]) rejected
+    const disjointNumCheck = window.GroupMappingDialog.validateCandidate({
+      alias: 'bad-disjoint-num',
+      type: 'number',
+      default: 1,
+      targets: [
+        { memberType: 'lite', memberId: String(gaugeLiteMember.id), target: `lite-${gaugeLiteMember.id}`, property: 'opacity' },
+        { memberType: 'lite', memberId: String(textLiteMember.id), target: `lite-${textLiteMember.id}`, property: 'scrollSpeed' }
+      ]
+    });
+    assert.strictEqual(disjointNumCheck.valid, false, 'W16E-55: Disjoint numeric domains [0..1] vs [10..600] rejected');
+
+    const disjointEnumCheck = window.GroupMappingDialog.validateCandidate({
+      alias: 'bad-disjoint-enum',
+      type: 'enum',
+      default: 'cw',
+      options: ['cw'],
+      targets: [
+        { memberType: 'lite', memberId: String(tracerLiteMember.id), target: `lite-${tracerLiteMember.id}`, property: 'direction' },
+        { memberType: 'lite', memberId: String(flowLiteMember.id), target: `lite-${flowLiteMember.id}`, property: 'direction' }
+      ]
+    });
+    assert.strictEqual(disjointEnumCheck.valid, false, 'W16E-56: Disjoint enum domains [cw,ccw] vs [forward,reverse] rejected');
+    window.GroupMappingDialog.close();
+
+    // Item 13 & 14: Exported widget runtime setParameter / setParameters accepts 0.2s and 30.0s on Flow Lite and atomically rejects 0.05s / 35s
+    const flowMarkupCons = window.LiteEffects.renderLiteElement(flowLiteMember);
+    const fullSvgCons = `<svg id="consSvg" viewBox="0 0 800 600"><g id="${consGrp.id}" class="scene-group" data-group-id="${consGrp.id}" data-semantic-target="${consGrp.id}" data-semantic-name="${consGrp.name}">${flowMarkupCons}</g></svg>`;
+    const flowDurParamName = window.EngineBridge.generateParameterName(consGrp.name, 'flow-dur', 'group');
+    const flowDurParam = window.EngineBridge.getWidgetParameters().find(p => p.name === flowDurParamName);
+    assert(flowDurParam && flowDurParam.min === 0.2 && flowDurParam.max === 30, 'W16E-57: Exported manifest preserves Flow Lite mapping min=0.2 max=30');
+    const manifestCons = { schemaVersion: 1, parameters: [flowDurParam] };
+    const origDocCons = global.document;
+    try {
+      const mockDocCons = {
+        createElement(tag) {
+          const el = new MockStage16BElement(tag);
+          el.ownerDocument = mockDocCons;
+          return el;
+        },
+        createElementNS(ns, tag) {
+          const el = new MockStage16BElement(tag);
+          el.ownerDocument = mockDocCons;
+          return el;
+        },
+        getElementById() { return null; },
+        querySelector() { return null; },
+        head: new MockStage16BElement('head'),
+        body: new MockStage16BElement('body')
+      };
+      global.document = mockDocCons;
+      const hostCons = mockDocCons.createElement('div');
+      const SVGWidgetModCons = require('../internal/web/static/js/svg-widget.js');
+      const instCons = SVGWidgetModCons.mount(hostCons, fullSvgCons, {
+        instanceId: 'cons_rt',
+        manifest: manifestCons,
+        visibilityAware: false
+      });
+      const flowDomEl = instCons.svgElement.querySelector(`[data-semantic-target="lite-${flowLiteMember.id}"]`);
+      const flowSegEls = flowDomEl ? flowDomEl.querySelectorAll('.lite-payload') : [];
+      const flowSegEl = flowSegEls[0] || null;
+      assert(flowDomEl && flowSegEl, 'W16E-58: Mounted Flow Lite DOM and payload segment found');
+
+      instCons.setParameter(flowDurParamName, 0.2);
+      assert.strictEqual(flowDomEl.getAttribute('data-flow-speed'), '0.2', 'W16E-59: Runtime setParameter accepts 0.2s minimum on Flow Lite');
+      assert.strictEqual(flowSegEl.style.animationDuration, '0.2000s', 'W16E-60: Runtime setParameter applies 0.2000s animationDuration');
+
+      instCons.setParameter(flowDurParamName, 30);
+      assert.strictEqual(flowDomEl.getAttribute('data-flow-speed'), '30', 'W16E-61: Runtime setParameter accepts 30.0s maximum on Flow Lite');
+      assert.strictEqual(flowSegEl.style.animationDuration, '30.0000s', 'W16E-62: Runtime setParameter applies 30.0000s animationDuration');
+
+      assert.throws(() => {
+        instCons.setParameters({ [flowDurParamName]: 35 });
+      }, /above maximum allowed/, 'W16E-63: Runtime setParameters rejects 35s (> 30s)');
+      assert.strictEqual(flowDomEl.getAttribute('data-flow-speed'), '30', 'W16E-64: Atomic rejection preserves 30s DOM state');
+      instCons.destroy();
+    } finally {
+      global.document = origDocCons;
+    }
 
     window.ProjectManager.resetToNewProject();
     window.EngineBridge.setWidgetParameters([]);

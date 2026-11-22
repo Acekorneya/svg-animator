@@ -725,24 +725,28 @@ func isLiteEffectPropertySupportedByKind(kind, prop string) bool {
 	switch prop {
 	case "text", "borderColor", "scrollSpeed", "typeSpeed":
 		return kind == "text-lite"
-	case "segments", "lineGapRatio", "burstCycles", "pauseSeconds", "pauseVisibility":
+	case "lineGapRatio", "burstCycles", "pauseSeconds", "pauseVisibility":
 		return kind == "perimeter-tracer"
+	case "segments":
+		return kind == "perimeter-tracer" || kind == "gauge-lite" || kind == "oscilloscope-lite"
 	case "strokeWidth", "showGuide":
 		return kind == "perimeter-tracer" || kind == "flow-lite" || kind == "radar-lite" || kind == "gauge-lite" || kind == "oscilloscope-lite" || kind == "text-lite"
 	case "startOffset":
-		return kind == "perimeter-tracer" || kind == "text-lite"
+		return kind == "perimeter-tracer" || kind == "oscilloscope-lite" || kind == "text-lite"
 	case "value", "minValue", "maxValue":
 		return kind == "gauge-lite"
 	case "bgColor":
 		return kind == "gauge-lite" || kind == "oscilloscope-lite" || kind == "text-lite"
 	case "direction":
-		return kind == "perimeter-tracer" || kind == "flow-lite" || kind == "oscilloscope-lite" || kind == "text-lite"
+		return kind == "perimeter-tracer" || kind == "flow-lite" || kind == "gauge-lite" || kind == "oscilloscope-lite" || kind == "text-lite"
 	case "playbackMode":
-		return kind == "perimeter-tracer" || kind == "flow-lite"
+		return kind == "perimeter-tracer" || kind == "flow-lite" || kind == "text-lite"
 	case "dashLength", "gapLength", "dotSize":
 		return kind == "flow-lite"
-	case "scale", "period":
+	case "scale":
 		return kind == "pulse" || kind == "radar-lite"
+	case "period":
+		return kind == "pulse" || kind == "radar-lite" || kind == "flow-lite" || kind == "perimeter-tracer" || kind == "oscilloscope-lite"
 	case "trigger", "duration", "repeat", "repeatInterval":
 		return kind == "flash"
 	case "intensity":
@@ -873,6 +877,11 @@ func (s *Scene) validateGroupPropertyMappingLocked(grp Group, mapping GroupPrope
 	normalizedTargets := make([]GroupTargetBinding, 0, len(mapping.Targets))
 	seenBinding := make(map[string]bool)
 
+	var hasSharedMin, hasSharedMax, hasSharedStep bool
+	var sharedMin, sharedMax, sharedStep float64
+	var hasSharedEnum bool
+	var sharedEnumSet map[string]bool
+
 	for _, t := range mapping.Targets {
 		var gm GroupMember
 		var foundMember bool
@@ -906,40 +915,28 @@ func (s *Scene) validateGroupPropertyMappingLocked(grp Group, mapping GroupPrope
 			return GroupPropertyMapping{}, fmt.Errorf("target property cannot be empty for member %s %s", gm.Type, gm.ID)
 		}
 
-		catalogProps := GetEligibleProperties(string(gm.Type))
-		var eligible *EligibleProperty
-		for i := range catalogProps {
-			ep := &catalogProps[i]
-			if ep.Property == prop ||
-				(gm.Type == SelectionFlow && prop == "playbackRate" && ep.Property == "speed") ||
-				(gm.Type == SelectionFlow && prop == "stroke" && ep.Property == "color") ||
-				(gm.Type == SelectionFlow && prop == "color" && ep.Property == "stroke") {
-				eligible = ep
-				break
-			}
-		}
-		if eligible == nil {
-			return GroupPropertyMapping{}, fmt.Errorf("property %q is not eligible on member %s %s", prop, gm.Type, gm.ID)
+		eligible, err := s.ResolveMemberEligiblePropertyLocked(gm.Type, gm.ID, prop)
+		if err != nil {
+			return GroupPropertyMapping{}, err
 		}
 
-		// Lite-kind-specific property eligibility check (e.g. value is only supported on gauge-lite, text on text-lite)
-		if gm.Type == SelectionLite {
-			if le, ok := s.liteEffects[gm.ID]; ok {
-				if !isLiteEffectPropertySupportedByKind(le.Kind, prop) {
-					return GroupPropertyMapping{}, fmt.Errorf("property %q is not supported by %s member %s %s", prop, le.Kind, gm.Type, gm.ID)
-				}
-			}
-		}
-
-		// Type compatibility check: exact match OR numeric group mapping driving a text property
-		compatible := (mType == eligible.Type) || (mType == "number" && eligible.Type == "text")
+		// Type compatibility check: exact match, numeric/speed equivalence, OR numeric/speed group mapping driving a text property
+		isNumOrSpeedMapping := (mType == "number" || mType == "speed")
+		isNumOrSpeedTarget := (eligible.Type == "number" || eligible.Type == "speed")
+		compatible := (mType == eligible.Type) ||
+			(isNumOrSpeedMapping && isNumOrSpeedTarget) ||
+			(isNumOrSpeedMapping && eligible.Type == "text")
 		if !compatible {
 			return GroupPropertyMapping{}, fmt.Errorf("mapping %q of type %q is incompatible with property %q (type %q) on member %s %s", alias, mType, prop, eligible.Type, gm.Type, gm.ID)
 		}
 
-		// Constraint compatibility check across all bindings (e.g. opacity [0..1], speed [0.1..10], enum options)
-		if (mType == "number" || mType == "speed") && eligible.Type == mType {
+		// Constraint compatibility & shared-domain intersection across all bindings
+		if isNumOrSpeedMapping && isNumOrSpeedTarget {
 			if eligible.Min != nil {
+				if !hasSharedMin || *eligible.Min > sharedMin {
+					sharedMin = *eligible.Min
+					hasSharedMin = true
+				}
 				if mapping.Min != nil && *mapping.Min < *eligible.Min {
 					return GroupPropertyMapping{}, fmt.Errorf("mapping %q min (%v) is below minimum allowed (%v) for property %q on member %s %s", alias, *mapping.Min, *eligible.Min, prop, gm.Type, gm.ID)
 				}
@@ -951,6 +948,10 @@ func (s *Scene) validateGroupPropertyMappingLocked(grp Group, mapping GroupPrope
 				}
 			}
 			if eligible.Max != nil {
+				if !hasSharedMax || *eligible.Max < sharedMax {
+					sharedMax = *eligible.Max
+					hasSharedMax = true
+				}
 				if mapping.Max != nil && *mapping.Max > *eligible.Max {
 					return GroupPropertyMapping{}, fmt.Errorf("mapping %q max (%v) exceeds maximum allowed (%v) for property %q on member %s %s", alias, *mapping.Max, *eligible.Max, prop, gm.Type, gm.ID)
 				}
@@ -961,11 +962,36 @@ func (s *Scene) validateGroupPropertyMappingLocked(grp Group, mapping GroupPrope
 					}
 				}
 			}
+			if eligible.Step != nil && *eligible.Step > 0 {
+				if !hasSharedStep || *eligible.Step > sharedStep {
+					sharedStep = *eligible.Step
+					hasSharedStep = true
+				}
+			}
+			if hasSharedMin && hasSharedMax && sharedMin > sharedMax {
+				return GroupPropertyMapping{}, fmt.Errorf("mapping %q binds targets with incompatible non-overlapping numeric domains (shared min %v > shared max %v)", alias, sharedMin, sharedMax)
+			}
 		}
 		if mType == "enum" && len(eligible.Options) > 0 {
 			allowedOpts := make(map[string]bool, len(eligible.Options))
 			for _, o := range eligible.Options {
 				allowedOpts[o] = true
+			}
+			if !hasSharedEnum {
+				hasSharedEnum = true
+				sharedEnumSet = make(map[string]bool, len(allowedOpts))
+				for k, v := range allowedOpts {
+					sharedEnumSet[k] = v
+				}
+			} else {
+				for k := range sharedEnumSet {
+					if !allowedOpts[k] {
+						delete(sharedEnumSet, k)
+					}
+				}
+			}
+			if len(sharedEnumSet) == 0 {
+				return GroupPropertyMapping{}, fmt.Errorf("enum mapping %q binds targets with incompatible options (no shared permitted options across bound targets)", alias)
 			}
 			for _, o := range mapping.Options {
 				if !allowedOpts[strings.TrimSpace(o)] {
@@ -1003,6 +1029,17 @@ func (s *Scene) validateGroupPropertyMappingLocked(grp Group, mapping GroupPrope
 	out.Label = label
 	out.Type = mType
 	out.Targets = normalizedTargets
+	if mType == "number" || mType == "speed" {
+		if out.Min == nil && hasSharedMin {
+			out.Min = floatPtr(sharedMin)
+		}
+		if out.Max == nil && hasSharedMax {
+			out.Max = floatPtr(sharedMax)
+		}
+		if out.Step == nil && hasSharedStep {
+			out.Step = floatPtr(sharedStep)
+		}
+	}
 	if out.Default == nil {
 		// Provide sensible default if omitted
 		switch mType {

@@ -1082,4 +1082,325 @@ func TestStage16EVisualAcceptanceCorrections(t *testing.T) {
 	}
 }
 
+func TestStage16ESemanticMappingConstraintConsistency(t *testing.T) {
+	sc := NewScene()
+
+	// Create one instance of every Low-Load Effect kind plus conventional Node and Flow
+	leFlow := sc.CreateLiteEffect(LiteEffect{
+		Kind:  "flow-lite",
+		Name:  "FlowStream",
+		Speed: 2.0,
+	})
+	leTracer := sc.CreateLiteEffect(LiteEffect{
+		Kind:     "perimeter-tracer",
+		Name:     "BorderTracer",
+		X:        100,
+		Y:        100,
+		Width:    120,
+		Height:   80,
+		Speed:    3.0,
+		Segments: 4,
+	})
+	lePulse := sc.CreateLiteEffect(LiteEffect{
+		Kind:     "pulse",
+		Name:     "HeartbeatPulse",
+		X:        200,
+		Y:        100,
+		Width:    80,
+		Height:   80,
+		Period:   1.8,
+		MaxScale: 1.25,
+	})
+	leFlash := sc.CreateLiteEffect(LiteEffect{
+		Kind:           "flash",
+		Name:           "AlertFlash",
+		X:              300,
+		Y:              100,
+		Width:          80,
+		Height:         80,
+		Duration:       0.15,
+		RepeatInterval: 2.0,
+	})
+	leRadar := sc.CreateLiteEffect(LiteEffect{
+		Kind:     "radar-lite",
+		Name:     "SweepRadar",
+		X:        400,
+		Y:        100,
+		Width:    100,
+		Height:   100,
+		Period:   2.4,
+		MaxScale: 1.5,
+	})
+	vMin, vVal, vMax := -40.0, 25.0, 120.0
+	leGauge := sc.CreateLiteEffect(LiteEffect{
+		Kind:     "gauge-lite",
+		Variant:  "segmented",
+		Name:     "TempGauge",
+		X:        500,
+		Y:        100,
+		Width:    120,
+		Height:   40,
+		Value:    &vVal,
+		MinValue: &vMin,
+		MaxValue: &vMax,
+		Segments: 10,
+	})
+	leOsc := sc.CreateLiteEffect(LiteEffect{
+		Kind:         "oscilloscope-lite",
+		Variant:      "sine",
+		PlaybackMode: "animated",
+		Name:         "WaveOsc",
+		X:            650,
+		Y:            100,
+		Width:        180,
+		Height:       80,
+		Speed:        2.4,
+		Segments:     3,
+		StartOffset:  50,
+	})
+	leText := sc.CreateLiteEffect(LiteEffect{
+		Kind:        "text-lite",
+		Variant:     "curved",
+		TextAnim:    "ticker-h",
+		Name:        "BannerText",
+		X:           800,
+		Y:           100,
+		Width:       220,
+		Height:      56,
+		LabelText:   "NOMINAL",
+		ScrollSpeed: 120,
+		TypeSpeed:   18,
+		Speed:       1.5,
+	})
+	convFlow := sc.CreateFlow(Flow{
+		Name:  "BackboneFlow",
+		Speed: 1.0,
+	})
+	convNode := sc.CreateNode(Node{
+		Shape: "rect",
+		Name:  "ServerNode",
+		X:     50,
+		Y:     50,
+		Width: 100,
+		Height: 60,
+	}, nil, false)
+
+	grp, err := sc.CreateGroup("all-catalogue-group", []GroupMember{
+		{Type: SelectionLite, ID: leFlow.ID},
+		{Type: SelectionLite, ID: leTracer.ID},
+		{Type: SelectionLite, ID: lePulse.ID},
+		{Type: SelectionLite, ID: leFlash.ID},
+		{Type: SelectionLite, ID: leRadar.ID},
+		{Type: SelectionLite, ID: leGauge.ID},
+		{Type: SelectionLite, ID: leOsc.ID},
+		{Type: SelectionLite, ID: leText.ID},
+		{Type: SelectionFlow, ID: convFlow.ID},
+		{Type: SelectionNode, ID: convNode.ID},
+	})
+	if err != nil {
+		t.Fatalf("CreateGroup failed: %v", err)
+	}
+
+	// 1 & 2. Flow Lite duration minimum (0.2s) and maximum (30.0s) accepted
+	min02, max30 := 0.2, 30.0
+	if _, err := sc.SetGroupPropertyMapping(grp.ID, GroupPropertyMapping{
+		Alias:   "flow-cycle-min",
+		Type:    "number",
+		Default: 0.2,
+		Min:     &min02,
+		Max:     &max30,
+		Targets: []GroupTargetBinding{
+			{MemberType: SelectionLite, MemberID: leFlow.ID, Property: "speed"},
+		},
+	}); err != nil {
+		t.Fatalf("expected Flow Lite cycle duration 0.2..30.0s (default 0.2s) to be accepted, got: %v", err)
+	}
+	if _, err := sc.SetGroupPropertyMapping(grp.ID, GroupPropertyMapping{
+		Alias:   "flow-cycle-max",
+		Type:    "number",
+		Default: 30.0,
+		Min:     &min02,
+		Max:     &max30,
+		Targets: []GroupTargetBinding{
+			{MemberType: SelectionLite, MemberID: leFlow.ID, Property: "speed"},
+		},
+	}); err != nil {
+		t.Fatalf("expected Flow Lite cycle duration 0.2..30.0s (default 30.0s) to be accepted, got: %v", err)
+	}
+
+	// 3. Rejection outside 0.2..30.0s (0.1s and 35.0s)
+	badLow := 0.1
+	if _, err := sc.SetGroupPropertyMapping(grp.ID, GroupPropertyMapping{
+		Alias:   "flow-too-low",
+		Type:    "number",
+		Default: 0.1,
+		Min:     &badLow,
+		Max:     &max30,
+		Targets: []GroupTargetBinding{
+			{MemberType: SelectionLite, MemberID: leFlow.ID, Property: "speed"},
+		},
+	}); err == nil {
+		t.Fatalf("expected Flow Lite cycle duration below 0.2s (0.1s) to be rejected")
+	}
+	badHigh := 35.0
+	if _, err := sc.SetGroupPropertyMapping(grp.ID, GroupPropertyMapping{
+		Alias:   "flow-too-high",
+		Type:    "number",
+		Default: 35.0,
+		Min:     &min02,
+		Max:     &badHigh,
+		Targets: []GroupTargetBinding{
+			{MemberType: SelectionLite, MemberID: leFlow.ID, Property: "speed"},
+		},
+	}); err == nil {
+		t.Fatalf("expected Flow Lite cycle duration above 30.0s (35.0s) to be rejected")
+	}
+
+	// 4 & 5. Authoritative property constraints for every Low-Load Effect kind match native inspector limits
+	checkTargetPropDomain := func(liteID StringID, kind string, prop string, wantMin, wantMax float64) {
+		t.Helper()
+		props := sc.GetEligiblePropertiesForTarget("lite", string(liteID), kind)
+		for _, p := range props {
+			if p.Property == prop {
+				if p.Min == nil || *p.Min != wantMin {
+					t.Fatalf("%s (%s) property %q: expected min %v, got %v", kind, liteID, prop, wantMin, p.Min)
+				}
+				if p.Max == nil || *p.Max != wantMax {
+					t.Fatalf("%s (%s) property %q: expected max %v, got %v", kind, liteID, prop, wantMax, p.Max)
+				}
+				return
+			}
+		}
+		t.Fatalf("%s (%s) missing eligible property %q", kind, liteID, prop)
+	}
+
+	checkTargetPropDomain(leFlow.ID, "flow-lite", "speed", 0.2, 30.0)
+	checkTargetPropDomain(leFlow.ID, "flow-lite", "period", 0.2, 30.0)
+	checkTargetPropDomain(leFlow.ID, "flow-lite", "strokeWidth", 0.5, 24.0)
+	checkTargetPropDomain(leFlow.ID, "flow-lite", "dashLength", 2.0, 400.0)
+	checkTargetPropDomain(leFlow.ID, "flow-lite", "gapLength", 2.0, 300.0)
+	checkTargetPropDomain(leFlow.ID, "flow-lite", "dotSize", 1.0, 32.0)
+
+	checkTargetPropDomain(leTracer.ID, "perimeter-tracer", "speed", 0.2, 30.0)
+	checkTargetPropDomain(leTracer.ID, "perimeter-tracer", "strokeWidth", 0.5, 20.0)
+	checkTargetPropDomain(leTracer.ID, "perimeter-tracer", "segments", 1.0, 16.0)
+	checkTargetPropDomain(leTracer.ID, "perimeter-tracer", "startOffset", 0.0, 100.0)
+	checkTargetPropDomain(leTracer.ID, "perimeter-tracer", "burstCycles", 0.0, 100.0)
+	checkTargetPropDomain(leTracer.ID, "perimeter-tracer", "pauseSeconds", 0.0, 300.0)
+
+	checkTargetPropDomain(lePulse.ID, "pulse", "period", 0.2, 30.0)
+	checkTargetPropDomain(lePulse.ID, "pulse", "scale", 0.2, 3.0)
+	checkTargetPropDomain(lePulse.ID, "pulse", "intensity", 0.0, 1.0)
+	checkTargetPropDomain(lePulse.ID, "pulse", "armThickness", 1.0, 20.0)
+
+	checkTargetPropDomain(leFlash.ID, "flash", "duration", 20.0, 1000.0)
+	checkTargetPropDomain(leFlash.ID, "flash", "repeatInterval", 0.2, 60.0)
+	checkTargetPropDomain(leFlash.ID, "flash", "intensity", 0.0, 1.0)
+	checkTargetPropDomain(leFlash.ID, "flash", "armThickness", 1.0, 20.0)
+
+	checkTargetPropDomain(leRadar.ID, "radar-lite", "period", 0.2, 30.0)
+	checkTargetPropDomain(leRadar.ID, "radar-lite", "scale", 0.2, 3.0)
+	checkTargetPropDomain(leRadar.ID, "radar-lite", "strokeWidth", 0.5, 20.0)
+
+	checkTargetPropDomain(leGauge.ID, "gauge-lite", "value", -40.0, 120.0)
+	checkTargetPropDomain(leGauge.ID, "gauge-lite", "strokeWidth", 0.5, 32.0)
+	checkTargetPropDomain(leGauge.ID, "gauge-lite", "segments", 2.0, 32.0)
+
+	checkTargetPropDomain(leOsc.ID, "oscilloscope-lite", "speed", 0.2, 30.0)
+	checkTargetPropDomain(leOsc.ID, "oscilloscope-lite", "strokeWidth", 0.5, 16.0)
+	checkTargetPropDomain(leOsc.ID, "oscilloscope-lite", "segments", 1.0, 12.0)
+	checkTargetPropDomain(leOsc.ID, "oscilloscope-lite", "startOffset", 10.0, 90.0)
+	checkTargetPropDomain(leOsc.ID, "oscilloscope-lite", "intensity", 0.05, 1.0)
+
+	checkTargetPropDomain(leText.ID, "text-lite", "speed", 0.0, 30.0)
+	checkTargetPropDomain(leText.ID, "text-lite", "strokeWidth", 0.0, 24.0)
+	checkTargetPropDomain(leText.ID, "text-lite", "scrollSpeed", 10.0, 600.0)
+	checkTargetPropDomain(leText.ID, "text-lite", "typeSpeed", 1.0, 120.0)
+	checkTargetPropDomain(leText.ID, "text-lite", "startOffset", 0.0, 100.0)
+
+	// 6 & 7. Mixed-object mappings & compatible intersecting ranges (e.g. Flow Lite 0.2..30s ∩ Conventional Flow 0.1..10x => 0.2..10)
+	updatedGrp, err := sc.SetGroupPropertyMapping(grp.ID, GroupPropertyMapping{
+		Alias:   "shared-pace",
+		Type:    "number",
+		Default: 2.5,
+		Targets: []GroupTargetBinding{
+			{MemberType: SelectionLite, MemberID: leFlow.ID, Property: "speed"},
+			{MemberType: SelectionFlow, MemberID: convFlow.ID, Property: "speed"},
+		},
+	})
+	if err != nil {
+		t.Fatalf("expected mixed-object intersecting range mapping (0.2..30 ∩ 0.1..10 = 0.2..10) to succeed, got: %v", err)
+	}
+	var foundShared *GroupPropertyMapping
+	for i := range updatedGrp.Mappings {
+		if updatedGrp.Mappings[i].Alias == "shared-pace" {
+			foundShared = &updatedGrp.Mappings[i]
+			break
+		}
+	}
+	if foundShared == nil || foundShared.Min == nil || *foundShared.Min != 0.2 || foundShared.Max == nil || *foundShared.Max != 10.0 {
+		t.Fatalf("expected auto-populated shared intersection [0.2, 10.0], got min=%v max=%v", foundShared.Min, foundShared.Max)
+	}
+
+	// 8. Incompatible non-overlapping numeric ranges (opacity [0..1] ∩ scrollSpeed [10..600]) must be rejected
+	if _, err := sc.SetGroupPropertyMapping(grp.ID, GroupPropertyMapping{
+		Alias:   "disjoint-numeric",
+		Type:    "number",
+		Default: 1.0,
+		Targets: []GroupTargetBinding{
+			{MemberType: SelectionNode, MemberID: convNode.ID, Property: "opacity"},
+			{MemberType: SelectionLite, MemberID: leText.ID, Property: "scrollSpeed"},
+		},
+	}); err == nil {
+		t.Fatalf("expected non-overlapping numeric domains (opacity [0..1] vs scrollSpeed [10..600]) to be rejected")
+	}
+
+	// 9. Enumeration compatibility:
+	// 9a. Compatible shared enum options (flow-lite direction ["forward","reverse"] ∩ gauge-lite direction ["forward","reverse"])
+	if _, err := sc.SetGroupPropertyMapping(grp.ID, GroupPropertyMapping{
+		Alias:   "shared-direction",
+		Type:    "enum",
+		Default: "forward",
+		Options: []string{"forward", "reverse"},
+		Targets: []GroupTargetBinding{
+			{MemberType: SelectionLite, MemberID: leFlow.ID, Property: "direction"},
+			{MemberType: SelectionLite, MemberID: leGauge.ID, Property: "direction"},
+		},
+	}); err != nil {
+		t.Fatalf("expected compatible enum intersection ['forward','reverse'] to succeed, got: %v", err)
+	}
+	// 9b. Disjoint enum options (perimeter-tracer direction ["cw","ccw"] ∩ flow-lite direction ["forward","reverse"]) must be rejected
+	if _, err := sc.SetGroupPropertyMapping(grp.ID, GroupPropertyMapping{
+		Alias:   "disjoint-direction",
+		Type:    "enum",
+		Default: "cw",
+		Options: []string{"cw"},
+		Targets: []GroupTargetBinding{
+			{MemberType: SelectionLite, MemberID: leTracer.ID, Property: "direction"},
+			{MemberType: SelectionLite, MemberID: leFlow.ID, Property: "direction"},
+		},
+	}); err == nil {
+		t.Fatalf("expected disjoint enum domains (['cw','ccw'] vs ['forward','reverse']) to be rejected")
+	}
+
+	// 12. Snapshot save/reload persistence preserves exact constraints and shared domains
+	snap := sc.GetSnapshot()
+	restored := NewScene()
+	restored.SetFromSnapshot(snap)
+	rGrp, ok := restored.GetGroup(grp.ID)
+	if !ok {
+		t.Fatalf("expected restored group %s", grp.ID)
+	}
+	var restoredMax *GroupPropertyMapping
+	for i := range rGrp.Mappings {
+		if rGrp.Mappings[i].Alias == "flow-cycle-max" {
+			restoredMax = &rGrp.Mappings[i]
+			break
+		}
+	}
+	if restoredMax == nil || restoredMax.Min == nil || *restoredMax.Min != 0.2 || restoredMax.Max == nil || *restoredMax.Max != 30.0 || restoredMax.Default != 30.0 {
+		t.Fatalf("expected restored flow-cycle-max mapping [0.2..30.0, default=30.0], got %+v", restoredMax)
+	}
+}
+
 

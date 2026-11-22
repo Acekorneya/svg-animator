@@ -2499,9 +2499,13 @@
       return `${pureName}-${tType}-${suffix}`;
     },
 
-    getEligibleWidgetProperties(targetType = '') {
+    getEligibleWidgetProperties(targetType = '', targetId = '', liteKind = '') {
       if (this.isReady()) {
-        const res = this.dispatch('Widget.GetEligibleProperties', { targetType: String(targetType || '') });
+        const res = this.dispatch('Widget.GetEligibleProperties', {
+          targetType: String(targetType || ''),
+          targetId: String(targetId || ''),
+          liteKind: String(liteKind || '')
+        });
         if (res && res.success) {
           return targetType ? (res.properties || []) : (res.catalog || {});
         }

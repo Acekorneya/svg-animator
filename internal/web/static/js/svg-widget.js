@@ -1338,19 +1338,94 @@
         }
         break;
       case 'playbackRate':
-      case 'speed':
+      case 'speed': {
         if (el && paramDef && paramDef.target && paramDef.target !== 'root' && paramDef.target !== 'global') {
-          // Object-specific targeted animation speed adjustment
-          const localRate = Number(value);
-          if (!isNaN(localRate) && localRate > 0) {
-            const masterRate = (instance && typeof instance.getSpeed === 'function') ? instance.getSpeed() : 1.0;
-            applyTargetedSpeed(el, localRate, masterRate);
+          const liteKind = (isLite && typeof el.getAttribute === 'function') ? (el.getAttribute('data-lite-kind') || '') : '';
+          const isCycleDurationSpeed = isLite && (
+            liteKind === 'flow-lite' ||
+            liteKind === 'oscilloscope-lite' ||
+            liteKind === 'text-lite' ||
+            (paramDef.type === 'number') ||
+            (typeof paramDef.max === 'number' && paramDef.max > 10)
+          );
+          if (isCycleDurationSpeed) {
+            if (liteKind === 'text-lite') {
+              const numVal = Number(value);
+              const sec = Math.max(0, Math.min(30, Number.isFinite(numVal) ? numVal : 2.0));
+              el.setAttribute('data-text-speed', String(sec));
+              if (sec > 0) {
+                el.querySelectorAll('.lite-text-element').forEach((node) => {
+                  node.setAttribute('data-base-dur', String(sec));
+                  if (node.style) {
+                    node.style.animationDuration = `${sec}s`;
+                    if (typeof node.style.setProperty === 'function') {
+                      node.style.setProperty('--sva-base-dur', `${sec}s`);
+                    }
+                  }
+                });
+              }
+            } else {
+              const sec = Math.max(0.2, Math.min(30, parseFloat(value) || 2.0));
+              const masterRate = (instance && typeof instance.getSpeed === 'function') ? instance.getSpeed() : 1.0;
+              let totalDur = sec;
+              if (liteKind === 'flow-lite') {
+                el.setAttribute('data-flow-speed', String(sec));
+                const startDelay = parseFloat(el.getAttribute('data-flow-delay') || '0') || 0;
+                const endDelay = parseFloat(el.getAttribute('data-flow-end-delay') || '0') || 0;
+                const mode = el.getAttribute('data-flow-playback-mode') || 'loop';
+                const M = parseInt(el.getAttribute('data-flow-seg-count') || '1', 10) || 1;
+                if (mode === 'pingpong' && M === 1) {
+                  totalDur = startDelay + sec + endDelay + sec;
+                } else if (M === 1 && (startDelay > 0 || endDelay > 0)) {
+                  totalDur = startDelay + sec + endDelay;
+                }
+              } else if (liteKind === 'oscilloscope-lite') {
+                el.setAttribute('data-osc-speed', String(sec));
+              } else {
+                el.setAttribute('data-lite-speed', String(sec));
+                el.setAttribute('data-pulse-period', String(sec));
+              }
+              el.querySelectorAll('.lite-payload').forEach((node) => {
+                node.setAttribute('data-pulse-period', String(sec));
+                node.setAttribute('data-base-dur', String(totalDur));
+                const localFactor = getEffectiveLocalSpeedFactor(node, svgEl);
+                const eff = Math.max(0.001, (Number(masterRate) > 0 ? Number(masterRate) : 1.0) * localFactor);
+                const effDur = totalDur / eff;
+                if (node.style) {
+                  node.style.animationDuration = `${effDur.toFixed(4)}s`;
+                  if (typeof node.style.setProperty === 'function') {
+                    node.style.setProperty('--sva-base-dur', `${totalDur}s`);
+                  }
+                  const phaseRatioStr = typeof node.style.getPropertyValue === 'function'
+                    ? node.style.getPropertyValue('--sva-phase-ratio')
+                    : '';
+                  if (phaseRatioStr !== '' && phaseRatioStr !== null) {
+                    const ratio = parseFloat(phaseRatioStr);
+                    if (Number.isFinite(ratio)) {
+                      const negDelay = -ratio * effDur;
+                      node.style.animationDelay = `${negDelay.toFixed(4)}s`;
+                      if (typeof node.style.setProperty === 'function') {
+                        node.style.setProperty('--sva-base-delay', `${(-ratio * totalDur).toFixed(4)}s`);
+                      }
+                    }
+                  }
+                }
+              });
+            }
+          } else {
+            // Object-specific or group-specific targeted animation speed multiplier
+            const localRate = Number(value);
+            if (!isNaN(localRate) && localRate > 0) {
+              const masterRate = (instance && typeof instance.getSpeed === 'function') ? instance.getSpeed() : 1.0;
+              applyTargetedSpeed(el, localRate, masterRate);
+            }
           }
         } else if (instance && typeof instance.setSpeed === 'function') {
           // Global widget instance playback rate
           instance.setSpeed(value);
         }
         break;
+      }
       case 'state':
       case 'operatingState': {
         const stateStr = String(value);
@@ -1558,6 +1633,19 @@
       case 'segments':
       case 'lineGapRatio': {
         if (el) {
+          const liteKind = el.getAttribute('data-lite-kind') || '';
+          if (property === 'segments' && liteKind === 'gauge-lite') {
+            const segs = Math.max(2, Math.min(32, parseInt(value, 10) || 10));
+            el.setAttribute('data-gauge-segments', String(segs));
+            updateGaugeLiteDOM(el);
+            break;
+          }
+          if (property === 'segments' && liteKind === 'oscilloscope-lite') {
+            const cyc = Math.max(1, Math.min(12, parseInt(value, 10) || 2));
+            el.setAttribute('data-osc-cycles', String(cyc));
+            updateOscilloscopeLiteDOM(el);
+            break;
+          }
           if (property === 'segments') {
             el.setAttribute('data-lite-segments', String(Math.max(1, Math.min(16, parseInt(value, 10) || 2))));
           } else {
@@ -1584,6 +1672,13 @@
       }
       case 'direction': {
         if (el) {
+          if (el.getAttribute('data-lite-kind') === 'gauge-lite') {
+            const rawDir = String(value).toLowerCase();
+            const nextDir = (rawDir === 'reverse' || rawDir === 'ccw') ? 'reverse' : 'forward';
+            el.setAttribute('data-gauge-direction', nextDir);
+            updateGaugeLiteDOM(el);
+            break;
+          }
           if (el.getAttribute('data-lite-kind') === 'flow-lite') {
             const rawDir = String(value).toLowerCase();
             const nextDir = (rawDir === 'reverse' || rawDir === 'ccw') ? 'reverse' : 'forward';
@@ -1650,6 +1745,12 @@
       }
       case 'startOffset': {
         if (el) {
+          if (el.getAttribute('data-lite-kind') === 'oscilloscope-lite') {
+            const pct = Math.max(10, Math.min(90, parseFloat(value) || 50));
+            el.setAttribute('data-osc-baseline', String(pct));
+            updateOscilloscopeLiteDOM(el);
+            break;
+          }
           const pct = Math.max(0, Math.min(100, parseFloat(value) || 0));
           if (el.getAttribute('data-lite-kind') === 'text-lite') {
             el.setAttribute('data-text-start-offset', String(pct));
@@ -1671,6 +1772,15 @@
         if (el) {
           const raw = String(value).toLowerCase();
           const mode = raw === 'pingpong' ? 'pingpong' : (raw === 'once' ? 'once' : 'loop');
+          if (el.getAttribute('data-lite-kind') === 'text-lite') {
+            el.setAttribute('data-text-playback-mode', mode);
+            if (instance && typeof instance._reconfigureTextLiteTicker === 'function') {
+              instance._reconfigureTextLiteTicker(el);
+            } else {
+              configureTextLiteTicker(el, null);
+            }
+            break;
+          }
           el.setAttribute('data-flow-playback-mode', mode);
           const isFlowLite = el.getAttribute('data-lite-kind') === 'flow-lite';
           const origDir = el.getAttribute('data-flow-orig-dir') || el.getAttribute('data-flow-direction') || 'forward';
@@ -1713,12 +1823,35 @@
       case 'period': {
         if (el) {
           const sec = Math.max(0.2, Math.min(30, parseFloat(value) || 1.8));
+          const liteKind = el.getAttribute('data-lite-kind') || '';
+          const masterRate = (instance && typeof instance.getSpeed === 'function') ? instance.getSpeed() : 1.0;
+          let totalDur = sec;
+          if (liteKind === 'flow-lite') {
+            el.setAttribute('data-flow-speed', String(sec));
+            const startDelay = parseFloat(el.getAttribute('data-flow-delay') || '0') || 0;
+            const endDelay = parseFloat(el.getAttribute('data-flow-end-delay') || '0') || 0;
+            const mode = el.getAttribute('data-flow-playback-mode') || 'loop';
+            const M = parseInt(el.getAttribute('data-flow-seg-count') || '1', 10) || 1;
+            if (mode === 'pingpong' && M === 1) {
+              totalDur = startDelay + sec + endDelay + sec;
+            } else if (M === 1 && (startDelay > 0 || endDelay > 0)) {
+              totalDur = startDelay + sec + endDelay;
+            }
+          } else if (liteKind === 'oscilloscope-lite') {
+            el.setAttribute('data-osc-speed', String(sec));
+          } else {
+            el.setAttribute('data-pulse-period', String(sec));
+          }
           el.querySelectorAll('.lite-payload').forEach(node => {
             node.setAttribute('data-pulse-period', String(sec));
+            node.setAttribute('data-base-dur', String(totalDur));
+            const localFactor = getEffectiveLocalSpeedFactor(node, svgEl);
+            const eff = Math.max(0.001, (Number(masterRate) > 0 ? Number(masterRate) : 1.0) * localFactor);
+            const effDur = totalDur / eff;
             if (node.style) {
-              node.style.animationDuration = `${sec}s`;
+              node.style.animationDuration = `${effDur.toFixed(4)}s`;
               if (typeof node.style.setProperty === 'function') {
-                node.style.setProperty('--sva-base-dur', `${sec}s`);
+                node.style.setProperty('--sva-base-dur', `${totalDur}s`);
               }
               const phaseRatioStr = typeof node.style.getPropertyValue === 'function'
                 ? node.style.getPropertyValue('--sva-phase-ratio')
@@ -1726,10 +1859,10 @@
               if (phaseRatioStr !== '' && phaseRatioStr !== null) {
                 const ratio = parseFloat(phaseRatioStr);
                 if (Number.isFinite(ratio)) {
-                  const negDelay = -ratio * sec;
+                  const negDelay = -ratio * effDur;
                   node.style.animationDelay = `${negDelay.toFixed(4)}s`;
                   if (typeof node.style.setProperty === 'function') {
-                    node.style.setProperty('--sva-base-delay', `${negDelay.toFixed(4)}s`);
+                    node.style.setProperty('--sva-base-delay', `${(-ratio * totalDur).toFixed(4)}s`);
                   }
                 }
               }

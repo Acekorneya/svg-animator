@@ -268,6 +268,37 @@ func run() int {
 			const tempRemovedInBoth = !document.querySelector('#drawerWidgetPropertiesList .group-mapping-card[data-alias="temp-col"]') &&
 				!document.querySelector('#fctx-widgetPropertiesList .group-mapping-card[data-alias="temp-col"]');
 
+			// Verify Flow Lite 0.2..30.0s cycle duration constraint consistency in live Studio dialog
+			const leFlowCheck = window.LiteEffects.createLiteEffect({
+				kind: 'flow-lite',
+				name: 'CheckFlowLite',
+				speed: 2.0,
+				points: [{ x: 10, y: 20 }, { x: 40, y: 20 }]
+			});
+			const leTracerCheck = window.LiteEffects.createLiteEffect({
+				kind: 'perimeter-tracer',
+				name: 'CheckTracer',
+				speed: 3.0,
+				segments: 4
+			});
+			window.AppCoordinator.setMultiSelection([
+				{ type: 'lite', id: String(leFlowCheck.id) },
+				{ type: 'lite', id: String(leTracerCheck.id) }
+			]);
+			const flowCheckGrp = window.AppCoordinator.createGroupFromSelection('flow-check-grp');
+			window.GroupMappingDialog.open(flowCheckGrp.id, null);
+			window.GroupMappingDialog.targetRows[0].memSel.value = 'lite:' + leFlowCheck.id;
+			window.GroupMappingDialog.targetRows[0].memSel.dispatchEvent(new Event('change'));
+			window.GroupMappingDialog.targetRows[0].propSel.value = 'speed';
+			window.GroupMappingDialog.targetRows[0].propSel.dispatchEvent(new Event('change'));
+			const flowLiteMinIs02 = Number(document.getElementById('gmModalMinInput')?.value) === 0.2;
+			const flowLiteMaxIs30 = Number(document.getElementById('gmModalMaxInput')?.value) === 30;
+			document.getElementById('gmModalAliasInput').value = 'flow-cycle';
+			document.getElementById('gmModalDefaultInput').value = '30';
+			const flowLite30Saved = window.GroupMappingDialog.save();
+			window.GroupMappingDialog.close();
+			window.AppCoordinator.selectGroup(grp1.id);
+
 			// 4. Whole-Widget Operating State button (#btnAddGlobalStateParam) in Studio
 			document.getElementById('btnAddGlobalStateParam')?.click();
 			const hasGlobalOperatingState = window.EngineBridge.getWidgetParameters().some(p => p.name === 'operatingState');
@@ -292,7 +323,9 @@ func run() int {
 					dupBindingRejected && preservedAfterInvalidThirdCancel &&
 					drawerHasCardAfterClose && fctxHasCardAfterClose &&
 					editModalOpen && editReflectedInInspectors && unchangedAfterEditCancel &&
-					tempAddedInBoth && tempRemovedInBoth && hasGlobalOperatingState &&
+					tempAddedInBoth && tempRemovedInBoth &&
+					flowLiteMinIs02 && flowLiteMaxIs30 && flowLite30Saved &&
+					hasGlobalOperatingState &&
 					comp && grp2 && grp3 &&
 					grp2.name === 'cpuwindow-2' && grp3.name === 'cpuwindow-3' && compListCount === 1 &&
 					paramNames.includes('cpuwindow-1-group-cpu') &&

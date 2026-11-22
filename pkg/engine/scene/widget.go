@@ -341,6 +341,7 @@ type EligibleProperty struct {
 	Description          string   `json:"description"`
 	Min                  *float64 `json:"min,omitempty"`
 	Max                  *float64 `json:"max,omitempty"`
+	Step                 *float64 `json:"step,omitempty"`
 	Options              []string `json:"options,omitempty"`
 	Default              any      `json:"default"`
 	ParamSuffix          string   `json:"paramSuffix"`
@@ -438,73 +439,74 @@ var ObjectPropertyCatalog = map[string][]EligibleProperty{
 	"node": {
 		{Property: "fill", Type: "color", Label: "Fill Colour", ParamSuffix: "fill", Description: "Primary interior fill color of node shape", Default: "#3b82f6", DefaultSource: "node.fillColor", RuntimeSemantics: "recolours node shape fill"},
 		{Property: "stroke", Type: "color", Label: "Border Stroke", ParamSuffix: "stroke", Description: "Outline and border stroke color", Default: "#1d4ed8", DefaultSource: "node.strokeColor", RuntimeSemantics: "recolours node border stroke"},
-		{Property: "opacity", Type: "number", Label: "Opacity", ParamSuffix: "opacity", Description: "Transparency of the node (0.0 to 1.0)", Min: floatPtr(0), Max: floatPtr(1), Default: 1.0, DefaultSource: "node.fillOpacity", RuntimeSemantics: "sets node overall opacity"},
+		{Property: "opacity", Type: "number", Label: "Opacity", ParamSuffix: "opacity", Description: "Transparency of the node (0.0 to 1.0)", Min: floatPtr(0), Max: floatPtr(1), Step: floatPtr(0.05), Default: 1.0, DefaultSource: "node.fillOpacity", RuntimeSemantics: "sets node overall opacity"},
 		{Property: "visibility", Type: "boolean", Label: "Visibility", ParamSuffix: "visibility", Description: "Toggle visibility of the node", Default: true, DefaultSource: "true", RuntimeSemantics: "toggles node visibility"},
 		{Property: "text", Type: "text", Label: "Label Text", ParamSuffix: "text", Description: "Primary text label displayed inside the node", Default: "Node", DefaultSource: "node.text", RuntimeSemantics: "updates node text label"},
 	},
 	"flow": {
 		{Property: "color", Type: "color", Label: "Flow Colour", ParamSuffix: "color", Description: "Colour of moving flow payload; motion guide remains stroke=none", Default: "#38bdf8", DefaultSource: "flow.color", RuntimeSemantics: "recolours moving payload only; guide path remains stroke=none"},
 		{Property: "stroke", Type: "color", Label: "Line Colour", ParamSuffix: "color", Description: "Connector line and moving particle colour", Default: "#38bdf8", DefaultSource: "flow.color", RuntimeSemantics: "recolours moving payload; preserves guide path"},
-		{Property: "speed", Type: "speed", Label: "Flow Speed", ParamSuffix: "speed", Description: "Animation speed multiplier for this flow connector (0.1 to 10.0)", Min: floatPtr(0.1), Max: floatPtr(10.0), Default: 1.0, DefaultSource: "flow.animSpeed", RuntimeSemantics: "multiplies with master playback rate"},
-		{Property: "opacity", Type: "number", Label: "Opacity", ParamSuffix: "opacity", Description: "Transparency of the connector (0.0 to 1.0)", Min: floatPtr(0), Max: floatPtr(1), Default: 1.0, DefaultSource: "1.0", RuntimeSemantics: "sets flow overall opacity"},
+		{Property: "speed", Type: "speed", Label: "Flow Speed", ParamSuffix: "speed", Description: "Animation speed multiplier for this flow connector (0.1 to 10.0)", Min: floatPtr(0.1), Max: floatPtr(10.0), Step: floatPtr(0.1), Default: 1.0, DefaultSource: "flow.animSpeed", RuntimeSemantics: "multiplies with master playback rate"},
+		{Property: "opacity", Type: "number", Label: "Opacity", ParamSuffix: "opacity", Description: "Transparency of the connector (0.0 to 1.0)", Min: floatPtr(0), Max: floatPtr(1), Step: floatPtr(0.05), Default: 1.0, DefaultSource: "1.0", RuntimeSemantics: "sets flow overall opacity"},
 		{Property: "visibility", Type: "boolean", Label: "Visibility", ParamSuffix: "visibility", Description: "Toggle visibility of this flow connector", Default: true, DefaultSource: "true", RuntimeSemantics: "toggles flow visibility"},
 	},
 	"glow": {
 		{Property: "color", Type: "color", Label: "Glow Colour", ParamSuffix: "color", Description: "Accent color of the illuminated glow effect", Default: "#f59e0b", DefaultSource: "glow.color", RuntimeSemantics: "recolours radial gradient / core; hit-target remains transparent"},
-		{Property: "opacity", Type: "number", Label: "Glow Intensity", ParamSuffix: "opacity", Description: "Transparency / intensity of the glow element (0.0 to 1.0)", Min: floatPtr(0), Max: floatPtr(1), Default: 1.0, DefaultSource: "1.0", RuntimeSemantics: "modifies illuminated glow opacity"},
+		{Property: "opacity", Type: "number", Label: "Glow Intensity", ParamSuffix: "opacity", Description: "Transparency / intensity of the glow element (0.0 to 1.0)", Min: floatPtr(0), Max: floatPtr(1), Step: floatPtr(0.05), Default: 1.0, DefaultSource: "1.0", RuntimeSemantics: "modifies illuminated glow opacity"},
 		{Property: "visibility", Type: "boolean", Label: "Visibility", ParamSuffix: "visibility", Description: "Toggle visibility of this glow hotspot", Default: true, DefaultSource: "true", RuntimeSemantics: "toggles glow visibility"},
 	},
 	"ripple": {
 		{Property: "color", Type: "color", Label: "Wave Colour", ParamSuffix: "color", Description: "Stroke color of the propagating ripple rings", Default: "#06b6d4", DefaultSource: "ripple.color", RuntimeSemantics: "recolours visible ripple waves only; hit-target and shadows unchanged"},
-		{Property: "opacity", Type: "number", Label: "Wave Opacity", ParamSuffix: "opacity", Description: "Transparency of the ripple effect (0.0 to 1.0)", Min: floatPtr(0), Max: floatPtr(1), Default: 1.0, DefaultSource: "1.0", RuntimeSemantics: "sets wave crest opacity"},
+		{Property: "opacity", Type: "number", Label: "Wave Opacity", ParamSuffix: "opacity", Description: "Transparency of the ripple effect (0.0 to 1.0)", Min: floatPtr(0), Max: floatPtr(1), Step: floatPtr(0.05), Default: 1.0, DefaultSource: "1.0", RuntimeSemantics: "sets wave crest opacity"},
 		{Property: "visibility", Type: "boolean", Label: "Visibility", ParamSuffix: "visibility", Description: "Toggle visibility of this ripple effect", Default: true, DefaultSource: "true", RuntimeSemantics: "toggles ripple visibility"},
 	},
 	"image": {
-		{Property: "opacity", Type: "number", Label: "Image Opacity", ParamSuffix: "opacity", Description: "Transparency of the image layer (0.0 to 1.0)", Min: floatPtr(0), Max: floatPtr(1), Default: 1.0, DefaultSource: "image.opacity", RuntimeSemantics: "sets image opacity"},
+		{Property: "opacity", Type: "number", Label: "Image Opacity", ParamSuffix: "opacity", Description: "Transparency of the image layer (0.0 to 1.0)", Min: floatPtr(0), Max: floatPtr(1), Step: floatPtr(0.05), Default: 1.0, DefaultSource: "image.opacity", RuntimeSemantics: "sets image opacity"},
 		{Property: "visibility", Type: "boolean", Label: "Visibility", ParamSuffix: "visibility", Description: "Toggle visibility of the image layer", Default: true, DefaultSource: "image.visible", RuntimeSemantics: "toggles image visibility"},
 	},
 	"group": {
-		{Property: "opacity", Type: "number", Label: "Group Opacity", ParamSuffix: "opacity", Description: "Transparency of the group (0.0 to 1.0)", Min: floatPtr(0), Max: floatPtr(1), Default: 1.0, DefaultSource: "1.0", RuntimeSemantics: "sets group opacity"},
+		{Property: "opacity", Type: "number", Label: "Group Opacity", ParamSuffix: "opacity", Description: "Transparency of the group (0.0 to 1.0)", Min: floatPtr(0), Max: floatPtr(1), Step: floatPtr(0.05), Default: 1.0, DefaultSource: "1.0", RuntimeSemantics: "sets group opacity"},
 		{Property: "visibility", Type: "boolean", Label: "Visibility", ParamSuffix: "visibility", Description: "Toggle visibility of the group", Default: true, DefaultSource: "true", RuntimeSemantics: "toggles group visibility"},
-		{Property: "speed", Type: "speed", Label: "Group Animation Speed", ParamSuffix: "speed", Description: "Animation playback speed multiplier for all animations inside the group (0.1 to 10.0)", Min: floatPtr(0.1), Max: floatPtr(10.0), Default: 1.0, DefaultSource: "1.0", RuntimeSemantics: "scales descendant animation speed within the group"},
+		{Property: "speed", Type: "speed", Label: "Group Animation Speed", ParamSuffix: "speed", Description: "Animation playback speed multiplier for all animations inside the group (0.1 to 10.0)", Min: floatPtr(0.1), Max: floatPtr(10.0), Step: floatPtr(0.1), Default: 1.0, DefaultSource: "1.0", RuntimeSemantics: "scales descendant animation speed within the group"},
 	},
 	"lite": {
 		{Property: "color", Type: "color", Label: "Effect Colour", ParamSuffix: "color", Description: "Primary stroke or fill colour of the low-load effect", Default: "#38bdf8", DefaultSource: "lite.color", RuntimeSemantics: "recolours lite effect payload and guide; hit-targets untouched"},
 		{Property: "bgColor", Type: "color", Label: "Track / Background Colour", ParamSuffix: "bgColor", Description: "Background track or unlit segment colour for Gauge Lite", Default: "#1e293b", DefaultSource: "lite.bgColor", RuntimeSemantics: "recolours gauge background track and unlit segments"},
-		{Property: "value", Type: "number", Label: "Gauge Value", ParamSuffix: "value", Description: "Current numeric value for Gauge / Level Lite indicators", Default: 65.0, DefaultSource: "lite.value", RuntimeSemantics: "updates static gauge fill geometry and threshold colour"},
-		{Property: "minValue", Type: "number", Label: "Gauge Min Value", ParamSuffix: "minValue", Description: "Minimum numeric domain bound for Gauge / Level Lite", Default: 0.0, DefaultSource: "lite.minValue", RuntimeSemantics: "updates gauge minimum domain bound and recalculates fill"},
-		{Property: "maxValue", Type: "number", Label: "Gauge Max Value", ParamSuffix: "maxValue", Description: "Maximum numeric domain bound for Gauge / Level Lite", Default: 100.0, DefaultSource: "lite.maxValue", RuntimeSemantics: "updates gauge maximum domain bound and recalculates fill"},
-		{Property: "opacity", Type: "number", Label: "Opacity", ParamSuffix: "opacity", Description: "Transparency of the low-load effect (0.0 to 1.0)", Min: floatPtr(0), Max: floatPtr(1), Default: 0.9, DefaultSource: "lite.opacity", RuntimeSemantics: "sets lite effect overall opacity"},
+		{Property: "value", Type: "number", Label: "Gauge Value", ParamSuffix: "value", Description: "Current numeric value for Gauge / Level Lite indicators", Step: floatPtr(0.5), Default: 65.0, DefaultSource: "lite.value", RuntimeSemantics: "updates static gauge fill geometry and threshold colour"},
+		{Property: "minValue", Type: "number", Label: "Gauge Min Value", ParamSuffix: "minValue", Description: "Minimum numeric domain bound for Gauge / Level Lite", Step: floatPtr(1), Default: 0.0, DefaultSource: "lite.minValue", RuntimeSemantics: "updates gauge minimum domain bound and recalculates fill"},
+		{Property: "maxValue", Type: "number", Label: "Gauge Max Value", ParamSuffix: "maxValue", Description: "Maximum numeric domain bound for Gauge / Level Lite", Step: floatPtr(1), Default: 100.0, DefaultSource: "lite.maxValue", RuntimeSemantics: "updates gauge maximum domain bound and recalculates fill"},
+		{Property: "opacity", Type: "number", Label: "Opacity", ParamSuffix: "opacity", Description: "Transparency of the low-load effect (0.0 to 1.0)", Min: floatPtr(0), Max: floatPtr(1), Step: floatPtr(0.05), Default: 0.9, DefaultSource: "lite.opacity", RuntimeSemantics: "sets lite effect overall opacity"},
 		{Property: "visibility", Type: "boolean", Label: "Visibility", ParamSuffix: "visibility", Description: "Toggle visibility of the low-load effect", Default: true, DefaultSource: "true", RuntimeSemantics: "toggles lite effect visibility"},
-		{Property: "speed", Type: "speed", Label: "Speed / Rate", ParamSuffix: "speed", Description: "Playback speed multiplier for the effect (0.1 to 10.0)", Min: floatPtr(0.1), Max: floatPtr(10.0), Default: 1.0, DefaultSource: "1.0", RuntimeSemantics: "scales CSS animation duration"},
-		{Property: "strokeWidth", Type: "number", Label: "Stroke Width", ParamSuffix: "strokeWidth", Description: "Stroke thickness in px (0.5 to 24)", Min: floatPtr(0.5), Max: floatPtr(24), Default: 2.5, DefaultSource: "lite.strokeWidth", RuntimeSemantics: "updates .lite-payload stroke-width"},
-		{Property: "dashLength", Type: "number", Label: "Dash / Segment Length", ParamSuffix: "dashLength", Description: "Flow Lite dash or single segment length in px (2 to 400)", Min: floatPtr(2), Max: floatPtr(400), Default: 18.0, DefaultSource: "lite.dashLength", RuntimeSemantics: "rebuilds Flow Lite segment dasharray and keyframes"},
-		{Property: "gapLength", Type: "number", Label: "Gap Spacing", ParamSuffix: "gapLength", Description: "Flow Lite clear gap between segments in px (2 to 300)", Min: floatPtr(2), Max: floatPtr(300), Default: 14.0, DefaultSource: "lite.gapLength", RuntimeSemantics: "rebuilds Flow Lite segment period and staggering"},
-		{Property: "dotSize", Type: "number", Label: "Dot Diameter", ParamSuffix: "dotSize", Description: "Flow Lite dot diameter in px for dotted pattern (1 to 32)", Min: floatPtr(1), Max: floatPtr(32), Default: 5.0, DefaultSource: "lite.dotSize", RuntimeSemantics: "updates Flow Lite dotted stroke-width and keyframes"},
-		{Property: "segments", Type: "number", Label: "Segments", ParamSuffix: "segments", Description: "Number of tracer segments around perimeter (1 to 16)", Min: floatPtr(1), Max: floatPtr(16), Default: 2, DefaultSource: "lite.segments", RuntimeSemantics: "recomputes pathLength=1000 stroke-dasharray"},
+		{Property: "speed", Type: "speed", Label: "Cycle Duration / Speed", ParamSuffix: "speed", Description: "Cycle duration in seconds (0.2 to 30.0 s) or playback speed multiplier (0.1 to 10.0)", Min: floatPtr(0.1), Max: floatPtr(30.0), Step: floatPtr(0.1), Default: 1.0, DefaultSource: "lite.speed", RuntimeSemantics: "updates cycle duration or scales CSS animation duration"},
+		{Property: "strokeWidth", Type: "number", Label: "Stroke Width", ParamSuffix: "strokeWidth", Description: "Stroke thickness in px (0 to 32)", Min: floatPtr(0), Max: floatPtr(32), Step: floatPtr(0.5), Default: 2.5, DefaultSource: "lite.strokeWidth", RuntimeSemantics: "updates .lite-payload stroke-width"},
+		{Property: "dashLength", Type: "number", Label: "Dash / Segment Length", ParamSuffix: "dashLength", Description: "Flow Lite dash or single segment length in px (2 to 400)", Min: floatPtr(2), Max: floatPtr(400), Step: floatPtr(1), Default: 18.0, DefaultSource: "lite.dashLength", RuntimeSemantics: "rebuilds Flow Lite segment dasharray and keyframes"},
+		{Property: "gapLength", Type: "number", Label: "Gap Spacing", ParamSuffix: "gapLength", Description: "Flow Lite clear gap between segments in px (2 to 300)", Min: floatPtr(2), Max: floatPtr(300), Step: floatPtr(1), Default: 14.0, DefaultSource: "lite.gapLength", RuntimeSemantics: "rebuilds Flow Lite segment period and staggering"},
+		{Property: "dotSize", Type: "number", Label: "Dot Diameter", ParamSuffix: "dotSize", Description: "Flow Lite dot diameter in px for dotted pattern (1 to 32)", Min: floatPtr(1), Max: floatPtr(32), Step: floatPtr(0.5), Default: 5.0, DefaultSource: "lite.dotSize", RuntimeSemantics: "updates Flow Lite dotted stroke-width and keyframes"},
+		{Property: "segments", Type: "number", Label: "Segments", ParamSuffix: "segments", Description: "Number of segments or waveform cycles (1 to 32)", Min: floatPtr(1), Max: floatPtr(32), Step: floatPtr(1), Default: 2, DefaultSource: "lite.segments", RuntimeSemantics: "recomputes pathLength=1000 stroke-dasharray or waveform cycles"},
 		{Property: "lineGapRatio", Type: "text", Label: "Line:Gap Ratio", ParamSuffix: "lineGapRatio", Description: "Repeating segment pattern ratio (e.g. 1:3)", Default: "1:3", DefaultSource: "lite.lineGapRatio", RuntimeSemantics: "recomputes pathLength=1000 stroke-dasharray"},
 		{Property: "direction", Type: "enum", Label: "Direction", ParamSuffix: "direction", Description: "Travel direction (cw, ccw, forward, reverse)", Options: []string{"cw", "ccw", "forward", "reverse"}, Default: "cw", DefaultSource: "lite.direction", RuntimeSemantics: "switches travel direction"},
-		{Property: "playbackMode", Type: "enum", Label: "Motion Mode", ParamSuffix: "playbackMode", Description: "Tracer playback mode (loop, pingpong, once)", Options: []string{"loop", "pingpong", "once"}, Default: "loop", DefaultSource: "lite.playbackMode", RuntimeSemantics: "switches playback iteration & direction"},
-		{Property: "burstCycles", Type: "number", Label: "Cycles Per Burst", ParamSuffix: "burstCycles", Description: "Circuits per burst before pausing (0 = continuous)", Min: floatPtr(0), Max: floatPtr(100), Default: 0, DefaultSource: "lite.burstCycles", RuntimeSemantics: "runs N circuits then pauses"},
-		{Property: "pauseSeconds", Type: "number", Label: "Pause Duration (s)", ParamSuffix: "pauseSeconds", Description: "Pause duration in seconds between bursts (0 to 300)", Min: floatPtr(0), Max: floatPtr(300), Default: 0, DefaultSource: "lite.pauseSeconds", RuntimeSemantics: "sets pause interval between bursts"},
+		{Property: "startOffset", Type: "number", Label: "Start Offset (%)", ParamSuffix: "startOffset", Description: "Perimeter phase offset, curved text arc offset, or oscilloscope baseline percentage (0 to 100%)", Min: floatPtr(0), Max: floatPtr(100), Step: floatPtr(1), Default: 0.0, DefaultSource: "lite.startOffset", RuntimeSemantics: "updates starting phase offset, textPath startOffset, or oscilloscope baseline"},
+		{Property: "playbackMode", Type: "enum", Label: "Motion Mode", ParamSuffix: "playbackMode", Description: "Playback mode (loop, pingpong, once)", Options: []string{"loop", "pingpong", "once"}, Default: "loop", DefaultSource: "lite.playbackMode", RuntimeSemantics: "switches playback iteration & direction"},
+		{Property: "burstCycles", Type: "number", Label: "Cycles Per Burst", ParamSuffix: "burstCycles", Description: "Circuits per burst before pausing (0 = continuous)", Min: floatPtr(0), Max: floatPtr(100), Step: floatPtr(1), Default: 0, DefaultSource: "lite.burstCycles", RuntimeSemantics: "runs N circuits then pauses"},
+		{Property: "pauseSeconds", Type: "number", Label: "Pause Duration (s)", ParamSuffix: "pauseSeconds", Description: "Pause duration in seconds between bursts (0 to 300)", Min: floatPtr(0), Max: floatPtr(300), Step: floatPtr(0.5), Default: 0, DefaultSource: "lite.pauseSeconds", RuntimeSemantics: "sets pause interval between bursts"},
 		{Property: "pauseVisibility", Type: "enum", Label: "Pause Behaviour", ParamSuffix: "pauseVisibility", Description: "Visibility during burst pause (hide or hold)", Options: []string{"hide", "hold"}, Default: "hide", DefaultSource: "lite.pauseVisibility", RuntimeSemantics: "hides or holds tracer segments during pause"},
 		{Property: "showGuide", Type: "boolean", Label: "Guide / Centre Marker", ParamSuffix: "showGuide", Description: "Show or hide static boundary guide or radar centre marker", Default: true, DefaultSource: "lite.showGuide", RuntimeSemantics: "toggles .lite-guide-track visibility"},
-		{Property: "scale", Type: "number", Label: "Max Scale", ParamSuffix: "scale", Description: "Maximum pulse or radar expansion scale multiplier (0.2 to 3.0)", Min: floatPtr(0.2), Max: floatPtr(3.0), Default: 1.15, DefaultSource: "lite.maxScale", RuntimeSemantics: "updates CSS --sva-pulse-max / --sva-radar-max scale factor"},
-		{Property: "period", Type: "number", Label: "Cycle Duration / Period (s)", ParamSuffix: "period", Description: "Pulse or radar cycle duration in seconds (0.2 to 30.0)", Min: floatPtr(0.2), Max: floatPtr(30.0), Default: 1.8, DefaultSource: "lite.period", RuntimeSemantics: "updates pulse or radar animation duration"},
-		{Property: "intensity", Type: "number", Label: "Intensity", ParamSuffix: "intensity", Description: "Peak pulse/flash amplitude (0.0 to 1.0)", Min: floatPtr(0), Max: floatPtr(1), Default: 0.85, DefaultSource: "lite.intensity", RuntimeSemantics: "updates --sva-pulse-amp / --sva-flash-int"},
-		{Property: "armThickness", Type: "number", Label: "Arm Thickness", ParamSuffix: "armThickness", Description: "Independent cross/star arm thickness in SVG units (1 to 20)", Min: floatPtr(1), Max: floatPtr(20), Default: 3.0, DefaultSource: "lite.armThickness", RuntimeSemantics: "rebuilds cross/star path arm width"},
-		{Property: "trigger", Type: "number", Label: "Flash Trigger", ParamSuffix: "trigger", Description: "Incrementing or changing this value triggers a single-shot Flash Lite pulse", Min: floatPtr(0), Max: floatPtr(1000000), Default: 0, DefaultSource: "0", RuntimeSemantics: "triggers one-shot flash animation"},
-		{Property: "duration", Type: "number", Label: "Flash Duration (ms)", ParamSuffix: "duration", Description: "Flash duration in milliseconds (20 to 1000 ms)", Min: floatPtr(20), Max: floatPtr(1000), Default: 100.0, DefaultSource: "lite.durationMs", RuntimeSemantics: "sets flash animation duration in milliseconds"},
+		{Property: "scale", Type: "number", Label: "Max Scale", ParamSuffix: "scale", Description: "Maximum pulse or radar expansion scale multiplier (0.2 to 3.0)", Min: floatPtr(0.2), Max: floatPtr(3.0), Step: floatPtr(0.05), Default: 1.15, DefaultSource: "lite.maxScale", RuntimeSemantics: "updates CSS --sva-pulse-max / --sva-radar-max scale factor"},
+		{Property: "period", Type: "number", Label: "Cycle Duration / Period (s)", ParamSuffix: "period", Description: "Cycle duration in seconds (0.2 to 30.0)", Min: floatPtr(0.2), Max: floatPtr(30.0), Step: floatPtr(0.1), Default: 1.8, DefaultSource: "lite.period", RuntimeSemantics: "updates cycle or pulse animation duration in seconds"},
+		{Property: "intensity", Type: "number", Label: "Intensity", ParamSuffix: "intensity", Description: "Peak pulse/flash/oscilloscope amplitude (0.0 to 1.0)", Min: floatPtr(0), Max: floatPtr(1), Step: floatPtr(0.05), Default: 0.85, DefaultSource: "lite.intensity", RuntimeSemantics: "updates --sva-pulse-amp / --sva-flash-int / oscilloscope amplitude"},
+		{Property: "armThickness", Type: "number", Label: "Arm Thickness", ParamSuffix: "armThickness", Description: "Independent cross/star arm thickness in SVG units (1 to 20)", Min: floatPtr(1), Max: floatPtr(20), Step: floatPtr(0.5), Default: 3.0, DefaultSource: "lite.armThickness", RuntimeSemantics: "rebuilds cross/star path arm width"},
+		{Property: "trigger", Type: "number", Label: "Flash Trigger", ParamSuffix: "trigger", Description: "Incrementing or changing this value triggers a single-shot Flash Lite pulse", Min: floatPtr(0), Max: floatPtr(1000000), Step: floatPtr(1), Default: 0, DefaultSource: "0", RuntimeSemantics: "triggers one-shot flash animation"},
+		{Property: "duration", Type: "number", Label: "Flash Duration (ms)", ParamSuffix: "duration", Description: "Flash duration in milliseconds (20 to 1000 ms)", Min: floatPtr(20), Max: floatPtr(1000), Step: floatPtr(10), Default: 100.0, DefaultSource: "lite.durationMs", RuntimeSemantics: "sets flash animation duration in milliseconds"},
 		{Property: "repeat", Type: "boolean", Label: "Flash Repeat", ParamSuffix: "repeat", Description: "Repeat flash periodically instead of single-shot", Default: false, DefaultSource: "lite.repeat", RuntimeSemantics: "toggles periodic flash scheduling"},
-		{Property: "repeatInterval", Type: "number", Label: "Repeat Interval (s)", ParamSuffix: "repeatInterval", Description: "Interval in seconds between repeated flashes (0.2 to 60)", Min: floatPtr(0.2), Max: floatPtr(60), Default: 2.0, DefaultSource: "lite.repeatInterval", RuntimeSemantics: "sets interval between repeated flashes"},
+		{Property: "repeatInterval", Type: "number", Label: "Repeat Interval (s)", ParamSuffix: "repeatInterval", Description: "Interval in seconds between repeated flashes (0.2 to 60)", Min: floatPtr(0.2), Max: floatPtr(60), Step: floatPtr(0.1), Default: 2.0, DefaultSource: "lite.repeatInterval", RuntimeSemantics: "sets interval between repeated flashes"},
 		{Property: "samples", Type: "text", Label: "Waveform Samples", ParamSuffix: "samples", Description: "Bounded numeric sample sequence (2 to 64 comma-separated values) for Oscilloscope Lite sampled mode", Default: "0, 0.4, 0.9, 0.3, -0.5, -0.9, -0.2, 0.6, 1.0, 0.2, -0.4, 0", DefaultSource: "lite.samples", RuntimeSemantics: "rebuilds Oscilloscope Lite sampled waveform path"},
 		{Property: "text", Type: "text", Label: "Text Content", ParamSuffix: "text", Description: "Displayed text content for Text Box Lite (immediate update on static text, cycle-boundary handover on animated text)", Default: "System Ready", DefaultSource: "lite.labelText", RuntimeSemantics: "updates Text Box Lite displayed or pending text"},
 		{Property: "borderColor", Type: "color", Label: "Border Colour", ParamSuffix: "borderColor", Description: "Container border or guide path colour for Text Box Lite", Default: "#38bdf8", DefaultSource: "lite.borderColor", RuntimeSemantics: "recolours Text Box Lite container border and arc guide"},
-		{Property: "scrollSpeed", Type: "number", Label: "Ticker Scroll Speed (px/s)", ParamSuffix: "scrollSpeed", Description: "Linear scroll speed in SVG units/px per second for Text Box Lite tickers (10 to 600 px/s)", Min: floatPtr(10), Max: floatPtr(600), Default: 90.0, DefaultSource: "lite.scrollSpeed", RuntimeSemantics: "updates Text Box Lite ticker scroll speed and recalculates duration"},
-		{Property: "typeSpeed", Type: "number", Label: "Typing Rate (chars/s)", ParamSuffix: "typeSpeed", Description: "Character reveal rate in grapheme clusters per second for Text Box Lite typewriter, scramble, and overtype effects (1 to 120 chars/s)", Min: floatPtr(1), Max: floatPtr(120), Default: 14.0, DefaultSource: "lite.typeSpeed", RuntimeSemantics: "updates Text Box Lite character progression rate"},
+		{Property: "scrollSpeed", Type: "number", Label: "Ticker Scroll Speed (px/s)", ParamSuffix: "scrollSpeed", Description: "Linear scroll speed in SVG units/px per second for Text Box Lite tickers (10 to 600 px/s)", Min: floatPtr(10), Max: floatPtr(600), Step: floatPtr(5), Default: 90.0, DefaultSource: "lite.scrollSpeed", RuntimeSemantics: "updates Text Box Lite ticker scroll speed and recalculates duration"},
+		{Property: "typeSpeed", Type: "number", Label: "Typing Rate (chars/s)", ParamSuffix: "typeSpeed", Description: "Character reveal rate in grapheme clusters per second for Text Box Lite typewriter, scramble, and overtype effects (1 to 120 chars/s)", Min: floatPtr(1), Max: floatPtr(120), Step: floatPtr(1), Default: 14.0, DefaultSource: "lite.typeSpeed", RuntimeSemantics: "updates Text Box Lite character progression rate"},
 	},
 	"root": {
-		{Property: "playbackRate", Type: "speed", Label: "Master Speed", ParamSuffix: "speed", Description: "Overall playback speed rate multiplier for the widget (0.1 to 5.0)", Min: floatPtr(0.1), Max: floatPtr(5.0), Default: 1.0, DefaultSource: "1.0", RuntimeSemantics: "widget-wide master playback rate"},
+		{Property: "playbackRate", Type: "speed", Label: "Master Speed", ParamSuffix: "speed", Description: "Overall playback speed rate multiplier for the widget (0.1 to 5.0)", Min: floatPtr(0.1), Max: floatPtr(5.0), Step: floatPtr(0.1), Default: 1.0, DefaultSource: "1.0", RuntimeSemantics: "widget-wide master playback rate"},
 		{Property: "visibility", Type: "boolean", Label: "Visibility", ParamSuffix: "visibility", Description: "Master visibility toggle for the entire widget", Default: true, DefaultSource: "true", RuntimeSemantics: "toggles root widget visibility"},
 		{Property: "operatingState", Type: "enum", Label: "Operating State", ParamSuffix: "state", Description: "Lifecycle operating state of the widget (running, paused, stopped)", Options: []string{"running", "paused", "stopped"}, Default: "running", DefaultSource: "running", RuntimeSemantics: "sets unit lifecycle state"},
 	},
@@ -691,6 +693,306 @@ func GetEligibleProperties(targetType string) []EligibleProperty {
 	return []EligibleProperty{}
 }
 
+// ResolveLiteEligibleProperty returns the kind-specific and instance-specific EligibleProperty
+// for a LiteEffect, matching the native inspector and ValidateLiteEffect constraints.
+func ResolveLiteEligibleProperty(kind string, le *LiteEffect, ep EligibleProperty) (EligibleProperty, bool) {
+	if !isLiteEffectPropertySupportedByKind(kind, ep.Property) {
+		return EligibleProperty{}, false
+	}
+	out := ep
+	if len(ep.Options) > 0 {
+		out.Options = append([]string(nil), ep.Options...)
+	}
+
+	switch ep.Property {
+	case "speed":
+		switch kind {
+		case "flow-lite":
+			out.Label = "Cycle Duration (s)"
+			out.Description = "Duration in seconds for one complete pass along the path (0.2 to 30.0 s)"
+			out.Min = floatPtr(0.2)
+			out.Max = floatPtr(30.0)
+			out.Step = floatPtr(0.1)
+			out.Default = 2.0
+			if le != nil && le.Speed >= 0.2 && le.Speed <= 30.0 {
+				out.Default = le.Speed
+			}
+		case "oscilloscope-lite":
+			out.Label = "Cycle Duration (s)"
+			out.Description = "Duration in seconds for one full tile sweep cycle (0.2 to 30.0 s)"
+			out.Min = floatPtr(0.2)
+			out.Max = floatPtr(30.0)
+			out.Step = floatPtr(0.1)
+			out.Default = 2.4
+			if le != nil && le.Speed >= 0.2 && le.Speed <= 30.0 {
+				out.Default = le.Speed
+			}
+		case "perimeter-tracer":
+			out.Label = "Cycle Duration / Speed (s)"
+			out.Description = "Circuit duration in seconds around the perimeter (0.2 to 30.0 s)"
+			out.Min = floatPtr(0.2)
+			out.Max = floatPtr(30.0)
+			out.Step = floatPtr(0.1)
+			out.Default = 3.0
+			if le != nil && le.Speed >= 0.2 && le.Speed <= 30.0 {
+				out.Default = le.Speed
+			}
+		case "text-lite":
+			out.Label = "Transition / Fade Duration (s)"
+			out.Description = "Transition or fade duration in seconds for Text Box Lite (0.0 to 30.0 s)"
+			out.Min = floatPtr(0.0)
+			out.Max = floatPtr(30.0)
+			out.Step = floatPtr(0.05)
+			out.Default = 0.8
+			if le != nil && le.Speed >= 0 && le.Speed <= 30.0 {
+				out.Default = le.Speed
+			}
+		default:
+			out.Label = "Speed / Rate"
+			out.Description = "Playback speed multiplier for the effect (0.1 to 10.0)"
+			out.Min = floatPtr(0.1)
+			out.Max = floatPtr(10.0)
+			out.Step = floatPtr(0.1)
+			out.Default = 1.0
+		}
+	case "period":
+		out.Label = "Cycle Duration / Period (s)"
+		out.Description = "Cycle duration in seconds (0.2 to 30.0 s)"
+		out.Min = floatPtr(0.2)
+		out.Max = floatPtr(30.0)
+		out.Step = floatPtr(0.1)
+		switch kind {
+		case "radar-lite":
+			out.Default = 2.4
+			if le != nil && le.Period >= 0.2 && le.Period <= 30.0 {
+				out.Default = le.Period
+			}
+		case "flow-lite":
+			out.Default = 2.0
+			if le != nil && le.Speed >= 0.2 && le.Speed <= 30.0 {
+				out.Default = le.Speed
+			}
+		case "oscilloscope-lite":
+			out.Default = 2.4
+			if le != nil && le.Speed >= 0.2 && le.Speed <= 30.0 {
+				out.Default = le.Speed
+			}
+		case "perimeter-tracer":
+			out.Default = 3.0
+			if le != nil && le.Speed >= 0.2 && le.Speed <= 30.0 {
+				out.Default = le.Speed
+			}
+		default:
+			out.Default = 1.8
+			if le != nil && le.Period >= 0.2 && le.Period <= 30.0 {
+				out.Default = le.Period
+			}
+		}
+	case "strokeWidth":
+		out.Step = floatPtr(0.5)
+		switch kind {
+		case "perimeter-tracer":
+			out.Min = floatPtr(0.5)
+			out.Max = floatPtr(20.0)
+			out.Default = 2.5
+		case "radar-lite":
+			out.Min = floatPtr(0.5)
+			out.Max = floatPtr(20.0)
+			out.Default = 2.0
+		case "flow-lite":
+			out.Min = floatPtr(0.5)
+			out.Max = floatPtr(24.0)
+			out.Default = 3.0
+		case "gauge-lite":
+			out.Min = floatPtr(0.5)
+			out.Max = floatPtr(32.0)
+			out.Default = 8.0
+		case "oscilloscope-lite":
+			out.Min = floatPtr(0.5)
+			out.Max = floatPtr(16.0)
+			out.Default = 2.2
+		case "text-lite":
+			out.Label = "Border Thickness (px)"
+			out.Min = floatPtr(0.0)
+			out.Max = floatPtr(24.0)
+			out.Default = 1.5
+		default:
+			out.Min = floatPtr(0.5)
+			out.Max = floatPtr(24.0)
+			out.Default = 2.5
+		}
+		if le != nil && le.StrokeWidth >= *out.Min && le.StrokeWidth <= *out.Max {
+			out.Default = le.StrokeWidth
+		}
+	case "segments":
+		out.Step = floatPtr(1)
+		switch kind {
+		case "perimeter-tracer":
+			out.Label = "Segments"
+			out.Min = floatPtr(1)
+			out.Max = floatPtr(16)
+			out.Default = 2
+		case "gauge-lite":
+			out.Label = "Segments"
+			out.Min = floatPtr(2)
+			out.Max = floatPtr(32)
+			out.Default = 10
+		case "oscilloscope-lite":
+			out.Label = "Cycles (Freq)"
+			out.Min = floatPtr(1)
+			out.Max = floatPtr(12)
+			out.Default = 2
+		default:
+			out.Min = floatPtr(1)
+			out.Max = floatPtr(16)
+			out.Default = 2
+		}
+		if le != nil && float64(le.Segments) >= *out.Min && float64(le.Segments) <= *out.Max {
+			out.Default = le.Segments
+		}
+	case "startOffset":
+		out.Step = floatPtr(1)
+		switch kind {
+		case "oscilloscope-lite":
+			out.Label = "Baseline (%)"
+			out.Min = floatPtr(10)
+			out.Max = floatPtr(90)
+			out.Default = 50.0
+		case "text-lite":
+			out.Label = "Arc Offset (%)"
+			out.Min = floatPtr(0)
+			out.Max = floatPtr(100)
+			out.Default = 50.0
+		default:
+			out.Label = "Start Offset (%)"
+			out.Min = floatPtr(0)
+			out.Max = floatPtr(100)
+			out.Default = 0.0
+		}
+		if le != nil && le.StartOffset >= *out.Min && le.StartOffset <= *out.Max {
+			out.Default = le.StartOffset
+		}
+	case "intensity":
+		out.Step = floatPtr(0.05)
+		switch kind {
+		case "oscilloscope-lite":
+			out.Label = "Amplitude"
+			out.Min = floatPtr(0.05)
+			out.Max = floatPtr(1.0)
+			out.Default = 0.75
+		case "flash":
+			out.Min = floatPtr(0.0)
+			out.Max = floatPtr(1.0)
+			out.Default = 0.75
+		default:
+			out.Min = floatPtr(0.0)
+			out.Max = floatPtr(1.0)
+			out.Default = 0.85
+		}
+		if le != nil && le.Intensity >= *out.Min && le.Intensity <= *out.Max {
+			out.Default = le.Intensity
+		}
+	case "direction":
+		if kind == "flow-lite" || kind == "gauge-lite" || kind == "oscilloscope-lite" || kind == "text-lite" {
+			out.Options = []string{"forward", "reverse"}
+			out.Default = "forward"
+		} else {
+			out.Options = []string{"cw", "ccw"}
+			out.Default = "cw"
+		}
+	case "playbackMode":
+		out.Options = []string{"loop", "pingpong", "once"}
+		out.Default = "loop"
+	case "value":
+		out.Step = floatPtr(0.5)
+		minV := 0.0
+		maxV := 100.0
+		if le != nil {
+			if le.MinValue != nil && !math.IsNaN(*le.MinValue) {
+				minV = *le.MinValue
+			}
+			if le.MaxValue != nil && !math.IsNaN(*le.MaxValue) && *le.MaxValue > minV {
+				maxV = *le.MaxValue
+			}
+		}
+		out.Min = floatPtr(minV)
+		out.Max = floatPtr(maxV)
+		if le != nil && le.Value != nil && !math.IsNaN(*le.Value) {
+			out.Default = *le.Value
+		}
+	}
+	return out, true
+}
+
+// GetEligiblePropertiesForTarget returns the authoritative properties for a target type,
+// applying LiteEffect kind-specific and instance-specific domain constraints when targetID or liteKind is provided.
+func (s *Scene) GetEligiblePropertiesForTarget(targetType, targetID, liteKind string) []EligibleProperty {
+	base := GetEligibleProperties(targetType)
+	norm := strings.TrimSpace(strings.ToLower(targetType))
+	if norm != "lite" {
+		return base
+	}
+
+	s.mu.RLock()
+	defer s.mu.RUnlock()
+
+	var le *LiteEffect
+	cleanID := strings.TrimPrefix(strings.TrimSpace(targetID), "lite-")
+	if cleanID != "" {
+		if found, ok := s.liteEffects[StringID(cleanID)]; ok {
+			copyLe := found
+			le = &copyLe
+			if liteKind == "" {
+				liteKind = le.Kind
+			}
+		}
+	}
+	if liteKind == "" {
+		return base
+	}
+
+	out := make([]EligibleProperty, 0, len(base))
+	for _, ep := range base {
+		if resolved, ok := ResolveLiteEligibleProperty(liteKind, le, ep); ok {
+			out = append(out, resolved)
+		}
+	}
+	return out
+}
+
+// ResolveMemberEligiblePropertyLocked returns the authoritative EligibleProperty for a specific group member and property.
+func (s *Scene) ResolveMemberEligiblePropertyLocked(mType SelectionType, mID StringID, prop string) (*EligibleProperty, error) {
+	catalogProps := GetEligibleProperties(string(mType))
+	var eligible *EligibleProperty
+	for i := range catalogProps {
+		ep := &catalogProps[i]
+		if ep.Property == prop ||
+			(mType == SelectionFlow && prop == "playbackRate" && ep.Property == "speed") ||
+			(mType == SelectionFlow && prop == "stroke" && ep.Property == "color") ||
+			(mType == SelectionFlow && prop == "color" && ep.Property == "stroke") {
+			copyEp := *ep
+			eligible = &copyEp
+			break
+		}
+	}
+	if eligible == nil {
+		return nil, fmt.Errorf("property %q is not eligible on member %s %s", prop, mType, mID)
+	}
+
+	if mType == SelectionLite {
+		if le, ok := s.liteEffects[mID]; ok {
+			copyLe := le
+			resolved, supported := ResolveLiteEligibleProperty(le.Kind, &copyLe, *eligible)
+			if !supported {
+				return nil, fmt.Errorf("property %q is not supported by %s member %s %s", prop, le.Kind, mType, mID)
+			}
+			return &resolved, nil
+		}
+	}
+
+	return eligible, nil
+}
+
 // ParameterConflict reports an ambiguous duplicate binding where multiple parameters bind to the same (target, property).
 type ParameterConflict struct {
 	Target      string            `json:"target"`
@@ -787,7 +1089,9 @@ func ValidateWidgetParameter(p WidgetParameter) error {
 			if found == nil {
 				return fmt.Errorf("group parameter %q maps to unsupported property %q on %q (%s)", name, mProp, mTarget, mType)
 			}
-			compatible := (p.Type == found.Type) || (p.Type == "number" && found.Type == "text")
+			compatible := (p.Type == found.Type) ||
+				((p.Type == "number" || p.Type == "speed") && (found.Type == "number" || found.Type == "speed")) ||
+				((p.Type == "number" || p.Type == "speed") && found.Type == "text")
 			if !compatible {
 				return fmt.Errorf("group parameter %q of type %q is incompatible with mapped property %q (type %q) on %q", name, p.Type, mProp, found.Type, mTarget)
 			}
