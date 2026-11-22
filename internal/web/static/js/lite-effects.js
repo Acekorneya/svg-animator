@@ -2582,13 +2582,30 @@ window.LiteEffects = {
   },
 
   addByKind(kind) {
-    const offset = (this.list.length % 5) * 28;
+    const dims = (window.AppCoordinator && typeof window.AppCoordinator.getCanvasDimensions === 'function')
+      ? window.AppCoordinator.getCanvasDimensions()
+      : { width: (window.Stage && window.Stage.canvasWidth) || 1280, height: (window.Stage && window.Stage.canvasHeight) || 720 };
+    const cw = Number(dims && dims.width) || 1280;
+    const ch = Number(dims && dims.height) || 720;
+    const isSmallCanvas = cw < 480 || ch < 360;
+    const offset = isSmallCanvas
+      ? (this.list.length % 5) * Math.max(1, Math.round(Math.min(cw, ch) * 0.04))
+      : (this.list.length % 5) * 28;
     const offsetPct = (this.list.length % 5) * 3;
     const initial = {
       kind,
-      x: 240 + offset,
-      y: 180 + offset
+      x: isSmallCanvas ? Math.round(cw / 2) + offset : 240 + offset,
+      y: isSmallCanvas ? Math.round(ch / 2) + offset : 180 + offset
     };
+    if (isSmallCanvas && kind !== 'flow-lite') {
+      initial.width = Math.min(kind === 'text-lite' ? 220 : 180, Math.max(8, Math.round(cw * 0.8)));
+      initial.height = Math.min(kind === 'text-lite' ? 56 : 76, Math.max(8, Math.round(ch * 0.8)));
+      if (kind === 'radar-lite') {
+        const maxR = Math.max(6, Math.round(Math.min(cw, ch) * 0.42));
+        initial.outerRadius = Math.min(90, maxR);
+        initial.innerRadius = Math.min(18, Math.max(2, Math.round(maxR * 0.2)));
+      }
+    }
     if (kind === 'flow-lite') {
       initial.points = [
         { x: 22 + offsetPct, y: 45 + offsetPct },

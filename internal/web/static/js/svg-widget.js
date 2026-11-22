@@ -675,8 +675,8 @@
     const mode = el.getAttribute('data-osc-mode') || 'animated';
     const x = parseFloat(el.getAttribute('data-osc-x')) || 0;
     const y = parseFloat(el.getAttribute('data-osc-y')) || 0;
-    const w = Math.max(24, parseFloat(el.getAttribute('data-osc-w')) || 180);
-    const h = Math.max(16, parseFloat(el.getAttribute('data-osc-h')) || 76);
+    const w = Math.max(5, parseFloat(el.getAttribute('data-osc-w')) || 180);
+    const h = Math.max(5, parseFloat(el.getAttribute('data-osc-h')) || 76);
     const cycles = Math.max(1, Math.min(12, parseInt(el.getAttribute('data-osc-cycles') || '2', 10) || 2));
     const ampFrac = Math.max(0.05, Math.min(1.0, parseFloat(el.getAttribute('data-osc-amplitude')) || 0.75));
     const basePct = Math.max(10, Math.min(90, parseFloat(el.getAttribute('data-osc-baseline')) || 50));
@@ -879,9 +879,9 @@
     }
     const explicitLines = raw.split('\n');
     const wordWrap = el.getAttribute('data-text-word-wrap') !== 'false';
-    const w = Math.max(20, parseFloat(el.getAttribute('data-text-w')) || 220);
+    const w = Math.max(5, parseFloat(el.getAttribute('data-text-w')) || 220);
     const pad = Math.max(0, parseFloat(el.getAttribute('data-text-padding')) || 12);
-    const availW = Math.max(16, w - pad * 2);
+    const availW = Math.max(5, w - pad * 2);
     const fs = Math.max(8, parseFloat(el.getAttribute('data-text-font-size')) || 18);
     const fw = el.getAttribute('data-text-font-weight') || '600';
     const ls = parseFloat(el.getAttribute('data-text-letter-spacing')) || 0;
@@ -943,8 +943,8 @@
 
     const x = parseFloat(el.getAttribute('data-text-x')) || 0;
     const y = parseFloat(el.getAttribute('data-text-y')) || 0;
-    const w = Math.max(20, parseFloat(el.getAttribute('data-text-w')) || 220);
-    const h = Math.max(16, parseFloat(el.getAttribute('data-text-h')) || 56);
+    const w = Math.max(5, parseFloat(el.getAttribute('data-text-w')) || 220);
+    const h = Math.max(5, parseFloat(el.getAttribute('data-text-h')) || 56);
     const cx = parseFloat(el.getAttribute('data-text-cx')) || (x + w / 2);
     const cy = parseFloat(el.getAttribute('data-text-cy')) || (y + h / 2);
     const pad = Math.max(0, parseFloat(el.getAttribute('data-text-padding')) || 12);
@@ -998,8 +998,8 @@
     if (!txtEl) return;
     const currentStr = ctrl ? ctrl.currentText : (el.getAttribute('data-text-content') || '');
     const layoutInfo = renderWidgetTextLiteLinesToDOM(el, currentStr);
-    const w = Math.max(20, parseFloat(el.getAttribute('data-text-w')) || 220);
-    const h = Math.max(16, parseFloat(el.getAttribute('data-text-h')) || 56);
+    const w = Math.max(5, parseFloat(el.getAttribute('data-text-w')) || 220);
+    const h = Math.max(5, parseFloat(el.getAttribute('data-text-h')) || 56);
     const pad = Math.max(0, parseFloat(el.getAttribute('data-text-padding')) || 12);
     const fs = Math.max(8, parseFloat(el.getAttribute('data-text-font-size')) || 18);
     const spd = Math.max(10, Math.min(600, parseFloat(el.getAttribute('data-text-scroll-speed')) || 90));

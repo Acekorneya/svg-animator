@@ -387,8 +387,8 @@ window.StillExportStudio = {
    */
   buildStillRenderConfig(baseState, options = {}) {
     const payloadState = JSON.parse(JSON.stringify(baseState));
-    const fullTargetW = Math.max(64, parseInt(options.width, 10) || this.baseWidth);
-    const fullTargetH = Math.max(64, parseInt(options.height, 10) || this.baseHeight);
+    const fullTargetW = Math.max(20, parseInt(options.width, 10) || this.baseWidth);
+    const fullTargetH = Math.max(20, parseInt(options.height, 10) || this.baseHeight);
     const renderW = options.renderWidth || fullTargetW;
     const renderH = options.renderHeight || fullTargetH;
 
@@ -460,8 +460,8 @@ window.StillExportStudio = {
     dpiSel?.addEventListener('change', () => {
       const mult = parseFloat(dpiSel.value) || 1.0;
       if (wInput && hInput) {
-        wInput.value = Math.max(64, Math.round(this.baseWidth * mult));
-        hInput.value = Math.max(64, Math.round(this.baseHeight * mult));
+        wInput.value = Math.max(20, Math.round(this.baseWidth * mult));
+        hInput.value = Math.max(20, Math.round(this.baseHeight * mult));
       }
       this.updateButtonLabel();
       this.schedulePreview(60);
@@ -559,8 +559,8 @@ window.StillExportStudio = {
     }
 
     const scale = Math.min(1.0, maxW / targetW, maxH / targetH);
-    const pw = Math.max(64, Math.round((targetW * scale) / 2) * 2);
-    const ph = Math.max(64, Math.round((targetH * scale) / 2) * 2);
+    const pw = Math.max(20, Math.round((targetW * scale) / 2) * 2);
+    const ph = Math.max(20, Math.round((targetH * scale) / 2) * 2);
     return { width: pw, height: ph };
   },
 
@@ -636,8 +636,8 @@ window.StillExportStudio = {
   },
 
   readExportOptionsFromDOM(forPreview = false) {
-    const fullTargetW = Math.max(64, parseInt(document.getElementById('stillWidthInput')?.value, 10) || this.baseWidth);
-    const fullTargetH = Math.max(64, parseInt(document.getElementById('stillHeightInput')?.value, 10) || this.baseHeight);
+    const fullTargetW = Math.max(20, parseInt(document.getElementById('stillWidthInput')?.value, 10) || this.baseWidth);
+    const fullTargetH = Math.max(20, parseInt(document.getElementById('stillHeightInput')?.value, 10) || this.baseHeight);
     let renderW = fullTargetW;
     let renderH = fullTargetH;
     if (forPreview) {

@@ -579,6 +579,10 @@ func extractSceneConfigsFromControls(sceneData *SceneData, controls map[string]a
 				return n
 			case int:
 				return float64(n)
+			case string:
+				if parsed, err := strconv.ParseFloat(strings.TrimSpace(n), 64); err == nil {
+					return parsed
+				}
 			}
 		}
 		return def

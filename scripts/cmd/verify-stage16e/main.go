@@ -5,6 +5,7 @@ import (
 	"encoding/json"
 	"fmt"
 	"os"
+	"strings"
 	"time"
 
 	"github.com/chromedp/cdproto/network"
@@ -480,6 +481,138 @@ func run() int {
 	err8093 := runVoid(taskCtx, chromedp.Navigate(testLabURL), chromedp.WaitReady("body"))
 	record("16E-GATE-04", "Existing Services (:8091 Consumer & :8093 Test Lab)", err8091 == nil && err8093 == nil,
 		fmt.Sprintf("8091=%v, 8093=%v", err8091 == nil, err8093 == nil))
+
+	// =========================================================================
+	// GATE 5: Minimum Canvas Size (20x20, 200x50, 50x200) & Small-Widgets Demo
+	// =========================================================================
+	if err := runVoid(taskCtx, chromedp.Navigate(studioURL), chromedp.WaitReady("#svgContainer")); err != nil {
+		record("16E-GATE-05A", "Navigate Studio for Min-Canvas Verification", false, err.Error())
+	} else {
+		for i := 0; i < 30; i++ {
+			ready, _ := chromedp.Run(taskCtx, chromedp.Evaluate[bool](`Boolean(window.EngineBridge && window.EngineBridge.isReady())`))
+			if ready {
+				break
+			}
+			_ = runVoid(taskCtx, chromedp.Sleep(200*time.Millisecond))
+		}
+		g5aJSON, _ := chromedp.Run(taskCtx, chromedp.Evaluate[string](`(() => {
+			try {
+				window.confirm = () => true;
+				window.alert = () => {};
+				const wEl = document.getElementById('canvasWidthInput');
+				const hEl = document.getElementById('canvasHeightInput');
+				const minAttrOk = wEl && wEl.getAttribute('min') === '20' && hEl && hEl.getAttribute('min') === '20';
+
+				const applyDims = (w, h) => {
+					wEl.value = String(w);
+					hEl.value = String(h);
+					wEl.dispatchEvent(new Event('input', { bubbles: true }));
+					hEl.dispatchEvent(new Event('input', { bubbles: true }));
+					wEl.dispatchEvent(new Event('change', { bubbles: true }));
+					hEl.dispatchEvent(new Event('change', { bubbles: true }));
+					return window.SceneState.buildRenderState().image;
+				};
+
+				const d20x20 = applyDims(20, 20);
+				const d200x50 = applyDims(200, 50);
+				const d50x200 = applyDims(50, 200);
+				const d20x200 = applyDims(20, 200);
+				const d200x20 = applyDims(200, 20);
+				const dClamped = applyDims(8, 12);
+				const rejGo = window.EngineBridge.updateCanvas({ width: 15, height: 15 });
+
+				// Test 20x20 authoring, zoom, save/reload, and SVG export
+				window.ProjectManager.resetToNewProject();
+				applyDims(20, 20);
+				window.Stage.setManualZoomPct(2000);
+				const zoom2000Ok = window.Stage.zoomScale === 20;
+				const n20 = window.DiagramNodes.addNode({ shape: 'circle', name: 'dot20', text: '' });
+				const l20 = window.LiteEffects.addByKind('pulse');
+				const saved20 = window.ProjectManager.serializeStudioState();
+				const svg20 = window.buildFullSVG(window.SceneState.buildRenderState());
+				const svg20Ok = svg20.includes('viewBox="0 0 20 20"') && svg20.includes('width="20"') && svg20.includes('height="20"');
+
+				// Test 200x50 authoring, save/reload, and SVG export
+				window.ProjectManager.resetToNewProject();
+				applyDims(200, 50);
+				const n200 = window.DiagramNodes.addNode({ shape: 'pill', name: 'btn200', text: 'DEPLOY', width: 188, height: 38 });
+				const saved200 = window.ProjectManager.serializeStudioState();
+				const svg200 = window.buildFullSVG(window.SceneState.buildRenderState());
+				const svg200Ok = svg200.includes('viewBox="0 0 200 50"') && svg200.includes('width="200"') && svg200.includes('height="50"');
+
+				// Reload 20x20 and verify dimensions restored
+				window.ProjectManager.applyStudioState(saved20);
+				const restored20 = window.SceneState.buildRenderState().image;
+				window.ProjectManager.applyStudioState(saved200);
+				const restored200 = window.SceneState.buildRenderState().image;
+
+				// Existing large canvas (1280x720) works unchanged
+				const d1280 = applyDims(1280, 720);
+
+				const ok = Boolean(
+					minAttrOk &&
+					d20x20.width === 20 && d20x20.height === 20 &&
+					d200x50.width === 200 && d200x50.height === 50 &&
+					d50x200.width === 50 && d50x200.height === 200 &&
+					d20x200.width === 20 && d20x200.height === 200 &&
+					d200x20.width === 200 && d200x20.height === 20 &&
+					dClamped.width === 20 && dClamped.height === 20 &&
+					rejGo === null &&
+					zoom2000Ok &&
+					n20 && n20.width <= 20 && l20 && l20.x <= 20 &&
+					n200 && svg20Ok && svg200Ok &&
+					restored20.width === 20 && restored20.height === 20 &&
+					restored200.width === 200 && restored200.height === 50 &&
+					d1280.width === 1280 && d1280.height === 720
+				);
+				return JSON.stringify({
+					ok, minAttrOk, zoom2000Ok, svg20Ok, svg200Ok,
+					restored20: restored20.width + 'x' + restored20.height,
+					restored200: restored200.width + 'x' + restored200.height
+				});
+			} catch (e) {
+				return JSON.stringify({ ok: false, error: e.message });
+			}
+		})()`))
+		var r5a map[string]any
+		_ = json.Unmarshal([]byte(g5aJSON), &r5a)
+		record("16E-GATE-05A", "Studio Min-Canvas (20x20, 200x50, 50x200, Zoom, Persistence & Export)", r5a["ok"] == true, g5aJSON)
+	}
+
+	smallDemoURL := strings.TrimRight(studioURL, "/") + "/small-widgets-demo.html"
+	if err := runVoid(taskCtx, chromedp.Navigate(smallDemoURL), chromedp.WaitReady("#card-200x50")); err != nil {
+		record("16E-GATE-05B", "Navigate /small-widgets-demo.html", false, err.Error())
+	} else {
+		g5bJSON, _ := chromedp.Run(taskCtx, chromedp.Evaluate[string](`(() => {
+			try {
+				const d = window.SMALL_WIDGETS_DEMO;
+				if (!d) return JSON.stringify({ ok: false, error: 'SMALL_WIDGETS_DEMO missing' });
+				const vbBtn = d.btnWidget.svgElement.getAttribute('viewBox');
+				const vbInd = d.indNative.svgElement.getAttribute('viewBox');
+				const vbVbar = d.vbarWidget.svgElement.getAttribute('viewBox');
+
+				d.btnWidget.setParameters({
+					'btn-pill-node-fill': '#052e16',
+					'btn-label-text-text': 'ACTIVE OK'
+				});
+				d.indNative.setParameter('led-core-pulse-color', '#ef4444');
+				d.vbarWidget.setParameter('rack-load-gauge-value', 92);
+
+				const btnTextOk = d.btnWidget.getParameters()['btn-label-text-text'] === 'ACTIVE OK';
+				const indColorOk = d.indNative.getParameters()['led-core-pulse-color'] === '#ef4444';
+				const vbarValOk = d.vbarWidget.getParameters()['rack-load-gauge-value'] === 92;
+
+				const ok = vbBtn === '0 0 200 50' && vbInd === '0 0 20 20' && vbVbar === '0 0 50 200' &&
+					btnTextOk && indColorOk && vbarValOk;
+				return JSON.stringify({ ok, vbBtn, vbInd, vbVbar, btnTextOk, indColorOk, vbarValOk });
+			} catch (e) {
+				return JSON.stringify({ ok: false, error: e.message });
+			}
+		})()`))
+		var r5b map[string]any
+		_ = json.Unmarshal([]byte(g5bJSON), &r5b)
+		record("16E-GATE-05B", "Small-Widgets Demo (/small-widgets-demo.html 200x50, 20x20, 50x200)", r5b["ok"] == true, g5bJSON)
+	}
 
 	fmt.Println("================================================================================")
 	allPassed := true

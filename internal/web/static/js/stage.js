@@ -258,6 +258,7 @@ window.Stage = {
       rect.setAttribute('stroke', '#a371f7');
       rect.setAttribute('stroke-width', '2');
       rect.setAttribute('stroke-dasharray', '6,4');
+      rect.setAttribute('vector-effect', 'non-scaling-stroke');
       rect.style.display = 'none';
       this.trajectorySvg.appendChild(rect);
     }
@@ -288,8 +289,9 @@ window.Stage = {
         if (e.ctrlKey || e.metaKey) {
           e.preventDefault();
           const currentPct = Math.round(this.getEffectiveScale() * 100);
-          const delta = e.deltaY < 0 ? 15 : -15;
-          this.setManualZoomPct(Math.min(300, Math.max(25, currentPct + delta)));
+          const step = currentPct >= 300 ? 50 : 15;
+          const delta = e.deltaY < 0 ? step : -step;
+          this.setManualZoomPct(Math.min(2500, Math.max(25, currentPct + delta)));
         }
       }, { passive: false });
 
@@ -1546,13 +1548,15 @@ window.Stage = {
     if (btnIn) {
       btnIn.addEventListener('click', () => {
         const cur = Math.round(this.getEffectiveScale() * 100);
-        this.setManualZoomPct(Math.min(300, cur + 20));
+        const step = cur >= 300 ? 50 : 20;
+        this.setManualZoomPct(Math.min(2500, cur + step));
       });
     }
     if (btnOut) {
       btnOut.addEventListener('click', () => {
         const cur = Math.round(this.getEffectiveScale() * 100);
-        this.setManualZoomPct(Math.max(25, cur - 20));
+        const step = cur > 300 ? 50 : 20;
+        this.setManualZoomPct(Math.max(25, cur - step));
       });
     }
     if (btnFit) {
@@ -1573,10 +1577,11 @@ window.Stage = {
   },
 
   setManualZoomPct(pct) {
+    const clampedPct = Math.min(2500, Math.max(25, Number(pct) || 100));
     this.zoomMode = 'manual';
-    this.zoomScale = pct / 100;
+    this.zoomScale = clampedPct / 100;
     const slider = document.getElementById('stageZoomSlider');
-    if (slider) slider.value = pct;
+    if (slider) slider.value = clampedPct;
     this.syncOverlayBounds(this.canvasWidth, this.canvasHeight);
   },
 
@@ -1628,7 +1633,7 @@ window.Stage = {
     const zoomLabel = document.getElementById('stageZoomLabel');
     const zoomSlider = document.getElementById('stageZoomSlider');
     if (zoomLabel) zoomLabel.innerText = this.zoomMode === 'fit' ? ('Fit (' + pct + '%)') : (pct + '%');
-    if (zoomSlider && this.zoomMode === 'fit') zoomSlider.value = Math.min(300, Math.max(25, pct));
+    if (zoomSlider && this.zoomMode === 'fit') zoomSlider.value = Math.min(2500, Math.max(25, pct));
     if (this.borderBadge) {
       const snapCfg = window.AppCoordinator
         ? window.AppCoordinator.getSnapConfig()

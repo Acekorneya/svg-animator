@@ -811,6 +811,12 @@ func (s *Scene) SetFromSnapshot(snap Snapshot) {
 
 func (s *Scene) setFromSnapshotLocked(snap Snapshot) {
 	s.canvas = snap.Canvas
+	if s.canvas.Width > 0 && s.canvas.Width < MinCanvasDimension {
+		s.canvas.Width = MinCanvasDimension
+	}
+	if s.canvas.Height > 0 && s.canvas.Height < MinCanvasDimension {
+		s.canvas.Height = MinCanvasDimension
+	}
 	s.background = DeepCopyBackground(snap.Background)
 	s.camera = snap.Camera
 	s.optical = snap.Optical

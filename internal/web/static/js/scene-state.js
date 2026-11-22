@@ -242,8 +242,8 @@
           this.controls.canvasWidthInput = String(Math.round(intrinsicW));
           this.controls.canvasHeightInput = String(Math.round(intrinsicH));
         }
-        const w = Math.max(64, parseInt(this.getControl('canvasWidthInput', intrinsicW), 10) || intrinsicW);
-        const h = Math.max(64, parseInt(this.getControl('canvasHeightInput', intrinsicH), 10) || intrinsicH);
+        const w = Math.max(20, parseInt(this.getControl('canvasWidthInput', intrinsicW), 10) || intrinsicW);
+        const h = Math.max(20, parseInt(this.getControl('canvasHeightInput', intrinsicH), 10) || intrinsicH);
 
         this.currentImage = {
           filename: this.loadedPhoto.filename || 'photo_export',
@@ -266,8 +266,8 @@
         return this.currentImage;
       }
 
-      const w = Math.max(200, parseInt(this.getControl('canvasWidthInput', 1280), 10) || 1280);
-      const h = Math.max(200, parseInt(this.getControl('canvasHeightInput', 720), 10) || 720);
+      const w = Math.max(20, parseInt(this.getControl('canvasWidthInput', 1280), 10) || 1280);
+      const h = Math.max(20, parseInt(this.getControl('canvasHeightInput', 720), 10) || 720);
 
       this.currentImage = {
         filename: 'diagram_canvas',

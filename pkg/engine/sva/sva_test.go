@@ -1219,3 +1219,69 @@ func TestSVABackgroundCropVersionsRoundtrip(t *testing.T) {
 		t.Errorf("expected 2 cropVersions in extracted loadedPhoto, got %v", lp["cropVersions"])
 	}
 }
+
+func TestCompactCanvasDimensionsRoundTrip(t *testing.T) {
+	cases := []struct {
+		name string
+		wStr string
+		hStr string
+		wNum float64
+		hNum float64
+	}{
+		{"20x20 Indicator", "20", "20", 20, 20},
+		{"200x50 Button", "200", "50", 200, 50},
+		{"50x200 Vertical", "50", "200", 50, 200},
+		{"100x40 Badge", "100", "40", 100, 40},
+	}
+
+	for _, tc := range cases {
+		t.Run(tc.name, func(t *testing.T) {
+			schemaJSON := fmt.Sprintf(`{
+				"version": "1.2.0",
+				"controls": {
+					"canvasWidthInput": %q,
+					"canvasHeightInput": %q,
+					"canvasPatternSelect": "solid"
+				},
+				"nodes": [],
+				"flows": [],
+				"glows": [],
+				"ripples": []
+			}`, tc.wStr, tc.hStr)
+
+			proj, err := BuildProjectFromStudioState(tc.name, "Compact canvas test", []byte(schemaJSON))
+			if err != nil {
+				t.Fatalf("BuildProjectFromStudioState failed: %v", err)
+			}
+			if proj.Scene.Canvas.Width != tc.wNum || proj.Scene.Canvas.Height != tc.hNum {
+				t.Fatalf("expected encoded scene canvas %gx%g, got %gx%g", tc.wNum, tc.hNum, proj.Scene.Canvas.Width, proj.Scene.Canvas.Height)
+			}
+
+			svaBytes, err := Encode(proj)
+			if err != nil {
+				t.Fatalf("Encode failed: %v", err)
+			}
+
+			decoded, err := Decode(svaBytes)
+			if err != nil {
+				t.Fatalf("Decode failed: %v", err)
+			}
+			if decoded.Scene.Canvas.Width != tc.wNum || decoded.Scene.Canvas.Height != tc.hNum {
+				t.Fatalf("expected decoded scene canvas %gx%g, got %gx%g", tc.wNum, tc.hNum, decoded.Scene.Canvas.Width, decoded.Scene.Canvas.Height)
+			}
+
+			stateBytes, err := ExtractStudioState(decoded)
+			if err != nil {
+				t.Fatalf("ExtractStudioState failed: %v", err)
+			}
+			var stateMap map[string]any
+			if err := json.Unmarshal(stateBytes, &stateMap); err != nil {
+				t.Fatalf("Unmarshal stateBytes failed: %v", err)
+			}
+			ctrls, _ := stateMap["controls"].(map[string]any)
+			if ctrls["canvasWidthInput"] != tc.wStr || ctrls["canvasHeightInput"] != tc.hStr {
+				t.Fatalf("expected controls canvasWidthInput=%q canvasHeightInput=%q, got %v x %v", tc.wStr, tc.hStr, ctrls["canvasWidthInput"], ctrls["canvasHeightInput"])
+			}
+		})
+	}
+}

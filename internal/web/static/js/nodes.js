@@ -547,6 +547,25 @@ window.DiagramNodes = {
     if (props.applyPreset === undefined) {
       props.applyPreset = window.NodePresets ? window.NodePresets.autoApplyToNewNodes !== false : true;
     }
+    const dims = window.AppCoordinator && typeof window.AppCoordinator.getCanvasDimensions === 'function'
+      ? window.AppCoordinator.getCanvasDimensions()
+      : { width: (window.Stage && window.Stage.canvasWidth) || 1280, height: (window.Stage && window.Stage.canvasHeight) || 720 };
+    const cw = Number(dims && dims.width) || 1280;
+    const ch = Number(dims && dims.height) || 720;
+    if (cw < 200 || ch < 100) {
+      if (props.width === undefined) {
+        props.width = Math.min(170, Math.max(8, Math.round(cw * 0.8)));
+      }
+      if (props.height === undefined) {
+        props.height = Math.min(80, Math.max(8, Math.round(ch * 0.75)));
+      }
+      if (props.x === undefined) {
+        props.x = 50;
+      }
+      if (props.y === undefined) {
+        props.y = 50;
+      }
+    }
     const newNode = this.createNode(props);
     this.selectNode(newNode.id, true);
     this.triggerAppRender();
@@ -719,7 +738,8 @@ window.DiagramNodes = {
     const dims = window.AppCoordinator
       ? window.AppCoordinator.getCanvasDimensions()
       : { width: (window.Stage && window.Stage.canvasWidth) || 1280, height: (window.Stage && window.Stage.canvasHeight) || 720 };
-    const pad = 10;
+    const minCanvasDim = Math.min(Number(dims.width) || 1280, Number(dims.height) || 720);
+    const pad = minCanvasDim < 100 ? Math.max(1, Math.round(minCanvasDim * 0.06)) : 10;
 
     // 1. Primary selection outline
     if (selBox) {
@@ -1069,7 +1089,8 @@ window.DiagramNodes = {
       return;
     }
 
-    const pad = 14;
+    const minGroupDim = Math.min(Number(dims.width) || 1280, Number(dims.height) || 720);
+    const pad = minGroupDim < 100 ? Math.max(2, Math.round(minGroupDim * 0.08)) : 14;
     const xMinPx = (bounds.minX / 100) * dims.width - pad;
     const yMinPx = (bounds.minY / 100) * dims.height - pad;
     const wPx = ((bounds.maxX - bounds.minX) / 100) * dims.width + pad * 2;
@@ -1077,8 +1098,8 @@ window.DiagramNodes = {
 
     box.setAttribute('x', Math.max(0, xMinPx).toFixed(1));
     box.setAttribute('y', Math.max(0, yMinPx).toFixed(1));
-    box.setAttribute('width', Math.max(10, wPx).toFixed(1));
-    box.setAttribute('height', Math.max(10, hPx).toFixed(1));
+    box.setAttribute('width', Math.max(4, wPx).toFixed(1));
+    box.setAttribute('height', Math.max(4, hPx).toFixed(1));
 
     if (label) {
       const grp = window.AppCoordinator ? window.AppCoordinator.getGroup(groupId) : null;

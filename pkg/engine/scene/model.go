@@ -34,6 +34,9 @@ func (s StringID) String() string {
 	return string(s)
 }
 
+// MinCanvasDimension is the authoritative minimum supported canvas width and height in pixels.
+const MinCanvasDimension = 20.0
+
 // CanvasConfig defines dimensions, background, and timeline settings.
 type CanvasConfig struct {
 	Width         float64 `json:"width"`

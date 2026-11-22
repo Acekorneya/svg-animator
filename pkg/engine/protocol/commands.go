@@ -2397,14 +2397,14 @@ func Dispatch(command string, payloadJSON []byte) ([]byte, error) {
 		if req.Canvas != nil {
 			p := req.Canvas
 			if p.Width != nil {
-				if *p.Width <= 0 {
-					return json.Marshal(map[string]any{"success": false, "error": "canvas width must be positive"})
+				if *p.Width < scene.MinCanvasDimension {
+					return json.Marshal(map[string]any{"success": false, "error": fmt.Sprintf("canvas width must be at least %g pixels", scene.MinCanvasDimension)})
 				}
 				cfg.Width = *p.Width
 			}
 			if p.Height != nil {
-				if *p.Height <= 0 {
-					return json.Marshal(map[string]any{"success": false, "error": "canvas height must be positive"})
+				if *p.Height < scene.MinCanvasDimension {
+					return json.Marshal(map[string]any{"success": false, "error": fmt.Sprintf("canvas height must be at least %g pixels", scene.MinCanvasDimension)})
 				}
 				cfg.Height = *p.Height
 			}

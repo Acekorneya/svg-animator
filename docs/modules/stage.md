@@ -10,7 +10,7 @@
   - `Stage.computeFitScale(viewportW, viewportH, canvasW, canvasH, padding)` — Pure viewport fit-scale calculation.
   - `Stage.rectClientToPct(clientX, clientY, rect)` — Pure client-to-percentage coordinate conversion given a bounding box `{ left, top, width, height }`.
 - **Layer 1 (Stage UI & Interaction):**
-  - Viewport zoom (`fit`, `100%`, zoom in/out, Ctrl+wheel zoom) and spacebar/middle-mouse panning (`panX`, `panY`).
+  - Viewport zoom (`fit`, `100%`, zoom in/out, Ctrl+wheel zoom up to `2500%` / `25×` for compact `20 × 20` and `200 × 50` widget canvases) and spacebar/middle-mouse panning (`panX`, `panY`).
   - Camera placement reticle mode (`setActive`, `clearActive`, `updateReticles`) and interactive drag handling for Nodes, Flows, Glows, Ripples, and Photo Crop.
   - Stage click selection of nodes routed through `AppCoordinator.selectObject('node', id, { openAccordionId: 'acc-nodes' })`.
   - Stage click selection of flow waypoints routed through `AppCoordinator.selectWaypoint(idx)`.

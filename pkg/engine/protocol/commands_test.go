@@ -784,7 +784,7 @@ func TestDispatchCanvasCommands(t *testing.T) {
 		t.Fatalf("Canvas.Update fields mismatch: %+v", upRes.Canvas)
 	}
 
-	// 3. Canvas.Update invalid dimensions rejected
+	// 3. Canvas.Update invalid dimensions rejected (< 20px or negative)
 	badW := -100.0
 	badReq, _ := json.Marshal(CanvasUpdateRequest{
 		Canvas: &CanvasUpdatePayload{Width: &badW},
@@ -797,6 +797,53 @@ func TestDispatchCanvasCommands(t *testing.T) {
 	_ = json.Unmarshal(badBytes, &badRes)
 	if badRes.Success {
 		t.Fatalf("expected Canvas.Update to reject negative width")
+	}
+
+	tooSmallW := 19.0
+	smallReqW, _ := json.Marshal(CanvasUpdateRequest{
+		Canvas: &CanvasUpdatePayload{Width: &tooSmallW},
+	})
+	smallBytesW, _ := Dispatch("Canvas.Update", smallReqW)
+	_ = json.Unmarshal(smallBytesW, &badRes)
+	if badRes.Success {
+		t.Fatalf("expected Canvas.Update to reject width < 20px")
+	}
+
+	tooSmallH := 15.0
+	smallReqH, _ := json.Marshal(CanvasUpdateRequest{
+		Canvas: &CanvasUpdatePayload{Height: &tooSmallH},
+	})
+	smallBytesH, _ := Dispatch("Canvas.Update", smallReqH)
+	_ = json.Unmarshal(smallBytesH, &badRes)
+	if badRes.Success {
+		t.Fatalf("expected Canvas.Update to reject height < 20px")
+	}
+
+	// 3b. Canvas.Update compact & non-square dimensions (20x20, 200x50, 50x200) accepted
+	minW := 20.0
+	minH := 20.0
+	minReq, _ := json.Marshal(CanvasUpdateRequest{
+		Canvas: &CanvasUpdatePayload{Width: &minW, Height: &minH},
+	})
+	minBytes, err := Dispatch("Canvas.Update", minReq)
+	if err != nil {
+		t.Fatalf("Canvas.Update 20x20 failed: %v", err)
+	}
+	if err := json.Unmarshal(minBytes, &upRes); err != nil || !upRes.Success || upRes.Canvas.Width != 20 || upRes.Canvas.Height != 20 {
+		t.Fatalf("Canvas.Update 20x20 mismatch: %+v", upRes)
+	}
+
+	rectW := 200.0
+	rectH := 50.0
+	rectReq, _ := json.Marshal(CanvasUpdateRequest{
+		Canvas: &CanvasUpdatePayload{Width: &rectW, Height: &rectH},
+	})
+	rectBytes, err := Dispatch("Canvas.Update", rectReq)
+	if err != nil {
+		t.Fatalf("Canvas.Update 200x50 failed: %v", err)
+	}
+	if err := json.Unmarshal(rectBytes, &upRes); err != nil || !upRes.Success || upRes.Canvas.Width != 200 || upRes.Canvas.Height != 50 {
+		t.Fatalf("Canvas.Update 200x50 mismatch: %+v", upRes)
 	}
 
 	// 4. Canvas.Update invalid loop mode rejected

@@ -9790,8 +9790,16 @@ async function runHarness() {
         }
         if (fullMatch.startsWith('<')) {
           const tagName = tm[1];
-          if (tagName.toLowerCase() === 'svg') continue;
           const attrStr = tm[2] || '';
+          if (tagName.toLowerCase() === 'svg') {
+            const attrRegex = /([a-zA-Z0-9_-]+)=["']([^"']*)["']/g;
+            let am;
+            while ((am = attrRegex.exec(attrStr)) !== null) {
+              rootSvg.setAttribute(am[1], am[2]);
+              if (am[1] === 'id') rootSvg.id = am[2];
+            }
+            continue;
+          }
           const el = new MockStage16BElement(tagName);
           el.ownerDocument = this.ownerDocument;
           const attrRegex = /([a-zA-Z0-9_-]+)=["']([^"']*)["']/g;
@@ -12532,6 +12540,219 @@ async function runHarness() {
     window.EngineBridge.setWidgetParameters([]);
   }
   console.log('[HARNESS] Scenario 94 PASS: Stage 16E Groups, Semantic Property Mappings & Reusable Composite Objects (M1-M3) verified.');
+
+  // =========================================================================
+  // SCENARIO 95: Minimum Canvas Size (20x20) & Compact Non-Square Widgets
+  // =========================================================================
+  console.log('\n[HARNESS] Testing Scenario 95: Minimum Canvas Size (20x20) & Compact Non-Square Widgets...');
+  {
+    window.ProjectManager.resetToNewProject();
+
+    // Helper to set canvas controls and build render state
+    const setCanvasSize = (w, h) => {
+      const wEl = document.getElementById('canvasWidthInput');
+      const hEl = document.getElementById('canvasHeightInput');
+      if (wEl) wEl.value = String(w);
+      if (hEl) hEl.value = String(h);
+      window.SceneState.setControl('canvasWidthInput', String(w));
+      window.SceneState.setControl('canvasHeightInput', String(h));
+      window.SceneState.setControl('canvasPatternSelect', 'solid');
+      if (w >= 20 && h >= 20) {
+        window.EngineBridge.updateCanvas({ width: Number(w), height: Number(h) });
+      }
+      if (window.Stage) {
+        const st = window.SceneState.buildRenderState();
+        window.Stage.syncOverlayBounds(st.image.width, st.image.height);
+      }
+      return window.SceneState.buildRenderState();
+    };
+
+    // 1. Setting canvas to 20x20, 200x50, 50x200, 20x200, 200x20, 100x40 succeeds
+    const validDims = [
+      [20, 20],
+      [200, 50],
+      [50, 200],
+      [20, 200],
+      [200, 20],
+      [100, 40]
+    ];
+    for (const [vw, vh] of validDims) {
+      const st = setCanvasSize(vw, vh);
+      assert.strictEqual(st.image.width, vw, `MINCANVAS-01: Canvas width ${vw} accepted for ${vw}x${vh}`);
+      assert.strictEqual(st.image.height, vh, `MINCANVAS-02: Canvas height ${vh} accepted for ${vw}x${vh}`);
+      const engC = window.EngineBridge.getCanvas();
+      assert.strictEqual(engC.width, vw, `MINCANVAS-03: Go engine canvas width ${vw} synced`);
+      assert.strictEqual(engC.height, vh, `MINCANVAS-04: Go engine canvas height ${vh} synced`);
+    }
+
+    // 2. Setting width or height below 20 pixels is rejected by Go protocol and clamped to 20 by SceneState
+    const rejW = window.EngineBridge.updateCanvas({ width: 19, height: 50 });
+    assert.strictEqual(rejW, null, 'MINCANVAS-05: Go engine rejects width < 20 (19)');
+    const rejH = window.EngineBridge.updateCanvas({ width: 200, height: 12 });
+    assert.strictEqual(rejH, null, 'MINCANVAS-06: Go engine rejects height < 20 (12)');
+
+    const clampedSt = setCanvasSize(10, 15);
+    assert.strictEqual(clampedSt.image.width, 20, 'MINCANVAS-07: SceneState clamps width < 20 (10) to 20');
+    assert.strictEqual(clampedSt.image.height, 20, 'MINCANVAS-08: SceneState clamps height < 20 (15) to 20');
+
+    // 3. Placing and editing shapes/effects inside a 20x20 canvas succeeds + zooming up to 2500% works
+    setCanvasSize(20, 20);
+    if (window.Stage && typeof window.Stage.setManualZoomPct === 'function') {
+      window.Stage.setManualZoomPct(2000);
+      assert.strictEqual(window.Stage.zoomScale, 20, 'MINCANVAS-09: Stage manual zoom supports 2000% (20x) for 20x20 canvas');
+    }
+    const dotNode = window.DiagramNodes.addNode({ shape: 'circle', name: 'ind-dot', text: '' });
+    assert(dotNode && dotNode.width <= 20 && dotNode.height <= 20, `MINCANVAS-10: DiagramNodes.addNode fits inside 20x20 canvas (got ${dotNode.width}x${dotNode.height})`);
+    const pulseLite = window.LiteEffects.addByKind('pulse');
+    assert(pulseLite && pulseLite.x >= 0 && pulseLite.x <= 20 && pulseLite.y >= 0 && pulseLite.y <= 20, `MINCANVAS-11: LiteEffects.addByKind places effect inside 20x20 canvas (got ${pulseLite.x},${pulseLite.y})`);
+
+    window.EngineBridge.addWidgetParameter({
+      name: 'ind-dot-node-fill',
+      type: 'color',
+      default: '#22c55e',
+      target: `node-${dotNode.id}`,
+      property: 'fill'
+    });
+
+    // Save & reload 20x20 scene state + export 20x20 SVG & widget
+    const saved20Str = window.ProjectManager.serializeStudioState();
+    const saved20 = JSON.parse(saved20Str);
+    assert.strictEqual(saved20.canvas.width, 20, 'MINCANVAS-12: Serialized 20x20 project canvas.width === 20');
+    assert.strictEqual(saved20.canvas.height, 20, 'MINCANVAS-13: Serialized 20x20 project canvas.height === 20');
+
+    const svg20 = window.buildFullSVG(window.SceneState.buildRenderState());
+    assert(svg20.includes('viewBox="0 0 20 20"'), 'MINCANVAS-14: Exported 20x20 SVG has viewBox="0 0 20 20"');
+    assert(svg20.includes('width="20"') && svg20.includes('height="20"'), 'MINCANVAS-15: Exported 20x20 SVG has width="20" height="20"');
+
+    // 4. Authoring, saving/reloading, and exporting a 200x50 button widget
+    window.ProjectManager.resetToNewProject();
+    window.EngineBridge.setWidgetParameters([]);
+    setCanvasSize(200, 50);
+
+    const btnNode = window.DiagramNodes.addNode({
+      shape: 'pill',
+      name: 'action-btn',
+      text: 'DEPLOY',
+      width: 188,
+      height: 38,
+      x: 50,
+      y: 50,
+      fillColor: '#0f172a',
+      strokeColor: '#38bdf8'
+    });
+    const btnTextLite = window.LiteEffects.addByKind('text-lite');
+    window.LiteEffects.updateLiteEffect(btnTextLite.id, {
+      name: 'btn-status',
+      labelText: 'READY',
+      x: 100,
+      y: 25,
+      width: 160,
+      height: 32,
+      fontSize: 13
+    });
+    window.EngineBridge.addWidgetParameter({
+      name: 'action-btn-node-fill',
+      type: 'color',
+      default: '#0f172a',
+      target: `node-${btnNode.id}`,
+      property: 'fill'
+    });
+    window.EngineBridge.addWidgetParameter({
+      name: 'btn-status-text-text',
+      type: 'text',
+      default: 'READY',
+      target: `lite-${btnTextLite.id}`,
+      property: 'text'
+    });
+
+    const saved200x50Str = window.ProjectManager.serializeStudioState();
+    const saved200x50 = JSON.parse(saved200x50Str);
+    assert.strictEqual(saved200x50.canvas.width, 200, 'MINCANVAS-16: Serialized 200x50 canvas.width === 200');
+    assert.strictEqual(saved200x50.canvas.height, 50, 'MINCANVAS-17: Serialized 200x50 canvas.height === 50');
+
+    // Reload 20x20 then reload 200x50 and verify fidelity
+    window.ProjectManager.applyStudioState(saved20Str);
+    const reloaded20 = window.SceneState.buildRenderState();
+    assert.strictEqual(reloaded20.image.width, 20, 'MINCANVAS-18: Reloaded 20x20 width === 20');
+    assert.strictEqual(reloaded20.image.height, 20, 'MINCANVAS-19: Reloaded 20x20 height === 20');
+
+    window.ProjectManager.applyStudioState(saved200x50Str);
+    const reloaded200x50 = window.SceneState.buildRenderState();
+    assert.strictEqual(reloaded200x50.image.width, 200, 'MINCANVAS-20: Reloaded 200x50 width === 200');
+    assert.strictEqual(reloaded200x50.image.height, 50, 'MINCANVAS-21: Reloaded 200x50 height === 50');
+
+    const svg200x50 = window.buildFullSVG(reloaded200x50);
+    assert(svg200x50.includes('viewBox="0 0 200 50"'), 'MINCANVAS-22: Exported 200x50 SVG has viewBox="0 0 200 50"');
+    assert(svg200x50.includes('width="200"') && svg200x50.includes('height="50"'), 'MINCANVAS-23: Exported 200x50 SVG has width="200" height="50"');
+
+    // 5. Mount 20x20 and 200x50 widgets via SVGWidget.mount() and verify setParameter()
+    const origDocMin = global.document;
+    try {
+      const mockDocMin = {
+        createElement(tag) {
+          const el = new MockStage16BElement(tag);
+          el.ownerDocument = mockDocMin;
+          return el;
+        },
+        createElementNS(ns, tag) {
+          const el = new MockStage16BElement(tag);
+          el.ownerDocument = mockDocMin;
+          return el;
+        },
+        getElementById() { return null; },
+        querySelector() { return null; },
+        head: new MockStage16BElement('head'),
+        body: new MockStage16BElement('body')
+      };
+      global.document = mockDocMin;
+      const SVGWidgetModMin = require('../internal/web/static/js/svg-widget.js');
+
+      const host20 = mockDocMin.createElement('div');
+      const inst20 = SVGWidgetModMin.mount(host20, svg20, {
+        instanceId: 'ind20',
+        manifest: {
+          schemaVersion: 1,
+          parameters: [{ name: 'ind-dot-node-fill', type: 'color', default: '#22c55e', target: `node-${dotNode.id}`, property: 'fill' }]
+        },
+        visibilityAware: false
+      });
+      assert.strictEqual(inst20.svgElement.getAttribute('viewBox'), '0 0 20 20', 'MINCANVAS-24: Mounted 20x20 widget preserves viewBox="0 0 20 20"');
+      inst20.setParameter('ind-dot-node-fill', '#ef4444');
+      assert.strictEqual(inst20.getParameters()['ind-dot-node-fill'], '#ef4444', 'MINCANVAS-25: Mounted 20x20 widget responds to setParameter()');
+      inst20.destroy();
+
+      const host200 = mockDocMin.createElement('div');
+      const inst200 = SVGWidgetModMin.mount(host200, svg200x50, {
+        instanceId: 'btn200',
+        manifest: {
+          schemaVersion: 1,
+          parameters: [
+            { name: 'action-btn-node-fill', type: 'color', default: '#0f172a', target: `node-${btnNode.id}`, property: 'fill' },
+            { name: 'btn-status-text-text', type: 'text', default: 'READY', target: `lite-${btnTextLite.id}`, property: 'text' }
+          ]
+        },
+        visibilityAware: false
+      });
+      assert.strictEqual(inst200.svgElement.getAttribute('viewBox'), '0 0 200 50', 'MINCANVAS-26: Mounted 200x50 widget preserves viewBox="0 0 200 50"');
+      inst200.setParameters({ 'action-btn-node-fill': '#1e3a8a', 'btn-status-text-text': 'ACTIVE' });
+      assert.strictEqual(inst200.getParameters()['btn-status-text-text'], 'ACTIVE', 'MINCANVAS-27: Mounted 200x50 widget responds to setParameters()');
+      inst200.destroy();
+    } finally {
+      global.document = origDocMin;
+    }
+
+    // 6. Existing larger canvases (1280x720, 1920x1080) continue to work unchanged
+    const st1280 = setCanvasSize(1280, 720);
+    assert.strictEqual(st1280.image.width, 1280, 'MINCANVAS-28: 1280x720 width preserved');
+    assert.strictEqual(st1280.image.height, 720, 'MINCANVAS-29: 1280x720 height preserved');
+    const st1920 = setCanvasSize(1920, 1080);
+    assert.strictEqual(st1920.image.width, 1920, 'MINCANVAS-30: 1920x1080 width preserved');
+    assert.strictEqual(st1920.image.height, 1080, 'MINCANVAS-31: 1920x1080 height preserved');
+
+    window.ProjectManager.resetToNewProject();
+    window.EngineBridge.setWidgetParameters([]);
+  }
+  console.log('[HARNESS] Scenario 95 PASS: Minimum Canvas Size (20x20) & Compact Non-Square Widgets verified.');
 
   console.log('[HARNESS] REG-03 PASS: Stage 3, 4, 5, 6, 7, 8, 9, 11, 12, 13, 14, 15 & 16 non-destructive cropping, background extraction, image baking, dedicated crop clip & snip workspace, object-local clipping, unified layer management, independent image objects, persistent groups, duplication, copy/paste with flow remapping, multi-selection, alignment, distribution, colour tools, selection retention, notifications, naming sync, history(50), schema 1.2.0, .sva packaging, background photo restoration, SVG compilation, export payload builders, collision-free widgets, external runtime parameters, and Go WASM engines verified.');
 }

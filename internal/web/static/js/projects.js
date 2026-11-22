@@ -41,6 +41,8 @@ window.ProjectManager = {
     if (window.ControlStateAdaptor && window.SceneState) {
       window.ControlStateAdaptor.syncFromDOM(trackedIds);
       controls = window.SceneState.getControlsSnapshot(trackedIds);
+    } else if (window.SceneState && window.SceneState.controls) {
+      controls = Object.assign({}, window.SceneState.controls);
     }
 
     let loadedPhoto = (window.SceneState && typeof window.SceneState.getLoadedPhoto === 'function')
@@ -204,12 +206,21 @@ window.ProjectManager = {
           engineBackground = snap.background;
           loadedPhoto = Object.assign({}, loadedPhoto || {}, snap.background);
         }
-        if (snap.canvas) engineCanvas = snap.canvas;
+        if (snap.canvas) engineCanvas = Object.assign({}, snap.canvas);
         if (snap.camera) engineCamera = snap.camera;
         if (snap.optical) engineOptical = snap.optical;
         if (snap.frame) engineFrame = snap.frame;
         if (snap.overlays) engineOverlays = snap.overlays;
       }
+    }
+
+    const ctrlW = parseInt(controls && controls.canvasWidthInput, 10);
+    const ctrlH = parseInt(controls && controls.canvasHeightInput, 10);
+    if (Number.isFinite(ctrlW) && ctrlW >= 20) {
+      engineCanvas = Object.assign({}, engineCanvas || {}, { width: ctrlW });
+    }
+    if (Number.isFinite(ctrlH) && ctrlH >= 20) {
+      engineCanvas = Object.assign({}, engineCanvas || {}, { height: ctrlH });
     }
 
     let parameterState = [];
@@ -283,8 +294,15 @@ window.ProjectManager = {
       if (!data.controls.photoFitSelect) data.controls.photoFitSelect = 'match';
     }
 
-    if (data.controls && window.ControlStateAdaptor) {
-      window.ControlStateAdaptor.syncToDOM(data.controls);
+    if (data.controls) {
+      if (window.SceneState && typeof window.SceneState.setControl === 'function') {
+        Object.keys(data.controls).forEach((k) => {
+          window.SceneState.setControl(k, data.controls[k]);
+        });
+      }
+      if (window.ControlStateAdaptor) {
+        window.ControlStateAdaptor.syncToDOM(data.controls);
+      }
     }
 
     if (data.presets && window.NodePresets) {
@@ -394,7 +412,15 @@ window.ProjectManager = {
     }
 
     if (window.EngineBridge && typeof window.EngineBridge.syncScene === 'function' && window.EngineBridge.isReady()) {
+      const restoredControls = (data && data.controls) || {};
+      const restoredCanvas = Object.assign({}, (data && data.canvas) || {});
+      const parsedW = parseInt(restoredControls.canvasWidthInput, 10) || Number(restoredCanvas.width);
+      const parsedH = parseInt(restoredControls.canvasHeightInput, 10) || Number(restoredCanvas.height);
+      if (Number.isFinite(parsedW) && parsedW >= 20) restoredCanvas.width = parsedW;
+      if (Number.isFinite(parsedH) && parsedH >= 20) restoredCanvas.height = parsedH;
+
       const projectSnapshot = {
+        canvas: restoredCanvas,
         nodes: Array.isArray(data.nodes) ? data.nodes : [],
         flows: Array.isArray(data.flows) ? data.flows : [],
         glows: Array.isArray(data.glows) ? data.glows : [],

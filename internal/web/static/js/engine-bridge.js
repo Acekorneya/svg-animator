@@ -2657,8 +2657,10 @@
       const canvasRaw = raw.canvas || {};
       const cameraRaw = raw.camera || {};
 
-      const width = Number(canvasRaw.width) || 1280;
-      const height = Number(canvasRaw.height) || 720;
+      const rawW = Number(canvasRaw.width);
+      const rawH = Number(canvasRaw.height);
+      const width = Number.isFinite(rawW) && rawW > 0 ? Math.max(20, rawW) : 1280;
+      const height = Number.isFinite(rawH) && rawH > 0 ? Math.max(20, rawH) : 720;
       const duration = Number(canvasRaw.duration) || 7.0;
       const loop = String(canvasRaw.loop || canvasRaw.playbackMode || 'once');
       const pattern = String(canvasRaw.pattern || 'blueprint');

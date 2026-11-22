@@ -142,6 +142,12 @@
                 <option value="1344x816">US Legal (14&times;8.5in &bull; 1344&times;816 px base)</option>
                 <option value="1632x1056">Tabloid / Ledger (17&times;11in &bull; 1632&times;1056 px base)</option>
               </optgroup>
+              <optgroup label="Compact Widgets &amp; Controls">
+                <option value="200x50">Button / Pill Widget (200&times;50)</option>
+                <option value="20x20">Status Indicator Dot (20&times;20)</option>
+                <option value="50x200">Vertical Meter Widget (50&times;200)</option>
+                <option value="100x40">Compact Badge / Toggle (100&times;40)</option>
+              </optgroup>
               <optgroup label="Custom">
                 <option value="custom">Custom Dimensions...</option>
               </optgroup>
@@ -156,11 +162,11 @@
             <div style="display: flex; gap: 0.5rem; margin-top: 0.35rem;">
               <div style="flex: 1;">
                 <span style="font-size: 0.7rem; color: #8b949e; display: block; margin-bottom: 0.15rem;">Working Width (px)</span>
-                <input type="number" class="num-input" id="canvasWidthInput" value="1280" min="200" max="3840" step="10" style="width: 100%;">
+                <input type="number" class="num-input" id="canvasWidthInput" value="1280" min="20" max="3840" step="1" style="width: 100%;">
               </div>
               <div style="flex: 1;">
                 <span style="font-size: 0.7rem; color: #8b949e; display: block; margin-bottom: 0.15rem;">Working Height (px)</span>
-                <input type="number" class="num-input" id="canvasHeightInput" value="720" min="200" max="3840" step="10" style="width: 100%;">
+                <input type="number" class="num-input" id="canvasHeightInput" value="720" min="20" max="3840" step="1" style="width: 100%;">
               </div>
             </div>
             <div id="paperPrintHint" class="stage-hint" style="margin-top: 0.25rem; color: #58a6ff; display: none;"></div>
@@ -353,7 +359,7 @@
                 <div class="inspector-prop-row">
                   <label>Width</label>
                   <div class="slider-row">
-                    <input type="range" id="nodeWidthSlider" min="40" max="900" step="1" value="170">
+                    <input type="range" id="nodeWidthSlider" min="5" max="900" step="1" value="170">
                     <input type="number" class="num-input" id="nodeWidthNum" value="170">
                   </div>
                 </div>
@@ -361,7 +367,7 @@
                 <div class="inspector-prop-row">
                   <label>Height</label>
                   <div class="slider-row">
-                    <input type="range" id="nodeHeightSlider" min="30" max="700" step="1" value="80">
+                    <input type="range" id="nodeHeightSlider" min="5" max="700" step="1" value="80">
                     <input type="number" class="num-input" id="nodeHeightNum" value="80">
                   </div>
                 </div>
@@ -486,7 +492,7 @@
               <span class="preset-state-pill pill-set" id="presetPill-width">SET</span>
             </div>
             <div class="preset-param-controls slider-row">
-              <input type="range" id="presetVal-widthSlider" min="40" max="900" step="1" value="170">
+              <input type="range" id="presetVal-widthSlider" min="5" max="900" step="1" value="170">
               <input type="number" class="num-input" id="presetVal-widthNum" value="170">
             </div>
           </div>
@@ -497,7 +503,7 @@
               <span class="preset-state-pill pill-unset" id="presetPill-height">UNSET</span>
             </div>
             <div class="preset-param-controls slider-row">
-              <input type="range" id="presetVal-heightSlider" min="30" max="700" step="1" value="80">
+              <input type="range" id="presetVal-heightSlider" min="5" max="700" step="1" value="80">
               <input type="number" class="num-input" id="presetVal-heightNum" value="80">
             </div>
           </div>
@@ -2448,7 +2454,7 @@
       <div class="stage-bar">
         <div class="stage-zoom-controls">
           <button type="button" class="zoom-btn" id="btnZoomOut" title="Zoom Out">&minus;</button>
-          <input type="range" id="stageZoomSlider" min="25" max="300" step="5" value="100" style="width: 95px;">
+          <input type="range" id="stageZoomSlider" min="25" max="2500" step="5" value="100" style="width: 95px;">
           <button type="button" class="zoom-btn" id="btnZoomIn" title="Zoom In">+</button>
           <span id="stageZoomLabel" class="zoom-pct-label">Fit</span>
           <button type="button" class="zoom-btn" id="btnZoomFit" title="Fit Canvas to Window">Fit</button>
@@ -2522,14 +2528,14 @@
           <div class="floating-prop-row">
             <label for="fctx-nodeWidthSlider">Width</label>
             <div class="slider-row">
-              <input type="range" id="fctx-nodeWidthSlider" min="40" max="900" step="1" value="170">
+              <input type="range" id="fctx-nodeWidthSlider" min="5" max="900" step="1" value="170">
               <input type="number" class="num-input" id="fctx-nodeWidthNum" value="170">
             </div>
           </div>
           <div class="floating-prop-row">
             <label for="fctx-nodeHeightSlider">Height</label>
             <div class="slider-row">
-              <input type="range" id="fctx-nodeHeightSlider" min="30" max="700" step="1" value="80">
+              <input type="range" id="fctx-nodeHeightSlider" min="5" max="700" step="1" value="80">
               <input type="number" class="num-input" id="fctx-nodeHeightNum" value="80">
             </div>
           </div>
@@ -4228,11 +4234,11 @@
             <div class="setting-row">
               <div class="setting-group" style="flex: 1;">
                 <span class="sub-label">Output Width (px)</span>
-                <input type="number" id="stillWidthInput" min="64" max="12000" step="2">
+                <input type="number" id="stillWidthInput" min="20" max="12000" step="1">
               </div>
               <div class="setting-group" style="flex: 1;">
                 <span class="sub-label">Output Height (px)</span>
-                <input type="number" id="stillHeightInput" min="64" max="12000" step="2">
+                <input type="number" id="stillHeightInput" min="20" max="12000" step="1">
               </div>
               <div class="setting-group" style="flex: 0.8;">
                 <span class="sub-label">Quality (%)</span>
@@ -4361,11 +4367,11 @@
             <div class="setting-row">
               <div class="setting-group" style="flex: 1;">
                 <span class="sub-label">Width (px)</span>
-                <input type="number" id="expWidth" min="64" max="3840" step="2">
+                <input type="number" id="expWidth" min="20" max="3840" step="2">
               </div>
               <div class="setting-group" style="flex: 1;">
                 <span class="sub-label">Height (px)</span>
-                <input type="number" id="expHeight" min="64" max="3840" step="2">
+                <input type="number" id="expHeight" min="20" max="3840" step="2">
               </div>
             </div>
             <div class="preset-pills" style="margin-top: 0.25rem;">

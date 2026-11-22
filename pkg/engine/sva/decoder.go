@@ -410,6 +410,16 @@ func ExtractStudioState(proj *Project) ([]byte, error) {
 			controls[k] = v
 		}
 	}
+	if s.Canvas.Width >= scene.MinCanvasDimension {
+		if _, ok := controls["canvasWidthInput"]; !ok {
+			controls["canvasWidthInput"] = strconv.FormatFloat(s.Canvas.Width, 'f', -1, 64)
+		}
+	}
+	if s.Canvas.Height >= scene.MinCanvasDimension {
+		if _, ok := controls["canvasHeightInput"]; !ok {
+			controls["canvasHeightInput"] = strconv.FormatFloat(s.Canvas.Height, 'f', -1, 64)
+		}
+	}
 	if loadedPhoto != nil {
 		controls["canvasPatternSelect"] = "photo"
 		if _, ok := controls["photoFitSelect"]; !ok {

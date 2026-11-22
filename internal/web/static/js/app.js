@@ -6032,6 +6032,16 @@ document.addEventListener('DOMContentLoaded', () => {
         render();
         recordDebounced();
       });
+      el.addEventListener('change', () => {
+        const rawVal = parseInt(el.value, 10);
+        if (isNaN(rawVal) || rawVal < 20) {
+          el.value = '20';
+        }
+        syncPresetDropdownFromInputs();
+        updateOrientationAndPaperUI();
+        render();
+        recordImmediate();
+      });
     }
   });
 
@@ -6200,6 +6210,13 @@ document.addEventListener('DOMContentLoaded', () => {
     const dim = document.getElementById('imgDimensions');
     if (dim) {
       dim.innerHTML = currentImage.width + ' &times; ' + currentImage.height + (currentImage.isBlankCanvas ? ' (Canvas)' : '');
+    }
+
+    if (window.EngineBridge && typeof window.EngineBridge.isReady === 'function' && window.EngineBridge.isReady() && typeof window.EngineBridge.updateCanvas === 'function') {
+      const engCanvas = typeof window.EngineBridge.getCanvas === 'function' ? window.EngineBridge.getCanvas() : null;
+      if (!engCanvas || engCanvas.width !== currentImage.width || engCanvas.height !== currentImage.height) {
+        window.EngineBridge.updateCanvas({ width: currentImage.width, height: currentImage.height });
+      }
     }
 
     if (window.Stage) {

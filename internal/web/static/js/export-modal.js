@@ -40,8 +40,8 @@
   function constructExportJobPayload(baseState, config = {}) {
     const payloadState = JSON.parse(JSON.stringify(baseState));
 
-    const fullWidth = Math.max(64, parseInt(config.width, 10) || payloadState.image.width);
-    const fullHeight = Math.max(64, parseInt(config.height, 10) || payloadState.image.height);
+    const fullWidth = Math.max(20, parseInt(config.width, 10) || payloadState.image.width);
+    const fullHeight = Math.max(20, parseInt(config.height, 10) || payloadState.image.height);
 
     const totalVideoDuration = Math.max(0.5, parseFloat(config.duration) || payloadState.duration || 7);
     const cameraMoveDuration = Math.max(
@@ -533,11 +533,11 @@
       setElVal('expWidth', nw);
       setElVal('expHeight', nh);
     } else if (preset === 'half') {
-      setElVal('expWidth', Math.max(64, Math.round(nw / 2)));
-      setElVal('expHeight', Math.max(64, Math.round(nh / 2)));
+      setElVal('expWidth', Math.max(20, Math.round(nw / 2)));
+      setElVal('expHeight', Math.max(20, Math.round(nh / 2)));
     } else if (typeof preset === 'number') {
       setElVal('expWidth', preset);
-      setElVal('expHeight', Math.max(64, Math.round(preset / nativeAspectRatio)));
+      setElVal('expHeight', Math.max(20, Math.round(preset / nativeAspectRatio)));
     }
   }
 
@@ -588,15 +588,15 @@
     const scaleH = maxH / targetHeight;
     const scale = Math.min(1.0, scaleW, scaleH);
 
-    const w = Math.max(64, Math.round((targetWidth * scale) / 2) * 2);
-    const h = Math.max(64, Math.round((targetHeight * scale) / 2) * 2);
+    const w = Math.max(20, Math.round((targetWidth * scale) / 2) * 2);
+    const h = Math.max(20, Math.round((targetHeight * scale) / 2) * 2);
     return { width: w, height: h };
   }
 
   function readModalConfigFromDOM(forPreview = false, jobId = '') {
     const baseState = window.currentRenderState;
-    const fullWidth = Math.max(64, parseInt(document.getElementById('expWidth')?.value, 10) || (baseState && baseState.image ? baseState.image.width : 1280));
-    const fullHeight = Math.max(64, parseInt(document.getElementById('expHeight')?.value, 10) || (baseState && baseState.image ? baseState.image.height : 720));
+    const fullWidth = Math.max(20, parseInt(document.getElementById('expWidth')?.value, 10) || (baseState && baseState.image ? baseState.image.width : 1280));
+    const fullHeight = Math.max(20, parseInt(document.getElementById('expHeight')?.value, 10) || (baseState && baseState.image ? baseState.image.height : 720));
 
     return {
       jobId: jobId,
